@@ -14,7 +14,15 @@ export default async function PurchaseRequestsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">รายการขอซื้อ-ขอจ้าง</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">รายการขอซื้อ-ขอจ้าง</h1>
+        <a
+          href="/purchase-requests/new"
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          + เพิ่มบันทึกข้อความ
+        </a>
+      </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
@@ -66,8 +74,7 @@ export default async function PurchaseRequestsPage() {
       </div>
 
       <p className="mt-4 text-xs text-slate-400">
-        หน้านี้เป็นตัวอย่างการอ่านข้อมูล — ฟอร์มบันทึกรายการขอซื้อ-ขอจ้าง (พร้อมรายการวัสดุ 15 รายการ
-        และสร้าง PDF) เป็นขั้นถัดไปที่ควรพัฒนาต่อ
+        การสร้างไฟล์ PDF ใบบันทึกข้อความจากรายการนี้ยังไม่ได้พัฒนา (ขั้นถัดไปที่ควรทำต่อ)
       </p>
     </div>
   );
