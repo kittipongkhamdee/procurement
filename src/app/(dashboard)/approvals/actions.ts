@@ -3,6 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { buildApprovalPdfData, renderApprovalPdfBuffer } from "@/lib/pdf/build-approval-pdf";
+
+const PDF_BUCKET = "procurement-documents";
 
 type ItemInput = { name: string; qty: string; unit: string; unitPrice: string };
 
@@ -59,6 +62,24 @@ export async function createApproval(formData: FormData) {
   if (rowsToInsert.length > 0) {
     const { error: itemsError } = await supabase.from("proc_approval_items").insert(rowsToInsert);
     if (itemsError) throw new Error(itemsError.message);
+  }
+
+  // Best-effort: the approval and its items are already saved above, so a PDF failure
+  // here shouldn't fail the whole save — the [id]/pdf route can still render it live.
+  try {
+    const pdfResult = await buildApprovalPdfData(supabase, approval.id);
+    if (pdfResult) {
+      const buffer = await renderApprovalPdfBuffer(pdfResult.data);
+      const path = `approvals/${approval.id}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from(PDF_BUCKET)
+        .upload(path, buffer, { contentType: "application/pdf", upsert: true });
+      if (!uploadError) {
+        await supabase.from("proc_approvals").update({ approval_pdf_url: path }).eq("id", approval.id);
+      }
+    }
+  } catch {
+    // ignored — see comment above
   }
 
   revalidatePath("/approvals");

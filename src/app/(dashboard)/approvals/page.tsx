@@ -9,8 +9,17 @@ export default async function ApprovalsPage() {
   const supabase = await createClient();
   const { data: approvals, error } = await supabase
     .from("proc_approvals")
-    .select("id, doc_date, subject, requested_amount, requested_by_name, plan_projects(name)")
+    .select("id, doc_date, subject, requested_amount, requested_by_name, approval_pdf_url, plan_projects(name)")
     .order("created_at", { ascending: false });
+
+  const signedPdfUrls = new Map<string, string>();
+  const paths = (approvals ?? []).map((a) => a.approval_pdf_url).filter((p): p is string => !!p);
+  if (paths.length > 0) {
+    const { data: signed } = await supabase.storage.from("procurement-documents").createSignedUrls(paths, 3600);
+    signed?.forEach((s) => {
+      if (s.signedUrl && !s.error) signedPdfUrls.set(s.path ?? "", s.signedUrl);
+    });
+  }
 
   return (
     <div>
@@ -35,6 +44,7 @@ export default async function ApprovalsPage() {
               <th className="px-4 py-3">ผู้ขออนุมัติ</th>
               <th className="px-4 py-3 text-right">ขออนุมัติครั้งนี้</th>
               <th className="px-4 py-3"></th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -50,6 +60,15 @@ export default async function ApprovalsPage() {
                   {formatBaht(Number(a.requested_amount))}
                 </td>
                 <td className="px-4 py-3 text-right">
+                  <a
+                    href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
+                    target="_blank"
+                    className="text-xs font-medium text-red-600 hover:underline"
+                  >
+                    PDF
+                  </a>
+                </td>
+                <td className="px-4 py-3 text-right">
                   <form action={deleteApproval.bind(null, a.id)}>
                     <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
@@ -60,7 +79,7 @@ export default async function ApprovalsPage() {
             ))}
             {approvals?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>
