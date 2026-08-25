@@ -35,6 +35,7 @@ export default async function PurchaseRequestsPage() {
               <th className="px-4 py-3">รายการ</th>
               <th className="px-4 py-3">ผู้ขาย</th>
               <th className="px-4 py-3 text-right">จำนวนเงิน</th>
+              <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -60,11 +61,20 @@ export default async function PurchaseRequestsPage() {
                 <td className="px-4 py-3 text-right font-semibold text-slate-900">
                   {formatBaht(Number(r.amount))}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <a
+                    href={`/purchase-requests/${r.id}/pdf`}
+                    target="_blank"
+                    className="text-xs font-medium text-red-600 hover:underline"
+                  >
+                    PDF
+                  </a>
+                </td>
               </tr>
             ))}
             {requests?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>
@@ -72,10 +82,6 @@ export default async function PurchaseRequestsPage() {
           </tbody>
         </table>
       </div>
-
-      <p className="mt-4 text-xs text-slate-400">
-        การสร้างไฟล์ PDF ใบบันทึกข้อความจากรายการนี้ยังไม่ได้พัฒนา (ขั้นถัดไปที่ควรทำต่อ)
-      </p>
     </div>
   );
 }
