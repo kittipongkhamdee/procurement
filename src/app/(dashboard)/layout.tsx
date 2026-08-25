@@ -2,11 +2,31 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/app/login/actions";
 
-const NAV_ITEMS = [
-  { href: "/", label: "แดชบอร์ด" },
-  { href: "/vendors", label: "ข้อมูลผู้ขาย/ผู้รับจ้าง" },
-  { href: "/purchase-requests", label: "รายการขอซื้อ-ขอจ้าง" },
-  { href: "/projects", label: "โครงการ" },
+const NAV_SECTIONS = [
+  {
+    heading: null,
+    items: [{ href: "/", label: "แดชบอร์ด" }],
+  },
+  {
+    heading: "งานแผนงาน",
+    items: [{ href: "/projects", label: "โครงการ" }],
+  },
+  {
+    heading: "งานพัสดุ",
+    items: [
+      { href: "/purchase-requests", label: "รายการขอซื้อ-ขอจ้าง" },
+      { href: "/vendors", label: "ข้อมูลผู้ขาย/ผู้รับจ้าง" },
+      { href: "/contracts", label: "งานสัญญาจ้าง" },
+      { href: "/deliveries", label: "บันทึกส่งมอบงาน" },
+    ],
+  },
+  {
+    heading: "งานการเงิน",
+    items: [
+      { href: "/project-disbursements", label: "เบิกจ่ายงบประมาณโครงการ" },
+      { href: "/allowance", label: "เบิกจ่ายเบี้ยเลี้ยง/สาธารณูปโภค" },
+    ],
+  },
 ];
 
 export default async function DashboardLayout({
@@ -36,15 +56,26 @@ export default async function DashboardLayout({
           <div className="text-sm font-semibold">ตาเบาวิทยา</div>
           <div className="text-xs text-blue-100">ระบบบริหารงบประมาณ</div>
         </div>
-        <nav className="flex-1 space-y-1 px-3">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="block rounded-md px-3 py-2 text-sm text-blue-50 transition hover:bg-white/10"
-            >
-              {item.label}
-            </Link>
+        <nav className="flex-1 space-y-4 px-3">
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.heading ?? "root"}>
+              {section.heading && (
+                <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-blue-200">
+                  {section.heading}
+                </div>
+              )}
+              <div className="space-y-1">
+                {section.items.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="block rounded-md px-3 py-2 text-sm text-blue-50 transition hover:bg-white/10"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
         <div className="border-t border-white/10 px-3 py-4">
