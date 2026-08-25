@@ -9,7 +9,10 @@ const NAV_SECTIONS = [
   },
   {
     heading: "งานแผนงาน",
-    items: [{ href: "/projects", label: "โครงการ" }],
+    items: [
+      { href: "/projects", label: "โครงการ" },
+      { href: "/project-reports", label: "รายงานโครงการ" },
+    ],
   },
   {
     heading: "งานพัสดุ",
@@ -26,6 +29,10 @@ const NAV_SECTIONS = [
       { href: "/project-disbursements", label: "เบิกจ่ายงบประมาณโครงการ" },
       { href: "/allowance", label: "เบิกจ่ายเบี้ยเลี้ยง/สาธารณูปโภค" },
     ],
+  },
+  {
+    heading: "คลังเอกสาร",
+    items: [{ href: "/documents", label: "คลังเอกสารดาวน์โหลด" }],
   },
 ];
 
