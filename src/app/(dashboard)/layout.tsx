@@ -37,6 +37,11 @@ const NAV_SECTIONS = [
   },
 ];
 
+const ADMIN_SECTION = {
+  heading: "ผู้ดูแลระบบ",
+  items: [{ href: "/admin/users", label: "จัดการผู้ใช้และสิทธิ์" }],
+};
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -48,14 +53,20 @@ export default async function DashboardLayout({
   } = await supabase.auth.getUser();
 
   let displayName = user?.email ?? "";
+  let isAdmin = false;
   if (user) {
     const { data: profile } = await supabase
       .from("proc_profiles")
       .select("full_name, role")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (profile) displayName = `${profile.full_name} (${profile.role})`;
+    if (profile) {
+      displayName = `${profile.full_name} (${profile.role})`;
+      isAdmin = profile.role === "admin";
+    }
   }
+
+  const navSections = isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS;
 
   return (
     <div className="flex min-h-screen">
@@ -65,7 +76,7 @@ export default async function DashboardLayout({
           <div className="text-xs text-blue-100">ระบบบริหารงบประมาณ</div>
         </div>
         <nav className="flex-1 space-y-4 px-3">
-          {NAV_SECTIONS.map((section) => (
+          {navSections.map((section) => (
             <div key={section.heading ?? "root"}>
               {section.heading && (
                 <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-blue-200">

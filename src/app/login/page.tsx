@@ -3,9 +3,9 @@ import { login } from "./actions";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
@@ -17,6 +17,11 @@ export default async function LoginPage({
           <p className="text-sm text-slate-500">โรงเรียนตาเบาวิทยา</p>
         </div>
 
+        {notice && (
+          <div className="mb-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {notice}
+          </div>
+        )}
         {error && (
           <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -55,6 +60,12 @@ export default async function LoginPage({
             เข้าสู่ระบบ
           </button>
         </form>
+
+        <p className="mt-4 text-center text-sm">
+          <a href="/login/signup" className="text-blue-600 hover:underline">
+            ยังไม่มีบัญชี? สมัครสมาชิก
+          </a>
+        </p>
       </div>
     </div>
   );

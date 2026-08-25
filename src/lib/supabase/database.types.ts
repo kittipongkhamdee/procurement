@@ -657,6 +657,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      proc_admin_list_users: {
+        Args: Record<string, never>
+        Returns: {
+          created_at: string
+          email: string
+          full_name: string
+          position: string
+          role: Database["public"]["Enums"]["proc_user_role"]
+          user_id: string
+        }[]
+      }
+      proc_admin_set_role: {
+        Args: {
+          new_role: Database["public"]["Enums"]["proc_user_role"]
+          target_user_id: string
+        }
+        Returns: undefined
+      }
       proc_current_role: {
         Args: Record<string, never>
         Returns: Database["public"]["Enums"]["proc_user_role"]
