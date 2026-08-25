@@ -3,6 +3,9 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { buildPurchaseRequestPdfData, renderPurchaseRequestPdfBuffer } from "@/lib/pdf/build-purchase-request-pdf";
+
+const PDF_BUCKET = "procurement-documents";
 
 type ItemInput = {
   name: string;
@@ -88,6 +91,24 @@ export async function createPurchaseRequest(formData: FormData) {
     if (itemsError) {
       throw new Error(itemsError.message);
     }
+  }
+
+  // Best-effort: the request and its items are already saved above, so a PDF failure
+  // here shouldn't fail the whole save — the [id]/pdf route can still render it live.
+  try {
+    const pdfResult = await buildPurchaseRequestPdfData(supabase, request.id);
+    if (pdfResult) {
+      const buffer = await renderPurchaseRequestPdfBuffer(pdfResult.data);
+      const path = `purchase-requests/${request.id}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from(PDF_BUCKET)
+        .upload(path, buffer, { contentType: "application/pdf", upsert: true });
+      if (!uploadError) {
+        await supabase.from("proc_purchase_requests").update({ pdf_url: path }).eq("id", request.id);
+      }
+    }
+  } catch {
+    // ignored — see comment above
   }
 
   revalidatePath("/purchase-requests");
