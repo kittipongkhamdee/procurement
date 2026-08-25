@@ -12,6 +12,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/projects", label: "โครงการ" },
       { href: "/project-reports", label: "รายงานโครงการ" },
+      { href: "/approvals", label: "บันทึกขออนุมัติ" },
     ],
   },
   {
