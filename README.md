@@ -84,12 +84,18 @@ src/
 
 ## การตั้งค่าผู้ใช้แอดมินคนแรก
 
-1. สร้างผู้ใช้ผ่าน Supabase Dashboard → Authentication → Add user (หรือให้ล็อกอินผ่านหน้าเว็บก่อน ถ้าเปิด sign-up)
+ผู้ใช้สมัครเองได้ที่ `/login/signup` (ได้ role `teacher` อัตโนมัติ) แต่การตั้ง**แอดมินคนแรก**ต้องทำผ่าน SQL เพราะ
+`/admin/users` เองก็ต้องมี admin อยู่แล้วถึงจะเข้าได้ (ผ่าน RPC `proc_admin_list_users`/`proc_admin_set_role` ที่เช็ค
+role ภายในฟังก์ชัน):
+
+1. สมัครบัญชีผ่านหน้าเว็บ (หรือสร้างผ่าน Supabase Dashboard → Authentication → Add user)
 2. รัน SQL นี้ใน Supabase SQL editor เพื่อตั้ง role เป็น admin:
 
 ```sql
 update proc_profiles set role = 'admin' where user_id = '<user-id>';
 ```
+
+จากนั้นแอดมินคนนี้ไปตั้ง role ให้ผู้ใช้คนอื่นต่อได้ที่หน้า `/admin/users` โดยไม่ต้องรัน SQL อีก
 
 ## Storage buckets
 
@@ -102,9 +108,9 @@ update proc_profiles set role = 'admin' where user_id = '<user-id>';
 
 ## สิ่งที่ยังต้องพัฒนาต่อ
 
-- สร้าง PDF สำหรับบันทึกขออนุมัติ (`approvals/`) — ตอนนี้มีแค่ purchase-requests
-- Sign-up flow และหน้าแก้ไข role สำหรับแอดมิน (ตอนนี้ต้องรัน SQL มือเพื่อตั้ง role)
-- Dashboard ยังไม่มีการ์ดสรุปสำหรับโมดูลใหม่ (สัญญา/ส่งมอบงาน/เบิกจ่าย) เพิ่มแค่ purchase-requests
+- ยังไม่มี flow "ลืมรหัสผ่าน" (reset password ผ่านอีเมล)
+- `/admin/users` ยังลบผู้ใช้ไม่ได้ (มีแค่ list + เปลี่ยน role) — ต้องไปลบผ่าน Supabase Dashboard
+- ยังไม่มี audit log ว่าใครแก้ไข/ลบรายการไหนไปบ้าง (RLS คุมสิทธิ์ได้ แต่ไม่ได้เก็บประวัติ)
 
 ## Deploy ขึ้น Vercel
 
