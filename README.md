@@ -35,16 +35,28 @@ src/
   app/
     login/                    หน้าล็อกอิน + server actions (login/logout)
     (dashboard)/               กลุ่มหน้าหลังบ้าน (ต้องล็อกอิน)
-      layout.tsx                sidebar + โหลด role ผู้ใช้
-      page.tsx                   แดชบอร์ด (การ์ดสรุปยอด)
-      vendors/                    ตัวอย่างโมดูลที่เขียนครบ (list + add + delete ผ่าน Server Action)
-      purchase-requests/          ตัวอย่างอ่านข้อมูล join กับผู้ขาย
+      layout.tsx                sidebar (จัดกลุ่มตามงานแผนงาน/งานพัสดุ/งานการเงิน) + โหลด role ผู้ใช้
+      page.tsx                   แดชบอร์ด (การ์ดสรุปยอดจริงจาก Supabase)
+      vendors/                    ข้อมูลผู้ขาย/ผู้รับจ้าง — list + add + delete
+      purchase-requests/          รายการขอซื้อ-ขอจ้าง — ฟอร์มเต็ม (15 รายการวัสดุ) + สร้าง PDF + เก็บลง Storage
+      contracts/                  งานสัญญาจ้าง
+      deliveries/                  บันทึกส่งมอบงาน — เลือกสัญญาแล้ว autofill ยอดเงิน/ผู้ตรวจรับ
+      allowance/                  เบิกจ่ายเบี้ยเลี้ยง/สาธารณูปโภค
+      project-disbursements/      เบิกจ่ายงบประมาณโครงการ — มีสถานะ รอเบิกจ่าย/จ่ายแล้ว
+      documents/                   คลังเอกสารดาวน์โหลด — อัปโหลดไฟล์ทั่วไป
+      project-reports/             รายงานโครงการ — อัปโหลดไฟล์ผูกกับโครงการ
+      approvals/                   บันทึกขออนุมัติ — คำนวณงบ/เบิกจ่ายแล้ว/คงเหลือจากโครงการที่เลือก
       projects/                   อ่านโครงการจาก plan_projects (ตารางที่มีอยู่แล้ว)
-  lib/supabase/
-    client.ts                  Supabase client ฝั่ง browser
-    server.ts                  Supabase client ฝั่ง Server Component/Action
-    middleware.ts               ตรรกะ refresh session + gate หน้าที่ต้องล็อกอิน
-    database.types.ts           TypeScript types ที่ generate จากสคีมาจริงใน Supabase
+  lib/
+    supabase/
+      client.ts                Supabase client ฝั่ง browser
+      server.ts                Supabase client ฝั่ง Server Component/Action
+      middleware.ts             ตรรกะ refresh session + gate หน้าที่ต้องล็อกอิน
+      database.types.ts         TypeScript types ที่ generate จากสคีมาจริงใน Supabase
+    pdf/
+      purchase-request-document.tsx  เลย์เอาต์ PDF บันทึกข้อความ (ฟอนต์ Sarabun ฝัง)
+      build-purchase-request-pdf.tsx  โหลดข้อมูล + render ใช้ร่วมกันระหว่าง route กับ save action
+    thai.ts                     ThaiBahtText + แปลงวันที่ พ.ศ. (พอร์ตจากโค้ด .gs เดิม)
   proxy.ts                     Next.js proxy (เดิมชื่อ middleware.ts) เรียก updateSession ทุก request
 ```
 
@@ -79,13 +91,20 @@ src/
 update proc_profiles set role = 'admin' where user_id = '<user-id>';
 ```
 
-## สิ่งที่ยังต้องพัฒนาต่อ (ยังไม่ได้ทำในรอบ scaffold นี้)
+## Storage buckets
 
-- ฟอร์มบันทึกรายการขอซื้อ-ขอจ้าง/ขออนุมัติแบบเต็ม (พร้อมตารางรายการวัสดุ 15 แถว)
-- สร้าง PDF (แนะนำ `@react-pdf/renderer` หรือ Puppeteer แทน Google Slides template เดิม)
-- อัปโหลดไฟล์ผ่าน Supabase Storage (แทน Google Drive folder + `ANYONE_WITH_LINK`)
-- โมดูลสัญญา/ส่งมอบงาน/การเงิน/คลังเอกสาร/รายงานโครงการ (ตามรูปแบบเดียวกับ `vendors/`)
-- Sign-up flow และหน้าแก้ไข role สำหรับแอดมิน
+| Bucket | ใช้กับ | สิทธิ์ |
+|---|---|---|
+| `procurement-documents` | PDF ใบบันทึกข้อความขอซื้อ-ขอจ้าง (auto-generate ตอนบันทึก) | staff เขียน, admin ลบ |
+| `procurement-files` | คลังเอกสาร + รายงานโครงการ (อัปโหลดไฟล์อิสระ) | staff เขียน, admin ลบ |
+
+ทั้งสอง bucket เป็น **private** — หน้า list เรียก `createSignedUrls()` สร้างลิงก์ชั่วคราว (1 ชม.) ทุกครั้งที่ render แทนการเก็บลิงก์สาธารณะถาวร (`pdf_url`/`file_url` ในตารางเก็บแค่ storage path)
+
+## สิ่งที่ยังต้องพัฒนาต่อ
+
+- สร้าง PDF สำหรับบันทึกขออนุมัติ (`approvals/`) — ตอนนี้มีแค่ purchase-requests
+- Sign-up flow และหน้าแก้ไข role สำหรับแอดมิน (ตอนนี้ต้องรัน SQL มือเพื่อตั้ง role)
+- Dashboard ยังไม่มีการ์ดสรุปสำหรับโมดูลใหม่ (สัญญา/ส่งมอบงาน/เบิกจ่าย) เพิ่มแค่ purchase-requests
 
 ## Deploy ขึ้น Vercel
 
