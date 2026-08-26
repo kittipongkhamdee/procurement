@@ -84,66 +84,53 @@ export function CreateProjectForm({
 
       <div className="mt-2 border-t border-slate-100 pt-4">
         <div className="card-title">กิจกรรมย่อย (ไม่บังคับ)</div>
-        <div className="table-shell mb-2">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th>ชื่อกิจกรรม</th>
-                <th className="text-right">งบประมาณ</th>
-                <th>ผู้รับผิดชอบ</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={i}>
-                  <td className="p-2">
-                    <input
-                      value={row.name}
-                      onChange={(e) => updateRow(i, { name: e.target.value })}
-                      className="input"
-                      placeholder={`กิจกรรมที่ ${i + 1}`}
-                    />
-                  </td>
-                  <td className="p-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={row.budget}
-                      onChange={(e) => updateRow(i, { budget: e.target.value })}
-                      className="input text-right"
-                    />
-                  </td>
-                  <td className="p-2">
-                    <input
-                      value={row.responsible}
-                      onChange={(e) => updateRow(i, { responsible: e.target.value })}
-                      className="input"
-                    />
-                  </td>
-                  <td className="p-2 text-right">
-                    {rows.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeRow(i)}
-                        aria-label="ลบแถวนี้"
-                        className="text-xs font-medium text-red-600 hover:underline"
-                      >
-                        ลบ
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td className="px-2 py-2 text-right text-sm font-semibold text-slate-600">รวมงบประมาณ</td>
-                <td className="px-2 py-2 text-right text-sm font-bold text-navy-800">{formatBaht(totalBudget)}</td>
-                <td colSpan={2}></td>
-              </tr>
-            </tfoot>
-          </table>
+        <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
+          <div className="hidden grid-cols-[1fr_7rem_8rem_2.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+            <div>ชื่อกิจกรรม</div>
+            <div className="text-right">งบประมาณ</div>
+            <div>ผู้รับผิดชอบ</div>
+            <div></div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {rows.map((row, i) => (
+              <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_7rem_8rem_2.5rem] sm:items-center">
+                <input
+                  value={row.name}
+                  onChange={(e) => updateRow(i, { name: e.target.value })}
+                  className="input"
+                  placeholder={`กิจกรรมที่ ${i + 1}`}
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  value={row.budget}
+                  onChange={(e) => updateRow(i, { budget: e.target.value })}
+                  className="input text-right"
+                  placeholder="งบประมาณ"
+                />
+                <input
+                  value={row.responsible}
+                  onChange={(e) => updateRow(i, { responsible: e.target.value })}
+                  className="input"
+                  placeholder="ผู้รับผิดชอบ"
+                />
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(i)}
+                    aria-label="ลบแถวนี้"
+                    className="text-xs font-medium text-red-600 hover:underline sm:text-right"
+                  >
+                    ลบ
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
+            <span className="font-semibold text-slate-600">รวมงบประมาณ</span>
+            <span className="font-bold text-navy-800">{formatBaht(totalBudget)}</span>
+          </div>
         </div>
         <button type="button" onClick={addRow} className="btn-secondary btn-sm">
           + เพิ่มกิจกรรม
