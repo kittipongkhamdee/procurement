@@ -36,3 +36,69 @@ export async function createProject(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/projects");
 }
+
+export async function updateProject(projectId: string, formData: FormData) {
+  const supabase = await requireAdmin();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const budget_year_id = String(formData.get("budget_year_id") ?? "");
+  const admin_group_id = String(formData.get("admin_group_id") ?? "");
+  const budget_source_id = String(formData.get("budget_source_id") ?? "") || null;
+
+  if (!name || !budget_year_id || !admin_group_id) return;
+
+  const { error } = await supabase
+    .from("plan_projects")
+    .update({ name, budget_year_id, admin_group_id, budget_source_id })
+    .eq("id", projectId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects");
+}
+
+export async function deleteProject(projectId: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_projects").delete().eq("id", projectId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects");
+}
+
+export async function createActivity(projectId: string, formData: FormData) {
+  const supabase = await requireAdmin();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const budget = Number(formData.get("budget") ?? 0);
+  const responsible = String(formData.get("responsible") ?? "").trim() || null;
+
+  if (!name) return;
+
+  const { error } = await supabase.from("plan_activities").insert({
+    project_id: projectId,
+    name,
+    budget,
+    responsible,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects");
+}
+
+export async function updateActivity(activityId: string, formData: FormData) {
+  const supabase = await requireAdmin();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const budget = Number(formData.get("budget") ?? 0);
+  const responsible = String(formData.get("responsible") ?? "").trim() || null;
+
+  const { error } = await supabase
+    .from("plan_activities")
+    .update({ name, budget, responsible })
+    .eq("id", activityId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects");
+}
+
+export async function deleteActivity(activityId: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_activities").delete().eq("id", activityId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects");
+}
