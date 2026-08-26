@@ -116,52 +116,44 @@ body {
   }
 
   /* --- ปุ่ม --- */
-  .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-navy-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-navy-900 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 shadow-sm transition hover:bg-gold-600 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-navy-700 hover:bg-navy-950/[0.03] hover:text-navy-800 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-sm {
     @apply px-3 py-1.5 text-xs;
   }
 
-  .btn-primary {
-    @apply btn bg-navy-800 text-white shadow-sm hover:bg-navy-900;
-  }
-
-  .btn-gold {
-    @apply btn bg-gold-500 text-navy-950 shadow-sm hover:bg-gold-600;
-  }
-
-  .btn-secondary {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:border-navy-700 hover:bg-navy-950/[0.03] hover:text-navy-800;
-  }
-
-  .btn-danger {
-    @apply btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100;
-  }
-
   /* --- ป้ายสถานะ --- */
-  .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
-  }
-
   .badge-slate {
-    @apply badge bg-slate-100 text-slate-600;
+    @apply inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600;
   }
 
   .badge-amber {
-    @apply badge bg-amber-100 text-amber-700;
+    @apply inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700;
   }
 
   .badge-emerald {
-    @apply badge bg-emerald-100 text-emerald-700;
+    @apply inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700;
   }
 
   .badge-red {
-    @apply badge bg-red-100 text-red-700;
+    @apply inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700;
   }
 
   .badge-navy {
-    @apply badge bg-navy-800/10 text-navy-800;
+    @apply inline-flex items-center gap-1 rounded-full bg-navy-800/10 px-2.5 py-1 text-xs font-medium text-navy-800;
   }
 }
