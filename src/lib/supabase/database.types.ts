@@ -24,6 +24,12 @@ export type Database = {
         Update: { created_at?: string; id?: string; is_open?: boolean; name?: string; year?: number }
         Relationships: []
       }
+      plan_budget_sources: {
+        Row: { id: string; is_active: boolean; name: string; sort_order: number }
+        Insert: { id?: string; is_active?: boolean; name: string; sort_order?: number }
+        Update: { id?: string; is_active?: boolean; name?: string; sort_order?: number }
+        Relationships: []
+      }
       plan_activities: {
         Row: {
           budget: number
@@ -68,6 +74,7 @@ export type Database = {
       plan_projects: {
         Row: {
           admin_group_id: string
+          budget_source_id: string | null
           budget_year_id: string
           created_at: string
           id: string
@@ -77,6 +84,7 @@ export type Database = {
         }
         Insert: {
           admin_group_id: string
+          budget_source_id?: string | null
           budget_year_id: string
           created_at?: string
           id?: string
@@ -86,6 +94,7 @@ export type Database = {
         }
         Update: {
           admin_group_id?: string
+          budget_source_id?: string | null
           budget_year_id?: string
           created_at?: string
           id?: string
@@ -106,6 +115,13 @@ export type Database = {
             columns: ["budget_year_id"]
             isOneToOne: false
             referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_projects_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
             referencedColumns: ["id"]
           },
         ]

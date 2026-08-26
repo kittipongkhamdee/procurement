@@ -39,7 +39,10 @@ const NAV_SECTIONS = [
 
 const ADMIN_SECTION = {
   heading: "ผู้ดูแลระบบ",
-  items: [{ href: "/admin/users", label: "จัดการผู้ใช้และสิทธิ์" }],
+  items: [
+    { href: "/admin/users", label: "จัดการผู้ใช้และสิทธิ์" },
+    { href: "/settings", label: "ตั้งค่าระบบ" },
+  ],
 };
 
 export default async function DashboardLayout({
