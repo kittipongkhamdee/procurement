@@ -36,32 +36,37 @@ export default async function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">จัดการผู้ใช้และสิทธิ์</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">จัดการผู้ใช้และสิทธิ์</h1>
+          <p className="page-subtitle">กำหนดสิทธิ์การใช้งานของบุคลากรในระบบ</p>
+        </div>
+      </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">ชื่อ-นามสกุล</th>
-              <th className="px-4 py-3">อีเมล</th>
-              <th className="px-4 py-3">ตำแหน่ง</th>
-              <th className="px-4 py-3">สิทธิ์การใช้งาน</th>
+              <th>ชื่อ-นามสกุล</th>
+              <th>อีเมล</th>
+              <th>ตำแหน่ง</th>
+              <th>สิทธิ์การใช้งาน</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {users?.map((u) => (
               <tr key={u.user_id}>
-                <td className="px-4 py-3 font-medium text-slate-900">{u.full_name}</td>
-                <td className="px-4 py-3 text-slate-600">{u.email}</td>
-                <td className="px-4 py-3 text-slate-600">{u.position ?? "-"}</td>
-                <td className="px-4 py-3">
+                <td className="font-medium text-slate-900">{u.full_name}</td>
+                <td>{u.email}</td>
+                <td>{u.position ?? "-"}</td>
+                <td>
                   <form action={setUserRole} className="flex items-center gap-2">
                     <input type="hidden" name="user_id" value={u.user_id} />
                     <select
                       name="role"
                       defaultValue={u.role}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-sm"
+                      className="rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-navy-600 focus:ring-2 focus:ring-navy-600/15"
                     >
                       {ROLES.map((r) => (
                         <option key={r} value={r}>
@@ -69,10 +74,7 @@ export default async function AdminUsersPage() {
                         </option>
                       ))}
                     </select>
-                    <button
-                      type="submit"
-                      className="rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
-                    >
+                    <button type="submit" className="btn-primary btn-sm">
                       บันทึก
                     </button>
                   </form>
@@ -81,7 +83,7 @@ export default async function AdminUsersPage() {
             ))}
             {users?.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={4} className="table-empty">
                   ยังไม่มีผู้ใช้
                 </td>
               </tr>

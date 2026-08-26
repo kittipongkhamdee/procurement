@@ -42,10 +42,10 @@ export default async function DashboardPage() {
   const totalPendingAmount = pendingDisbursements.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
 
   const cards = [
-    { label: "ผู้ขาย/ผู้รับจ้าง", value: vendorCount ?? 0, suffix: "ราย" },
-    { label: "รายการขอซื้อ-ขอจ้าง", value: purchaseCount ?? 0, suffix: "รายการ" },
-    { label: "สัญญาจ้าง", value: contractCount ?? 0, suffix: "สัญญา" },
-    { label: "โครงการทั้งหมด", value: projectsRes.data?.length ?? 0, suffix: "โครงการ" },
+    { label: "ผู้ขาย/ผู้รับจ้าง", value: vendorCount ?? 0, suffix: "ราย", accent: "#1b4177" },
+    { label: "รายการขอซื้อ-ขอจ้าง", value: purchaseCount ?? 0, suffix: "รายการ", accent: "#a3791a" },
+    { label: "สัญญาจ้าง", value: contractCount ?? 0, suffix: "สัญญา", accent: "#1b4177" },
+    { label: "โครงการทั้งหมด", value: projectsRes.data?.length ?? 0, suffix: "โครงการ", accent: "#a3791a" },
   ];
 
   const secondaryCards = [
@@ -64,15 +64,19 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">แดชบอร์ด</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">แดชบอร์ด</h1>
+          <p className="page-subtitle">ภาพรวมงานพัสดุและงบประมาณของโรงเรียน</p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <div key={c.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-xs font-medium uppercase text-slate-500">{c.label}</div>
-            <div className="mt-1 text-2xl font-bold text-slate-900">
-              {c.value.toLocaleString("th-TH")}{" "}
-              <span className="text-sm font-normal text-slate-500">{c.suffix}</span>
+          <div key={c.label} className="stat-card" style={{ "--accent": c.accent } as React.CSSProperties}>
+            <div className="stat-label">{c.label}</div>
+            <div className="stat-value">
+              {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
             </div>
           </div>
         ))}
@@ -80,34 +84,31 @@ export default async function DashboardPage() {
 
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {secondaryCards.map((c) => (
-          <div key={c.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="text-xs font-medium uppercase text-slate-500">{c.label}</div>
-            <div className="mt-1 text-2xl font-bold text-slate-900">
-              {c.value.toLocaleString("th-TH")}{" "}
-              <span className="text-sm font-normal text-slate-500">{c.suffix}</span>
+          <div key={c.label} className="card">
+            <div className="stat-label">{c.label}</div>
+            <div className="stat-value text-lg">
+              {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
             </div>
           </div>
         ))}
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-medium uppercase text-slate-500">ยอดขอซื้อ-ขอจ้างรวม</div>
-          <div className="mt-1 text-xl font-bold text-emerald-600">{formatBaht(totalPurchaseAmount)} บาท</div>
+        <div className="card">
+          <div className="stat-label">ยอดขอซื้อ-ขอจ้างรวม</div>
+          <div className="mt-1.5 text-xl font-bold text-navy-800">{formatBaht(totalPurchaseAmount)} บาท</div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-medium uppercase text-slate-500">ยอดขออนุมัติรวม</div>
-          <div className="mt-1 text-xl font-bold text-red-600">{formatBaht(totalApprovalAmount)} บาท</div>
+        <div className="card">
+          <div className="stat-label">ยอดขออนุมัติรวม</div>
+          <div className="mt-1.5 text-xl font-bold text-gold-600">{formatBaht(totalApprovalAmount)} บาท</div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-medium uppercase text-slate-500">เบี้ยเลี้ยง/สาธารณูปโภครวม</div>
-          <div className="mt-1 text-xl font-bold text-blue-600">{formatBaht(totalAllowanceAmount)} บาท</div>
+        <div className="card">
+          <div className="stat-label">เบี้ยเลี้ยง/สาธารณูปโภครวม</div>
+          <div className="mt-1.5 text-xl font-bold text-navy-700">{formatBaht(totalAllowanceAmount)} บาท</div>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="text-xs font-medium uppercase text-slate-500">
-            เบิกจ่ายโครงการ (จ่ายแล้ว / รอดำเนินการ)
-          </div>
-          <div className="mt-1 text-sm font-bold">
+        <div className="card">
+          <div className="stat-label">เบิกจ่ายโครงการ (จ่ายแล้ว / รอดำเนินการ)</div>
+          <div className="mt-1.5 text-sm font-bold">
             <span className="text-emerald-600">{formatBaht(totalPaidAmount)}</span>
             <span className="mx-1 text-slate-400">/</span>
             <span className="text-amber-600">{formatBaht(totalPendingAmount)}</span>
@@ -115,14 +116,14 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3 text-sm font-semibold text-slate-700">ทางลัดระบบ</div>
+      <div className="card mt-6">
+        <div className="card-title">ทางลัดระบบ</div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {shortcuts.map((s) => (
             <Link
               key={s.href}
               href={s.href}
-              className="rounded-md border border-slate-200 px-3 py-2 text-center text-sm text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+              className="rounded-md border border-slate-200 px-3 py-2.5 text-center text-sm font-medium text-slate-700 transition hover:border-navy-700 hover:bg-navy-950/[0.03] hover:text-navy-800"
             >
               {s.label}
             </Link>

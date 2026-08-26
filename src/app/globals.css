@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f3f5f8;
   --foreground: #171717;
 }
 
@@ -9,6 +9,17 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-prompt);
+
+  /* โทนสีทางการ อ้างอิงเอกสารราชการ/โรงเรียน — กรมท่า + ทอง */
+  --color-navy-950: #071a33;
+  --color-navy-900: #0c2447;
+  --color-navy-800: #123361;
+  --color-navy-700: #1b4177;
+  --color-navy-600: #275190;
+  --color-gold-600: #a3791a;
+  --color-gold-500: #c19a2e;
+  --color-gold-400: #d4b45a;
+  --color-gold-100: #faf3e0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,6 +37,131 @@ body {
 
 @layer components {
   .input {
-    @apply rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
+    @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-navy-600 focus:ring-2 focus:ring-navy-600/15;
+  }
+
+  .label {
+    @apply mb-1 block text-xs font-medium text-slate-600;
+  }
+
+  /* --- โครงหน้า --- */
+  .page-header {
+    @apply mb-6 flex flex-col gap-1 border-b border-slate-200 pb-4 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  .page-title {
+    @apply text-xl font-bold text-slate-900;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-slate-500;
+  }
+
+  /* --- การ์ด --- */
+  .card {
+    @apply rounded-xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_1px_8px_rgba(15,23,42,0.03)];
+  }
+
+  .card-title {
+    @apply mb-3 text-sm font-semibold text-slate-700;
+  }
+
+  .stat-card {
+    @apply relative overflow-hidden rounded-xl border border-slate-200/80 bg-white p-5 pl-6 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_1px_8px_rgba(15,23,42,0.03)] before:absolute before:inset-y-0 before:left-0 before:w-1.5 before:bg-[var(--accent,#1b4177)];
+  }
+
+  .stat-label {
+    @apply text-xs font-medium uppercase tracking-wide text-slate-500;
+  }
+
+  .stat-value {
+    @apply mt-1.5 text-2xl font-bold text-slate-900 tabular-nums;
+  }
+
+  .stat-suffix {
+    @apply text-sm font-normal text-slate-400;
+  }
+
+  /* --- ตาราง --- */
+  .table-shell {
+    @apply overflow-x-auto rounded-xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_1px_8px_rgba(15,23,42,0.03)];
+  }
+
+  .table-base {
+    @apply w-full min-w-max text-sm;
+  }
+
+  .table-base thead {
+    @apply bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .table-base thead th {
+    @apply border-b border-slate-200 px-4 py-3;
+  }
+
+  .table-base tbody {
+    @apply divide-y divide-slate-100;
+  }
+
+  .table-base tbody tr {
+    @apply transition-colors hover:bg-navy-950/[0.02];
+  }
+
+  .table-base tbody td {
+    @apply px-4 py-3 align-middle text-slate-700;
+  }
+
+  .table-empty {
+    @apply px-4 py-10 text-center text-sm text-slate-400;
+  }
+
+  /* --- ปุ่ม --- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-primary {
+    @apply btn bg-navy-800 text-white shadow-sm hover:bg-navy-900;
+  }
+
+  .btn-gold {
+    @apply btn bg-gold-500 text-navy-950 shadow-sm hover:bg-gold-600;
+  }
+
+  .btn-secondary {
+    @apply btn border border-slate-300 bg-white text-slate-700 hover:border-navy-700 hover:bg-navy-950/[0.03] hover:text-navy-800;
+  }
+
+  .btn-danger {
+    @apply btn border border-red-200 bg-red-50 text-red-700 hover:bg-red-100;
+  }
+
+  /* --- ป้ายสถานะ --- */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  .badge-slate {
+    @apply badge bg-slate-100 text-slate-600;
+  }
+
+  .badge-amber {
+    @apply badge bg-amber-100 text-amber-700;
+  }
+
+  .badge-emerald {
+    @apply badge bg-emerald-100 text-emerald-700;
+  }
+
+  .badge-red {
+    @apply badge bg-red-100 text-red-700;
+  }
+
+  .badge-navy {
+    @apply badge bg-navy-800/10 text-navy-800;
   }
 }
