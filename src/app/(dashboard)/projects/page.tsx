@@ -9,26 +9,30 @@ export default async function ProjectsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">โครงการ (จากแผนงบประมาณ)</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">โครงการ (จากแผนงบประมาณ)</h1>
+        </div>
+      </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">โครงการ</th>
-              <th className="px-4 py-3">กลุ่มบริหาร</th>
-              <th className="px-4 py-3">ปีงบประมาณ</th>
+              <th>โครงการ</th>
+              <th>กลุ่มบริหาร</th>
+              <th>ปีงบประมาณ</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {projects?.map((p) => (
               <tr key={p.id}>
-                <td className="px-4 py-3 font-medium text-slate-900">{p.name}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="font-medium text-slate-900">{p.name}</td>
+                <td>
                   {(p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td>
                   {(p.plan_budget_years as unknown as { year: number } | null)?.year ?? "-"}
                 </td>
               </tr>

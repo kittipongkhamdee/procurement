@@ -21,41 +21,45 @@ export default async function DeliveriesPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">บันทึกการส่งมอบงาน</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">บันทึกการส่งมอบงาน</h1>
+        </div>
+      </div>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">บันทึกส่งมอบงานใหม่</h2>
+      <div className="card mb-6">
+        <h2 className="card-title">บันทึกส่งมอบงานใหม่</h2>
         <DeliveryForm action={createDelivery} contracts={contracts ?? []} />
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">เลขที่สัญญา</th>
-              <th className="px-4 py-3">ผู้รับจ้าง</th>
-              <th className="px-4 py-3">วันที่ส่งมอบ</th>
-              <th className="px-4 py-3">ผู้ตรวจรับ</th>
-              <th className="px-4 py-3 text-right">จำนวนเงิน</th>
-              <th className="px-4 py-3"></th>
+              <th>เลขที่สัญญา</th>
+              <th>ผู้รับจ้าง</th>
+              <th>วันที่ส่งมอบ</th>
+              <th>ผู้ตรวจรับ</th>
+              <th className="text-right">จำนวนเงิน</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {deliveries?.map((d) => {
               const contract = d.proc_contracts as unknown as { contract_no: string; vendor_name: string } | null;
               return (
                 <tr key={d.id}>
-                  <td className="px-4 py-3 font-medium text-slate-900">{contract?.contract_no ?? "-"}</td>
-                  <td className="px-4 py-3 text-slate-600">{contract?.vendor_name ?? "-"}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="font-medium text-slate-900">{contract?.contract_no ?? "-"}</td>
+                  <td>{contract?.vendor_name ?? "-"}</td>
+                  <td>
                     {d.delivery_date} {d.delivery_month ? `(${d.delivery_month})` : ""}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{d.inspector_name ?? "-"}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                  <td>{d.inspector_name ?? "-"}</td>
+                  <td className="text-right font-semibold text-slate-900">
                     {formatBaht(Number(d.amount))}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="text-right">
                     <form action={deleteDelivery.bind(null, d.id)}>
                       <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                         ลบ
@@ -67,7 +71,7 @@ export default async function DeliveriesPage() {
             })}
             {deliveries?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>

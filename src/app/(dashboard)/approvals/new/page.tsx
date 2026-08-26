@@ -33,7 +33,11 @@ export default async function NewApprovalPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">สร้างบันทึกข้อความขออนุมัติ</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">สร้างบันทึกข้อความขออนุมัติ</h1>
+        </div>
+      </div>
       <ApprovalForm action={createApproval} projects={projectOptions} />
     </div>
   );

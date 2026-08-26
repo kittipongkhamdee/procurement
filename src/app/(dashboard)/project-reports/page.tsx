@@ -22,10 +22,14 @@ export default async function ProjectReportsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">ระบบรายงานโครงการ</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">ระบบรายงานโครงการ</h1>
+        </div>
+      </div>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">ส่งรายงานโครงการ</h2>
+      <div className="card mb-6">
+        <h2 className="card-title">ส่งรายงานโครงการ</h2>
         <form action={uploadProjectReport} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <select name="project_id" required defaultValue="" className="input sm:col-span-2">
             <option value="" disabled>
@@ -38,41 +42,38 @@ export default async function ProjectReportsPage() {
             ))}
           </select>
           <input type="file" name="file" required className="input" />
-          <button
-            type="submit"
-            className="sm:col-span-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
+          <button type="submit" className="btn-primary sm:col-span-3">
             ส่งรายงาน
           </button>
         </form>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">ชื่อโครงการ</th>
-              <th className="px-4 py-3">วันที่อัปโหลด</th>
-              <th className="px-4 py-3"></th>
-              <th className="px-4 py-3"></th>
+              <th>ชื่อโครงการ</th>
+              <th>วันที่อัปโหลด</th>
+              <th></th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {reports?.map((r) => (
               <tr key={r.id}>
-                <td className="px-4 py-3 font-medium text-slate-900">
+                <td className="font-medium text-slate-900">
                   {(r.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td>
                   {new Date(r.created_at).toLocaleDateString("th-TH")}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   {signedUrls.get(r.file_url) ? (
                     <a
                       href={signedUrls.get(r.file_url)}
                       target="_blank"
-                      className="text-xs font-medium text-blue-600 hover:underline"
+                      className="text-xs font-medium text-navy-800 hover:underline"
                     >
                       เปิดไฟล์
                     </a>
@@ -80,7 +81,7 @@ export default async function ProjectReportsPage() {
                     <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <form action={deleteProjectReport.bind(null, r.id, r.file_url)}>
                     <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
@@ -91,7 +92,7 @@ export default async function ProjectReportsPage() {
             ))}
             {reports?.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={4} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>

@@ -17,10 +17,15 @@ export default async function ContractsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">งานสัญญาจ้าง</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">งานสัญญาจ้าง</h1>
+          <p className="page-subtitle">บันทึกและติดตามสัญญาจ้างของโรงเรียน</p>
+        </div>
+      </div>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">บันทึกสัญญาใหม่</h2>
+      <div className="card mb-6">
+        <h2 className="card-title">บันทึกสัญญาใหม่</h2>
         <form action={createContract} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <input name="contract_no" placeholder="เลขที่สัญญา" required className="input" />
           <select name="project_id" required className="input" defaultValue="">
@@ -54,41 +59,38 @@ export default async function ContractsPage() {
           />
           <textarea name="detail" placeholder="รายละเอียดงานจ้าง" rows={2} className="input sm:col-span-3" />
           <input name="inspector_name" placeholder="ผู้ตรวจรับ" className="input" />
-          <button
-            type="submit"
-            className="sm:col-span-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
+          <button type="submit" className="btn-primary sm:col-span-3">
             บันทึกสัญญา
           </button>
         </form>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">เลขที่สัญญา</th>
-              <th className="px-4 py-3">วันที่ทำสัญญา</th>
-              <th className="px-4 py-3">โครงการ</th>
-              <th className="px-4 py-3">ผู้รับจ้าง</th>
-              <th className="px-4 py-3 text-right">จำนวนเงิน</th>
-              <th className="px-4 py-3"></th>
+              <th>เลขที่สัญญา</th>
+              <th>วันที่ทำสัญญา</th>
+              <th>โครงการ</th>
+              <th>ผู้รับจ้าง</th>
+              <th className="text-right">จำนวนเงิน</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {contracts?.map((c) => (
               <tr key={c.id}>
-                <td className="px-4 py-3 font-medium text-slate-900">{c.contract_no}</td>
-                <td className="px-4 py-3 text-slate-600">{c.contract_date}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="font-medium text-slate-900">{c.contract_no}</td>
+                <td>{c.contract_date}</td>
+                <td>
                   {(c.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{c.vendor_name}</td>
-                <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                <td>{c.vendor_name}</td>
+                <td className="text-right font-semibold text-slate-900">
                   {formatBaht(Number(c.amount))}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <form action={deleteContract.bind(null, c.id)}>
                     <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
@@ -99,7 +101,7 @@ export default async function ContractsPage() {
             ))}
             {contracts?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>

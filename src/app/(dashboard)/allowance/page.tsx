@@ -17,11 +17,13 @@ export default async function AllowancePage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">
-        บันทึกเบิกจ่ายเบี้ยเลี้ยง/สาธารณูปโภค
-      </h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">บันทึกเบิกจ่ายเบี้ยเลี้ยง/สาธารณูปโภค</h1>
+        </div>
+      </div>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="card mb-6">
         <form action={createAllowanceDisbursement} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <input name="doc_no" placeholder="เลขที่เอกสาร" required className="input" />
           <select name="project_id" required defaultValue="" className="input sm:col-span-2">
@@ -57,41 +59,38 @@ export default async function AllowancePage() {
             required
             className="input text-right font-semibold text-emerald-700"
           />
-          <button
-            type="submit"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
+          <button type="submit" className="btn-primary">
             บันทึกข้อมูล
           </button>
         </form>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">เลขที่เอกสาร</th>
-              <th className="px-4 py-3">โครงการ</th>
-              <th className="px-4 py-3">ประเภท</th>
-              <th className="px-4 py-3">แหล่งเงิน</th>
-              <th className="px-4 py-3 text-right">จำนวนเงิน</th>
-              <th className="px-4 py-3"></th>
+              <th>เลขที่เอกสาร</th>
+              <th>โครงการ</th>
+              <th>ประเภท</th>
+              <th>แหล่งเงิน</th>
+              <th className="text-right">จำนวนเงิน</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {rows?.map((r) => (
               <tr key={r.id}>
-                <td className="px-4 py-3 font-medium text-slate-900">{r.doc_no}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="font-medium text-slate-900">{r.doc_no}</td>
+                <td>
                   {(r.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{r.expense_type}</td>
-                <td className="px-4 py-3 text-slate-600">{r.fund_source}</td>
-                <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                <td>{r.expense_type}</td>
+                <td>{r.fund_source}</td>
+                <td className="text-right font-semibold text-slate-900">
                   {formatBaht(Number(r.amount))}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <form action={deleteAllowanceDisbursement.bind(null, r.id)}>
                     <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
@@ -102,7 +101,7 @@ export default async function AllowancePage() {
             ))}
             {rows?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>

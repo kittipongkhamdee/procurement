@@ -56,8 +56,8 @@ export function ApprovalForm({
 
   return (
     <form action={handleSubmit} className="space-y-6">
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">ข้อมูลทั่วไป</h2>
+      <section className="card">
+        <h2 className="card-title">ข้อมูลทั่วไป</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <input type="date" name="doc_date" required className="input" />
           <input
@@ -78,7 +78,7 @@ export function ApprovalForm({
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
             required
-            className="input sm:col-span-3 border-blue-400 bg-blue-50"
+            className="input sm:col-span-3 border-navy-600 bg-navy-950/[0.03]"
           >
             <option value="" disabled>
               -- เลือกโครงการที่ต้องการเบิก --
@@ -95,7 +95,7 @@ export function ApprovalForm({
           <input readOnly value={selected ? formatBaht(selected.paid) : ""} placeholder="เบิกจ่ายไปแล้ว" className="input bg-slate-50 text-right" />
 
           <div className="sm:col-span-3">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
+            <label className="label">
               รายละเอียดการขออนุมัติ (ระบุจำนวนเงิน)
             </label>
             <div className="overflow-hidden rounded-md border border-slate-200">
@@ -153,8 +153,8 @@ export function ApprovalForm({
         </div>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">รายการสินค้า</h2>
+      <section className="card">
+        <h2 className="card-title">รายการสินค้า</h2>
         <div className="overflow-x-auto rounded-md border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -203,10 +203,10 @@ export function ApprovalForm({
       </section>
 
       <div className="flex justify-end gap-3">
-        <a href="/approvals" className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+        <a href="/approvals" className="btn-secondary">
           ยกเลิก
         </a>
-        <button type="submit" className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+        <button type="submit" className="btn-primary px-6">
           บันทึกและสร้างเอกสาร
         </button>
       </div>

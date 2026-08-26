@@ -23,43 +23,42 @@ export default async function ApprovalsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">ประวัติการบันทึกขออนุมัติ</h1>
-        <a
-          href="/approvals/new"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">ประวัติการบันทึกขออนุมัติ</h1>
+        </div>
+        <a href="/approvals/new" className="btn-primary">
           + สร้างบันทึกขออนุมัติ
         </a>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">วันที่</th>
-              <th className="px-4 py-3">เรื่อง</th>
-              <th className="px-4 py-3">โครงการ</th>
-              <th className="px-4 py-3">ผู้ขออนุมัติ</th>
-              <th className="px-4 py-3 text-right">ขออนุมัติครั้งนี้</th>
-              <th className="px-4 py-3"></th>
-              <th className="px-4 py-3"></th>
+              <th>วันที่</th>
+              <th>เรื่อง</th>
+              <th>โครงการ</th>
+              <th>ผู้ขออนุมัติ</th>
+              <th className="text-right">ขออนุมัติครั้งนี้</th>
+              <th></th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {approvals?.map((a) => (
               <tr key={a.id}>
-                <td className="px-4 py-3 text-slate-600">{a.doc_date}</td>
-                <td className="px-4 py-3 text-slate-600">{a.subject}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td>{a.doc_date}</td>
+                <td>{a.subject}</td>
+                <td>
                   {(a.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
                 </td>
-                <td className="px-4 py-3 font-medium text-slate-900">{a.requested_by_name ?? "-"}</td>
-                <td className="px-4 py-3 text-right font-semibold text-red-600">
+                <td className="font-medium text-slate-900">{a.requested_by_name ?? "-"}</td>
+                <td className="text-right font-semibold text-red-600">
                   {formatBaht(Number(a.requested_amount))}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <a
                     href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
                     target="_blank"
@@ -68,7 +67,7 @@ export default async function ApprovalsPage() {
                     PDF
                   </a>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <form action={deleteApproval.bind(null, a.id)}>
                     <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
@@ -79,7 +78,7 @@ export default async function ApprovalsPage() {
             ))}
             {approvals?.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={7} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>

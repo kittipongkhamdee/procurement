@@ -33,7 +33,7 @@ export function DeliveryForm({
   return (
     <form action={action} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div className="sm:col-span-2">
-        <label className="mb-1 block text-xs font-medium text-slate-600">อ้างอิงเลขที่สัญญา</label>
+        <label className="label">อ้างอิงเลขที่สัญญา</label>
         <select
           name="contract_id"
           value={contractId}
@@ -52,7 +52,7 @@ export function DeliveryForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">จำนวนเงินตามสัญญา</label>
+        <label className="label">จำนวนเงินตามสัญญา</label>
         <input
           readOnly
           value={selected ? Number(selected.amount).toLocaleString("th-TH", { minimumFractionDigits: 2 }) : ""}
@@ -60,11 +60,11 @@ export function DeliveryForm({
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">วันที่ส่งมอบ</label>
+        <label className="label">วันที่ส่งมอบ</label>
         <input type="date" name="delivery_date" required className="input w-full" />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">เดือนที่ส่งมอบ</label>
+        <label className="label">เดือนที่ส่งมอบ</label>
         <select name="delivery_month" required className="input w-full" defaultValue="">
           <option value="" disabled>
             เลือกเดือน..
@@ -77,7 +77,7 @@ export function DeliveryForm({
         </select>
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-slate-600">จำนวนเงินที่ส่งมอบ</label>
+        <label className="label">จำนวนเงินที่ส่งมอบ</label>
         <input
           type="number"
           step="0.01"
@@ -89,7 +89,7 @@ export function DeliveryForm({
         />
       </div>
       <div className="sm:col-span-2">
-        <label className="mb-1 block text-xs font-medium text-slate-600">ผู้ตรวจรับ</label>
+        <label className="label">ผู้ตรวจรับ</label>
         <input
           name="inspector_name"
           defaultValue={selected?.inspector_name ?? ""}
@@ -98,10 +98,7 @@ export function DeliveryForm({
         />
       </div>
       <div className="sm:col-span-3">
-        <button
-          type="submit"
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
+        <button type="submit" className="btn-primary">
           บันทึกการส่งมอบงาน
         </button>
       </div>

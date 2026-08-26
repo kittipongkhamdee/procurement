@@ -13,9 +13,11 @@ export default async function NewPurchaseRequestPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">
-        แบบบันทึกขอซื้อ/ขอจ้าง
-      </h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">แบบบันทึกขอซื้อ/ขอจ้าง</h1>
+        </div>
+      </div>
       <PurchaseRequestForm
         action={createPurchaseRequest}
         projects={projects ?? []}

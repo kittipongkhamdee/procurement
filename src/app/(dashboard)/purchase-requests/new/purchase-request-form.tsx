@@ -74,11 +74,11 @@ export function PurchaseRequestForm({
   return (
     <form ref={formRef} action={handleSubmit} className="space-y-6">
       {/* ข้อมูลทั่วไป */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">ประเภท / กำหนดการ</h2>
+      <section className="card">
+        <h2 className="card-title">ประเภท / กำหนดการ</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">ประเภท</label>
+            <label className="label">ประเภท</label>
             <select
               name="doc_type"
               value={docType}
@@ -91,11 +91,11 @@ export function PurchaseRequestForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">เลขที่เอกสาร</label>
+            <label className="label">เลขที่เอกสาร</label>
             <input name="doc_no" required className="input w-full" placeholder="เช่น 015/2569" />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">วันที่บันทึกฯ</label>
+            <label className="label">วันที่บันทึกฯ</label>
             <input
               type="date"
               name="record_date"
@@ -106,7 +106,7 @@ export function PurchaseRequestForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">ส่งมอบ/ตรวจรับ</label>
+            <label className="label">ส่งมอบ/ตรวจรับ</label>
             <input
               type="date"
               name="delivery_date"
@@ -117,7 +117,7 @@ export function PurchaseRequestForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">
+            <label className="label">
               วันทำงาน (คำนวณอัตโนมัติ)
             </label>
             <input
@@ -127,26 +127,26 @@ export function PurchaseRequestForm({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">ผู้ตรวจรับ</label>
+            <label className="label">ผู้ตรวจรับ</label>
             <input name="inspector_name" className="input w-full" />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">ตำแหน่งผู้ตรวจรับ</label>
+            <label className="label">ตำแหน่งผู้ตรวจรับ</label>
             <input name="inspector_position" className="input w-full" />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">กลุ่มบริหาร/กลุ่มสาระ</label>
+            <label className="label">กลุ่มบริหาร/กลุ่มสาระ</label>
             <input name="admin_group" className="input w-full" />
           </div>
         </div>
       </section>
 
       {/* โครงการ/กิจกรรม/จำนวนเงิน */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">โครงการ / กิจกรรม / จำนวนเงิน</h2>
+      <section className="card">
+        <h2 className="card-title">โครงการ / กิจกรรม / จำนวนเงิน</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">โครงการ</label>
+            <label className="label">โครงการ</label>
             <select
               name="project_id"
               value={projectId}
@@ -165,7 +165,7 @@ export function PurchaseRequestForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">กิจกรรม</label>
+            <label className="label">กิจกรรม</label>
             <select
               name="activity_id"
               key={projectId}
@@ -185,7 +185,7 @@ export function PurchaseRequestForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">จำนวนเงิน (บาท)</label>
+            <label className="label">จำนวนเงิน (บาท)</label>
             <input
               type="number"
               step="0.01"
@@ -195,15 +195,15 @@ export function PurchaseRequestForm({
             />
           </div>
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-slate-600">ชื่อรายการ</label>
+            <label className="label">ชื่อรายการ</label>
             <input name="item_name" required className="input w-full" placeholder="ตัวอย่าง: วัสดุการศึกษาจำนวน 15 รายการ" />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">เหตุผล</label>
+            <label className="label">เหตุผล</label>
             <input name="reason" required className="input w-full" placeholder="ใช้ในการจัดการเรียนการสอน" />
           </div>
           <div className="sm:col-span-3">
-            <label className="mb-1 block text-xs font-medium text-slate-600">
+            <label className="label">
               รายละเอียด (เฉพาะงานจ้าง)
             </label>
             <textarea name="detail" rows={2} className="input w-full" />
@@ -212,11 +212,11 @@ export function PurchaseRequestForm({
       </section>
 
       {/* ข้อมูลร้านค้า */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">ข้อมูลร้านค้า/ผู้รับจ้าง</h2>
+      <section className="card">
+        <h2 className="card-title">ข้อมูลร้านค้า/ผู้รับจ้าง</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs font-medium text-slate-600">ผู้ขาย/ผู้รับจ้าง</label>
+            <label className="label">ผู้ขาย/ผู้รับจ้าง</label>
             <select
               name="vendor_id"
               value={vendorId}
@@ -235,13 +235,13 @@ export function PurchaseRequestForm({
             </select>
             <p className="mt-1 text-xs text-slate-400">
               ไม่พบร้านค้าที่ต้องการ? เพิ่มข้อมูลได้ที่หน้า{" "}
-              <a href="/vendors" className="text-blue-600 hover:underline">
+              <a href="/vendors" className="text-navy-800 hover:underline">
                 ข้อมูลผู้ขาย/ผู้รับจ้าง
               </a>
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-600">เจ้าหน้าที่พัสดุ</label>
+            <label className="label">เจ้าหน้าที่พัสดุ</label>
             <input name="supply_officer_name" className="input w-full" />
           </div>
         </div>
@@ -275,8 +275,8 @@ export function PurchaseRequestForm({
       </section>
 
       {/* รายการวัสดุ */}
-      <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">รายการวัสดุ</h2>
+      <section className="card">
+        <h2 className="card-title">รายการวัสดุ</h2>
         <div className="overflow-x-auto rounded-md border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -349,13 +349,10 @@ export function PurchaseRequestForm({
       </section>
 
       <div className="flex justify-end gap-3">
-        <a href="/purchase-requests" className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+        <a href="/purchase-requests" className="btn-secondary">
           ยกเลิก
         </a>
-        <button
-          type="submit"
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
+        <button type="submit" className="btn-primary px-6">
           บันทึกข้อมูล
         </button>
       </div>

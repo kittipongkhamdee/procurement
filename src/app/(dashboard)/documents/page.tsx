@@ -19,46 +19,47 @@ export default async function DocumentsPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold text-slate-900">คลังเอกสารดาวน์โหลด</h1>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">คลังเอกสารดาวน์โหลด</h1>
+        </div>
+      </div>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold text-slate-700">เพิ่มไฟล์ใหม่</h2>
+      <div className="card mb-6">
+        <h2 className="card-title">เพิ่มไฟล์ใหม่</h2>
         <form action={uploadDocument} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <input name="file_name" placeholder="ชื่อไฟล์เอกสาร (ไม่ระบุ = ใช้ชื่อไฟล์เดิม)" className="input sm:col-span-2" />
           <input type="file" name="file" required className="input" />
-          <button
-            type="submit"
-            className="sm:col-span-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
+          <button type="submit" className="btn-primary sm:col-span-3">
             อัปโหลด
           </button>
         </form>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+        <table className="table-base">
+          <thead>
             <tr>
-              <th className="px-4 py-3">ชื่อไฟล์เอกสาร</th>
-              <th className="px-4 py-3">วันที่เพิ่ม</th>
-              <th className="px-4 py-3"></th>
-              <th className="px-4 py-3"></th>
+              <th>ชื่อไฟล์เอกสาร</th>
+              <th>วันที่เพิ่ม</th>
+              <th></th>
+              <th></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody>
             {documents?.map((d) => (
               <tr key={d.id}>
-                <td className="px-4 py-3 font-medium text-slate-900">{d.file_name}</td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="font-medium text-slate-900">{d.file_name}</td>
+                <td>
                   {new Date(d.created_at).toLocaleDateString("th-TH")}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   {signedUrls.get(d.file_url) ? (
                     <a
                       href={signedUrls.get(d.file_url)}
                       target="_blank"
-                      className="text-xs font-medium text-blue-600 hover:underline"
+                      className="text-xs font-medium text-navy-800 hover:underline"
                     >
                       ดาวน์โหลด
                     </a>
@@ -66,7 +67,7 @@ export default async function DocumentsPage() {
                     <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="text-right">
                   <form action={deleteDocument.bind(null, d.id, d.file_url)}>
                     <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
@@ -77,7 +78,7 @@ export default async function DocumentsPage() {
             ))}
             {documents?.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={4} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>
