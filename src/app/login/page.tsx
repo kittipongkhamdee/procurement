@@ -11,7 +11,10 @@ export default async function LoginPage({
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-lg font-semibold text-slate-900">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-950 text-base font-bold text-gold-400">
+            ตว
+          </div>
+          <h1 className="text-lg font-bold text-slate-900">
             ระบบบริหารงานงบประมาณ
           </h1>
           <p className="text-sm text-slate-500">โรงเรียนตาเบาวิทยา</p>
@@ -30,39 +33,24 @@ export default async function LoginPage({
 
         <form action={login} className="space-y-4">
           <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="email" className="label">
               อีเมล
             </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
+            <input id="email" name="email" type="email" required className="input" />
           </div>
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700">
+            <label htmlFor="password" className="label">
               รหัสผ่าน
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
+            <input id="password" name="password" type="password" required className="input" />
           </div>
-          <button
-            type="submit"
-            className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
+          <button type="submit" className="btn-primary w-full">
             เข้าสู่ระบบ
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm">
-          <a href="/login/signup" className="text-blue-600 hover:underline">
+          <a href="/login/signup" className="text-navy-800 hover:underline">
             ยังไม่มีบัญชี? สมัครสมาชิก
           </a>
         </p>
