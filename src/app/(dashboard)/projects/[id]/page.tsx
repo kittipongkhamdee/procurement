@@ -20,14 +20,16 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     .maybeSingle();
   const isAdmin = myProfile?.role === "admin";
 
-  const [{ data: project }, { data: activities }, { data: budgetYears }, { data: adminGroups }, { data: budgetSources }] =
-    await Promise.all([
-      supabase.from("plan_projects").select("id, name, budget_year_id, admin_group_id, budget_source_id").eq("id", id).maybeSingle(),
-      supabase.from("plan_activities").select("id, name, budget, responsible").eq("project_id", id).order("sort_order"),
-      supabase.from("plan_budget_years").select("id, year").order("year", { ascending: false }),
-      supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
-      supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    ]);
+  const [{ data: project }, { data: activities }, { data: adminGroups }, { data: budgetSources }] = await Promise.all([
+    supabase
+      .from("plan_projects")
+      .select("id, name, budget_year_id, admin_group_id, budget_source_id")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase.from("plan_activities").select("id, name, budget, responsible").eq("project_id", id).order("sort_order"),
+    supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
+    supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+  ]);
 
   if (!project) notFound();
 
@@ -69,14 +71,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <div className="card mt-6">
           <div className="card-title">แก้ไขข้อมูลโครงการ</div>
           <form action={updateProject.bind(null, id)} className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <input type="hidden" name="budget_year_id" value={project.budget_year_id} />
             <input name="name" defaultValue={project.name} required className="input sm:col-span-2" />
-            <select name="budget_year_id" defaultValue={project.budget_year_id} required className="input">
-              {budgetYears?.map((y) => (
-                <option key={y.id} value={y.id}>
-                  ปีงบประมาณ {y.year}
-                </option>
-              ))}
-            </select>
             <select name="admin_group_id" defaultValue={project.admin_group_id} required className="input">
               {adminGroups?.map((g) => (
                 <option key={g.id} value={g.id}>

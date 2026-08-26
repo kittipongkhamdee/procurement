@@ -6,12 +6,7 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
-export default async function ProjectsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ year?: string }>;
-}) {
-  const { year: yearParam } = await searchParams;
+export default async function ProjectsPage() {
   const supabase = await createClient();
 
   const {
@@ -29,7 +24,7 @@ export default async function ProjectsPage({
     .select("id, year, name, is_open")
     .order("year", { ascending: false });
 
-  const currentYear = budgetYears?.find((y) => (yearParam ? y.id === yearParam : y.is_open)) ?? budgetYears?.[0];
+  const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
 
   const [{ data: adminGroups }, { data: budgetSources }] = await Promise.all([
     supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
@@ -91,23 +86,6 @@ export default async function ProjectsPage({
             ตามแผนปฏิบัติการ{currentYear ? ` ปีงบประมาณ ${currentYear.year}` : ""}
           </p>
         </div>
-        {budgetYears && budgetYears.length > 1 && (
-          <div className="flex gap-1.5">
-            {budgetYears.map((y) => (
-              <Link
-                key={y.id}
-                href={`/projects?year=${y.id}`}
-                className={
-                  y.id === currentYear?.id
-                    ? "rounded-md bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white"
-                    : "rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-navy-700 hover:text-navy-800"
-                }
-              >
-                {y.year}
-              </Link>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
