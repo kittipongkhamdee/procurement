@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Modal } from "@/components/modal";
+import { CreateProjectForm } from "./create-project-form";
 import {
   createActivity,
   createProject,
@@ -99,40 +100,12 @@ export default async function ProjectsPage() {
         </div>
         {isAdmin && currentYear && (
           <Modal title="เพิ่มโครงการใหม่" trigger="+ เพิ่มโครงการใหม่" triggerClassName="btn-primary" closeOnSubmit>
-            <form action={createProject} className="grid grid-cols-1 gap-3">
-              <input type="hidden" name="budget_year_id" value={currentYear.id} />
-              <div>
-                <label className="label">ชื่อโครงการ</label>
-                <input name="name" required className="input" />
-              </div>
-              <div>
-                <label className="label">กลุ่มบริหาร</label>
-                <select name="admin_group_id" required defaultValue="" className="input">
-                  <option value="" disabled>
-                    เลือกกลุ่มบริหาร..
-                  </option>
-                  {adminGroups?.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label">แหล่งเงินงบประมาณ</label>
-                <select name="budget_source_id" defaultValue="" className="input">
-                  <option value="">ไม่ระบุ</option>
-                  {budgetSources?.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button type="submit" className="btn-primary mt-2">
-                บันทึกโครงการ
-              </button>
-            </form>
+            <CreateProjectForm
+              action={createProject}
+              budgetYearId={currentYear.id}
+              adminGroups={adminGroups ?? []}
+              budgetSources={budgetSources ?? []}
+            />
           </Modal>
         )}
       </div>

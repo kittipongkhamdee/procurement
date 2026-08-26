@@ -1,0 +1,138 @@
+"use client";
+
+import { useState } from "react";
+import type { Tables } from "@/lib/supabase/database.types";
+
+type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
+type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
+
+const ROW_COUNT = 6;
+
+type ActivityRow = { name: string; budget: string; responsible: string };
+
+function emptyRows(): ActivityRow[] {
+  return Array.from({ length: ROW_COUNT }, () => ({ name: "", budget: "", responsible: "" }));
+}
+
+function formatBaht(n: number) {
+  return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
+}
+
+export function CreateProjectForm({
+  action,
+  budgetYearId,
+  adminGroups,
+  budgetSources,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  budgetYearId: string;
+  adminGroups: AdminGroup[];
+  budgetSources: BudgetSource[];
+}) {
+  const [rows, setRows] = useState<ActivityRow[]>(emptyRows());
+
+  function updateRow(index: number, patch: Partial<ActivityRow>) {
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  const totalBudget = rows.reduce((sum, r) => sum + (parseFloat(r.budget) || 0), 0);
+
+  function handleSubmit(formData: FormData) {
+    formData.set("activities_json", JSON.stringify(rows));
+    return action(formData);
+  }
+
+  return (
+    <form action={handleSubmit} className="grid grid-cols-1 gap-3">
+      <input type="hidden" name="budget_year_id" value={budgetYearId} />
+      <div>
+        <label className="label">ชื่อโครงการ</label>
+        <input name="name" required className="input" />
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="label">กลุ่มบริหาร</label>
+          <select name="admin_group_id" required defaultValue="" className="input">
+            <option value="" disabled>
+              เลือกกลุ่มบริหาร..
+            </option>
+            {adminGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">แหล่งเงินงบประมาณ</label>
+          <select name="budget_source_id" defaultValue="" className="input">
+            <option value="">ไม่ระบุ</option>
+            {budgetSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-2 border-t border-slate-100 pt-4">
+        <div className="card-title">กิจกรรมย่อย (ไม่บังคับ — เว้นว่างแถวที่ไม่ใช้)</div>
+        <div className="table-shell mb-2">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>ชื่อกิจกรรม</th>
+                <th className="text-right">งบประมาณ</th>
+                <th>ผู้รับผิดชอบ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr key={i}>
+                  <td className="p-2">
+                    <input
+                      value={row.name}
+                      onChange={(e) => updateRow(i, { name: e.target.value })}
+                      className="input"
+                      placeholder={`กิจกรรมที่ ${i + 1}`}
+                    />
+                  </td>
+                  <td className="p-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={row.budget}
+                      onChange={(e) => updateRow(i, { budget: e.target.value })}
+                      className="input text-right"
+                    />
+                  </td>
+                  <td className="p-2">
+                    <input
+                      value={row.responsible}
+                      onChange={(e) => updateRow(i, { responsible: e.target.value })}
+                      className="input"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="px-2 py-2 text-right text-sm font-semibold text-slate-600" colSpan={1}>
+                  รวมงบประมาณ
+                </td>
+                <td className="px-2 py-2 text-right text-sm font-bold text-navy-800">{formatBaht(totalBudget)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <button type="submit" className="btn-primary mt-2">
+        บันทึกโครงการ
+      </button>
+    </form>
+  );
+}

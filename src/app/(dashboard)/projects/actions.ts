@@ -17,6 +17,8 @@ async function requireAdmin() {
   return supabase;
 }
 
+type ActivityRow = { name: string; budget: string; responsible: string };
+
 export async function createProject(formData: FormData) {
   const supabase = await requireAdmin();
 
@@ -27,13 +29,34 @@ export async function createProject(formData: FormData) {
 
   if (!name || !budget_year_id || !admin_group_id) return;
 
-  const { error } = await supabase.from("plan_projects").insert({
-    name,
-    budget_year_id,
-    admin_group_id,
-    budget_source_id,
-  });
+  const { data: project, error } = await supabase
+    .from("plan_projects")
+    .insert({ name, budget_year_id, admin_group_id, budget_source_id })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+
+  let activityRows: ActivityRow[] = [];
+  try {
+    activityRows = JSON.parse(String(formData.get("activities_json") ?? "[]"));
+  } catch {
+    activityRows = [];
+  }
+
+  const rowsToInsert = activityRows
+    .filter((a) => a.name.trim() !== "")
+    .map((a) => ({
+      project_id: project.id,
+      name: a.name.trim(),
+      budget: a.budget ? Number(a.budget) : 0,
+      responsible: a.responsible.trim() || null,
+    }));
+
+  if (rowsToInsert.length > 0) {
+    const { error: activitiesError } = await supabase.from("plan_activities").insert(rowsToInsert);
+    if (activitiesError) throw new Error(activitiesError.message);
+  }
+
   revalidatePath("/projects");
 }
 
