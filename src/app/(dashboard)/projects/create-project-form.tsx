@@ -97,25 +97,25 @@ export function CreateProjectForm({
       <div className="mt-2 border-t border-slate-100 pt-4">
         <div className="card-title">กิจกรรมย่อย</div>
         <input type="hidden" name="has_activities" value={hasActivities ? "yes" : "no"} />
-        <div className="mb-3 flex gap-4 text-sm">
-          <label className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name="has_activities_ui"
-              checked={hasActivities}
-              onChange={() => setHasActivities(true)}
+        <div className="mb-3 flex items-center gap-3 text-sm">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hasActivities}
+            onClick={() => setHasActivities((v) => !v)}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+              hasActivities ? "bg-navy-800" : "bg-slate-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${
+                hasActivities ? "translate-x-6" : "translate-x-1"
+              }`}
             />
-            มีกิจกรรมย่อย
-          </label>
-          <label className="flex items-center gap-1.5">
-            <input
-              type="radio"
-              name="has_activities_ui"
-              checked={!hasActivities}
-              onChange={() => setHasActivities(false)}
-            />
-            ไม่มีกิจกรรมย่อย
-          </label>
+          </button>
+          <span className="font-medium text-slate-700">
+            {hasActivities ? "มีกิจกรรมย่อย" : "ไม่มีกิจกรรมย่อย"}
+          </span>
         </div>
 
         {hasActivities ? (
