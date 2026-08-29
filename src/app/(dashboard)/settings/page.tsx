@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { TeacherManager } from "./teacher-manager";
 import { AdminGroupManager } from "./admin-group-manager";
+import { BudgetSourceToggle } from "./budget-source-toggle";
 import {
   createAdminGroup,
   createBudgetSource,
@@ -126,18 +127,13 @@ export default async function SettingsPage() {
                   <tr key={s.id}>
                     <td className="font-medium text-slate-900">{s.name}</td>
                     <td className="text-center">
-                      {s.is_active ? (
-                        <span className="badge-emerald">ใช้งาน</span>
-                      ) : (
-                        <span className="badge-slate">ปิดใช้งาน</span>
-                      )}
+                      <BudgetSourceToggle
+                        id={s.id}
+                        isActive={s.is_active}
+                        toggleBudgetSourceActive={toggleBudgetSourceActive}
+                      />
                     </td>
                     <td className="text-right space-x-2">
-                      <form action={toggleBudgetSourceActive.bind(null, s.id, s.is_active)} className="inline">
-                        <button type="submit" className="text-xs font-medium text-navy-800 hover:underline">
-                          {s.is_active ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-                        </button>
-                      </form>
                       <form action={deleteBudgetSource.bind(null, s.id)} className="inline">
                         <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                           ลบ

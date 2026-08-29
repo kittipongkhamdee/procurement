@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { ToggleSwitch } from "@/components/toggle-switch";
 import type {
   createTeacher as createTeacherAction,
   deleteTeacher as deleteTeacherAction,
@@ -91,20 +92,14 @@ export function TeacherManager({
                   </form>
                 </td>
                 <td className="text-center">
-                  {t.is_active ? (
-                    <span className="badge-emerald">แสดง</span>
-                  ) : (
-                    <span className="badge-slate">ซ่อน</span>
-                  )}
+                  <ToggleSwitch
+                    checked={t.is_active}
+                    onChange={() => handleToggle(t.id, t.is_active)}
+                    labelOn="แสดง"
+                    labelOff="ซ่อน"
+                  />
                 </td>
-                <td className="text-right space-x-2 whitespace-nowrap px-4">
-                  <button
-                    type="button"
-                    onClick={() => handleToggle(t.id, t.is_active)}
-                    className="btn-secondary btn-sm"
-                  >
-                    {t.is_active ? "ปิดการแสดง" : "เปิดการแสดง"}
-                  </button>
+                <td className="text-right whitespace-nowrap px-4">
                   <button type="button" onClick={() => handleDelete(t.id, t.name)} className="btn-danger btn-sm">
                     ลบ
                   </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { ToggleSwitch } from "@/components/toggle-switch";
 import type {
   createAdminGroup as createAdminGroupAction,
   deleteAdminGroup as deleteAdminGroupAction,
@@ -91,20 +92,9 @@ export function AdminGroupManager({
                   </form>
                 </td>
                 <td className="text-center">
-                  {g.is_active ? (
-                    <span className="badge-emerald">ใช้งาน</span>
-                  ) : (
-                    <span className="badge-slate">ปิดใช้งาน</span>
-                  )}
+                  <ToggleSwitch checked={g.is_active} onChange={() => handleToggle(g.id, g.is_active)} />
                 </td>
-                <td className="text-right space-x-2 whitespace-nowrap px-4">
-                  <button
-                    type="button"
-                    onClick={() => handleToggle(g.id, g.is_active)}
-                    className="btn-secondary btn-sm"
-                  >
-                    {g.is_active ? "ปิดใช้งาน" : "เปิดใช้งาน"}
-                  </button>
+                <td className="text-right whitespace-nowrap px-4">
                   <button type="button" onClick={() => handleDelete(g.id, g.name)} className="btn-danger btn-sm">
                     ลบ
                   </button>
