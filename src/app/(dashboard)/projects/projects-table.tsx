@@ -132,13 +132,15 @@ export function ProjectsTable({
                 <tr>
                   <td colSpan={colSpan} className="bg-slate-50 p-0">
                     {r.activities.length > 0 ? (
-                      <div className="divide-y divide-slate-200 px-4 py-1 sm:px-10">
-                        {r.activities.map((a) => (
+                      <div className="divide-y divide-slate-200 py-1 pl-[2.375rem] pr-4">
+                        {r.activities.map((a, j) => (
                           <div
                             key={a.id}
                             className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                           >
-                            <span className="text-slate-700">{a.name}</span>
+                            <span className="text-slate-700">
+                              <span className="text-slate-400">{j + 1}.</span> {a.name}
+                            </span>
                             <span className="text-slate-500">
                               {(a.responsible ?? []).join(", ") || "ไม่ระบุผู้รับผิดชอบ"}
                             </span>
@@ -149,7 +151,7 @@ export function ProjectsTable({
                         ))}
                       </div>
                     ) : (
-                      <p className="px-4 py-3 text-sm text-slate-400 sm:px-10">
+                      <p className="py-3 pl-[2.375rem] pr-4 text-sm text-slate-400">
                         ไม่มีกิจกรรมย่อย (งบประมาณโครงการโดยตรง {formatBaht(r.projectBudget)} บาท)
                       </p>
                     )}
