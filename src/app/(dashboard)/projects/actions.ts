@@ -17,7 +17,7 @@ async function requireAdmin() {
   return supabase;
 }
 
-type ActivityRow = { name: string; budget: string; responsible: string };
+type ActivityRow = { name: string; budget: string; responsible: string[] };
 
 export async function createProject(formData: FormData) {
   const supabase = await requireAdmin();
@@ -52,7 +52,7 @@ export async function createProject(formData: FormData) {
         project_id: project.id,
         name: a.name.trim(),
         budget: a.budget ? Number(a.budget) : 0,
-        responsible: a.responsible.trim() || null,
+        responsible: Array.isArray(a.responsible) ? a.responsible : [],
       }));
 
     if (rowsToInsert.length > 0) {
@@ -95,7 +95,7 @@ export async function createActivity(projectId: string, formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const budget = Number(formData.get("budget") ?? 0);
-  const responsible = String(formData.get("responsible") ?? "").trim() || null;
+  const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
   if (!name) return;
 
@@ -114,7 +114,7 @@ export async function updateActivity(activityId: string, formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const budget = Number(formData.get("budget") ?? 0);
-  const responsible = String(formData.get("responsible") ?? "").trim() || null;
+  const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
   const { error } = await supabase
     .from("plan_activities")

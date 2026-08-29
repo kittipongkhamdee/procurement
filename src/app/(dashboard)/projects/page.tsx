@@ -16,7 +16,7 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
-type Activity = { id: string; name: string | null; budget: number; responsible: string | null };
+type Activity = { id: string; name: string | null; budget: number; responsible: string[] | null };
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
@@ -38,9 +38,10 @@ export default async function ProjectsPage() {
 
   const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
 
-  const [{ data: adminGroups }, { data: budgetSources }] = await Promise.all([
+  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }] = await Promise.all([
     supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
     supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
   ]);
 
   const { data: projects, error } = currentYear
@@ -111,6 +112,7 @@ export default async function ProjectsPage() {
               budgetYearId={currentYear.id}
               adminGroups={adminGroups ?? []}
               budgetSources={budgetSources ?? []}
+              teachers={teachers ?? []}
             />
           </Modal>
         )}
@@ -179,6 +181,7 @@ export default async function ProjectsPage() {
                       activities={r.activities}
                       adminGroups={adminGroups ?? []}
                       budgetSources={budgetSources ?? []}
+                      teachers={teachers ?? []}
                       updateProject={updateProject}
                       deleteProject={deleteProject}
                       createActivity={createActivity}

@@ -43,7 +43,7 @@ export type Database = {
           id: string
           name: string | null
           project_id: string
-          responsible: string | null
+          responsible: string[] | null
           sort_order: number
           updated_at: string
         }
@@ -53,7 +53,7 @@ export type Database = {
           id?: string
           name?: string | null
           project_id: string
-          responsible?: string | null
+          responsible?: string[] | null
           sort_order?: number
           updated_at?: string
         }
@@ -63,7 +63,7 @@ export type Database = {
           id?: string
           name?: string | null
           project_id?: string
-          responsible?: string | null
+          responsible?: string[] | null
           sort_order?: number
           updated_at?: string
         }

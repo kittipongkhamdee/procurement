@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { PlusIcon, TrashIcon } from "@/components/icons";
+import { TeacherMultiSelect } from "@/components/teacher-multi-select";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import type {
   createActivity as createActivityAction,
@@ -12,8 +13,9 @@ import type {
   updateProject as updateProjectAction,
 } from "./actions";
 
-type Activity = { id: string; name: string | null; budget: number; responsible: string | null };
+type Activity = { id: string; name: string | null; budget: number; responsible: string[] | null };
 type Option = { id: string; name: string };
+type Teacher = { id: string; name: string; is_active: boolean };
 
 export function ProjectEditModal({
   projectId,
@@ -25,6 +27,7 @@ export function ProjectEditModal({
   activities,
   adminGroups,
   budgetSources,
+  teachers,
   updateProject,
   deleteProject,
   createActivity,
@@ -40,6 +43,7 @@ export function ProjectEditModal({
   activities: Activity[];
   adminGroups: Option[];
   budgetSources: Option[];
+  teachers: Teacher[];
   updateProject: typeof updateProjectAction;
   deleteProject: typeof deleteProjectAction;
   createActivity: typeof createActivityAction;
@@ -48,6 +52,7 @@ export function ProjectEditModal({
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const projectFormId = useId();
+  const [addActivityKey, setAddActivityKey] = useState(0);
 
   async function handleSaveAll(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,7 +64,9 @@ export function ProjectEditModal({
           const activityFormData = new FormData();
           activityFormData.set("name", String(formData.get(`activity_name_${a.id}`) ?? ""));
           activityFormData.set("budget", String(formData.get(`activity_budget_${a.id}`) ?? ""));
-          activityFormData.set("responsible", String(formData.get(`activity_responsible_${a.id}`) ?? ""));
+          for (const v of formData.getAll(`activity_responsible_${a.id}`)) {
+            activityFormData.append("responsible", String(v));
+          }
           return updateActivity(a.id, activityFormData);
         }),
       );
@@ -93,6 +100,7 @@ export function ProjectEditModal({
       await createActivity(projectId, formData);
       await toastSuccess("เพิ่มกิจกรรมย่อยเรียบร้อยแล้ว");
       form.reset();
+      setAddActivityKey((k) => k + 1);
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -177,10 +185,10 @@ export function ProjectEditModal({
                   </div>
                   <div>
                     <label className="label sm:hidden">ผู้รับผิดชอบ</label>
-                    <input
+                    <TeacherMultiSelect
                       name={`activity_responsible_${a.id}`}
-                      defaultValue={a.responsible ?? ""}
-                      className="input"
+                      teachers={teachers}
+                      defaultValue={a.responsible ?? []}
                     />
                   </div>
                   <div className="flex justify-end">
@@ -220,7 +228,7 @@ export function ProjectEditModal({
       >
         <input name="name" placeholder="ชื่อกิจกรรมใหม่" required className="input" />
         <input type="number" step="0.01" name="budget" placeholder="งบประมาณ" className="input text-right" />
-        <input name="responsible" placeholder="ผู้รับผิดชอบ" className="input" />
+        <TeacherMultiSelect key={addActivityKey} name="responsible" teachers={teachers} />
         <button type="submit" title="เพิ่มกิจกรรม" aria-label="เพิ่มกิจกรรมย่อย" className="icon-btn-add justify-self-end">
           <PlusIcon className="h-5 w-5" />
         </button>

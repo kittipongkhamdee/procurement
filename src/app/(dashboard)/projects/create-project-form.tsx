@@ -3,14 +3,16 @@
 import { useState } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { TeacherMultiSelect } from "@/components/teacher-multi-select";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
+type Teacher = Pick<Tables<"plan_teachers">, "id" | "name" | "is_active">;
 
-type ActivityRow = { name: string; budget: string; responsible: string };
+type ActivityRow = { name: string; budget: string; responsible: string[] };
 
 function emptyRow(): ActivityRow {
-  return { name: "", budget: "", responsible: "" };
+  return { name: "", budget: "", responsible: [] };
 }
 
 function formatBaht(n: number) {
@@ -22,11 +24,13 @@ export function CreateProjectForm({
   budgetYearId,
   adminGroups,
   budgetSources,
+  teachers,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   budgetYearId: string;
   adminGroups: AdminGroup[];
   budgetSources: BudgetSource[];
+  teachers: Teacher[];
 }) {
   const [hasActivities, setHasActivities] = useState(true);
   const [projectBudget, setProjectBudget] = useState("");
@@ -143,11 +147,10 @@ export function CreateProjectForm({
                       className="input text-right"
                       placeholder="งบประมาณ"
                     />
-                    <input
+                    <TeacherMultiSelect
+                      teachers={teachers}
                       value={row.responsible}
-                      onChange={(e) => updateRow(i, { responsible: e.target.value })}
-                      className="input"
-                      placeholder="ผู้รับผิดชอบ"
+                      onChange={(next) => updateRow(i, { responsible: next })}
                     />
                     {rows.length > 1 && (
                       <button
