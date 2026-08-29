@@ -65,3 +65,35 @@ export async function deleteBudgetSource(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+export async function createTeacher(formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("plan_teachers").insert({ name });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function updateTeacherName(id: string, formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("plan_teachers").update({ name }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function toggleTeacherActive(id: string, isActive: boolean) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_teachers").update({ is_active: !isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function deleteTeacher(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_teachers").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}

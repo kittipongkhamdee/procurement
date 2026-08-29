@@ -30,6 +30,12 @@ export type Database = {
         Update: { id?: string; is_active?: boolean; name?: string; sort_order?: number }
         Relationships: []
       }
+      plan_teachers: {
+        Row: { created_at: string; id: string; is_active: boolean; name: string; sort_order: number }
+        Insert: { created_at?: string; id?: string; is_active?: boolean; name: string; sort_order?: number }
+        Update: { created_at?: string; id?: string; is_active?: boolean; name?: string; sort_order?: number }
+        Relationships: []
+      }
       plan_activities: {
         Row: {
           budget: number

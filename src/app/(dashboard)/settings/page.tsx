@@ -1,10 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
+import { TeacherManager } from "./teacher-manager";
 import {
   createBudgetSource,
   createBudgetYear,
+  createTeacher,
   deleteBudgetSource,
+  deleteTeacher,
   setCurrentBudgetYear,
   toggleBudgetSourceActive,
+  toggleTeacherActive,
+  updateTeacherName,
 } from "./actions";
 
 export default async function SettingsPage() {
@@ -28,9 +33,10 @@ export default async function SettingsPage() {
     );
   }
 
-  const [{ data: budgetYears }, { data: budgetSources }] = await Promise.all([
+  const [{ data: budgetYears }, { data: budgetSources }, { data: teachers }] = await Promise.all([
     supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
     supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
   ]);
 
   return (
@@ -149,6 +155,16 @@ export default async function SettingsPage() {
               เพิ่ม
             </button>
           </form>
+        </div>
+
+        <div className="lg:col-span-2">
+          <TeacherManager
+            teachers={teachers ?? []}
+            createTeacher={createTeacher}
+            updateTeacherName={updateTeacherName}
+            toggleTeacherActive={toggleTeacherActive}
+            deleteTeacher={deleteTeacher}
+          />
         </div>
       </div>
     </div>
