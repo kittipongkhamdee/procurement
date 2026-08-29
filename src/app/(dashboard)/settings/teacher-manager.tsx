@@ -2,7 +2,7 @@
 
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ToggleSwitch } from "@/components/toggle-switch";
-import { TrashIcon } from "@/components/icons";
+import { CloseIcon } from "@/components/icons";
 import type {
   createTeacher as createTeacherAction,
   deleteTeacher as deleteTeacherAction,
@@ -112,7 +112,7 @@ export function TeacherManager({
                     className="icon-btn-danger"
                     aria-label="ลบ"
                   >
-                    <TrashIcon className="h-4 w-4" />
+                    <CloseIcon className="h-4 w-4" />
                   </button>
                 </td>
               </tr>

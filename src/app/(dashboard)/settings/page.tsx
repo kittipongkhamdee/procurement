@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { TeacherManager } from "./teacher-manager";
 import { AdminGroupManager } from "./admin-group-manager";
 import { BudgetSourceToggle } from "./budget-source-toggle";
-import { TrashIcon } from "@/components/icons";
+import { CloseIcon } from "@/components/icons";
 import {
   createAdminGroup,
   createBudgetSource,
@@ -137,7 +137,7 @@ export default async function SettingsPage() {
                     <td className="text-right">
                       <form action={deleteBudgetSource.bind(null, s.id)} className="inline">
                         <button type="submit" className="icon-btn-danger" aria-label="ลบ">
-                          <TrashIcon className="h-4 w-4" />
+                          <CloseIcon className="h-4 w-4" />
                         </button>
                       </form>
                     </td>
