@@ -2,6 +2,7 @@
 
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ToggleSwitch } from "@/components/toggle-switch";
+import { TrashIcon } from "@/components/icons";
 import type {
   createAdminGroup as createAdminGroupAction,
   deleteAdminGroup as deleteAdminGroupAction,
@@ -24,13 +25,19 @@ export function AdminGroupManager({
   toggleAdminGroupActive: typeof toggleAdminGroupActiveAction;
   deleteAdminGroup: typeof deleteAdminGroupAction;
 }) {
-  async function handleRename(id: string, e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+  async function handleRenameBlur(id: string, currentName: string, e: React.FocusEvent<HTMLInputElement>) {
+    const name = e.target.value.trim();
+    if (!name || name === currentName) {
+      e.target.value = currentName;
+      return;
+    }
+    const formData = new FormData();
+    formData.set("name", name);
     try {
       await updateAdminGroupName(id, formData);
       await toastSuccess("บันทึกชื่อเรียบร้อยแล้ว");
     } catch (err) {
+      e.target.value = currentName;
       await toastError(errorMessage(err));
     }
   }
@@ -83,20 +90,24 @@ export function AdminGroupManager({
           <tbody>
             {adminGroups.map((g) => (
               <tr key={g.id}>
-                <td className="p-0">
-                  <form onSubmit={(e) => handleRename(g.id, e)} className="flex items-center gap-2 px-4 py-2">
-                    <input name="name" defaultValue={g.name} className="input" />
-                    <button type="submit" className="btn-secondary btn-sm shrink-0">
-                      บันทึก
-                    </button>
-                  </form>
+                <td className="px-4 py-2">
+                  <input
+                    defaultValue={g.name}
+                    onBlur={(e) => handleRenameBlur(g.id, g.name, e)}
+                    className="input"
+                  />
                 </td>
                 <td className="text-center">
                   <ToggleSwitch checked={g.is_active} onChange={() => handleToggle(g.id, g.is_active)} />
                 </td>
                 <td className="text-right whitespace-nowrap px-4">
-                  <button type="button" onClick={() => handleDelete(g.id, g.name)} className="btn-danger btn-sm">
-                    ลบ
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(g.id, g.name)}
+                    className="icon-btn-danger"
+                    aria-label="ลบ"
+                  >
+                    <TrashIcon className="h-4 w-4" />
                   </button>
                 </td>
               </tr>

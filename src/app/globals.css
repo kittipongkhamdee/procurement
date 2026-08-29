@@ -179,6 +179,10 @@ body {
     @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-navy-700 text-navy-700 transition hover:bg-navy-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  .icon-btn-danger {
+    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
   /* --- ป้ายสถานะ --- */
   .badge-slate {
     @apply inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600;

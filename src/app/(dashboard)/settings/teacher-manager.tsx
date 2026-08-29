@@ -2,6 +2,7 @@
 
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ToggleSwitch } from "@/components/toggle-switch";
+import { TrashIcon } from "@/components/icons";
 import type {
   createTeacher as createTeacherAction,
   deleteTeacher as deleteTeacherAction,
@@ -24,13 +25,19 @@ export function TeacherManager({
   toggleTeacherActive: typeof toggleTeacherActiveAction;
   deleteTeacher: typeof deleteTeacherAction;
 }) {
-  async function handleRename(id: string, e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+  async function handleRenameBlur(id: string, currentName: string, e: React.FocusEvent<HTMLInputElement>) {
+    const name = e.target.value.trim();
+    if (!name || name === currentName) {
+      e.target.value = currentName;
+      return;
+    }
+    const formData = new FormData();
+    formData.set("name", name);
     try {
       await updateTeacherName(id, formData);
       await toastSuccess("บันทึกชื่อเรียบร้อยแล้ว");
     } catch (err) {
+      e.target.value = currentName;
       await toastError(errorMessage(err));
     }
   }
@@ -83,13 +90,12 @@ export function TeacherManager({
           <tbody>
             {teachers.map((t) => (
               <tr key={t.id}>
-                <td className="p-0">
-                  <form onSubmit={(e) => handleRename(t.id, e)} className="flex items-center gap-2 px-4 py-2">
-                    <input name="name" defaultValue={t.name} className="input" />
-                    <button type="submit" className="btn-secondary btn-sm shrink-0">
-                      บันทึก
-                    </button>
-                  </form>
+                <td className="px-4 py-2">
+                  <input
+                    defaultValue={t.name}
+                    onBlur={(e) => handleRenameBlur(t.id, t.name, e)}
+                    className="input"
+                  />
                 </td>
                 <td className="text-center">
                   <ToggleSwitch
@@ -100,8 +106,13 @@ export function TeacherManager({
                   />
                 </td>
                 <td className="text-right whitespace-nowrap px-4">
-                  <button type="button" onClick={() => handleDelete(t.id, t.name)} className="btn-danger btn-sm">
-                    ลบ
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(t.id, t.name)}
+                    className="icon-btn-danger"
+                    aria-label="ลบ"
+                  >
+                    <TrashIcon className="h-4 w-4" />
                   </button>
                 </td>
               </tr>
