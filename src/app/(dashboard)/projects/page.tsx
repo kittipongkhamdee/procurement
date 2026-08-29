@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Modal } from "@/components/modal";
+import { FolderIcon } from "@/components/icons";
 import { CreateProjectForm } from "./create-project-form";
 import {
   createActivity,
@@ -112,9 +113,16 @@ export default async function ProjectsPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
-          <div className="stat-label">จำนวนโครงการ</div>
-          <div className="stat-value">
-            {rows.length.toLocaleString("th-TH")} <span className="stat-suffix">โครงการ</span>
+          <div className="flex items-start gap-3">
+            <span className="stat-icon" style={{ background: "#1b4177" }}>
+              <FolderIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="stat-label">จำนวนโครงการ</div>
+              <div className="stat-value">
+                {rows.length.toLocaleString("th-TH")} <span className="stat-suffix">โครงการ</span>
+              </div>
+            </div>
           </div>
         </div>
         <div className="card">

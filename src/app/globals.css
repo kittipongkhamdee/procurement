@@ -77,6 +77,11 @@ body {
     @apply mt-1.5 text-2xl font-bold text-slate-900 tabular-nums;
   }
 
+  .stat-icon {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white shadow-sm;
+    background: var(--accent, #1b4177);
+  }
+
   .stat-suffix {
     @apply text-sm font-normal text-slate-400;
   }
@@ -137,22 +142,22 @@ body {
 
   /* --- ป้ายสถานะ --- */
   .badge-slate {
-    @apply inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600;
+    @apply inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600;
   }
 
   .badge-amber {
-    @apply inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700;
+    @apply inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700;
   }
 
   .badge-emerald {
-    @apply inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700;
+    @apply inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700;
   }
 
   .badge-red {
-    @apply inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700;
+    @apply inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700;
   }
 
   .badge-navy {
-    @apply inline-flex items-center gap-1 rounded-full bg-navy-800/10 px-2.5 py-1 text-xs font-medium text-navy-800;
+    @apply inline-flex items-center gap-1 rounded-full border border-navy-800/20 bg-navy-800/10 px-2.5 py-1 text-xs font-medium text-navy-800;
   }
 }

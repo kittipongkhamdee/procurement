@@ -1,5 +1,14 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import {
+  ClipboardCheckIcon,
+  FileSignatureIcon,
+  FolderIcon,
+  ShoppingCartIcon,
+  StoreIcon,
+  TruckIcon,
+  WalletIcon,
+} from "@/components/icons";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -42,17 +51,17 @@ export default async function DashboardPage() {
   const totalPendingAmount = pendingDisbursements.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
 
   const cards = [
-    { label: "ผู้ขาย/ผู้รับจ้าง", value: vendorCount ?? 0, suffix: "ราย", accent: "#1b4177" },
-    { label: "รายการขอซื้อ-ขอจ้าง", value: purchaseCount ?? 0, suffix: "รายการ", accent: "#a3791a" },
-    { label: "สัญญาจ้าง", value: contractCount ?? 0, suffix: "สัญญา", accent: "#1b4177" },
-    { label: "โครงการทั้งหมด", value: projectsRes.data?.length ?? 0, suffix: "โครงการ", accent: "#a3791a" },
+    { label: "ผู้ขาย/ผู้รับจ้าง", value: vendorCount ?? 0, suffix: "ราย", accent: "#1b4177", icon: StoreIcon },
+    { label: "รายการขอซื้อ-ขอจ้าง", value: purchaseCount ?? 0, suffix: "รายการ", accent: "#a3791a", icon: ShoppingCartIcon },
+    { label: "สัญญาจ้าง", value: contractCount ?? 0, suffix: "สัญญา", accent: "#1b4177", icon: FileSignatureIcon },
+    { label: "โครงการทั้งหมด", value: projectsRes.data?.length ?? 0, suffix: "โครงการ", accent: "#a3791a", icon: FolderIcon },
   ];
 
   const secondaryCards = [
-    { label: "บันทึกส่งมอบงาน", value: deliveryCount ?? 0, suffix: "รายการ" },
-    { label: "บันทึกขออนุมัติ", value: approvalCount ?? 0, suffix: "ฉบับ" },
-    { label: "เบิกจ่ายรอดำเนินการ", value: pendingDisbursements.length, suffix: "รายการ" },
-    { label: "เบิกจ่ายแล้ว", value: paidDisbursements.length, suffix: "รายการ" },
+    { label: "บันทึกส่งมอบงาน", value: deliveryCount ?? 0, suffix: "รายการ", accent: "#7C3AED", icon: TruckIcon },
+    { label: "บันทึกขออนุมัติ", value: approvalCount ?? 0, suffix: "ฉบับ", accent: "#0EA5E9", icon: ClipboardCheckIcon },
+    { label: "เบิกจ่ายรอดำเนินการ", value: pendingDisbursements.length, suffix: "รายการ", accent: "#D97706", icon: WalletIcon },
+    { label: "เบิกจ่ายแล้ว", value: paidDisbursements.length, suffix: "รายการ", accent: "#16A34A", icon: WalletIcon },
   ];
 
   const shortcuts = [
@@ -74,9 +83,16 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
           <div key={c.label} className="stat-card" style={{ "--accent": c.accent } as React.CSSProperties}>
-            <div className="stat-label">{c.label}</div>
-            <div className="stat-value">
-              {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon" style={{ background: c.accent }}>
+                <c.icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">{c.label}</div>
+                <div className="stat-value">
+                  {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
+                </div>
+              </div>
             </div>
           </div>
         ))}
@@ -85,9 +101,16 @@ export default async function DashboardPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {secondaryCards.map((c) => (
           <div key={c.label} className="card">
-            <div className="stat-label">{c.label}</div>
-            <div className="stat-value text-lg">
-              {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon h-9 w-9" style={{ background: c.accent }}>
+                <c.icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">{c.label}</div>
+                <div className="stat-value text-lg">
+                  {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
+                </div>
+              </div>
             </div>
           </div>
         ))}
