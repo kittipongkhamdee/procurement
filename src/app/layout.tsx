@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
+import "sweetalert2/dist/sweetalert2.min.css";
 import "./globals.css";
 
 const notoSansThai = Noto_Sans_Thai({

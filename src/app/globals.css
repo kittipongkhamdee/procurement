@@ -34,6 +34,41 @@ body {
   color: var(--foreground);
 }
 
+/* --- ธีม SweetAlert2 ให้เข้ากับระบบ (กรมท่า-ทอง, ฟอนต์เดียวกัน) --- */
+.swal2-popup {
+  font-family: var(--font-noto-sans-thai), sans-serif !important;
+  border-radius: 0.75rem !important;
+}
+.swal2-title {
+  font-size: 1.1rem !important;
+  color: #0c2447 !important;
+}
+.swal2-html-container {
+  font-size: 0.875rem !important;
+  color: #475569 !important;
+}
+.swal2-actions .swal2-styled {
+  border-radius: 0.5rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 1.1rem !important;
+  box-shadow: none !important;
+}
+.swal2-actions .swal2-styled:focus {
+  box-shadow: 0 0 0 3px rgba(18, 51, 97, 0.25) !important;
+}
+.swal2-icon.swal2-warning {
+  border-color: #c19a2e !important;
+  color: #a3791a !important;
+}
+.swal2-toast {
+  border-radius: 0.625rem !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12) !important;
+}
+.swal2-toast .swal2-title {
+  font-size: 0.8125rem !important;
+}
+
 @layer components {
   .input {
     @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-navy-600 focus:ring-2 focus:ring-navy-600/15;

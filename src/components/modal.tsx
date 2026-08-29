@@ -1,22 +1,25 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { forwardRef, useImperativeHandle, useRef, type ReactNode } from "react";
 
-export function Modal({
-  trigger,
-  triggerClassName,
-  title,
-  children,
-  closeOnSubmit,
-}: {
-  trigger: ReactNode;
-  triggerClassName?: string;
-  title: string;
-  children: ReactNode;
-  /** ปิด popup ทันทีที่กด submit ฟอร์มใดๆ ข้างใน (เหมาะกับ popup ที่มีฟอร์มเดียว) */
-  closeOnSubmit?: boolean;
-}) {
+export type ModalHandle = { close: () => void };
+
+export const Modal = forwardRef<
+  ModalHandle,
+  {
+    trigger: ReactNode;
+    triggerClassName?: string;
+    title: string;
+    children: ReactNode;
+    /** ปิด popup ทันทีที่กด submit ฟอร์มใดๆ ข้างใน (เหมาะกับ popup ที่มีฟอร์มเดียว) */
+    closeOnSubmit?: boolean;
+  }
+>(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit }, forwardedRef) {
   const ref = useRef<HTMLDialogElement>(null);
+
+  useImperativeHandle(forwardedRef, () => ({
+    close: () => ref.current?.close(),
+  }));
 
   return (
     <>
@@ -51,4 +54,4 @@ export function Modal({
       </dialog>
     </>
   );
-}
+});

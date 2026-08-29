@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Modal } from "@/components/modal";
 import { FolderIcon } from "@/components/icons";
 import { CreateProjectForm } from "./create-project-form";
+import { ProjectEditModal } from "./project-edit-modal";
 import {
   createActivity,
   createProject,
@@ -164,121 +165,21 @@ export default async function ProjectsPage() {
                 <td className="text-right tabular-nums font-semibold text-amber-700">{formatBaht(r.remaining)}</td>
                 {isAdmin && (
                   <td className="text-right">
-                    <Modal
-                      title={`แก้ไขโครงการ: ${r.name}`}
-                      trigger="แก้ไข"
-                      triggerClassName="text-xs font-medium text-navy-800 hover:underline"
-                    >
-                      <form action={updateProject.bind(null, r.id)} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <input type="hidden" name="budget_year_id" value={r.budgetYearId} />
-                        <div className="sm:col-span-2">
-                          <label className="label">ชื่อโครงการ</label>
-                          <input name="name" defaultValue={r.name} required className="input" />
-                        </div>
-                        <div>
-                          <label className="label">กลุ่มบริหาร</label>
-                          <select name="admin_group_id" defaultValue={r.adminGroupId} required className="input">
-                            {adminGroups?.map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="label">แหล่งเงินงบประมาณ</label>
-                          <select
-                            name="budget_source_id"
-                            defaultValue={r.budgetSourceId ?? ""}
-                            className="input"
-                          >
-                            <option value="">ไม่ระบุ</option>
-                            {budgetSources?.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <button type="submit" className="btn-primary sm:col-span-2">
-                          บันทึกการแก้ไข
-                        </button>
-                      </form>
-
-                      <div className="mt-6 border-t border-slate-100 pt-4">
-                        <div className="card-title">กิจกรรมย่อย</div>
-                        <div className="table-shell mb-3">
-                          <table className="table-base">
-                            <thead>
-                              <tr>
-                                <th>ชื่อกิจกรรม</th>
-                                <th className="text-right">งบประมาณ</th>
-                                <th>ผู้รับผิดชอบ</th>
-                                <th></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {r.activities.map((a) => (
-                                <tr key={a.id}>
-                                  <td colSpan={4} className="p-0">
-                                    <form
-                                      action={updateActivity.bind(null, a.id)}
-                                      className="grid grid-cols-1 items-center gap-2 px-4 py-2 sm:grid-cols-[1fr_8rem_8rem_auto]"
-                                    >
-                                      <input name="name" defaultValue={a.name ?? ""} className="input" />
-                                      <input
-                                        type="number"
-                                        step="0.01"
-                                        name="budget"
-                                        defaultValue={a.budget}
-                                        className="input text-right"
-                                      />
-                                      <input name="responsible" defaultValue={a.responsible ?? ""} className="input" />
-                                      <div className="flex justify-end gap-2">
-                                        <button type="submit" className="text-xs font-medium text-navy-800 hover:underline">
-                                          บันทึก
-                                        </button>
-                                        <button
-                                          type="submit"
-                                          formAction={deleteActivity.bind(null, a.id)}
-                                          className="text-xs font-medium text-red-600 hover:underline"
-                                        >
-                                          ลบ
-                                        </button>
-                                      </div>
-                                    </form>
-                                  </td>
-                                </tr>
-                              ))}
-                              {r.activities.length === 0 && (
-                                <tr>
-                                  <td colSpan={4} className="table-empty">
-                                    ยังไม่มีกิจกรรมย่อย
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                        <form
-                          action={createActivity.bind(null, r.id)}
-                          className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_8rem_8rem_auto]"
-                        >
-                          <input name="name" placeholder="ชื่อกิจกรรมใหม่" required className="input" />
-                          <input type="number" step="0.01" name="budget" placeholder="งบประมาณ" className="input text-right" />
-                          <input name="responsible" placeholder="ผู้รับผิดชอบ" className="input" />
-                          <button type="submit" className="btn-secondary">
-                            เพิ่ม
-                          </button>
-                        </form>
-                      </div>
-
-                      <form action={deleteProject.bind(null, r.id)} className="mt-6 border-t border-slate-100 pt-4">
-                        <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
-                          ลบโครงการนี้
-                        </button>
-                      </form>
-                    </Modal>
+                    <ProjectEditModal
+                      projectId={r.id}
+                      name={r.name}
+                      budgetYearId={r.budgetYearId}
+                      adminGroupId={r.adminGroupId}
+                      budgetSourceId={r.budgetSourceId}
+                      activities={r.activities}
+                      adminGroups={adminGroups ?? []}
+                      budgetSources={budgetSources ?? []}
+                      updateProject={updateProject}
+                      deleteProject={deleteProject}
+                      createActivity={createActivity}
+                      updateActivity={updateActivity}
+                      deleteActivity={deleteActivity}
+                    />
                   </td>
                 )}
               </tr>

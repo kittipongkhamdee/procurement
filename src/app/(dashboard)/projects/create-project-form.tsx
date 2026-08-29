@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
+import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
@@ -43,9 +44,14 @@ export function CreateProjectForm({
 
   const totalBudget = rows.reduce((sum, r) => sum + (parseFloat(r.budget) || 0), 0);
 
-  function handleSubmit(formData: FormData) {
+  async function handleSubmit(formData: FormData) {
     formData.set("activities_json", JSON.stringify(rows));
-    return action(formData);
+    try {
+      await action(formData);
+      await toastSuccess("เพิ่มโครงการเรียบร้อยแล้ว");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
   }
 
   return (
