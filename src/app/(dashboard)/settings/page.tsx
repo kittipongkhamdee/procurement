@@ -1,14 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { TeacherManager } from "./teacher-manager";
+import { AdminGroupManager } from "./admin-group-manager";
 import {
+  createAdminGroup,
   createBudgetSource,
   createBudgetYear,
   createTeacher,
+  deleteAdminGroup,
   deleteBudgetSource,
   deleteTeacher,
   setCurrentBudgetYear,
+  toggleAdminGroupActive,
   toggleBudgetSourceActive,
   toggleTeacherActive,
+  updateAdminGroupName,
   updateTeacherName,
 } from "./actions";
 
@@ -33,11 +38,13 @@ export default async function SettingsPage() {
     );
   }
 
-  const [{ data: budgetYears }, { data: budgetSources }, { data: teachers }] = await Promise.all([
-    supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
-    supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
-    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
-  ]);
+  const [{ data: budgetYears }, { data: budgetSources }, { data: teachers }, { data: adminGroups }] =
+    await Promise.all([
+      supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
+      supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("plan_admin_groups").select("id, name, is_active").order("sort_order").order("name"),
+    ]);
 
   return (
     <div>
@@ -156,6 +163,14 @@ export default async function SettingsPage() {
             </button>
           </form>
         </div>
+
+        <AdminGroupManager
+          adminGroups={adminGroups ?? []}
+          createAdminGroup={createAdminGroup}
+          updateAdminGroupName={updateAdminGroupName}
+          toggleAdminGroupActive={toggleAdminGroupActive}
+          deleteAdminGroup={deleteAdminGroup}
+        />
 
         <div className="lg:col-span-2">
           <TeacherManager

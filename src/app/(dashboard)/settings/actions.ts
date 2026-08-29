@@ -66,6 +66,42 @@ export async function deleteBudgetSource(id: string) {
   revalidatePath("/settings");
 }
 
+export async function createAdminGroup(formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("plan_admin_groups").insert({ name });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/projects");
+}
+
+export async function updateAdminGroupName(id: string, formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("plan_admin_groups").update({ name }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/projects");
+}
+
+export async function toggleAdminGroupActive(id: string, isActive: boolean) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_admin_groups").update({ is_active: !isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/projects");
+}
+
+export async function deleteAdminGroup(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_admin_groups").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/projects");
+}
+
 export async function createTeacher(formData: FormData) {
   const supabase = await requireAdmin();
   const name = String(formData.get("name") ?? "").trim();
