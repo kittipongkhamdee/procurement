@@ -174,14 +174,14 @@ export function ProjectEditModal({
                         className="input text-right"
                       />
                       <input name="responsible" defaultValue={a.responsible ?? ""} className="input" />
-                      <div className="flex justify-end gap-3">
-                        <button type="submit" className="text-xs font-medium text-navy-800 hover:underline">
+                      <div className="flex justify-end gap-2">
+                        <button type="submit" className="btn-secondary btn-sm">
                           บันทึก
                         </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteActivity(a.id, a.name ?? "กิจกรรมนี้")}
-                          className="text-xs font-medium text-red-600 hover:underline"
+                          className="btn-danger btn-sm"
                         >
                           ลบ
                         </button>

@@ -91,7 +91,7 @@ export function CreateProjectForm({
       <div className="mt-2 border-t border-slate-100 pt-4">
         <div className="card-title">กิจกรรมย่อย (ไม่บังคับ)</div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
-          <div className="hidden grid-cols-[1fr_7rem_8rem_2.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <div className="hidden grid-cols-[1fr_7rem_8rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>ชื่อกิจกรรม</div>
             <div className="text-right">งบประมาณ</div>
             <div>ผู้รับผิดชอบ</div>
@@ -99,7 +99,7 @@ export function CreateProjectForm({
           </div>
           <div className="divide-y divide-slate-100">
             {rows.map((row, i) => (
-              <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_7rem_8rem_2.5rem] sm:items-center">
+              <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_7rem_8rem_3.5rem] sm:items-center">
                 <input
                   value={row.name}
                   onChange={(e) => updateRow(i, { name: e.target.value })}
@@ -121,12 +121,7 @@ export function CreateProjectForm({
                   placeholder="ผู้รับผิดชอบ"
                 />
                 {rows.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeRow(i)}
-                    aria-label="ลบแถวนี้"
-                    className="text-xs font-medium text-red-600 hover:underline sm:text-right"
-                  >
+                  <button type="button" onClick={() => removeRow(i)} className="btn-danger btn-sm sm:justify-self-end">
                     ลบ
                   </button>
                 )}
