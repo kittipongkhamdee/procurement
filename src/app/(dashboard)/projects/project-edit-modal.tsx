@@ -148,9 +148,9 @@ export function ProjectEditModal({
       <div className="mt-6 border-t border-slate-100 pt-4">
         <div className="card-title">กิจกรรมย่อย</div>
         <div className="mb-3 overflow-hidden rounded-xl border border-slate-200/80">
-          <div className="hidden grid-cols-[1fr_8rem_8rem_auto] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <div className="hidden grid-cols-[1fr_8rem_8rem_11rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>ชื่อกิจกรรม</div>
-            <div className="text-right">งบประมาณ</div>
+            <div>งบประมาณ</div>
             <div>ผู้รับผิดชอบ</div>
             <div></div>
           </div>
@@ -159,7 +159,7 @@ export function ProjectEditModal({
               <form
                 key={a.id}
                 onSubmit={(e) => handleUpdateActivity(a.id, e)}
-                className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-[1fr_8rem_8rem_auto] sm:items-center"
+                className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-[1fr_8rem_8rem_11rem] sm:items-center"
               >
                 <div>
                   <label className="label sm:hidden">ชื่อกิจกรรม</label>

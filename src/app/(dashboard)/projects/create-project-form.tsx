@@ -93,7 +93,7 @@ export function CreateProjectForm({
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[1fr_7rem_8rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>ชื่อกิจกรรม</div>
-            <div className="text-right">งบประมาณ</div>
+            <div>งบประมาณ</div>
             <div>ผู้รับผิดชอบ</div>
             <div></div>
           </div>
