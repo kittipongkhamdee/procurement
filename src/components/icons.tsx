@@ -116,6 +116,14 @@ export const ChevronLeftIcon = base(<path strokeLinecap="round" strokeLinejoin="
 
 export const ChevronRightIcon = base(<path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />);
 
+export const PlusIcon = base(<path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />);
+
+export const CheckIcon = base(<path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />);
+
+export const TrashIcon = base(
+  <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13M10 11v6m4-6v6" />,
+);
+
 export const LogOutIcon = base(
   <>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 8V6a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-2" />

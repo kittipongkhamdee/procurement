@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
+import { CheckIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import type {
   createActivity as createActivityAction,
@@ -44,6 +45,7 @@ export function ProjectEditModal({
   deleteActivity: typeof deleteActivityAction;
 }) {
   const modalRef = useRef<ModalHandle>(null);
+  const projectFormId = useId();
 
   async function handleUpdateProject(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -114,7 +116,7 @@ export function ProjectEditModal({
       trigger="แก้ไข"
       triggerClassName="text-xs font-medium text-navy-800 hover:underline"
     >
-      <form onSubmit={handleUpdateProject} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <form id={projectFormId} onSubmit={handleUpdateProject} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <input type="hidden" name="budget_year_id" value={budgetYearId} />
         <div className="sm:col-span-2">
           <label className="label">ชื่อโครงการ</label>
@@ -141,9 +143,6 @@ export function ProjectEditModal({
             ))}
           </select>
         </div>
-        <button type="submit" className="btn-primary sm:col-span-2">
-          บันทึกการแก้ไข
-        </button>
       </form>
 
       <div className="mt-6 border-t border-slate-100 pt-4">
@@ -175,16 +174,18 @@ export function ProjectEditModal({
                         className="input text-right"
                       />
                       <input name="responsible" defaultValue={a.responsible ?? ""} className="input" />
-                      <div className="flex justify-end gap-2">
-                        <button type="submit" className="text-xs font-medium text-navy-800 hover:underline">
-                          บันทึก
+                      <div className="flex justify-end gap-1.5">
+                        <button type="submit" title="บันทึก" aria-label="บันทึกกิจกรรมนี้" className="icon-btn-save">
+                          <CheckIcon className="h-4 w-4" />
                         </button>
                         <button
                           type="button"
+                          title="ลบ"
+                          aria-label="ลบกิจกรรมนี้"
                           onClick={() => handleDeleteActivity(a.id, a.name ?? "กิจกรรมนี้")}
-                          className="text-xs font-medium text-red-600 hover:underline"
+                          className="icon-btn-delete"
                         >
-                          ลบ
+                          <TrashIcon className="h-4 w-4" />
                         </button>
                       </div>
                     </form>
@@ -208,14 +209,22 @@ export function ProjectEditModal({
           <input name="name" placeholder="ชื่อกิจกรรมใหม่" required className="input" />
           <input type="number" step="0.01" name="budget" placeholder="งบประมาณ" className="input text-right" />
           <input name="responsible" placeholder="ผู้รับผิดชอบ" className="input" />
-          <button type="submit" className="btn-secondary">
-            เพิ่ม
+          <button type="submit" title="เพิ่มกิจกรรม" aria-label="เพิ่มกิจกรรมย่อย" className="icon-btn-add justify-self-end">
+            <PlusIcon className="h-5 w-5" />
           </button>
         </form>
       </div>
 
       <div className="mt-6 border-t border-slate-100 pt-4">
-        <button type="button" onClick={handleDeleteProject} className="text-xs font-medium text-red-600 hover:underline">
+        <button type="submit" form={projectFormId} className="btn-primary w-full">
+          บันทึกการแก้ไข
+        </button>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-red-200 bg-red-50/60 p-3.5">
+        <p className="mb-2 text-xs text-red-700">การลบโครงการจะลบกิจกรรมย่อยทั้งหมดไปด้วย และไม่สามารถกู้คืนได้</p>
+        <button type="button" onClick={handleDeleteProject} className="btn-danger btn-sm">
+          <TrashIcon className="h-4 w-4" />
           ลบโครงการนี้
         </button>
       </div>
