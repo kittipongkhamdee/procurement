@@ -2,7 +2,7 @@
 
 import { useId, useRef } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
-import { CheckIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import { PlusIcon, TrashIcon } from "@/components/icons";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import type {
   createActivity as createActivityAction,
@@ -174,18 +174,16 @@ export function ProjectEditModal({
                         className="input text-right"
                       />
                       <input name="responsible" defaultValue={a.responsible ?? ""} className="input" />
-                      <div className="flex justify-end gap-1.5">
-                        <button type="submit" title="บันทึก" aria-label="บันทึกกิจกรรมนี้" className="icon-btn-save">
-                          <CheckIcon className="h-4 w-4" />
+                      <div className="flex justify-end gap-3">
+                        <button type="submit" className="text-xs font-medium text-navy-800 hover:underline">
+                          บันทึก
                         </button>
                         <button
                           type="button"
-                          title="ลบ"
-                          aria-label="ลบกิจกรรมนี้"
                           onClick={() => handleDeleteActivity(a.id, a.name ?? "กิจกรรมนี้")}
-                          className="icon-btn-delete"
+                          className="text-xs font-medium text-red-600 hover:underline"
                         >
-                          <TrashIcon className="h-4 w-4" />
+                          ลบ
                         </button>
                       </div>
                     </form>

@@ -175,14 +175,6 @@ body {
     @apply px-3 py-1.5 text-xs;
   }
 
-  .icon-btn-save {
-    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-navy-700 transition hover:bg-navy-800/10 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
-  .icon-btn-delete {
-    @apply inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-
   .icon-btn-add {
     @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-navy-700 text-navy-700 transition hover:bg-navy-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
   }
