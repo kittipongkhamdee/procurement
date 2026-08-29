@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Modal } from "@/components/modal";
 import { FolderIcon } from "@/components/icons";
 import { CreateProjectForm } from "./create-project-form";
-import { ProjectEditModal } from "./project-edit-modal";
+import { ProjectsTable } from "./projects-table";
 import {
   createActivity,
   createProject,
@@ -148,59 +148,18 @@ export default async function ProjectsPage() {
 
       <div className="table-shell mt-6">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th>โครงการ</th>
-              <th>กลุ่มบริหาร</th>
-              <th>แหล่งเงินงบประมาณ</th>
-              <th className="text-right">งบประมาณ</th>
-              <th className="text-right">เบิกจ่ายแล้ว</th>
-              <th className="text-right">คงเหลือ</th>
-              {isAdmin && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td className="font-medium text-slate-900">{r.name}</td>
-                <td>{r.adminGroup}</td>
-                <td>{r.budgetSource}</td>
-                <td className="text-right tabular-nums">{formatBaht(r.budget)}</td>
-                <td className="text-right tabular-nums text-emerald-700">{formatBaht(r.spent)}</td>
-                <td className="text-right tabular-nums font-semibold text-amber-700">{formatBaht(r.remaining)}</td>
-                {isAdmin && (
-                  <td className="text-right">
-                    <ProjectEditModal
-                      projectId={r.id}
-                      name={r.name}
-                      budgetYearId={r.budgetYearId}
-                      adminGroupId={r.adminGroupId}
-                      budgetSourceId={r.budgetSourceId}
-                      projectBudget={r.projectBudget}
-                      activities={r.activities}
-                      adminGroups={adminGroups ?? []}
-                      budgetSources={budgetSources ?? []}
-                      teachers={teachers ?? []}
-                      updateProject={updateProject}
-                      deleteProject={deleteProject}
-                      createActivity={createActivity}
-                      updateActivity={updateActivity}
-                      deleteActivity={deleteActivity}
-                    />
-                  </td>
-                )}
-              </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="table-empty">
-                  ยังไม่มีโครงการในปีงบประมาณนี้
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <ProjectsTable
+          rows={rows}
+          isAdmin={isAdmin}
+          adminGroups={adminGroups ?? []}
+          budgetSources={budgetSources ?? []}
+          teachers={teachers ?? []}
+          updateProject={updateProject}
+          deleteProject={deleteProject}
+          createActivity={createActivity}
+          updateActivity={updateActivity}
+          deleteActivity={deleteActivity}
+        />
       </div>
     </div>
   );
