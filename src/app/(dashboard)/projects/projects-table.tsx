@@ -73,16 +73,16 @@ export function ProjectsTable({
   const colSpan = isAdmin ? 8 : 7;
 
   return (
-    <table className="table-base">
+    <table className="table-base min-w-0">
       <thead>
         <tr>
           <th className="w-10 text-center">#</th>
           <th>โครงการ</th>
-          <th>กลุ่มบริหาร</th>
-          <th>แหล่งเงินงบประมาณ</th>
-          <th className="text-right">งบประมาณ</th>
-          <th className="text-right">เบิกจ่ายแล้ว</th>
-          <th className="text-right">คงเหลือ</th>
+          <th className="whitespace-nowrap">กลุ่มบริหาร</th>
+          <th className="whitespace-nowrap">แหล่งเงินงบประมาณ</th>
+          <th className="whitespace-nowrap text-right">งบประมาณ</th>
+          <th className="whitespace-nowrap text-right">เบิกจ่ายแล้ว</th>
+          <th className="whitespace-nowrap text-right">คงเหลือ</th>
           {isAdmin && <th></th>}
         </tr>
       </thead>
@@ -93,19 +93,21 @@ export function ProjectsTable({
             <Fragment key={r.id}>
               <tr onClick={() => toggle(r.id)} className="cursor-pointer">
                 <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
-                <td className="font-medium text-slate-900">
-                  <span className="inline-flex items-center gap-1.5">
+                <td className="min-w-[10rem] max-w-[16rem] font-medium text-slate-900">
+                  <span className="inline-flex items-start gap-1.5">
                     <ChevronRightIcon
-                      className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                      className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
                     />
-                    {r.name}
+                    <span className="break-words">{r.name}</span>
                   </span>
                 </td>
-                <td>{r.adminGroup}</td>
-                <td>{r.budgetSource}</td>
-                <td className="text-right tabular-nums">{formatBaht(r.budget)}</td>
-                <td className="text-right tabular-nums text-emerald-700">{formatBaht(r.spent)}</td>
-                <td className="text-right tabular-nums font-semibold text-amber-700">{formatBaht(r.remaining)}</td>
+                <td className="whitespace-nowrap">{r.adminGroup}</td>
+                <td className="whitespace-nowrap">{r.budgetSource}</td>
+                <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budget)}</td>
+                <td className="whitespace-nowrap text-right tabular-nums text-emerald-700">{formatBaht(r.spent)}</td>
+                <td className="whitespace-nowrap text-right tabular-nums font-semibold text-amber-700">
+                  {formatBaht(r.remaining)}
+                </td>
                 {isAdmin && (
                   <td className="text-right" onClick={(e) => e.stopPropagation()}>
                     <ProjectEditModal
