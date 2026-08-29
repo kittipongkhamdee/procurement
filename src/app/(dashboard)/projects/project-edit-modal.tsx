@@ -51,6 +51,7 @@ export function ProjectEditModal({
     try {
       await updateProject(projectId, formData);
       await toastSuccess("บันทึกข้อมูลโครงการเรียบร้อยแล้ว");
+      modalRef.current?.close();
     } catch (err) {
       await toastError(errorMessage(err));
     }

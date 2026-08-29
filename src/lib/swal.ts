@@ -5,11 +5,20 @@
 // during server-side rendering of a "use client" component's initial HTML.
 async function loadSwal() {
   const { default: Swal } = await import("sweetalert2");
+
+  // Our popups (projects/edit) use a native <dialog>.showModal(), which the
+  // browser promotes into the "top layer" — that always paints above every
+  // normal z-indexed element, SweetAlert2 included, no matter how high its
+  // z-index is set. Appending the swal popup *inside* the open dialog makes
+  // it part of the same top-layer stack instead, so it renders above it.
+  const openDialog = document.querySelector<HTMLDialogElement>("dialog[open]");
+
   return Swal.mixin({
     confirmButtonColor: "#123361",
     cancelButtonColor: "#64748b",
     reverseButtons: true,
     buttonsStyling: true,
+    target: openDialog ?? document.body,
   });
 }
 
