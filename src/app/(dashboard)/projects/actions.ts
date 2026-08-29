@@ -26,35 +26,39 @@ export async function createProject(formData: FormData) {
   const budget_year_id = String(formData.get("budget_year_id") ?? "");
   const admin_group_id = String(formData.get("admin_group_id") ?? "");
   const budget_source_id = String(formData.get("budget_source_id") ?? "") || null;
+  const hasActivities = String(formData.get("has_activities") ?? "yes") !== "no";
+  const directBudget = hasActivities ? 0 : Number(formData.get("project_budget") ?? 0);
 
   if (!name || !budget_year_id || !admin_group_id) return;
 
   const { data: project, error } = await supabase
     .from("plan_projects")
-    .insert({ name, budget_year_id, admin_group_id, budget_source_id })
+    .insert({ name, budget_year_id, admin_group_id, budget_source_id, budget: directBudget })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
 
-  let activityRows: ActivityRow[] = [];
-  try {
-    activityRows = JSON.parse(String(formData.get("activities_json") ?? "[]"));
-  } catch {
-    activityRows = [];
-  }
+  if (hasActivities) {
+    let activityRows: ActivityRow[] = [];
+    try {
+      activityRows = JSON.parse(String(formData.get("activities_json") ?? "[]"));
+    } catch {
+      activityRows = [];
+    }
 
-  const rowsToInsert = activityRows
-    .filter((a) => a.name.trim() !== "")
-    .map((a) => ({
-      project_id: project.id,
-      name: a.name.trim(),
-      budget: a.budget ? Number(a.budget) : 0,
-      responsible: a.responsible.trim() || null,
-    }));
+    const rowsToInsert = activityRows
+      .filter((a) => a.name.trim() !== "")
+      .map((a) => ({
+        project_id: project.id,
+        name: a.name.trim(),
+        budget: a.budget ? Number(a.budget) : 0,
+        responsible: a.responsible.trim() || null,
+      }));
 
-  if (rowsToInsert.length > 0) {
-    const { error: activitiesError } = await supabase.from("plan_activities").insert(rowsToInsert);
-    if (activitiesError) throw new Error(activitiesError.message);
+    if (rowsToInsert.length > 0) {
+      const { error: activitiesError } = await supabase.from("plan_activities").insert(rowsToInsert);
+      if (activitiesError) throw new Error(activitiesError.message);
+    }
   }
 
   revalidatePath("/projects");
@@ -67,12 +71,13 @@ export async function updateProject(projectId: string, formData: FormData) {
   const budget_year_id = String(formData.get("budget_year_id") ?? "");
   const admin_group_id = String(formData.get("admin_group_id") ?? "");
   const budget_source_id = String(formData.get("budget_source_id") ?? "") || null;
+  const budget = Number(formData.get("project_budget") ?? 0);
 
   if (!name || !budget_year_id || !admin_group_id) return;
 
   const { error } = await supabase
     .from("plan_projects")
-    .update({ name, budget_year_id, admin_group_id, budget_source_id })
+    .update({ name, budget_year_id, admin_group_id, budget_source_id, budget })
     .eq("id", projectId);
   if (error) throw new Error(error.message);
   revalidatePath("/projects");

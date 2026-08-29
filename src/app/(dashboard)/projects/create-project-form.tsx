@@ -28,6 +28,8 @@ export function CreateProjectForm({
   adminGroups: AdminGroup[];
   budgetSources: BudgetSource[];
 }) {
+  const [hasActivities, setHasActivities] = useState(true);
+  const [projectBudget, setProjectBudget] = useState("");
   const [rows, setRows] = useState<ActivityRow[]>([emptyRow()]);
 
   function updateRow(index: number, patch: Partial<ActivityRow>) {
@@ -89,53 +91,99 @@ export function CreateProjectForm({
       </div>
 
       <div className="mt-2 border-t border-slate-100 pt-4">
-        <div className="card-title">กิจกรรมย่อย (ไม่บังคับ)</div>
-        <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
-          <div className="hidden grid-cols-[1fr_7rem_8rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
-            <div>ชื่อกิจกรรม</div>
-            <div>งบประมาณ</div>
-            <div>ผู้รับผิดชอบ</div>
-            <div></div>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {rows.map((row, i) => (
-              <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_7rem_8rem_3.5rem] sm:items-center">
-                <input
-                  value={row.name}
-                  onChange={(e) => updateRow(i, { name: e.target.value })}
-                  className="input"
-                  placeholder={`กิจกรรมที่ ${i + 1}`}
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  value={row.budget}
-                  onChange={(e) => updateRow(i, { budget: e.target.value })}
-                  className="input text-right"
-                  placeholder="งบประมาณ"
-                />
-                <input
-                  value={row.responsible}
-                  onChange={(e) => updateRow(i, { responsible: e.target.value })}
-                  className="input"
-                  placeholder="ผู้รับผิดชอบ"
-                />
-                {rows.length > 1 && (
-                  <button type="button" onClick={() => removeRow(i)} className="btn-danger btn-sm sm:justify-self-end">
-                    ลบ
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
-            <span className="font-semibold text-slate-600">รวมงบประมาณ</span>
-            <span className="font-bold text-navy-800">{formatBaht(totalBudget)}</span>
-          </div>
+        <div className="card-title">กิจกรรมย่อย</div>
+        <input type="hidden" name="has_activities" value={hasActivities ? "yes" : "no"} />
+        <div className="mb-3 flex gap-4 text-sm">
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="has_activities_ui"
+              checked={hasActivities}
+              onChange={() => setHasActivities(true)}
+            />
+            มีกิจกรรมย่อย
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input
+              type="radio"
+              name="has_activities_ui"
+              checked={!hasActivities}
+              onChange={() => setHasActivities(false)}
+            />
+            ไม่มีกิจกรรมย่อย
+          </label>
         </div>
-        <button type="button" onClick={addRow} className="btn-secondary btn-sm">
-          + เพิ่มกิจกรรม
-        </button>
+
+        {hasActivities ? (
+          <>
+            <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
+              <div className="hidden grid-cols-[1fr_7rem_8rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+                <div>ชื่อกิจกรรม</div>
+                <div>งบประมาณ</div>
+                <div>ผู้รับผิดชอบ</div>
+                <div></div>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {rows.map((row, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_7rem_8rem_3.5rem] sm:items-center"
+                  >
+                    <input
+                      value={row.name}
+                      onChange={(e) => updateRow(i, { name: e.target.value })}
+                      className="input"
+                      placeholder={`กิจกรรมที่ ${i + 1}`}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={row.budget}
+                      onChange={(e) => updateRow(i, { budget: e.target.value })}
+                      className="input text-right"
+                      placeholder="งบประมาณ"
+                    />
+                    <input
+                      value={row.responsible}
+                      onChange={(e) => updateRow(i, { responsible: e.target.value })}
+                      className="input"
+                      placeholder="ผู้รับผิดชอบ"
+                    />
+                    {rows.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeRow(i)}
+                        className="btn-danger btn-sm sm:justify-self-end"
+                      >
+                        ลบ
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
+                <span className="font-semibold text-slate-600">รวมงบประมาณ</span>
+                <span className="font-bold text-navy-800">{formatBaht(totalBudget)}</span>
+              </div>
+            </div>
+            <button type="button" onClick={addRow} className="btn-secondary btn-sm">
+              + เพิ่มกิจกรรม
+            </button>
+          </>
+        ) : (
+          <div>
+            <label className="label">งบประมาณโครงการ</label>
+            <input
+              type="number"
+              step="0.01"
+              name="project_budget"
+              value={projectBudget}
+              onChange={(e) => setProjectBudget(e.target.value)}
+              className="input"
+              placeholder="0.00"
+            />
+          </div>
+        )}
       </div>
 
       <button type="submit" className="btn-primary mt-2">

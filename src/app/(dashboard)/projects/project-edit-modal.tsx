@@ -21,6 +21,7 @@ export function ProjectEditModal({
   budgetYearId,
   adminGroupId,
   budgetSourceId,
+  projectBudget,
   activities,
   adminGroups,
   budgetSources,
@@ -35,6 +36,7 @@ export function ProjectEditModal({
   budgetYearId: string;
   adminGroupId: string;
   budgetSourceId: string | null;
+  projectBudget: number;
   activities: Activity[];
   adminGroups: Option[];
   budgetSources: Option[];
@@ -195,6 +197,20 @@ export function ProjectEditModal({
               {activities.length === 0 && <div className="table-empty">ยังไม่มีกิจกรรมย่อย</div>}
             </div>
           </div>
+
+          {activities.length === 0 && (
+            <div>
+              <label className="label">งบประมาณโครงการ (ใช้เมื่อไม่มีกิจกรรมย่อย)</label>
+              <input
+                type="number"
+                step="0.01"
+                name="project_budget"
+                defaultValue={projectBudget}
+                className="input"
+                placeholder="0.00"
+              />
+            </div>
+          )}
         </div>
       </form>
 

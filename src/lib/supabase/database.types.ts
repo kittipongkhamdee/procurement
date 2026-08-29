@@ -74,6 +74,7 @@ export type Database = {
       plan_projects: {
         Row: {
           admin_group_id: string
+          budget: number
           budget_source_id: string | null
           budget_year_id: string
           created_at: string
@@ -84,6 +85,7 @@ export type Database = {
         }
         Insert: {
           admin_group_id: string
+          budget?: number
           budget_source_id?: string | null
           budget_year_id: string
           created_at?: string
@@ -94,6 +96,7 @@ export type Database = {
         }
         Update: {
           admin_group_id?: string
+          budget?: number
           budget_source_id?: string | null
           budget_year_id?: string
           created_at?: string

@@ -47,7 +47,7 @@ export default async function ProjectsPage() {
     ? await supabase
         .from("plan_projects")
         .select(
-          "id, name, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name), plan_budget_sources(name), plan_activities(id, name, budget, responsible)",
+          "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name), plan_budget_sources(name), plan_activities(id, name, budget, responsible)",
         )
         .eq("budget_year_id", currentYear.id)
         .order("sort_order")
@@ -71,11 +71,15 @@ export default async function ProjectsPage() {
 
   const rows = (projects ?? []).map((p) => {
     const activities = p.plan_activities as unknown as Activity[];
-    const budget = activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0);
+    const budget =
+      activities.length > 0
+        ? activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0)
+        : Number(p.budget ?? 0);
     const spent = spentByProject.get(p.id) ?? 0;
     return {
       id: p.id,
       name: p.name,
+      projectBudget: Number(p.budget ?? 0),
       budgetYearId: p.budget_year_id,
       adminGroupId: p.admin_group_id,
       budgetSourceId: p.budget_source_id,
@@ -171,6 +175,7 @@ export default async function ProjectsPage() {
                       budgetYearId={r.budgetYearId}
                       adminGroupId={r.adminGroupId}
                       budgetSourceId={r.budgetSourceId}
+                      projectBudget={r.projectBudget}
                       activities={r.activities}
                       adminGroups={adminGroups ?? []}
                       budgetSources={budgetSources ?? []}
