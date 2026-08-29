@@ -147,58 +147,54 @@ export function ProjectEditModal({
 
       <div className="mt-6 border-t border-slate-100 pt-4">
         <div className="card-title">กิจกรรมย่อย</div>
-        <div className="table-shell mb-3">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th>ชื่อกิจกรรม</th>
-                <th className="text-right">งบประมาณ</th>
-                <th>ผู้รับผิดชอบ</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {activities.map((a) => (
-                <tr key={a.id}>
-                  <td colSpan={4} className="p-0">
-                    <form
-                      onSubmit={(e) => handleUpdateActivity(a.id, e)}
-                      className="grid grid-cols-1 items-center gap-2 px-4 py-2 sm:grid-cols-[1fr_8rem_8rem_auto]"
-                    >
-                      <input name="name" defaultValue={a.name ?? ""} className="input" />
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="budget"
-                        defaultValue={a.budget}
-                        className="input text-right"
-                      />
-                      <input name="responsible" defaultValue={a.responsible ?? ""} className="input" />
-                      <div className="flex justify-end gap-2">
-                        <button type="submit" className="btn-secondary btn-sm">
-                          บันทึก
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteActivity(a.id, a.name ?? "กิจกรรมนี้")}
-                          className="btn-danger btn-sm"
-                        >
-                          ลบ
-                        </button>
-                      </div>
-                    </form>
-                  </td>
-                </tr>
-              ))}
-              {activities.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="table-empty">
-                    ยังไม่มีกิจกรรมย่อย
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="mb-3 overflow-hidden rounded-xl border border-slate-200/80">
+          <div className="hidden grid-cols-[1fr_8rem_8rem_auto] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+            <div>ชื่อกิจกรรม</div>
+            <div className="text-right">งบประมาณ</div>
+            <div>ผู้รับผิดชอบ</div>
+            <div></div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {activities.map((a) => (
+              <form
+                key={a.id}
+                onSubmit={(e) => handleUpdateActivity(a.id, e)}
+                className="grid grid-cols-1 gap-2 p-3 sm:grid-cols-[1fr_8rem_8rem_auto] sm:items-center"
+              >
+                <div>
+                  <label className="label sm:hidden">ชื่อกิจกรรม</label>
+                  <input name="name" defaultValue={a.name ?? ""} className="input" />
+                </div>
+                <div>
+                  <label className="label sm:hidden">งบประมาณ</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="budget"
+                    defaultValue={a.budget}
+                    className="input text-right"
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">ผู้รับผิดชอบ</label>
+                  <input name="responsible" defaultValue={a.responsible ?? ""} className="input" />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="submit" className="btn-secondary btn-sm">
+                    บันทึก
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteActivity(a.id, a.name ?? "กิจกรรมนี้")}
+                    className="btn-danger btn-sm"
+                  >
+                    ลบ
+                  </button>
+                </div>
+              </form>
+            ))}
+            {activities.length === 0 && <div className="table-empty">ยังไม่มีกิจกรรมย่อย</div>}
+          </div>
         </div>
         <form
           onSubmit={handleCreateActivity}
