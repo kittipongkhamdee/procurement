@@ -71,6 +71,11 @@ export async function extractProposalFromFile(
     .download(filePath);
   if (downloadError || !fileBlob) throw new Error("ดาวน์โหลดไฟล์ไม่สำเร็จ");
 
+  const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15MB — ไฟล์ใหญ่กว่านี้เสี่ยงหมดเวลาก่อน AI ประมวลผลเสร็จ
+  if (fileBlob.size > MAX_FILE_BYTES) {
+    throw new Error("ไฟล์มีขนาดใหญ่เกินไป (เกิน 15MB) กรุณาใช้ไฟล์ที่มีขนาดเล็กลง");
+  }
+
   let contentParts: unknown[];
   if (ext === "pdf") {
     const buffer = Buffer.from(await fileBlob.arrayBuffer());
@@ -92,12 +97,27 @@ export async function extractProposalFromFile(
     },
   });
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const callGemini = () =>
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: requestBody,
+      signal: AbortSignal.timeout(45_000),
+    });
 
-  let res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody });
-  if (!res.ok && (res.status === 503 || res.status === 429)) {
-    // โมเดลกำลังโหลดสูง/ถูกจำกัดอัตราชั่วคราว ลองใหม่อีกครั้งหลังหน่วงเวลาสั้นๆ
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody });
+  let res: Response;
+  try {
+    res = await callGemini();
+    if (!res.ok && (res.status === 503 || res.status === 429)) {
+      // โมเดลกำลังโหลดสูง/ถูกจำกัดอัตราชั่วคราว ลองใหม่อีกครั้งหลังหน่วงเวลาสั้นๆ
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      res = await callGemini();
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === "TimeoutError") {
+      throw new Error("เรียก Gemini ใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง หรือใช้ไฟล์ที่มีขนาดเล็กลง");
+    }
+    throw err;
   }
   if (!res.ok) {
     if (res.status === 503) throw new Error("Gemini กำลังมีผู้ใช้งานหนาแน่น กรุณาลองใหม่อีกครั้งในสักครู่");

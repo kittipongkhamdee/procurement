@@ -15,6 +15,9 @@ import {
   updateProposal,
 } from "./actions";
 
+// ให้เวลาการทำงานของ Server Action นานขึ้น (เผื่อการอ่านไฟล์ด้วย AI ที่อาจใช้เวลานาน)
+export const maxDuration = 60;
+
 export default async function ProjectProposalsPage() {
   const supabase = await createClient();
 
