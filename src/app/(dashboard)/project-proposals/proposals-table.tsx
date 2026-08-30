@@ -64,6 +64,8 @@ function statusBadgeClass(status: string) {
 export function ProposalsTable({
   rows,
   isAdmin,
+  canEndorse,
+  canApprove,
   currentUserId,
   endorseProposal,
   approveProposal,
@@ -72,6 +74,8 @@ export function ProposalsTable({
 }: {
   rows: ProposalRow[];
   isAdmin: boolean;
+  canEndorse: boolean;
+  canApprove: boolean;
   currentUserId: string | null;
   endorseProposal: typeof endorseProposalAction;
   approveProposal: typeof approveProposalAction;
@@ -108,6 +112,8 @@ export function ProposalsTable({
                 <ProposalDetailModal
                   proposal={r}
                   isAdmin={isAdmin}
+                  canEndorse={canEndorse}
+                  canApprove={canApprove}
                   canDelete={canDelete}
                   endorseProposal={endorseProposal}
                   approveProposal={approveProposal}

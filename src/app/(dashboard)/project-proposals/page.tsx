@@ -18,6 +18,18 @@ export default async function ProjectProposalsPage() {
     .maybeSingle();
   const isAdmin = myProfile?.role === "admin";
 
+  const { data: myGroups } = await supabase
+    .from("proc_user_group_members")
+    .select("proc_user_groups(name)")
+    .eq("user_id", user?.id ?? "");
+  const myGroupNames = new Set(
+    (myGroups ?? [])
+      .map((g) => (g.proc_user_groups as unknown as { name: string } | null)?.name)
+      .filter((n): n is string => !!n),
+  );
+  const canEndorse = isAdmin || myGroupNames.has("รองผู้อำนวยการ");
+  const canApprove = isAdmin || myGroupNames.has("ผู้อำนวยการ");
+
   const { data: budgetYears } = await supabase
     .from("plan_budget_years")
     .select("id, year, is_open")
@@ -121,6 +133,8 @@ export default async function ProjectProposalsPage() {
         <ProposalsTable
           rows={rows}
           isAdmin={isAdmin}
+          canEndorse={canEndorse}
+          canApprove={canApprove}
           currentUserId={user?.id ?? null}
           endorseProposal={endorseProposal}
           approveProposal={approveProposal}

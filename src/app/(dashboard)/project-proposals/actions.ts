@@ -23,6 +23,26 @@ async function requireAdmin() {
   return supabase;
 }
 
+/** อนุญาตให้ผู้ดูแลระบบ หรือผู้ที่มีสถานะผู้ใช้งานตามชื่อที่ระบุ (เช่น "รองผู้อำนวยการ") ทำรายการได้ */
+async function requireAdminOrGroup(groupName: string) {
+  const { supabase, user } = await requireUser();
+  const { data: profile } = await supabase
+    .from("proc_profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profile?.role === "admin") return supabase;
+
+  const { data: membership } = await supabase
+    .from("proc_user_group_members")
+    .select("group_id, proc_user_groups!inner(name)")
+    .eq("user_id", user.id)
+    .eq("proc_user_groups.name", groupName)
+    .maybeSingle();
+  if (!membership) throw new Error(`เฉพาะผู้ดูแลระบบหรือผู้มีสถานะ "${groupName}" เท่านั้น`);
+  return supabase;
+}
+
 function str(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim() || null;
 }
@@ -107,7 +127,7 @@ export async function endorseProposal(
   signerName: string,
   note?: string,
 ) {
-  const supabase = await requireAdmin();
+  const supabase = await requireAdminOrGroup("รองผู้อำนวยการ");
   const { error } = await supabase
     .from("plan_project_proposals")
     .update({
@@ -128,7 +148,7 @@ export async function approveProposal(
   signerName: string,
   note?: string,
 ) {
-  const supabase = await requireAdmin();
+  const supabase = await requireAdminOrGroup("ผู้อำนวยการ");
   const { error } = await supabase
     .from("plan_project_proposals")
     .update({
