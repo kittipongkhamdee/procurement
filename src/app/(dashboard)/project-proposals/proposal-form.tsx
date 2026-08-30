@@ -149,7 +149,7 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <div className="card-title">ขั้นตอนการดำเนินงาน</div>
+        <div className="card-title">ขั้นตอนการดำเนินงาน และงบประมาณ</div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[1fr_6rem_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>รายละเอียดการดำเนินงาน</div>
@@ -237,30 +237,26 @@ export function ProposalForm({
               </div>
             ))}
           </div>
-        </div>
-        <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
-          + เพิ่มกิจกรรม
-        </button>
-      </div>
-
-      <div className="border-t border-slate-100 pt-4">
-        <div className="card-title">งบประมาณในการดำเนินงาน</div>
-        <div className="overflow-hidden rounded-xl border border-slate-200/80">
           <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
             <span className="font-semibold text-slate-600">รวมงบประมาณทั้งสิ้น</span>
             <span className="font-bold text-navy-800">{formatBaht(totalBudget)} บาท</span>
           </div>
         </div>
-        <div className="mt-3 w-full sm:w-56">
-          <label className="label">แหล่งเงินงบประมาณ</label>
-          <select name="budget_source_id" defaultValue="" className="input">
-            <option value="">ไม่ระบุ</option>
-            {budgetSources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
+            + เพิ่มกิจกรรม
+          </button>
+          <div className="w-full sm:ml-auto sm:w-56">
+            <label className="label">แหล่งเงินงบประมาณ</label>
+            <select name="budget_source_id" defaultValue="" className="input">
+              <option value="">ไม่ระบุ</option>
+              {budgetSources.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

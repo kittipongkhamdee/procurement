@@ -185,7 +185,7 @@ export function ProposalDetailModal({
 
         {proposal.activities.length > 0 && (
           <div>
-            <SectionTitle>ขั้นตอนการดำเนินงาน</SectionTitle>
+            <SectionTitle>ขั้นตอนการดำเนินงาน และงบประมาณ</SectionTitle>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.activities.map((a, i) => {
                 const rowTotal = (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0);
@@ -205,13 +205,11 @@ export function ProposalDetailModal({
                 );
               })}
             </div>
+            <div className="mt-2 text-left text-sm font-bold text-navy-800">
+              รวมงบประมาณทั้งสิ้น: {formatBaht(proposal.budgetAmount)} บาท (แหล่งเงิน: {proposal.budgetSource})
+            </div>
           </div>
         )}
-
-        <Field
-          label="งบประมาณในการดำเนินงาน"
-          value={`${formatBaht(proposal.budgetAmount)} บาท (แหล่งเงิน: ${proposal.budgetSource})`}
-        />
 
         <div className="border-t border-slate-100 pt-4">
           <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>
