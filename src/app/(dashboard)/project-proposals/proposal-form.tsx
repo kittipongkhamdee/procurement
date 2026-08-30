@@ -14,13 +14,11 @@ type Standard = Pick<Tables<"plan_standards">, "id" | "name">;
 type ActivityRow = {
   name: string;
   responsible: string[];
-  compensation: string;
-  service: string;
-  material: string;
+  budget: string;
 };
 
 function emptyActivity(): ActivityRow {
-  return { name: "", responsible: [], compensation: "", service: "", material: "" };
+  return { name: "", responsible: [], budget: "" };
 }
 
 function formatBaht(n: number) {
@@ -52,11 +50,7 @@ export function ProposalForm({
   }
 
   const totalBudget = useMemo(
-    () =>
-      activities.reduce(
-        (sum, a) => sum + (parseFloat(a.compensation) || 0) + (parseFloat(a.service) || 0) + (parseFloat(a.material) || 0),
-        0,
-      ),
+    () => activities.reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0),
     [activities],
   );
 
@@ -77,6 +71,10 @@ export function ProposalForm({
       <div>
         <div className="card-title">ข้อมูลทั่วไป</div>
         <div className="grid grid-cols-1 gap-3">
+          <div>
+            <label className="label">ไฟล์โครงการ (.doc, .docx)</label>
+            <input type="file" name="file" accept=".doc,.docx" className="input" />
+          </div>
           <div>
             <label className="label">ชื่อโครงการ</label>
             <input name="name" required className="input" />
@@ -142,19 +140,17 @@ export function ProposalForm({
           </select>
         </div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
-          <div className="hidden grid-cols-[1fr_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <div className="hidden grid-cols-[1fr_8rem_6rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>รายละเอียดการดำเนินงาน</div>
             <div>ผู้รับผิดชอบ</div>
-            <div>ค่าตอบแทน</div>
-            <div>ค่าใช้สอย</div>
-            <div>ค่าวัสดุ</div>
+            <div>งบประมาณ</div>
             <div></div>
           </div>
           <div className="divide-y divide-slate-100">
             {activities.map((row, i) => (
               <div
                 key={i}
-                className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_8rem_5rem_5rem_5rem_3.5rem] sm:items-center"
+                className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_8rem_6rem_3.5rem] sm:items-center"
               >
                 <div>
                   <label className="label sm:hidden">รายละเอียดการดำเนินงาน</label>
@@ -174,34 +170,12 @@ export function ProposalForm({
                   />
                 </div>
                 <div>
-                  <label className="label sm:hidden">ค่าตอบแทน</label>
+                  <label className="label sm:hidden">งบประมาณ</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={row.compensation}
-                    onChange={(e) => updateActivity(i, { compensation: e.target.value })}
-                    className="input text-right"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">ค่าใช้สอย</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={row.service}
-                    onChange={(e) => updateActivity(i, { service: e.target.value })}
-                    className="input text-right"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">ค่าวัสดุ</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={row.material}
-                    onChange={(e) => updateActivity(i, { material: e.target.value })}
+                    value={row.budget}
+                    onChange={(e) => updateActivity(i, { budget: e.target.value })}
                     className="input text-right"
                     placeholder="0.00"
                   />

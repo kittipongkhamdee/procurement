@@ -58,9 +58,18 @@ export default async function ProjectProposalsPage() {
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
     .select(
-      "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, budget_amount, status, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+      "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, budget_amount, status, file_url, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
     )
     .order("created_at", { ascending: false });
+
+  const filePaths = (proposals ?? []).map((p) => p.file_url).filter((p): p is string => !!p);
+  const signedFileUrls = new Map<string, string>();
+  if (filePaths.length > 0) {
+    const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(filePaths, 3600);
+    signed?.forEach((s) => {
+      if (s.signedUrl && !s.error) signedFileUrls.set(s.path ?? "", s.signedUrl);
+    });
+  }
 
   const rows = (proposals ?? []).map((p) => ({
     id: p.id,
@@ -72,13 +81,12 @@ export default async function ProjectProposalsPage() {
     standard: p.standard,
     responsible: p.responsible ?? [],
     strategyAlignment: p.strategy_alignment,
+    fileUrl: p.file_url ? (signedFileUrls.get(p.file_url) ?? null) : null,
     activities:
       (p.activities as unknown as {
         name: string;
         responsible: string[];
-        compensation: number;
-        service: number;
-        material: number;
+        budget: number;
       }[]) ?? [],
     budgetAmount: Number(p.budget_amount ?? 0),
     status: p.status,

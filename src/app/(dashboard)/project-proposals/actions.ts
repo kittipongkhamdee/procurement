@@ -50,10 +50,10 @@ function str(formData: FormData, key: string) {
 type ActivityRow = {
   name: string;
   responsible: string[];
-  compensation: string;
-  service: string;
-  material: string;
+  budget: string;
 };
+
+const PROPOSAL_FILES_BUCKET = "procurement-files";
 
 export async function createProposal(formData: FormData) {
   const { supabase, user } = await requireUser();
@@ -79,15 +79,22 @@ export async function createProposal(formData: FormData) {
     .filter((a) => a.name.trim() !== "")
     .map((a) => ({
       ...a,
-      compensation: Number(a.compensation) || 0,
-      service: Number(a.service) || 0,
-      material: Number(a.material) || 0,
+      budget: Number(a.budget) || 0,
     })) as unknown as ActivityRow[];
 
-  const budgetAmount = activities.reduce(
-    (sum, a) => sum + (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0),
-    0,
-  );
+  const budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+
+  let fileUrl: string | null = null;
+  const file = formData.get("file") as File | null;
+  if (file && file.size > 0) {
+    const ext = file.name.split(".").pop();
+    const path = `project-proposals/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PROPOSAL_FILES_BUCKET)
+      .upload(path, file, { contentType: file.type || undefined });
+    if (uploadError) throw new Error(uploadError.message);
+    fileUrl = path;
+  }
 
   const { error } = await supabase.from("plan_project_proposals").insert({
     created_by: user.id,
@@ -101,6 +108,7 @@ export async function createProposal(formData: FormData) {
     activities,
     budget_amount: budgetAmount,
     budget_source_id: str(formData, "budget_source_id"),
+    file_url: fileUrl,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");

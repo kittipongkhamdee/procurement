@@ -14,9 +14,7 @@ import type {
 type ActivityRow = {
   name: string;
   responsible: string[];
-  compensation: number;
-  service: number;
-  material: number;
+  budget: number;
 };
 
 type Proposal = {
@@ -28,6 +26,7 @@ type Proposal = {
   standard: string | null;
   responsible: string[];
   strategyAlignment: string | null;
+  fileUrl: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;
@@ -158,6 +157,16 @@ export function ProposalDetailModal({
           <span className="text-slate-500">
             ผู้เสนอ: {proposal.proposerName ?? "-"} · {proposal.adminGroup}
           </span>
+          {proposal.fileUrl && (
+            <a
+              href={proposal.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-navy-800 hover:underline"
+            >
+              เปิดไฟล์โครงการ
+            </a>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -171,7 +180,7 @@ export function ProposalDetailModal({
             <SectionTitle>ขั้นตอนการดำเนินงาน และงบประมาณ</SectionTitle>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.activities.map((a, i) => {
-                const rowTotal = (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0);
+                const rowTotal = Number(a.budget) || 0;
                 return (
                   <div key={i} className="grid grid-cols-1 gap-1.5 p-3 text-sm">
                     <div className="text-left font-medium text-slate-700">

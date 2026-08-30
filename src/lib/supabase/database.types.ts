@@ -516,6 +516,7 @@ export type Database = {
           endorse_note: string | null
           endorsed_at: string | null
           endorsed_by_name: string | null
+          file_url: string | null
           id: string
           name: string
           proposer_name: string | null
@@ -538,6 +539,7 @@ export type Database = {
           endorse_note?: string | null
           endorsed_at?: string | null
           endorsed_by_name?: string | null
+          file_url?: string | null
           id?: string
           name: string
           proposer_name?: string | null
@@ -560,6 +562,7 @@ export type Database = {
           endorse_note?: string | null
           endorsed_at?: string | null
           endorsed_by_name?: string | null
+          file_url?: string | null
           id?: string
           name?: string
           proposer_name?: string | null
