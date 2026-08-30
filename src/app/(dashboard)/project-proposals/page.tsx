@@ -29,6 +29,7 @@ export default async function ProjectProposalsPage() {
   );
   const canEndorse = isAdmin || myGroupNames.has("รองผู้อำนวยการ");
   const canApprove = isAdmin || myGroupNames.has("ผู้อำนวยการ");
+  const isApproverOnly = !isAdmin && (canEndorse || canApprove);
 
   const { data: budgetYears } = await supabase
     .from("plan_budget_years")
@@ -101,10 +102,12 @@ export default async function ProjectProposalsPage() {
         <div>
           <h1 className="page-title">เสนอโครงการ</h1>
           <p className="page-subtitle">
-            เขียนข้อเสนอโครงการตามแบบฟอร์มของโรงเรียน เพื่อเสนอเห็นชอบและอนุมัติ
+            {isApproverOnly
+              ? "รายการข้อเสนอโครงการที่ครูเสนอเข้ามา เพื่อพิจารณาเห็นชอบ/อนุมัติ"
+              : "เขียนข้อเสนอโครงการตามแบบฟอร์มของโรงเรียน เพื่อเสนอเห็นชอบและอนุมัติ"}
           </p>
         </div>
-        {currentYear && (
+        {currentYear && !isApproverOnly && (
           <Modal
             title="เสนอโครงการใหม่"
             trigger="+ เสนอโครงการใหม่"
