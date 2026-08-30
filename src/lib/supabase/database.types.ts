@@ -518,7 +518,6 @@ export type Database = {
           endorsed_by_name: string | null
           id: string
           name: string
-          project_type: string
           proposer_name: string | null
           responsible: string[]
           standard: string | null
@@ -541,7 +540,6 @@ export type Database = {
           endorsed_by_name?: string | null
           id?: string
           name: string
-          project_type?: string
           proposer_name?: string | null
           responsible?: string[]
           standard?: string | null
@@ -564,7 +562,6 @@ export type Database = {
           endorsed_by_name?: string | null
           id?: string
           name?: string
-          project_type?: string
           proposer_name?: string | null
           responsible?: string[]
           standard?: string | null

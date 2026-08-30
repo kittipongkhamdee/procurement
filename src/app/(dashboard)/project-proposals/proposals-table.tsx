@@ -24,7 +24,6 @@ type ProposalRow = {
   adminGroup: string;
   budgetSource: string;
   standard: string | null;
-  projectType: string;
   responsible: string[];
   strategyAlignment: string | null;
   activities: ActivityRow[];

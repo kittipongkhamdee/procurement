@@ -96,7 +96,6 @@ export async function createProposal(formData: FormData) {
     standard: str(formData, "standard"),
     admin_group_id: str(formData, "admin_group_id"),
     name,
-    project_type: str(formData, "project_type") ?? "ใหม่",
     responsible,
     strategy_alignment: str(formData, "strategy_alignment"),
     activities,

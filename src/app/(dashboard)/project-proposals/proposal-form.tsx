@@ -105,27 +105,18 @@ export function ProposalForm({
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="label">ลักษณะโครงการ</label>
-              <select name="project_type" defaultValue="ใหม่" className="input">
-                <option value="ใหม่">โครงการใหม่</option>
-                <option value="ต่อเนื่อง">โครงการต่อเนื่อง</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">กลุ่มงานที่รับผิดชอบ</label>
-              <select name="admin_group_id" required defaultValue="" className="input">
-                <option value="" disabled>
-                  เลือกกลุ่มบริหาร..
+          <div>
+            <label className="label">กลุ่มงานที่รับผิดชอบ</label>
+            <select name="admin_group_id" required defaultValue="" className="input">
+              <option value="" disabled>
+                เลือกกลุ่มบริหาร..
+              </option>
+              {adminGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
                 </option>
-                {adminGroups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+              ))}
+            </select>
           </div>
           <div>
             <label className="label">ผู้รับผิดชอบโครงการ</label>
@@ -139,6 +130,17 @@ export function ProposalForm({
 
       <div className="border-t border-slate-100 pt-4">
         <div className="card-title">ขั้นตอนการดำเนินงาน และงบประมาณ</div>
+        <div className="mb-3 w-full sm:w-56">
+          <label className="label">แหล่งเงินงบประมาณ</label>
+          <select name="budget_source_id" defaultValue="" className="input">
+            <option value="">ไม่ระบุ</option>
+            {budgetSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[1fr_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>รายละเอียดการดำเนินงาน</div>
@@ -221,22 +223,9 @@ export function ProposalForm({
             <span className="font-bold text-navy-800">{formatBaht(totalBudget)} บาท</span>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
-            + เพิ่มกิจกรรม
-          </button>
-          <div className="w-full sm:ml-auto sm:w-56">
-            <label className="label">แหล่งเงินงบประมาณ</label>
-            <select name="budget_source_id" defaultValue="" className="input">
-              <option value="">ไม่ระบุ</option>
-              {budgetSources.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
+          + เพิ่มกิจกรรม
+        </button>
       </div>
 
       <button type="submit" className="btn-primary mt-2">
