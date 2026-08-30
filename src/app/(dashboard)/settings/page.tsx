@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { TeacherManager } from "./teacher-manager";
 import { AdminGroupManager } from "./admin-group-manager";
+import { UserGroupManager } from "./user-group-manager";
+import { UserGroupSelect } from "./user-group-select";
 import { BudgetSourceToggle } from "./budget-source-toggle";
 import { CloseIcon } from "@/components/icons";
 import {
@@ -8,15 +10,20 @@ import {
   createBudgetSource,
   createBudgetYear,
   createTeacher,
+  createUserGroup,
   deleteAdminGroup,
   deleteBudgetSource,
   deleteTeacher,
+  deleteUserGroup,
   setCurrentBudgetYear,
+  setUserGroups,
   toggleAdminGroupActive,
   toggleBudgetSourceActive,
   toggleTeacherActive,
+  toggleUserGroupActive,
   updateAdminGroupName,
   updateTeacherName,
+  updateUserGroupName,
 } from "./actions";
 
 export default async function SettingsPage() {
@@ -40,13 +47,30 @@ export default async function SettingsPage() {
     );
   }
 
-  const [{ data: budgetYears }, { data: budgetSources }, { data: teachers }, { data: adminGroups }] =
-    await Promise.all([
-      supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
-      supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
-      supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
-      supabase.from("plan_admin_groups").select("id, name, is_active").order("sort_order").order("name"),
-    ]);
+  const [
+    { data: budgetYears },
+    { data: budgetSources },
+    { data: teachers },
+    { data: adminGroups },
+    { data: userGroups },
+    { data: users },
+    { data: groupMembers },
+  ] = await Promise.all([
+    supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
+    supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.from("plan_admin_groups").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.from("proc_user_groups").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.rpc("proc_admin_list_users"),
+    supabase.from("proc_user_group_members").select("user_id, group_id"),
+  ]);
+
+  const groupIdsByUser = new Map<string, string[]>();
+  for (const m of groupMembers ?? []) {
+    const list = groupIdsByUser.get(m.user_id) ?? [];
+    list.push(m.group_id);
+    groupIdsByUser.set(m.user_id, list);
+  }
 
   return (
     <div>
@@ -177,6 +201,57 @@ export default async function SettingsPage() {
             toggleTeacherActive={toggleTeacherActive}
             deleteTeacher={deleteTeacher}
           />
+        </div>
+
+        <UserGroupManager
+          userGroups={userGroups ?? []}
+          createUserGroup={createUserGroup}
+          updateUserGroupName={updateUserGroupName}
+          toggleUserGroupActive={toggleUserGroupActive}
+          deleteUserGroup={deleteUserGroup}
+        />
+
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">กำหนดสถานะผู้ใช้งาน</div>
+            <p className="mb-3 text-sm text-slate-500">
+              เลือกได้หลายสถานะต่อคน ใช้เพื่อระบุบทบาทของแต่ละคนในโรงเรียน
+            </p>
+            <div className="table-shell">
+              <table className="table-base">
+                <thead>
+                  <tr>
+                    <th>ชื่อ-นามสกุล</th>
+                    <th>อีเมล</th>
+                    <th>สถานะที่กำหนด</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users?.map((u) => (
+                    <tr key={u.user_id}>
+                      <td className="font-medium text-slate-900">{u.full_name}</td>
+                      <td>{u.email}</td>
+                      <td>
+                        <UserGroupSelect
+                          userId={u.user_id}
+                          groups={userGroups ?? []}
+                          initialGroupIds={groupIdsByUser.get(u.user_id) ?? []}
+                          setUserGroups={setUserGroups}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                  {users?.length === 0 && (
+                    <tr>
+                      <td colSpan={3} className="table-empty">
+                        ยังไม่มีผู้ใช้
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>

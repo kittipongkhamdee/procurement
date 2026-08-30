@@ -133,3 +133,48 @@ export async function deleteTeacher(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+export async function createUserGroup(formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("proc_user_groups").insert({ name });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function updateUserGroupName(id: string, formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("proc_user_groups").update({ name }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function toggleUserGroupActive(id: string, isActive: boolean) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("proc_user_groups").update({ is_active: !isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function deleteUserGroup(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("proc_user_groups").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function setUserGroups(userId: string, groupIds: string[]) {
+  const supabase = await requireAdmin();
+  const { error: deleteError } = await supabase.from("proc_user_group_members").delete().eq("user_id", userId);
+  if (deleteError) throw new Error(deleteError.message);
+  if (groupIds.length > 0) {
+    const { error: insertError } = await supabase
+      .from("proc_user_group_members")
+      .insert(groupIds.map((group_id) => ({ user_id: userId, group_id })));
+    if (insertError) throw new Error(insertError.message);
+  }
+  revalidatePath("/settings");
+}

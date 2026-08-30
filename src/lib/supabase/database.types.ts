@@ -566,6 +566,26 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_user_groups: {
+        Row: { created_at: string; id: string; is_active: boolean; name: string; sort_order: number }
+        Insert: { created_at?: string; id?: string; is_active?: boolean; name: string; sort_order?: number }
+        Update: { created_at?: string; id?: string; is_active?: boolean; name?: string; sort_order?: number }
+        Relationships: []
+      }
+      proc_user_group_members: {
+        Row: { created_at: string; group_id: string; user_id: string }
+        Insert: { created_at?: string; group_id: string; user_id: string }
+        Update: { created_at?: string; group_id?: string; user_id?: string }
+        Relationships: [
+          {
+            foreignKeyName: "proc_user_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "proc_user_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_project_disbursements: {
         Row: {
           activity_name: string | null
