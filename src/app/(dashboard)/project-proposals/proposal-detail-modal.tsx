@@ -310,10 +310,14 @@ export function ProposalDetailModal({
                   autoFocus
                 />
               )}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {endorseRejecting ? (
                   <>
-                    <button type="button" onClick={() => handleEndorse("ไม่เห็นชอบ")} className="btn-danger btn-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleEndorse("ไม่เห็นชอบ")}
+                      className="btn-danger flex-1 py-3 text-base"
+                    >
                       ยืนยันไม่เห็นชอบ
                     </button>
                     <button
@@ -322,17 +326,25 @@ export function ProposalDetailModal({
                         setEndorseRejecting(false);
                         setEndorseNote("");
                       }}
-                      className="btn-secondary btn-sm"
+                      className="btn-secondary flex-1 py-3 text-base"
                     >
                       ยกเลิก
                     </button>
                   </>
                 ) : (
                   <>
-                    <button type="button" onClick={() => handleEndorse("เห็นชอบ")} className="btn-primary btn-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleEndorse("เห็นชอบ")}
+                      className="btn-primary flex-1 py-3 text-base"
+                    >
                       เห็นชอบ
                     </button>
-                    <button type="button" onClick={() => setEndorseRejecting(true)} className="btn-danger btn-sm">
+                    <button
+                      type="button"
+                      onClick={() => setEndorseRejecting(true)}
+                      className="btn-danger flex-1 py-3 text-base"
+                    >
                       ไม่เห็นชอบ
                     </button>
                   </>
@@ -354,10 +366,14 @@ export function ProposalDetailModal({
                   autoFocus
                 />
               )}
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {approveRejecting ? (
                   <>
-                    <button type="button" onClick={() => handleApprove("ไม่อนุมัติ")} className="btn-danger btn-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleApprove("ไม่อนุมัติ")}
+                      className="btn-danger flex-1 py-3 text-base"
+                    >
                       ยืนยันไม่อนุมัติ
                     </button>
                     <button
@@ -366,17 +382,25 @@ export function ProposalDetailModal({
                         setApproveRejecting(false);
                         setApproveNote("");
                       }}
-                      className="btn-secondary btn-sm"
+                      className="btn-secondary flex-1 py-3 text-base"
                     >
                       ยกเลิก
                     </button>
                   </>
                 ) : (
                   <>
-                    <button type="button" onClick={() => handleApprove("อนุมัติแล้ว")} className="btn-primary btn-sm">
+                    <button
+                      type="button"
+                      onClick={() => handleApprove("อนุมัติแล้ว")}
+                      className="btn-primary flex-1 py-3 text-base"
+                    >
                       อนุมัติ
                     </button>
-                    <button type="button" onClick={() => setApproveRejecting(true)} className="btn-danger btn-sm">
+                    <button
+                      type="button"
+                      onClick={() => setApproveRejecting(true)}
+                      className="btn-danger flex-1 py-3 text-base"
+                    >
                       ไม่อนุมัติ
                     </button>
                   </>
