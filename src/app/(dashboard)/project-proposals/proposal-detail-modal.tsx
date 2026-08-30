@@ -198,7 +198,6 @@ export function ProposalDetailModal({
           <Field label="สนองกลยุทธ์โรงเรียน" value={proposal.strategyAlignment} />
           <Field label="สอดคล้องกับมาตรฐานการศึกษา" value={proposal.standard} />
           <Field label="ผู้รับผิดชอบ" value={proposal.responsible.join(", ") || "-"} />
-          <Field label="สถานที่ดำเนินการ" value={proposal.location} />
           <Field
             label="ระยะเวลาดำเนินการ"
             value={
@@ -207,22 +206,21 @@ export function ProposalDetailModal({
                 : null
             }
           />
-          <Field
-            label="งบประมาณ / แหล่งเงิน"
-            value={`${formatBaht(proposal.budgetAmount)} บาท (${proposal.budgetSource})`}
-          />
         </div>
 
         <Field label="1. หลักการและเหตุผล" value={proposal.rationale} />
         <Field label="2. วัตถุประสงค์" value={proposal.objectives} />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)" value={proposal.targetQuantity} />
-          <Field label="3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)" value={proposal.targetQuality} />
+        <div>
+          <SectionTitle>3. เป้าหมาย</SectionTitle>
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)" value={proposal.targetQuantity} />
+            <Field label="3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)" value={proposal.targetQuality} />
+          </div>
         </div>
 
         {proposal.activities.length > 0 && (
           <div>
-            <SectionTitle>4. ขั้นตอนการดำเนินงาน และงบประมาณ</SectionTitle>
+            <SectionTitle>4. ขั้นตอนการดำเนินงาน</SectionTitle>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.activities.map((a, i) => {
                 const rowTotal = (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0);
@@ -244,6 +242,13 @@ export function ProposalDetailModal({
             </div>
           </div>
         )}
+
+        <Field label="5. สถานที่ดำเนินการ" value={proposal.location} />
+
+        <Field
+          label="6. งบประมาณในการดำเนินงาน"
+          value={`${formatBaht(proposal.budgetAmount)} บาท (แหล่งเงิน: ${proposal.budgetSource})`}
+        />
 
         {(proposal.riskFactors || proposal.riskMitigation) && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
