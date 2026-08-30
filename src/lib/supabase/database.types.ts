@@ -139,26 +139,33 @@ export type Database = {
         Row: {
           activities: Json
           admin_group_id: string | null
+          approve_note: string | null
+          approved_at: string | null
+          approved_by_name: string | null
           budget_amount: number
           budget_source_id: string | null
           budget_year_id: string | null
           created_at: string
           created_by: string | null
           end_date: string | null
+          endorse_note: string | null
+          endorsed_at: string | null
+          endorsed_by_name: string | null
           evaluation_items: Json
           expected_results: string | null
           id: string
+          location: string | null
           name: string
           objectives: string | null
-          plan_name: string | null
           project_type: string
           proposer_name: string | null
           rationale: string | null
           responsible: string[]
+          risk_factors: string | null
+          risk_mitigation: string | null
           standard: string | null
           start_date: string | null
           status: string
-          status_note: string | null
           strategy_alignment: string | null
           target_quality: string | null
           target_quantity: string | null
@@ -166,26 +173,33 @@ export type Database = {
         Insert: {
           activities?: Json
           admin_group_id?: string | null
+          approve_note?: string | null
+          approved_at?: string | null
+          approved_by_name?: string | null
           budget_amount?: number
           budget_source_id?: string | null
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
           end_date?: string | null
+          endorse_note?: string | null
+          endorsed_at?: string | null
+          endorsed_by_name?: string | null
           evaluation_items?: Json
           expected_results?: string | null
           id?: string
+          location?: string | null
           name: string
           objectives?: string | null
-          plan_name?: string | null
           project_type?: string
           proposer_name?: string | null
           rationale?: string | null
           responsible?: string[]
+          risk_factors?: string | null
+          risk_mitigation?: string | null
           standard?: string | null
           start_date?: string | null
           status?: string
-          status_note?: string | null
           strategy_alignment?: string | null
           target_quality?: string | null
           target_quantity?: string | null
@@ -193,26 +207,33 @@ export type Database = {
         Update: {
           activities?: Json
           admin_group_id?: string | null
+          approve_note?: string | null
+          approved_at?: string | null
+          approved_by_name?: string | null
           budget_amount?: number
           budget_source_id?: string | null
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
           end_date?: string | null
+          endorse_note?: string | null
+          endorsed_at?: string | null
+          endorsed_by_name?: string | null
           evaluation_items?: Json
           expected_results?: string | null
           id?: string
+          location?: string | null
           name?: string
           objectives?: string | null
-          plan_name?: string | null
           project_type?: string
           proposer_name?: string | null
           rationale?: string | null
           responsible?: string[]
+          risk_factors?: string | null
+          risk_mitigation?: string | null
           standard?: string | null
           start_date?: string | null
           status?: string
-          status_note?: string | null
           strategy_alignment?: string | null
           target_quality?: string | null
           target_quantity?: string | null

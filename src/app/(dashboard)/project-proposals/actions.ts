@@ -27,8 +27,15 @@ function str(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim() || null;
 }
 
-type ActivityRow = { name: string; period: string; responsible: string[] };
-type EvaluationRow = { indicator: string; method: string; tool: string };
+type ActivityRow = {
+  name: string;
+  period: string;
+  responsible: string[];
+  compensation: string;
+  service: string;
+  material: string;
+};
+type EvaluationRow = { type: string; indicator: string; target: string; method: string; tool: string };
 
 export async function createProposal(formData: FormData) {
   const { supabase, user } = await requireUser();
@@ -52,6 +59,11 @@ export async function createProposal(formData: FormData) {
   }
   activities = activities.filter((a) => a.name.trim() !== "");
 
+  const budgetAmount = activities.reduce(
+    (sum, a) => sum + (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0),
+    0,
+  );
+
   let evaluationItems: EvaluationRow[] = [];
   try {
     evaluationItems = JSON.parse(String(formData.get("evaluation_items_json") ?? "[]"));
@@ -64,7 +76,6 @@ export async function createProposal(formData: FormData) {
     created_by: user.id,
     proposer_name: profile?.full_name ?? null,
     budget_year_id: str(formData, "budget_year_id"),
-    plan_name: str(formData, "plan_name"),
     standard: str(formData, "standard"),
     admin_group_id: str(formData, "admin_group_id"),
     name,
@@ -73,13 +84,16 @@ export async function createProposal(formData: FormData) {
     strategy_alignment: str(formData, "strategy_alignment"),
     start_date: str(formData, "start_date"),
     end_date: str(formData, "end_date"),
+    location: str(formData, "location"),
     rationale: str(formData, "rationale"),
     objectives: str(formData, "objectives"),
     target_quantity: str(formData, "target_quantity"),
     target_quality: str(formData, "target_quality"),
     activities,
-    budget_amount: Number(formData.get("budget_amount") ?? 0),
+    budget_amount: budgetAmount,
     budget_source_id: str(formData, "budget_source_id"),
+    risk_factors: str(formData, "risk_factors"),
+    risk_mitigation: str(formData, "risk_mitigation"),
     evaluation_items: evaluationItems,
     expected_results: str(formData, "expected_results"),
   });
@@ -87,11 +101,61 @@ export async function createProposal(formData: FormData) {
   revalidatePath("/project-proposals");
 }
 
-export async function updateProposalStatus(id: string, status: "เห็นชอบ" | "ไม่เห็นชอบ" | "รอพิจารณา", note?: string) {
+export async function endorseProposal(
+  id: string,
+  decision: "เห็นชอบ" | "ไม่เห็นชอบ",
+  signerName: string,
+  note?: string,
+) {
   const supabase = await requireAdmin();
   const { error } = await supabase
     .from("plan_project_proposals")
-    .update({ status, status_note: note?.trim() || null })
+    .update({
+      status: decision === "เห็นชอบ" ? "รออนุมัติ" : "ไม่เห็นชอบ",
+      endorsed_by_name: signerName.trim() || null,
+      endorsed_at: new Date().toISOString(),
+      endorse_note: note?.trim() || null,
+    })
+    .eq("id", id)
+    .eq("status", "รอเห็นชอบ");
+  if (error) throw new Error(error.message);
+  revalidatePath("/project-proposals");
+}
+
+export async function approveProposal(
+  id: string,
+  decision: "อนุมัติแล้ว" | "ไม่อนุมัติ",
+  signerName: string,
+  note?: string,
+) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("plan_project_proposals")
+    .update({
+      status: decision,
+      approved_by_name: signerName.trim() || null,
+      approved_at: new Date().toISOString(),
+      approve_note: note?.trim() || null,
+    })
+    .eq("id", id)
+    .eq("status", "รออนุมัติ");
+  if (error) throw new Error(error.message);
+  revalidatePath("/project-proposals");
+}
+
+export async function resetProposalStatus(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("plan_project_proposals")
+    .update({
+      status: "รอเห็นชอบ",
+      endorsed_by_name: null,
+      endorsed_at: null,
+      endorse_note: null,
+      approved_by_name: null,
+      approved_at: null,
+      approve_note: null,
+    })
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");

@@ -3,10 +3,22 @@
 import { useRef, useState } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import type { updateProposalStatus as updateProposalStatusAction, deleteProposal as deleteProposalAction } from "./actions";
+import type {
+  approveProposal as approveProposalAction,
+  deleteProposal as deleteProposalAction,
+  endorseProposal as endorseProposalAction,
+  resetProposalStatus as resetProposalStatusAction,
+} from "./actions";
 
-type ActivityRow = { name: string; period: string; responsible: string[] };
-type EvaluationRow = { indicator: string; method: string; tool: string };
+type ActivityRow = {
+  name: string;
+  period: string;
+  responsible: string[];
+  compensation: number;
+  service: number;
+  material: number;
+};
+type EvaluationRow = { type: string; indicator: string; target: string; method: string; tool: string };
 
 type Proposal = {
   id: string;
@@ -14,23 +26,30 @@ type Proposal = {
   proposerName: string | null;
   adminGroup: string;
   budgetSource: string;
-  planName: string | null;
   standard: string | null;
   projectType: string;
   responsible: string[];
   strategyAlignment: string | null;
   startDate: string | null;
   endDate: string | null;
+  location: string | null;
   rationale: string | null;
   objectives: string | null;
   targetQuantity: string | null;
   targetQuality: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
+  riskFactors: string | null;
+  riskMitigation: string | null;
   evaluationItems: EvaluationRow[];
   expectedResults: string | null;
   status: string;
-  statusNote: string | null;
+  endorsedByName: string | null;
+  endorsedAt: string | null;
+  endorseNote: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  approveNote: string | null;
 };
 
 function formatBaht(n: number) {
@@ -47,26 +66,57 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   );
 }
 
+function statusBadgeClass(status: string) {
+  if (status === "อนุมัติแล้ว") return "badge-emerald";
+  if (status === "ไม่เห็นชอบ" || status === "ไม่อนุมัติ") return "badge-red";
+  return "badge-amber";
+}
+
 export function ProposalDetailModal({
   proposal,
   isAdmin,
   canDelete,
-  updateProposalStatus,
+  endorseProposal,
+  approveProposal,
+  resetProposalStatus,
   deleteProposal,
 }: {
   proposal: Proposal;
   isAdmin: boolean;
   canDelete: boolean;
-  updateProposalStatus: typeof updateProposalStatusAction;
+  endorseProposal: typeof endorseProposalAction;
+  approveProposal: typeof approveProposalAction;
+  resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
 }) {
   const modalRef = useRef<ModalHandle>(null);
-  const [note, setNote] = useState(proposal.statusNote ?? "");
+  const [endorseSigner, setEndorseSigner] = useState("");
+  const [endorseNote, setEndorseNote] = useState("");
+  const [approveSigner, setApproveSigner] = useState("");
+  const [approveNote, setApproveNote] = useState("");
 
-  async function handleStatus(status: "เห็นชอบ" | "ไม่เห็นชอบ" | "รอพิจารณา") {
+  async function handleEndorse(decision: "เห็นชอบ" | "ไม่เห็นชอบ") {
     try {
-      await updateProposalStatus(proposal.id, status, note);
-      await toastSuccess("บันทึกผลการพิจารณาแล้ว");
+      await endorseProposal(proposal.id, decision, endorseSigner, endorseNote);
+      await toastSuccess("บันทึกผลการเห็นชอบแล้ว");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleApprove(decision: "อนุมัติแล้ว" | "ไม่อนุมัติ") {
+    try {
+      await approveProposal(proposal.id, decision, approveSigner, approveNote);
+      await toastSuccess("บันทึกผลการอนุมัติแล้ว");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleReset() {
+    try {
+      await resetProposalStatus(proposal.id);
+      await toastSuccess("ย้อนสถานะเป็นรอเห็นชอบแล้ว");
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -88,27 +138,17 @@ export function ProposalDetailModal({
     <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm">
       <div className="grid grid-cols-1 gap-4">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span
-            className={
-              proposal.status === "เห็นชอบ"
-                ? "badge-emerald"
-                : proposal.status === "ไม่เห็นชอบ"
-                  ? "badge-red"
-                  : "badge-amber"
-            }
-          >
-            {proposal.status}
-          </span>
+          <span className={statusBadgeClass(proposal.status)}>{proposal.status}</span>
           <span className="text-slate-500">
             ผู้เสนอ: {proposal.proposerName ?? "-"} · {proposal.projectType} · {proposal.adminGroup}
           </span>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="แผนงาน" value={proposal.planName} />
-          <Field label="สนองมาตรฐาน" value={proposal.standard} />
+          <Field label="สนองกลยุทธ์โรงเรียน" value={proposal.strategyAlignment} />
+          <Field label="สอดคล้องกับมาตรฐานการศึกษา" value={proposal.standard} />
           <Field label="ผู้รับผิดชอบ" value={proposal.responsible.join(", ") || "-"} />
-          <Field label="สนองกลยุทธ์/ประเด็นกลยุทธ์" value={proposal.strategyAlignment} />
+          <Field label="สถานที่ดำเนินการ" value={proposal.location} />
           <Field
             label="ระยะเวลาดำเนินการ"
             value={proposal.startDate || proposal.endDate ? `${proposal.startDate ?? "-"} ถึง ${proposal.endDate ?? "-"}` : null}
@@ -122,39 +162,51 @@ export function ProposalDetailModal({
         <Field label="๑. หลักการและเหตุผล" value={proposal.rationale} />
         <Field label="๒. วัตถุประสงค์" value={proposal.objectives} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="๓. เป้าหมายเชิงปริมาณ" value={proposal.targetQuantity} />
-          <Field label="เป้าหมายเชิงคุณภาพ" value={proposal.targetQuality} />
+          <Field label="๓. เป้าหมาย — ด้านปริมาณ" value={proposal.targetQuantity} />
+          <Field label="เป้าหมาย — ด้านคุณภาพ" value={proposal.targetQuality} />
         </div>
 
         {proposal.activities.length > 0 && (
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              ๔. กิจกรรม / ขั้นตอนการดำเนินงาน
+              ๔. ขั้นตอนการดำเนินงาน และงบประมาณ
             </div>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
-              {proposal.activities.map((a, i) => (
-                <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-[1fr_8rem_10rem]">
-                  <span className="text-slate-700">{a.name}</span>
-                  <span className="text-slate-500">{a.period || "-"}</span>
-                  <span className="text-slate-500">{a.responsible.join(", ") || "-"}</span>
-                </div>
-              ))}
+              {proposal.activities.map((a, i) => {
+                const rowTotal = (a.compensation || 0) + (a.service || 0) + (a.material || 0);
+                return (
+                  <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-[1fr_6rem_8rem_7rem]">
+                    <span className="text-slate-700">{a.name}</span>
+                    <span className="text-slate-500">{a.period || "-"}</span>
+                    <span className="text-slate-500">{a.responsible.join(", ") || "-"}</span>
+                    <span className="text-right font-medium text-navy-800 tabular-nums">
+                      {formatBaht(rowTotal)} บาท
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        <Field
-          label="๕. งบประมาณที่ใช้"
-          value={`${formatBaht(proposal.budgetAmount)} บาท (${proposal.budgetSource})`}
-        />
+        {(proposal.riskFactors || proposal.riskMitigation) && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="๗. ปัจจัยความเสี่ยง" value={proposal.riskFactors} />
+            <Field label="แนวทางการบริหารความเสี่ยง" value={proposal.riskMitigation} />
+          </div>
+        )}
 
         {proposal.evaluationItems.length > 0 && (
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">๖. การประเมินผล</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              ๘. ตัวชี้วัดและเป้าหมายความสำเร็จ
+            </div>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.evaluationItems.map((e, i) => (
-                <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-3">
+                <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-[5rem_1fr_5rem_1fr_1fr]">
+                  <span className="badge-slate w-fit">{e.type}</span>
                   <span className="text-slate-700">{e.indicator}</span>
+                  <span className="text-slate-500">{e.target || "-"}</span>
                   <span className="text-slate-500">{e.method || "-"}</span>
                   <span className="text-slate-500">{e.tool || "-"}</span>
                 </div>
@@ -163,33 +215,84 @@ export function ProposalDetailModal({
           </div>
         )}
 
-        <Field label="๗. ผลที่คาดว่าจะได้รับ" value={proposal.expectedResults} />
+        <Field label="๙. ผลที่คาดว่าจะได้รับ" value={proposal.expectedResults} />
 
-        {isAdmin && (
-          <div className="border-t border-slate-100 pt-4">
-            <div className="card-title">ผลการพิจารณา (ผู้อนุมัติ)</div>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              placeholder="ความเห็น/หมายเหตุ (ไม่บังคับ)"
-              className="input mb-3"
-            />
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => handleStatus("เห็นชอบ")} className="btn-primary btn-sm">
-                เห็นชอบ
-              </button>
-              <button type="button" onClick={() => handleStatus("ไม่เห็นชอบ")} className="btn-danger btn-sm">
-                ไม่เห็นชอบ
-              </button>
-              {proposal.status !== "รอพิจารณา" && (
-                <button type="button" onClick={() => handleStatus("รอพิจารณา")} className="btn-secondary btn-sm">
-                  ย้อนเป็นรอพิจารณา
+        <div className="border-t border-slate-100 pt-4">
+          <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>
+
+          {proposal.endorsedByName && (
+            <p className="mb-2 text-sm text-slate-600">
+              เห็นชอบโดย {proposal.endorsedByName} เมื่อ {proposal.endorsedAt?.slice(0, 10)}
+              {proposal.endorseNote ? ` — ${proposal.endorseNote}` : ""}
+            </p>
+          )}
+          {proposal.approvedByName && (
+            <p className="mb-2 text-sm text-slate-600">
+              อนุมัติโดย {proposal.approvedByName} เมื่อ {proposal.approvedAt?.slice(0, 10)}
+              {proposal.approveNote ? ` — ${proposal.approveNote}` : ""}
+            </p>
+          )}
+
+          {isAdmin && proposal.status === "รอเห็นชอบ" && (
+            <div className="grid grid-cols-1 gap-2">
+              <p className="text-xs text-slate-500">ขั้นที่ 1: ผู้เห็นชอบโครงการ (เช่น รองผู้อำนวยการ)</p>
+              <input
+                value={endorseSigner}
+                onChange={(e) => setEndorseSigner(e.target.value)}
+                placeholder="ชื่อผู้เห็นชอบ"
+                className="input"
+              />
+              <textarea
+                value={endorseNote}
+                onChange={(e) => setEndorseNote(e.target.value)}
+                rows={2}
+                placeholder="ความเห็น/หมายเหตุ (ไม่บังคับ)"
+                className="input"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => handleEndorse("เห็นชอบ")} className="btn-primary btn-sm">
+                  เห็นชอบ
                 </button>
-              )}
+                <button type="button" onClick={() => handleEndorse("ไม่เห็นชอบ")} className="btn-danger btn-sm">
+                  ไม่เห็นชอบ
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {isAdmin && proposal.status === "รออนุมัติ" && (
+            <div className="grid grid-cols-1 gap-2">
+              <p className="text-xs text-slate-500">ขั้นที่ 2: ผู้อนุมัติโครงการ (ผู้อำนวยการ)</p>
+              <input
+                value={approveSigner}
+                onChange={(e) => setApproveSigner(e.target.value)}
+                placeholder="ชื่อผู้อนุมัติ"
+                className="input"
+              />
+              <textarea
+                value={approveNote}
+                onChange={(e) => setApproveNote(e.target.value)}
+                rows={2}
+                placeholder="ความเห็น/หมายเหตุ (ไม่บังคับ)"
+                className="input"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => handleApprove("อนุมัติแล้ว")} className="btn-primary btn-sm">
+                  อนุมัติ
+                </button>
+                <button type="button" onClick={() => handleApprove("ไม่อนุมัติ")} className="btn-danger btn-sm">
+                  ไม่อนุมัติ
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isAdmin && !["รอเห็นชอบ"].includes(proposal.status) && (
+            <button type="button" onClick={handleReset} className="btn-secondary btn-sm mt-2">
+              ย้อนเป็นรอเห็นชอบ
+            </button>
+          )}
+        </div>
 
         {canDelete && (
           <div className="border-t border-slate-100 pt-4">

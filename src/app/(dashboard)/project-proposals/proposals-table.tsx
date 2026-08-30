@@ -1,10 +1,22 @@
 "use client";
 
 import { ProposalDetailModal } from "./proposal-detail-modal";
-import type { updateProposalStatus as updateProposalStatusAction, deleteProposal as deleteProposalAction } from "./actions";
+import type {
+  approveProposal as approveProposalAction,
+  deleteProposal as deleteProposalAction,
+  endorseProposal as endorseProposalAction,
+  resetProposalStatus as resetProposalStatusAction,
+} from "./actions";
 
-type ActivityRow = { name: string; period: string; responsible: string[] };
-type EvaluationRow = { indicator: string; method: string; tool: string };
+type ActivityRow = {
+  name: string;
+  period: string;
+  responsible: string[];
+  compensation: number;
+  service: number;
+  material: number;
+};
+type EvaluationRow = { type: string; indicator: string; target: string; method: string; tool: string };
 
 type ProposalRow = {
   id: string;
@@ -13,23 +25,30 @@ type ProposalRow = {
   createdBy: string | null;
   adminGroup: string;
   budgetSource: string;
-  planName: string | null;
   standard: string | null;
   projectType: string;
   responsible: string[];
   strategyAlignment: string | null;
   startDate: string | null;
   endDate: string | null;
+  location: string | null;
   rationale: string | null;
   objectives: string | null;
   targetQuantity: string | null;
   targetQuality: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
+  riskFactors: string | null;
+  riskMitigation: string | null;
   evaluationItems: EvaluationRow[];
   expectedResults: string | null;
   status: string;
-  statusNote: string | null;
+  endorsedByName: string | null;
+  endorsedAt: string | null;
+  endorseNote: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  approveNote: string | null;
 };
 
 function formatBaht(n: number) {
@@ -37,8 +56,8 @@ function formatBaht(n: number) {
 }
 
 function statusBadgeClass(status: string) {
-  if (status === "เห็นชอบ") return "badge-emerald";
-  if (status === "ไม่เห็นชอบ") return "badge-red";
+  if (status === "อนุมัติแล้ว") return "badge-emerald";
+  if (status === "ไม่เห็นชอบ" || status === "ไม่อนุมัติ") return "badge-red";
   return "badge-amber";
 }
 
@@ -46,13 +65,17 @@ export function ProposalsTable({
   rows,
   isAdmin,
   currentUserId,
-  updateProposalStatus,
+  endorseProposal,
+  approveProposal,
+  resetProposalStatus,
   deleteProposal,
 }: {
   rows: ProposalRow[];
   isAdmin: boolean;
   currentUserId: string | null;
-  updateProposalStatus: typeof updateProposalStatusAction;
+  endorseProposal: typeof endorseProposalAction;
+  approveProposal: typeof approveProposalAction;
+  resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
 }) {
   return (
@@ -70,7 +93,7 @@ export function ProposalsTable({
       </thead>
       <tbody>
         {rows.map((r, i) => {
-          const canDelete = r.status === "รอพิจารณา" && (isAdmin || r.createdBy === currentUserId);
+          const canDelete = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
           return (
             <tr key={r.id}>
               <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
@@ -86,7 +109,9 @@ export function ProposalsTable({
                   proposal={r}
                   isAdmin={isAdmin}
                   canDelete={canDelete}
-                  updateProposalStatus={updateProposalStatus}
+                  endorseProposal={endorseProposal}
+                  approveProposal={approveProposal}
+                  resetProposalStatus={resetProposalStatus}
                   deleteProposal={deleteProposal}
                 />
               </td>
