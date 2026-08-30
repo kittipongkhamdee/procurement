@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
-import { PlusIcon } from "@/components/icons";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
@@ -20,64 +19,13 @@ type ActivityRow = {
   service: string;
   material: string;
 };
-type EvaluationRow = { type: "เชิงปริมาณ" | "เชิงคุณภาพ"; indicator: string; target: string; method: string; tool: string };
 
 function emptyActivity(): ActivityRow {
   return { name: "", period: "", responsible: [], compensation: "", service: "", material: "" };
 }
 
-function emptyEvaluation(type: EvaluationRow["type"]): EvaluationRow {
-  return { type, indicator: "", target: "", method: "", tool: "" };
-}
-
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
-}
-
-function SectionHeading({ children }: { children: ReactNode }) {
-  return <div className="mb-1 text-sm font-bold text-navy-800">{children}</div>;
-}
-
-function numberedListToText(items: string[]) {
-  const nonEmpty = items.map((i) => i.trim()).filter(Boolean);
-  return nonEmpty.map((item, i) => `${i + 1}. ${item}`).join("\n");
-}
-
-function NumberedListField({
-  items,
-  onChange,
-  placeholder,
-}: {
-  items: string[];
-  onChange: (next: string[]) => void;
-  placeholder: string;
-}) {
-  function update(i: number, value: string) {
-    onChange(items.map((item, idx) => (idx === i ? value : item)));
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-2">
-      {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="w-5 shrink-0 text-sm font-medium text-slate-500">{i + 1}.</span>
-          <input value={item} onChange={(e) => update(i, e.target.value)} className="input flex-1" placeholder={placeholder} />
-          {items.length > 1 && (
-            <button
-              type="button"
-              onClick={() => onChange(items.filter((_, idx) => idx !== i))}
-              className="btn-danger btn-sm shrink-0"
-            >
-              ลบ
-            </button>
-          )}
-        </div>
-      ))}
-      <button type="button" onClick={() => onChange([...items, ""])} className="icon-btn-add self-start">
-        <PlusIcon className="h-4 w-4" />
-      </button>
-    </div>
-  );
 }
 
 export function ProposalForm({
@@ -99,16 +47,9 @@ export function ProposalForm({
 }) {
   const [responsible, setResponsible] = useState<string[]>([]);
   const [activities, setActivities] = useState<ActivityRow[]>([emptyActivity()]);
-  const [evaluationItems, setEvaluationItems] = useState<EvaluationRow[]>([emptyEvaluation("เชิงปริมาณ")]);
-  const [objectives, setObjectives] = useState<string[]>([""]);
-  const [targetQuantity, setTargetQuantity] = useState<string[]>([""]);
-  const [targetQuality, setTargetQuality] = useState<string[]>([""]);
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-  }
-  function updateEvaluation(index: number, patch: Partial<EvaluationRow>) {
-    setEvaluationItems((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   const totalBudget = useMemo(
@@ -122,10 +63,6 @@ export function ProposalForm({
 
   async function handleSubmit(formData: FormData) {
     formData.set("activities_json", JSON.stringify(activities));
-    formData.set("evaluation_items_json", JSON.stringify(evaluationItems));
-    formData.set("objectives", numberedListToText(objectives));
-    formData.set("target_quantity", numberedListToText(targetQuantity));
-    formData.set("target_quality", numberedListToText(targetQuality));
     try {
       await action(formData);
       await toastSuccess("ส่งข้อเสนอโครงการเรียบร้อยแล้ว");
@@ -212,31 +149,7 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <SectionHeading>1. หลักการและเหตุผล</SectionHeading>
-        <textarea name="rationale" rows={4} className="input" />
-      </div>
-
-      <div>
-        <SectionHeading>2. วัตถุประสงค์</SectionHeading>
-        <NumberedListField items={objectives} onChange={setObjectives} placeholder="ระบุวัตถุประสงค์ข้อที่..." />
-      </div>
-
-      <div>
-        <SectionHeading>3. เป้าหมาย</SectionHeading>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <SectionHeading>3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)</SectionHeading>
-            <NumberedListField items={targetQuantity} onChange={setTargetQuantity} placeholder="ระบุเป้าหมายเชิงปริมาณ" />
-          </div>
-          <div>
-            <SectionHeading>3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)</SectionHeading>
-            <NumberedListField items={targetQuality} onChange={setTargetQuality} placeholder="ระบุเป้าหมายเชิงคุณภาพ" />
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-slate-100 pt-4">
-        <SectionHeading>4. ขั้นตอนการดำเนินงาน</SectionHeading>
+        <div className="card-title">ขั้นตอนการดำเนินงาน</div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[1fr_6rem_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>รายละเอียดการดำเนินงาน</div>
@@ -331,12 +244,7 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <SectionHeading>5. สถานที่ดำเนินการ</SectionHeading>
-        <input name="location" className="input" placeholder="เช่น โรงเรียนตาเบาวิทยา" />
-      </div>
-
-      <div className="border-t border-slate-100 pt-4">
-        <SectionHeading>6. งบประมาณในการดำเนินงาน</SectionHeading>
+        <div className="card-title">งบประมาณในการดำเนินงาน</div>
         <div className="overflow-hidden rounded-xl border border-slate-200/80">
           <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
             <span className="font-semibold text-slate-600">รวมงบประมาณทั้งสิ้น</span>
@@ -354,106 +262,6 @@ export function ProposalForm({
             ))}
           </select>
         </div>
-      </div>
-
-      <div className="border-t border-slate-100 pt-4">
-        <SectionHeading>7. การวิเคราะห์ความเสี่ยงของโครงการ — ปัจจัยความเสี่ยง</SectionHeading>
-        <textarea name="risk_factors" rows={2} className="input" />
-      </div>
-      <div>
-        <SectionHeading>แนวทางการบริหารความเสี่ยง</SectionHeading>
-        <textarea name="risk_mitigation" rows={2} className="input" />
-      </div>
-
-      <div className="border-t border-slate-100 pt-4">
-        <SectionHeading>8. ตัวชี้วัดและเป้าหมายความสำเร็จ</SectionHeading>
-        <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
-          <div className="hidden grid-cols-[6rem_1fr_6rem_1fr_1fr_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
-            <div>ประเภท</div>
-            <div>ตัวชี้วัด</div>
-            <div>ค่าเป้าหมาย</div>
-            <div>วิธีวัดและประเมินผล</div>
-            <div>เครื่องมือที่ใช้</div>
-            <div></div>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {evaluationItems.map((row, i) => (
-              <div
-                key={i}
-                className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[6rem_1fr_6rem_1fr_1fr_3.5rem] sm:items-center"
-              >
-                <div>
-                  <label className="label sm:hidden">ประเภท</label>
-                  <select
-                    value={row.type}
-                    onChange={(e) => updateEvaluation(i, { type: e.target.value as EvaluationRow["type"] })}
-                    className="input"
-                  >
-                    <option value="เชิงปริมาณ">เชิงปริมาณ</option>
-                    <option value="เชิงคุณภาพ">เชิงคุณภาพ</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label sm:hidden">ตัวชี้วัด</label>
-                  <input
-                    value={row.indicator}
-                    onChange={(e) => updateEvaluation(i, { indicator: e.target.value })}
-                    className="input"
-                    placeholder="ตัวชี้วัด"
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">ค่าเป้าหมาย</label>
-                  <input
-                    value={row.target}
-                    onChange={(e) => updateEvaluation(i, { target: e.target.value })}
-                    className="input"
-                    placeholder="เช่น ร้อยละ 80"
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">วิธีวัดและประเมินผล</label>
-                  <input
-                    value={row.method}
-                    onChange={(e) => updateEvaluation(i, { method: e.target.value })}
-                    className="input"
-                    placeholder="เช่น การเก็บรวบรวมผลการดำเนินงาน"
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">เครื่องมือที่ใช้</label>
-                  <input
-                    value={row.tool}
-                    onChange={(e) => updateEvaluation(i, { tool: e.target.value })}
-                    className="input"
-                    placeholder="เช่น แบบสำรวจ"
-                  />
-                </div>
-                {evaluationItems.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setEvaluationItems((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="btn-danger btn-sm sm:justify-self-end"
-                  >
-                    ลบ
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => setEvaluationItems((prev) => [...prev, emptyEvaluation("เชิงปริมาณ")])}
-          className="btn-secondary btn-sm"
-        >
-          + เพิ่มตัวชี้วัด
-        </button>
-      </div>
-
-      <div>
-        <SectionHeading>9. ผลที่คาดว่าจะได้รับ</SectionHeading>
-        <textarea name="expected_results" rows={3} className="input" />
       </div>
 
       <button type="submit" className="btn-primary mt-2">

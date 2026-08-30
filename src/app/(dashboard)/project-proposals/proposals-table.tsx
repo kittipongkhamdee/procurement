@@ -17,8 +17,6 @@ type ActivityRow = {
   service: number;
   material: number;
 };
-type EvaluationRow = { type: string; indicator: string; target: string; method: string; tool: string };
-
 type ProposalRow = {
   id: string;
   name: string;
@@ -32,17 +30,8 @@ type ProposalRow = {
   strategyAlignment: string | null;
   startDate: string | null;
   endDate: string | null;
-  location: string | null;
-  rationale: string | null;
-  objectives: string | null;
-  targetQuantity: string | null;
-  targetQuality: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
-  riskFactors: string | null;
-  riskMitigation: string | null;
-  evaluationItems: EvaluationRow[];
-  expectedResults: string | null;
   status: string;
   endorsedByName: string | null;
   endorsedAt: string | null;

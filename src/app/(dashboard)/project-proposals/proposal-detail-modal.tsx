@@ -20,7 +20,6 @@ type ActivityRow = {
   service: number;
   material: number;
 };
-type EvaluationRow = { type: string; indicator: string; target: string; method: string; tool: string };
 
 type Proposal = {
   id: string;
@@ -34,17 +33,8 @@ type Proposal = {
   strategyAlignment: string | null;
   startDate: string | null;
   endDate: string | null;
-  location: string | null;
-  rationale: string | null;
-  objectives: string | null;
-  targetQuantity: string | null;
-  targetQuality: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
-  riskFactors: string | null;
-  riskMitigation: string | null;
-  evaluationItems: EvaluationRow[];
-  expectedResults: string | null;
   status: string;
   endorsedByName: string | null;
   endorsedAt: string | null;
@@ -193,19 +183,9 @@ export function ProposalDetailModal({
           />
         </div>
 
-        <Field label="1. หลักการและเหตุผล" value={proposal.rationale} />
-        <Field label="2. วัตถุประสงค์" value={proposal.objectives} />
-        <div>
-          <SectionTitle>3. เป้าหมาย</SectionTitle>
-          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)" value={proposal.targetQuantity} />
-            <Field label="3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)" value={proposal.targetQuality} />
-          </div>
-        </div>
-
         {proposal.activities.length > 0 && (
           <div>
-            <SectionTitle>4. ขั้นตอนการดำเนินงาน</SectionTitle>
+            <SectionTitle>ขั้นตอนการดำเนินงาน</SectionTitle>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.activities.map((a, i) => {
                 const rowTotal = (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0);
@@ -228,42 +208,10 @@ export function ProposalDetailModal({
           </div>
         )}
 
-        <Field label="5. สถานที่ดำเนินการ" value={proposal.location} />
-
         <Field
-          label="6. งบประมาณในการดำเนินงาน"
+          label="งบประมาณในการดำเนินงาน"
           value={`${formatBaht(proposal.budgetAmount)} บาท (แหล่งเงิน: ${proposal.budgetSource})`}
         />
-
-        {(proposal.riskFactors || proposal.riskMitigation) && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="7. ปัจจัยความเสี่ยง" value={proposal.riskFactors} />
-            <Field label="แนวทางการบริหารความเสี่ยง" value={proposal.riskMitigation} />
-          </div>
-        )}
-
-        {proposal.evaluationItems.length > 0 && (
-          <div>
-            <SectionTitle>8. ตัวชี้วัดและเป้าหมายความสำเร็จ</SectionTitle>
-            <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
-              {proposal.evaluationItems.map((e, i) => (
-                <div key={i} className="grid grid-cols-1 gap-1.5 p-3 text-left text-sm">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="badge-slate w-fit">{e.type}</span>
-                    <span className="font-medium text-slate-700">{e.indicator}</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1 text-slate-500 sm:grid-cols-3">
-                    <div>ค่าเป้าหมาย: {e.target || "-"}</div>
-                    <div>วิธีวัดและประเมินผล: {e.method || "-"}</div>
-                    <div>เครื่องมือที่ใช้: {e.tool || "-"}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <Field label="9. ผลที่คาดว่าจะได้รับ" value={proposal.expectedResults} />
 
         <div className="border-t border-slate-100 pt-4">
           <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>

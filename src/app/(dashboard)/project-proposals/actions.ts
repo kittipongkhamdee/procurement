@@ -55,7 +55,6 @@ type ActivityRow = {
   service: string;
   material: string;
 };
-type EvaluationRow = { type: string; indicator: string; target: string; method: string; tool: string };
 
 export async function createProposal(formData: FormData) {
   const { supabase, user } = await requireUser();
@@ -91,14 +90,6 @@ export async function createProposal(formData: FormData) {
     0,
   );
 
-  let evaluationItems: EvaluationRow[] = [];
-  try {
-    evaluationItems = JSON.parse(String(formData.get("evaluation_items_json") ?? "[]"));
-  } catch {
-    evaluationItems = [];
-  }
-  evaluationItems = evaluationItems.filter((e) => e.indicator.trim() !== "");
-
   const { error } = await supabase.from("plan_project_proposals").insert({
     created_by: user.id,
     proposer_name: profile?.full_name ?? null,
@@ -111,18 +102,9 @@ export async function createProposal(formData: FormData) {
     strategy_alignment: str(formData, "strategy_alignment"),
     start_date: str(formData, "start_date"),
     end_date: str(formData, "end_date"),
-    location: str(formData, "location"),
-    rationale: str(formData, "rationale"),
-    objectives: str(formData, "objectives"),
-    target_quantity: str(formData, "target_quantity"),
-    target_quality: str(formData, "target_quality"),
     activities,
     budget_amount: budgetAmount,
     budget_source_id: str(formData, "budget_source_id"),
-    risk_factors: str(formData, "risk_factors"),
-    risk_mitigation: str(formData, "risk_mitigation"),
-    evaluation_items: evaluationItems,
-    expected_results: str(formData, "expected_results"),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");

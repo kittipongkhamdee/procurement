@@ -58,7 +58,7 @@ export default async function ProjectProposalsPage() {
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
     .select(
-      "id, name, proposer_name, created_by, standard, project_type, responsible, strategy_alignment, start_date, end_date, location, rationale, objectives, target_quantity, target_quality, activities, budget_amount, risk_factors, risk_mitigation, evaluation_items, expected_results, status, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+      "id, name, proposer_name, created_by, standard, project_type, responsible, strategy_alignment, start_date, end_date, activities, budget_amount, status, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
     )
     .order("created_at", { ascending: false });
 
@@ -75,11 +75,6 @@ export default async function ProjectProposalsPage() {
     strategyAlignment: p.strategy_alignment,
     startDate: p.start_date,
     endDate: p.end_date,
-    location: p.location,
-    rationale: p.rationale,
-    objectives: p.objectives,
-    targetQuantity: p.target_quantity,
-    targetQuality: p.target_quality,
     activities:
       (p.activities as unknown as {
         name: string;
@@ -90,12 +85,6 @@ export default async function ProjectProposalsPage() {
         material: number;
       }[]) ?? [],
     budgetAmount: Number(p.budget_amount ?? 0),
-    riskFactors: p.risk_factors,
-    riskMitigation: p.risk_mitigation,
-    evaluationItems:
-      (p.evaluation_items as unknown as { type: string; indicator: string; target: string; method: string; tool: string }[]) ??
-      [],
-    expectedResults: p.expected_results,
     status: p.status,
     endorsedByName: p.endorsed_by_name,
     endorsedAt: p.endorsed_at,
