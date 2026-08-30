@@ -140,11 +140,11 @@ export function buildProposalDocument(data: ProposalDocxData): Document {
       new TableRow({
         children: [
           headerCell("ที่", 5),
-          headerCell("รายละเอียดการดำเนินงาน", 27),
-          headerCell("ระยะเวลา", 13),
-          headerCell("ผู้รับผิดชอบ", 17),
-          headerCell("ค่าตอบแทน", 12),
-          headerCell("ค่าใช้สอย", 13),
+          headerCell("รายละเอียดการดำเนินงาน", 21),
+          headerCell("ระยะเวลา", 10),
+          headerCell("ผู้รับผิดชอบ", 26),
+          headerCell("ค่าตอบแทน", 13),
+          headerCell("ค่าใช้สอย", 12),
           headerCell("ค่าวัสดุ", 13),
         ],
       }),
@@ -153,11 +153,11 @@ export function buildProposalDocument(data: ProposalDocxData): Document {
           new TableRow({
             children: [
               bodyCell(String(i + 1), 5, AlignmentType.CENTER),
-              bodyCell(a.name, 27),
-              bodyCell(a.period, 13),
-              bodyCell(a.responsible.join(", "), 17),
-              bodyCell(a.compensation ? formatBaht(a.compensation) : "-", 12, AlignmentType.RIGHT),
-              bodyCell(a.service ? formatBaht(a.service) : "-", 13, AlignmentType.RIGHT),
+              bodyCell(a.name, 21),
+              bodyCell(a.period, 10),
+              bodyCell(a.responsible.join(", "), 26),
+              bodyCell(a.compensation ? formatBaht(a.compensation) : "-", 13, AlignmentType.RIGHT),
+              bodyCell(a.service ? formatBaht(a.service) : "-", 12, AlignmentType.RIGHT),
               bodyCell(a.material ? formatBaht(a.material) : "-", 13, AlignmentType.RIGHT),
             ],
           }),
@@ -241,9 +241,10 @@ export function buildProposalDocument(data: ProposalDocxData): Document {
           sectionHeading("2. วัตถุประสงค์"),
           ...bodyParagraph(data.objectives),
 
-          sectionHeading("3. เป้าหมาย — ผลผลิต/ด้านปริมาณ"),
+          sectionHeading("3. เป้าหมาย"),
+          sectionHeading("3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)"),
           ...bodyParagraph(data.targetQuantity),
-          sectionHeading("เป้าหมาย — ผลลัพธ์/ด้านคุณภาพ"),
+          sectionHeading("3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)"),
           ...bodyParagraph(data.targetQuality),
 
           sectionHeading("4. ขั้นตอนการดำเนินงาน และงบประมาณ"),

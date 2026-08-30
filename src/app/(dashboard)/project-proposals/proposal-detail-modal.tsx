@@ -186,8 +186,8 @@ export function ProposalDetailModal({
         <Field label="1. หลักการและเหตุผล" value={proposal.rationale} />
         <Field label="2. วัตถุประสงค์" value={proposal.objectives} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="3. เป้าหมาย — ด้านปริมาณ" value={proposal.targetQuantity} />
-          <Field label="เป้าหมาย — ด้านคุณภาพ" value={proposal.targetQuality} />
+          <Field label="3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)" value={proposal.targetQuantity} />
+          <Field label="3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)" value={proposal.targetQuality} />
         </div>
 
         {proposal.activities.length > 0 && (

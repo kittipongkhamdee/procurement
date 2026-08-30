@@ -221,14 +221,17 @@ export function ProposalForm({
         <NumberedListField items={objectives} onChange={setObjectives} placeholder="ระบุวัตถุประสงค์ข้อที่..." />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className="label">3. เป้าหมาย — ผลผลิต/ด้านปริมาณ</label>
-          <NumberedListField items={targetQuantity} onChange={setTargetQuantity} placeholder="ระบุเป้าหมายเชิงปริมาณ" />
-        </div>
-        <div>
-          <label className="label">เป้าหมาย — ผลลัพธ์/ด้านคุณภาพ</label>
-          <NumberedListField items={targetQuality} onChange={setTargetQuality} placeholder="ระบุเป้าหมายเชิงคุณภาพ" />
+      <div>
+        <div className="card-title">3. เป้าหมาย</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="label">3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)</label>
+            <NumberedListField items={targetQuantity} onChange={setTargetQuantity} placeholder="ระบุเป้าหมายเชิงปริมาณ" />
+          </div>
+          <div>
+            <label className="label">3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)</label>
+            <NumberedListField items={targetQuality} onChange={setTargetQuality} placeholder="ระบุเป้าหมายเชิงคุณภาพ" />
+          </div>
         </div>
       </div>
 

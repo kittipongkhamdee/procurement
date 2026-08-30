@@ -177,52 +177,53 @@ export function ProposalDocument({ data }: { data: ProposalPdfData }) {
         <Text style={styles.sectionTitle}>{t("2. วัตถุประสงค์")}</Text>
         <Paragraph text={data.objectives} />
 
-        <Text style={styles.sectionTitle}>{t("3. เป้าหมาย — ผลผลิต/ด้านปริมาณ")}</Text>
+        <Text style={styles.sectionTitle}>{t("3. เป้าหมาย")}</Text>
+        <Text style={[styles.sectionTitle, { fontSize: 11, marginTop: 2 }]}>{t("3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)")}</Text>
         <Paragraph text={data.targetQuantity} />
-        <Text style={styles.sectionTitle}>{t("เป้าหมาย — ผลลัพธ์/ด้านคุณภาพ")}</Text>
+        <Text style={[styles.sectionTitle, { fontSize: 11 }]}>{t("3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)")}</Text>
         <Paragraph text={data.targetQuality} />
 
         <Text style={styles.sectionTitle}>{t("4. ขั้นตอนการดำเนินงาน และงบประมาณ")}</Text>
         <View style={styles.table} wrap>
           <View style={styles.tr}>
-            <Text style={[styles.th, { width: "6%" }]}>{t("ที่")}</Text>
-            <Text style={[styles.th, { width: "28%" }]}>{t("รายละเอียดการดำเนินงาน")}</Text>
-            <Text style={[styles.th, { width: "13%" }]}>{t("ระยะเวลา")}</Text>
-            <Text style={[styles.th, { width: "17%" }]}>{t("ผู้รับผิดชอบ")}</Text>
-            <Text style={[styles.th, { width: "12%" }]}>{t("ค่าตอบแทน")}</Text>
-            <Text style={[styles.th, { width: "12%" }]}>{t("ค่าใช้สอย")}</Text>
-            <Text style={[styles.th, { width: "12%", borderRightWidth: 0 }]}>{t("ค่าวัสดุ")}</Text>
+            <Text style={[styles.th, { width: "5%" }]}>{t("ที่")}</Text>
+            <Text style={[styles.th, { width: "21%" }]}>{t("รายละเอียดการดำเนินงาน")}</Text>
+            <Text style={[styles.th, { width: "10%" }]}>{t("ระยะเวลา")}</Text>
+            <Text style={[styles.th, { width: "26%" }]}>{t("ผู้รับผิดชอบ")}</Text>
+            <Text style={[styles.th, { width: "12.67%" }]}>{t("ค่าตอบแทน")}</Text>
+            <Text style={[styles.th, { width: "12.66%" }]}>{t("ค่าใช้สอย")}</Text>
+            <Text style={[styles.th, { width: "12.67%", borderRightWidth: 0 }]}>{t("ค่าวัสดุ")}</Text>
           </View>
           {data.activities.map((a, i) => (
             <View style={styles.tr} key={i}>
-              <Text style={[styles.td, { width: "6%", textAlign: "center" }]}>{i + 1}</Text>
-              <View style={[styles.td, { width: "28%" }]}>
-                <CellText text={a.name} maxChars={13} />
+              <Text style={[styles.td, { width: "5%", textAlign: "center" }]}>{i + 1}</Text>
+              <View style={[styles.td, { width: "21%" }]}>
+                <CellText text={a.name} maxChars={10} />
               </View>
-              <Text style={[styles.td, { width: "13%" }]}>{t(a.period || "-")}</Text>
-              <View style={[styles.td, { width: "17%" }]}>
-                <CellText text={a.responsible.join(", ")} maxChars={9} />
+              <Text style={[styles.td, { width: "10%" }]}>{t(a.period || "-")}</Text>
+              <View style={[styles.td, { width: "26%" }]}>
+                <CellText text={a.responsible.join(", ")} maxChars={13} />
               </View>
-              <Text style={[styles.td, { width: "12%", textAlign: "right" }]}>
+              <Text style={[styles.td, { width: "12.67%", textAlign: "right" }]}>
                 {a.compensation ? formatBaht(a.compensation) : "-"}
               </Text>
-              <Text style={[styles.td, { width: "12%", textAlign: "right" }]}>
+              <Text style={[styles.td, { width: "12.66%", textAlign: "right" }]}>
                 {a.service ? formatBaht(a.service) : "-"}
               </Text>
-              <Text style={[styles.td, { width: "12%", textAlign: "right", borderRightWidth: 0 }]}>
+              <Text style={[styles.td, { width: "12.67%", textAlign: "right", borderRightWidth: 0 }]}>
                 {a.material ? formatBaht(a.material) : "-"}
               </Text>
             </View>
           ))}
           <View style={styles.tr}>
-            <View style={[styles.td, { width: "64%", alignItems: "flex-end" }]}>
+            <View style={[styles.td, { width: "62%", alignItems: "flex-end" }]}>
               <CellText
                 text={`รวมงบประมาณทั้งสิ้น (แหล่งเงิน: ${data.budgetSource})`}
                 maxChars={30}
                 bold
               />
             </View>
-            <Text style={[styles.td, { width: "36%", textAlign: "right", fontWeight: "bold", borderRightWidth: 0 }]}>
+            <Text style={[styles.td, { width: "38%", textAlign: "right", fontWeight: "bold", borderRightWidth: 0 }]}>
               {formatBaht(data.budgetAmount) + " บาท"}
             </Text>
           </View>
