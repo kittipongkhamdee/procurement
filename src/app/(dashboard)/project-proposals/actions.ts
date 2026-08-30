@@ -55,6 +55,24 @@ type ActivityRow = {
 
 const PROPOSAL_FILES_BUCKET = "procurement-files";
 
+function sanitizeFileNamePart(s: string) {
+  return s.replace(/[\\/:*?"<>|]+/g, " ").trim();
+}
+
+/** ย้ายไฟล์ที่อัปโหลดไว้ (ชื่อสุ่ม) ไปตั้งชื่อใหม่เป็น "ชื่อโครงการ_ปีงบประมาณ" ถ้าย้ายไม่สำเร็จ (เช่น ชื่อซ้ำ) จะคงชื่อเดิมไว้ */
+async function renameProposalFile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  path: string | null,
+  baseName: string,
+) {
+  if (!path) return null;
+  const ext = path.split(".").pop();
+  const newPath = `project-proposals/${baseName}${ext ? `.${ext}` : ""}`;
+  if (newPath === path) return path;
+  const { error } = await supabase.storage.from(PROPOSAL_FILES_BUCKET).move(path, newPath);
+  return error ? path : newPath;
+}
+
 export async function createProposal(formData: FormData) {
   const { supabase, user } = await requireUser();
 
@@ -66,6 +84,13 @@ export async function createProposal(formData: FormData) {
 
   const name = str(formData, "name");
   if (!name) return;
+
+  const budgetYearId = str(formData, "budget_year_id");
+  const { data: budgetYear } = await supabase
+    .from("plan_budget_years")
+    .select("year")
+    .eq("id", budgetYearId ?? "")
+    .maybeSingle();
 
   const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
@@ -84,10 +109,14 @@ export async function createProposal(formData: FormData) {
 
   const budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
 
+  const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
+  const fileUrlWord = await renameProposalFile(supabase, str(formData, "file_url_word"), baseName);
+  const fileUrlPdf = await renameProposalFile(supabase, str(formData, "file_url_pdf"), baseName);
+
   const { error } = await supabase.from("plan_project_proposals").insert({
     created_by: user.id,
     proposer_name: profile?.full_name ?? null,
-    budget_year_id: str(formData, "budget_year_id"),
+    budget_year_id: budgetYearId,
     standard: str(formData, "standard"),
     admin_group_id: str(formData, "admin_group_id"),
     name,
@@ -96,8 +125,8 @@ export async function createProposal(formData: FormData) {
     activities,
     budget_amount: budgetAmount,
     budget_source_id: str(formData, "budget_source_id"),
-    file_url_word: str(formData, "file_url_word"),
-    file_url_pdf: str(formData, "file_url_pdf"),
+    file_url_word: fileUrlWord,
+    file_url_pdf: fileUrlPdf,
   });
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");
