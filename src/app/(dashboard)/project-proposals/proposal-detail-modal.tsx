@@ -105,22 +105,34 @@ export function ProposalDetailModal({
   const modalRef = useRef<ModalHandle>(null);
   const [endorseSigner, setEndorseSigner] = useState("");
   const [endorseNote, setEndorseNote] = useState("");
+  const [endorseRejecting, setEndorseRejecting] = useState(false);
   const [approveSigner, setApproveSigner] = useState("");
   const [approveNote, setApproveNote] = useState("");
+  const [approveRejecting, setApproveRejecting] = useState(false);
 
   async function handleEndorse(decision: "เห็นชอบ" | "ไม่เห็นชอบ") {
+    if (decision === "ไม่เห็นชอบ" && !endorseNote.trim()) {
+      await toastError("กรุณาระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข");
+      return;
+    }
     try {
       await endorseProposal(proposal.id, decision, endorseSigner, endorseNote);
       await toastSuccess("บันทึกผลการเห็นชอบแล้ว");
+      setEndorseRejecting(false);
     } catch (err) {
       await toastError(errorMessage(err));
     }
   }
 
   async function handleApprove(decision: "อนุมัติแล้ว" | "ไม่อนุมัติ") {
+    if (decision === "ไม่อนุมัติ" && !approveNote.trim()) {
+      await toastError("กรุณาระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข");
+      return;
+    }
     try {
       await approveProposal(proposal.id, decision, approveSigner, approveNote);
       await toastSuccess("บันทึกผลการอนุมัติแล้ว");
+      setApproveRejecting(false);
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -278,20 +290,43 @@ export function ProposalDetailModal({
                 placeholder="ชื่อผู้เห็นชอบ"
                 className="input"
               />
-              <textarea
-                value={endorseNote}
-                onChange={(e) => setEndorseNote(e.target.value)}
-                rows={2}
-                placeholder="ความเห็น/หมายเหตุ (ไม่บังคับ)"
-                className="input"
-              />
+              {endorseRejecting && (
+                <textarea
+                  value={endorseNote}
+                  onChange={(e) => setEndorseNote(e.target.value)}
+                  rows={2}
+                  placeholder="ระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข (จำเป็น)"
+                  className="input"
+                  autoFocus
+                />
+              )}
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => handleEndorse("เห็นชอบ")} className="btn-primary btn-sm">
-                  เห็นชอบ
-                </button>
-                <button type="button" onClick={() => handleEndorse("ไม่เห็นชอบ")} className="btn-danger btn-sm">
-                  ไม่เห็นชอบ
-                </button>
+                {endorseRejecting ? (
+                  <>
+                    <button type="button" onClick={() => handleEndorse("ไม่เห็นชอบ")} className="btn-danger btn-sm">
+                      ยืนยันไม่เห็นชอบ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEndorseRejecting(false);
+                        setEndorseNote("");
+                      }}
+                      className="btn-secondary btn-sm"
+                    >
+                      ยกเลิก
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => handleEndorse("เห็นชอบ")} className="btn-primary btn-sm">
+                      เห็นชอบ
+                    </button>
+                    <button type="button" onClick={() => setEndorseRejecting(true)} className="btn-danger btn-sm">
+                      ไม่เห็นชอบ
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -305,20 +340,43 @@ export function ProposalDetailModal({
                 placeholder="ชื่อผู้อนุมัติ"
                 className="input"
               />
-              <textarea
-                value={approveNote}
-                onChange={(e) => setApproveNote(e.target.value)}
-                rows={2}
-                placeholder="ความเห็น/หมายเหตุ (ไม่บังคับ)"
-                className="input"
-              />
+              {approveRejecting && (
+                <textarea
+                  value={approveNote}
+                  onChange={(e) => setApproveNote(e.target.value)}
+                  rows={2}
+                  placeholder="ระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข (จำเป็น)"
+                  className="input"
+                  autoFocus
+                />
+              )}
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => handleApprove("อนุมัติแล้ว")} className="btn-primary btn-sm">
-                  อนุมัติ
-                </button>
-                <button type="button" onClick={() => handleApprove("ไม่อนุมัติ")} className="btn-danger btn-sm">
-                  ไม่อนุมัติ
-                </button>
+                {approveRejecting ? (
+                  <>
+                    <button type="button" onClick={() => handleApprove("ไม่อนุมัติ")} className="btn-danger btn-sm">
+                      ยืนยันไม่อนุมัติ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApproveRejecting(false);
+                        setApproveNote("");
+                      }}
+                      className="btn-secondary btn-sm"
+                    >
+                      ยกเลิก
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" onClick={() => handleApprove("อนุมัติแล้ว")} className="btn-primary btn-sm">
+                      อนุมัติ
+                    </button>
+                    <button type="button" onClick={() => setApproveRejecting(true)} className="btn-danger btn-sm">
+                      ไม่อนุมัติ
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}
