@@ -174,12 +174,17 @@ export function ProposalDetailModal({
           </span>
         </div>
 
-        {(proposal.fileUrlWord || proposal.fileUrlPdf) && (
+        {(() => {
+          const approverOnly = (canEndorse || canApprove) && !isAdmin;
+          const showWordFile = !!proposal.fileUrlWord && !approverOnly;
+          const showPdfFile = !!proposal.fileUrlPdf;
+          if (!showWordFile && !showPdfFile) return null;
+          return (
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            {proposal.fileUrlWord && (
+            {showWordFile && (
               <span className="flex items-center gap-1.5">
                 <a
-                  href={proposal.fileUrlWord}
+                  href={proposal.fileUrlWord!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-navy-800 hover:underline"
@@ -198,10 +203,10 @@ export function ProposalDetailModal({
                 )}
               </span>
             )}
-            {proposal.fileUrlPdf && (
+            {showPdfFile && (
               <span className="flex items-center gap-1.5">
                 <a
-                  href={proposal.fileUrlPdf}
+                  href={proposal.fileUrlPdf!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-navy-800 hover:underline"
@@ -221,7 +226,8 @@ export function ProposalDetailModal({
               </span>
             )}
           </div>
-        )}
+          );
+        })()}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="สนองกลยุทธ์โรงเรียน" value={proposal.strategyAlignment} />

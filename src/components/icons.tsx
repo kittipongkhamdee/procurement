@@ -145,3 +145,25 @@ export const LogOutIcon = base(
 export const GridIcon = base(
   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />,
 );
+
+export function WordFileIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className}>
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#2563eb" />
+      <text x="12" y="15.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">
+        W
+      </text>
+    </svg>
+  );
+}
+
+export function PdfFileIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className}>
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#dc2626" />
+      <text x="12" y="15" textAnchor="middle" fontSize="7" fontWeight="700" fill="white" fontFamily="sans-serif">
+        PDF
+      </text>
+    </svg>
+  );
+}

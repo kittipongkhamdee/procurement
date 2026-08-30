@@ -1,12 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { uploadDocument, deleteDocument } from "./actions";
 
 export default async function DocumentsPage() {
   const supabase = await createClient();
-  const { data: documents, error } = await supabase
-    .from("proc_documents")
-    .select("id, file_name, file_url, created_at")
-    .order("created_at", { ascending: false });
+  const [{ data: documents, error }, { data: proposals }] = await Promise.all([
+    supabase.from("proc_documents").select("id, file_name, file_url, created_at").order("created_at", { ascending: false }),
+    supabase
+      .from("plan_project_proposals")
+      .select("id, name, file_url_word, file_url_pdf, approved_at")
+      .eq("status", "อนุมัติแล้ว")
+      .order("approved_at", { ascending: false }),
+  ]);
 
   const paths = (documents ?? []).map((d) => d.file_url);
   const signedUrls = new Map<string, string>();
@@ -17,6 +22,16 @@ export default async function DocumentsPage() {
     });
   }
 
+  const projectFiles = (proposals ?? []).filter((p) => p.file_url_word || p.file_url_pdf);
+  const projectFilePaths = projectFiles.flatMap((p) => [p.file_url_word, p.file_url_pdf]).filter((p): p is string => !!p);
+  const signedProjectFileUrls = new Map<string, string>();
+  if (projectFilePaths.length > 0) {
+    const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(projectFilePaths, 3600);
+    signed?.forEach((s) => {
+      if (s.signedUrl && !s.error) signedProjectFileUrls.set(s.path ?? "", s.signedUrl);
+    });
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -24,6 +39,64 @@ export default async function DocumentsPage() {
           <h1 className="page-title">คลังเอกสารดาวน์โหลด</h1>
         </div>
       </div>
+
+      <div className="mb-6">
+        <h2 className="card-title mb-2">ไฟล์โครงการ</h2>
+        <div className="table-shell">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th className="w-14 text-center">ลำดับที่</th>
+                <th>โครงการ</th>
+                <th className="whitespace-nowrap">ไฟล์</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projectFiles.map((p, i) => (
+                <tr key={p.id}>
+                  <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
+                  <td className="font-medium text-slate-900">{p.name}</td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      {p.file_url_word && signedProjectFileUrls.get(p.file_url_word) && (
+                        <a
+                          href={signedProjectFileUrls.get(p.file_url_word)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="เปิดไฟล์ Word"
+                          title="ไฟล์ Word"
+                        >
+                          <WordFileIcon className="h-7 w-7" />
+                        </a>
+                      )}
+                      {p.file_url_pdf && signedProjectFileUrls.get(p.file_url_pdf) && (
+                        <a
+                          href={signedProjectFileUrls.get(p.file_url_pdf)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label="เปิดไฟล์ PDF"
+                          title="ไฟล์ PDF"
+                        >
+                          <PdfFileIcon className="h-7 w-7" />
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {projectFiles.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="table-empty">
+                    ยังไม่มีไฟล์โครงการ
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h2 className="card-title mb-2">เอกสารทั่วไป</h2>
 
       <div className="card mb-6">
         <h2 className="card-title">เพิ่มไฟล์ใหม่</h2>
