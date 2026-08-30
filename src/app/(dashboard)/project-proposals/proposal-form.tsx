@@ -143,18 +143,18 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <label className="label">๑. หลักการและเหตุผล</label>
+        <label className="label">1. หลักการและเหตุผล</label>
         <textarea name="rationale" rows={4} className="input" />
       </div>
 
       <div>
-        <label className="label">๒. วัตถุประสงค์</label>
+        <label className="label">2. วัตถุประสงค์</label>
         <textarea name="objectives" rows={3} className="input" placeholder="ระบุเป็นข้อ ๆ" />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="label">๓. เป้าหมาย — ผลผลิต/ด้านปริมาณ</label>
+          <label className="label">3. เป้าหมาย — ผลผลิต/ด้านปริมาณ</label>
           <textarea name="target_quantity" rows={3} className="input" />
         </div>
         <div>
@@ -164,7 +164,7 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <div className="card-title">๔. ขั้นตอนการดำเนินงาน และงบประมาณ</div>
+        <div className="card-title">4. ขั้นตอนการดำเนินงาน และงบประมาณ</div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[1fr_6rem_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>รายละเอียดการดำเนินงาน</div>
@@ -181,47 +181,65 @@ export function ProposalForm({
                 key={i}
                 className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_6rem_8rem_5rem_5rem_5rem_3.5rem] sm:items-center"
               >
-                <input
-                  value={row.name}
-                  onChange={(e) => updateActivity(i, { name: e.target.value })}
-                  className="input"
-                  placeholder={`กิจกรรมที่ ${i + 1}`}
-                />
-                <input
-                  value={row.period}
-                  onChange={(e) => updateActivity(i, { period: e.target.value })}
-                  className="input"
-                  placeholder="เช่น พ.ค. 2569"
-                />
-                <TeacherMultiSelect
-                  teachers={teachers}
-                  value={row.responsible}
-                  onChange={(next) => updateActivity(i, { responsible: next })}
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  value={row.compensation}
-                  onChange={(e) => updateActivity(i, { compensation: e.target.value })}
-                  className="input text-right"
-                  placeholder="0.00"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  value={row.service}
-                  onChange={(e) => updateActivity(i, { service: e.target.value })}
-                  className="input text-right"
-                  placeholder="0.00"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  value={row.material}
-                  onChange={(e) => updateActivity(i, { material: e.target.value })}
-                  className="input text-right"
-                  placeholder="0.00"
-                />
+                <div>
+                  <label className="label sm:hidden">รายละเอียดการดำเนินงาน</label>
+                  <input
+                    value={row.name}
+                    onChange={(e) => updateActivity(i, { name: e.target.value })}
+                    className="input"
+                    placeholder={`กิจกรรมที่ ${i + 1}`}
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">ระยะเวลา</label>
+                  <input
+                    value={row.period}
+                    onChange={(e) => updateActivity(i, { period: e.target.value })}
+                    className="input"
+                    placeholder="เช่น พ.ค. 2569"
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">ผู้รับผิดชอบ</label>
+                  <TeacherMultiSelect
+                    teachers={teachers}
+                    value={row.responsible}
+                    onChange={(next) => updateActivity(i, { responsible: next })}
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">ค่าตอบแทน</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={row.compensation}
+                    onChange={(e) => updateActivity(i, { compensation: e.target.value })}
+                    className="input text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">ค่าใช้สอย</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={row.service}
+                    onChange={(e) => updateActivity(i, { service: e.target.value })}
+                    className="input text-right"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">ค่าวัสดุ</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={row.material}
+                    onChange={(e) => updateActivity(i, { material: e.target.value })}
+                    className="input text-right"
+                    placeholder="0.00"
+                  />
+                </div>
                 {activities.length > 1 && (
                   <button
                     type="button"
@@ -243,7 +261,7 @@ export function ProposalForm({
           <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
             + เพิ่มกิจกรรม
           </button>
-          <div className="ml-auto w-56">
+          <div className="w-full sm:ml-auto sm:w-56">
             <label className="label">แหล่งเงินงบประมาณ</label>
             <select name="budget_source_id" defaultValue="" className="input">
               <option value="">ไม่ระบุ</option>
@@ -258,7 +276,7 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <label className="label">๗. การวิเคราะห์ความเสี่ยงของโครงการ — ปัจจัยความเสี่ยง</label>
+        <label className="label">7. การวิเคราะห์ความเสี่ยงของโครงการ — ปัจจัยความเสี่ยง</label>
         <textarea name="risk_factors" rows={2} className="input" />
       </div>
       <div>
@@ -267,7 +285,7 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <div className="card-title">๘. ตัวชี้วัดและเป้าหมายความสำเร็จ</div>
+        <div className="card-title">8. ตัวชี้วัดและเป้าหมายความสำเร็จ</div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[6rem_1fr_6rem_1fr_1fr_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>ประเภท</div>
@@ -283,38 +301,53 @@ export function ProposalForm({
                 key={i}
                 className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[6rem_1fr_6rem_1fr_1fr_3.5rem] sm:items-center"
               >
-                <select
-                  value={row.type}
-                  onChange={(e) => updateEvaluation(i, { type: e.target.value as EvaluationRow["type"] })}
-                  className="input"
-                >
-                  <option value="เชิงปริมาณ">เชิงปริมาณ</option>
-                  <option value="เชิงคุณภาพ">เชิงคุณภาพ</option>
-                </select>
-                <input
-                  value={row.indicator}
-                  onChange={(e) => updateEvaluation(i, { indicator: e.target.value })}
-                  className="input"
-                  placeholder="ตัวชี้วัด"
-                />
-                <input
-                  value={row.target}
-                  onChange={(e) => updateEvaluation(i, { target: e.target.value })}
-                  className="input"
-                  placeholder="เช่น ร้อยละ 80"
-                />
-                <input
-                  value={row.method}
-                  onChange={(e) => updateEvaluation(i, { method: e.target.value })}
-                  className="input"
-                  placeholder="เช่น การเก็บรวบรวมผลการดำเนินงาน"
-                />
-                <input
-                  value={row.tool}
-                  onChange={(e) => updateEvaluation(i, { tool: e.target.value })}
-                  className="input"
-                  placeholder="เช่น แบบสำรวจ"
-                />
+                <div>
+                  <label className="label sm:hidden">ประเภท</label>
+                  <select
+                    value={row.type}
+                    onChange={(e) => updateEvaluation(i, { type: e.target.value as EvaluationRow["type"] })}
+                    className="input"
+                  >
+                    <option value="เชิงปริมาณ">เชิงปริมาณ</option>
+                    <option value="เชิงคุณภาพ">เชิงคุณภาพ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label sm:hidden">ตัวชี้วัด</label>
+                  <input
+                    value={row.indicator}
+                    onChange={(e) => updateEvaluation(i, { indicator: e.target.value })}
+                    className="input"
+                    placeholder="ตัวชี้วัด"
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">ค่าเป้าหมาย</label>
+                  <input
+                    value={row.target}
+                    onChange={(e) => updateEvaluation(i, { target: e.target.value })}
+                    className="input"
+                    placeholder="เช่น ร้อยละ 80"
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">วิธีวัดและประเมินผล</label>
+                  <input
+                    value={row.method}
+                    onChange={(e) => updateEvaluation(i, { method: e.target.value })}
+                    className="input"
+                    placeholder="เช่น การเก็บรวบรวมผลการดำเนินงาน"
+                  />
+                </div>
+                <div>
+                  <label className="label sm:hidden">เครื่องมือที่ใช้</label>
+                  <input
+                    value={row.tool}
+                    onChange={(e) => updateEvaluation(i, { tool: e.target.value })}
+                    className="input"
+                    placeholder="เช่น แบบสำรวจ"
+                  />
+                </div>
                 {evaluationItems.length > 1 && (
                   <button
                     type="button"
@@ -338,7 +371,7 @@ export function ProposalForm({
       </div>
 
       <div>
-        <label className="label">๙. ผลที่คาดว่าจะได้รับ</label>
+        <label className="label">9. ผลที่คาดว่าจะได้รับ</label>
         <textarea name="expected_results" rows={3} className="input" />
       </div>
 

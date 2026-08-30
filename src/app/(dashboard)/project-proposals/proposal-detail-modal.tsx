@@ -159,17 +159,17 @@ export function ProposalDetailModal({
           />
         </div>
 
-        <Field label="๑. หลักการและเหตุผล" value={proposal.rationale} />
-        <Field label="๒. วัตถุประสงค์" value={proposal.objectives} />
+        <Field label="1. หลักการและเหตุผล" value={proposal.rationale} />
+        <Field label="2. วัตถุประสงค์" value={proposal.objectives} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="๓. เป้าหมาย — ด้านปริมาณ" value={proposal.targetQuantity} />
+          <Field label="3. เป้าหมาย — ด้านปริมาณ" value={proposal.targetQuantity} />
           <Field label="เป้าหมาย — ด้านคุณภาพ" value={proposal.targetQuality} />
         </div>
 
         {proposal.activities.length > 0 && (
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              ๔. ขั้นตอนการดำเนินงาน และงบประมาณ
+              4. ขั้นตอนการดำเนินงาน และงบประมาณ
             </div>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.activities.map((a, i) => {
@@ -191,7 +191,7 @@ export function ProposalDetailModal({
 
         {(proposal.riskFactors || proposal.riskMitigation) && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="๗. ปัจจัยความเสี่ยง" value={proposal.riskFactors} />
+            <Field label="7. ปัจจัยความเสี่ยง" value={proposal.riskFactors} />
             <Field label="แนวทางการบริหารความเสี่ยง" value={proposal.riskMitigation} />
           </div>
         )}
@@ -199,7 +199,7 @@ export function ProposalDetailModal({
         {proposal.evaluationItems.length > 0 && (
           <div>
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              ๘. ตัวชี้วัดและเป้าหมายความสำเร็จ
+              8. ตัวชี้วัดและเป้าหมายความสำเร็จ
             </div>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.evaluationItems.map((e, i) => (
@@ -215,7 +215,7 @@ export function ProposalDetailModal({
           </div>
         )}
 
-        <Field label="๙. ผลที่คาดว่าจะได้รับ" value={proposal.expectedResults} />
+        <Field label="9. ผลที่คาดว่าจะได้รับ" value={proposal.expectedResults} />
 
         <div className="border-t border-slate-100 pt-4">
           <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>
