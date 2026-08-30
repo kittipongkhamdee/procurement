@@ -299,7 +299,6 @@ export function ProposalDetailModal({
 
           {canEndorse && proposal.status === "รอเห็นชอบ" && (
             <div className="grid grid-cols-1 gap-2">
-              <p className="text-xs text-slate-500">ขั้นที่ 1: ผู้เห็นชอบโครงการ (เช่น รองผู้อำนวยการ)</p>
               {endorseRejecting && (
                 <textarea
                   value={endorseNote}
@@ -355,7 +354,6 @@ export function ProposalDetailModal({
 
           {canApprove && proposal.status === "รออนุมัติ" && (
             <div className="grid grid-cols-1 gap-2">
-              <p className="text-xs text-slate-500">ขั้นที่ 2: ผู้อนุมัติโครงการ (ผู้อำนวยการ)</p>
               {approveRejecting && (
                 <textarea
                   value={approveNote}
