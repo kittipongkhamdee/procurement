@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
+import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import type {
   approveProposal as approveProposalAction,
@@ -180,15 +181,16 @@ export function ProposalDetailModal({
           const showPdfFile = !!proposal.fileUrlPdf;
           if (!showWordFile && !showPdfFile) return null;
           return (
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-3">
             {showWordFile && (
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 py-1.5 pl-2 pr-3">
                 <a
                   href={proposal.fileUrlWord!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-navy-800 hover:underline"
+                  className="flex items-center gap-2 text-sm font-semibold text-blue-800"
                 >
+                  <WordFileIcon className="h-6 w-6 shrink-0" />
                   เปิดไฟล์โครงการ (Word)
                 </a>
                 {isAdmin && (
@@ -196,7 +198,7 @@ export function ProposalDetailModal({
                     type="button"
                     onClick={() => handleDeleteFile("file_url_word")}
                     aria-label="ลบไฟล์ Word"
-                    className="text-slate-400 hover:text-red-600"
+                    className="text-blue-400 hover:text-red-600"
                   >
                     ✕
                   </button>
@@ -204,13 +206,14 @@ export function ProposalDetailModal({
               </span>
             )}
             {showPdfFile && (
-              <span className="flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 py-1.5 pl-2 pr-3">
                 <a
                   href={proposal.fileUrlPdf!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-navy-800 hover:underline"
+                  className="flex items-center gap-2 text-sm font-semibold text-red-800"
                 >
+                  <PdfFileIcon className="h-6 w-6 shrink-0" />
                   เปิดไฟล์โครงการ (PDF)
                 </a>
                 {isAdmin && (
@@ -218,7 +221,7 @@ export function ProposalDetailModal({
                     type="button"
                     onClick={() => handleDeleteFile("file_url_pdf")}
                     aria-label="ลบไฟล์ PDF"
-                    className="text-slate-400 hover:text-red-600"
+                    className="text-red-400 hover:text-red-600"
                   >
                     ✕
                   </button>
