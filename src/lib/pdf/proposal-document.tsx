@@ -34,6 +34,10 @@ function wrapAny(text: string, maxChars: number): string[] {
   return lines;
 }
 
+function projectTypeLabel(type: string) {
+  return type === "ใหม่" ? "โครงการใหม่" : type === "ต่อเนื่อง" ? "โครงการต่อเนื่อง" : type;
+}
+
 const styles = StyleSheet.create({
   page: { fontFamily: "Sarabun", fontSize: 11, padding: 36, color: "#111827" },
   center: { textAlign: "center" },
@@ -164,7 +168,7 @@ export function ProposalDocument({ data }: { data: ProposalPdfData }) {
         <FieldRow label="สนองกลยุทธ์โรงเรียน" value={data.strategyAlignment || "-"} />
         <FieldRow label="สอดคล้องกับมาตรฐานการศึกษา" value={data.standard || "-"} />
         <FieldRow label="กลุ่มงานที่รับผิดชอบ" value={data.adminGroup} />
-        <FieldRow label="ลักษณะโครงการ" value={data.projectType} />
+        <FieldRow label="ลักษณะโครงการ" value={projectTypeLabel(data.projectType)} />
         <FieldRow label="ผู้รับผิดชอบโครงการ" value={data.responsible.join(", ") || data.proposerName || "-"} />
         <FieldRow label="ระยะเวลาดำเนินการ" value={duration} />
         <FieldRow label="สถานที่ดำเนินการ" value={data.location || "-"} />

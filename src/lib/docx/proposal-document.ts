@@ -16,6 +16,10 @@ import { formatBaht, formatThaiDate } from "@/lib/thai";
 const THAI_FONT = "TH Sarabun New";
 const BODY_SIZE = 32; // 16pt — sets w:lang="th-TH" per run so Word applies its own Thai line-break dictionary instead of treating unspaced Thai text as one unbreakable word.
 
+function projectTypeLabel(type: string) {
+  return type === "ใหม่" ? "โครงการใหม่" : type === "ต่อเนื่อง" ? "โครงการต่อเนื่อง" : type;
+}
+
 function run(text: string, opts: { bold?: boolean } = {}) {
   return new TextRun({
     text,
@@ -230,7 +234,7 @@ export function buildProposalDocument(data: ProposalDocxData): Document {
           fieldRow("สนองกลยุทธ์โรงเรียน", data.strategyAlignment || "-"),
           fieldRow("สอดคล้องกับมาตรฐานการศึกษา", data.standard || "-"),
           fieldRow("กลุ่มงานที่รับผิดชอบ", data.adminGroup),
-          fieldRow("ลักษณะโครงการ", data.projectType),
+          fieldRow("ลักษณะโครงการ", projectTypeLabel(data.projectType)),
           fieldRow("ผู้รับผิดชอบโครงการ", data.responsible.join(", ") || data.proposerName || "-"),
           fieldRow("ระยะเวลาดำเนินการ", duration),
           fieldRow("สถานที่ดำเนินการ", data.location || "-"),

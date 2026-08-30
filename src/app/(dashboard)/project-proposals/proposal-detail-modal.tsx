@@ -57,6 +57,10 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
+function projectTypeLabel(type: string) {
+  return type === "ใหม่" ? "โครงการใหม่" : type === "ต่อเนื่อง" ? "โครงการต่อเนื่อง" : type;
+}
+
 function Field({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
@@ -146,7 +150,7 @@ export function ProposalDetailModal({
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className={statusBadgeClass(proposal.status)}>{proposal.status}</span>
             <span className="text-slate-500">
-              ผู้เสนอ: {proposal.proposerName ?? "-"} · {proposal.projectType} · {proposal.adminGroup}
+              ผู้เสนอ: {proposal.proposerName ?? "-"} · {projectTypeLabel(proposal.projectType)} · {proposal.adminGroup}
             </span>
           </div>
           <div className="flex gap-2">
