@@ -124,9 +124,6 @@ export function ProposalsTable({
               <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budgetAmount)}</td>
               <td className="whitespace-nowrap text-center">
                 <span className={statusBadgeClass(r.status)}>{r.status}</span>
-                {r.endorsedByName && (
-                  <div className="mt-0.5 text-xs text-slate-400">เห็นชอบโดย {r.endorsedByName}</div>
-                )}
               </td>
               <td className="text-right">
                 <div className="flex justify-end gap-2">
