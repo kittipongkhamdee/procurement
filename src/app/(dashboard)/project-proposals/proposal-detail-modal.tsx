@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { formatThaiDate } from "@/lib/thai";
@@ -65,10 +65,14 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   if (!value) return null;
   return (
     <div>
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="text-sm font-bold text-navy-800">{label}</div>
       <div className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{value}</div>
     </div>
   );
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return <div className="border-b border-slate-200 pb-1 text-sm font-bold text-navy-800">{children}</div>;
 }
 
 function statusBadgeClass(status: string) {
@@ -196,9 +200,7 @@ export function ProposalDetailModal({
 
         {proposal.activities.length > 0 && (
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              4. ขั้นตอนการดำเนินงาน และงบประมาณ
-            </div>
+            <SectionTitle>4. ขั้นตอนการดำเนินงาน และงบประมาณ</SectionTitle>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.activities.map((a, i) => {
                 const rowTotal = (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0);
@@ -230,9 +232,7 @@ export function ProposalDetailModal({
 
         {proposal.evaluationItems.length > 0 && (
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              8. ตัวชี้วัดและเป้าหมายความสำเร็จ
-            </div>
+            <SectionTitle>8. ตัวชี้วัดและเป้าหมายความสำเร็จ</SectionTitle>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.evaluationItems.map((e, i) => (
                 <div key={i} className="grid grid-cols-1 gap-1.5 p-3 text-left text-sm">
