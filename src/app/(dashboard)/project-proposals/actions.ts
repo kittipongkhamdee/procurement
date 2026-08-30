@@ -28,10 +28,10 @@ async function requireAdminOrGroup(groupName: string) {
   const { supabase, user } = await requireUser();
   const { data: profile } = await supabase
     .from("proc_profiles")
-    .select("role")
+    .select("role, full_name")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profile?.role === "admin") return supabase;
+  if (profile?.role === "admin") return { supabase, signerName: profile.full_name ?? user.email ?? "" };
 
   const { data: membership } = await supabase
     .from("proc_user_group_members")
@@ -40,7 +40,7 @@ async function requireAdminOrGroup(groupName: string) {
     .eq("proc_user_groups.name", groupName)
     .maybeSingle();
   if (!membership) throw new Error(`เฉพาะผู้ดูแลระบบหรือผู้มีสถานะ "${groupName}" เท่านั้น`);
-  return supabase;
+  return { supabase, signerName: profile?.full_name ?? user.email ?? "" };
 }
 
 function str(formData: FormData, key: string) {
@@ -128,13 +128,8 @@ export async function createProposal(formData: FormData) {
   revalidatePath("/project-proposals");
 }
 
-export async function endorseProposal(
-  id: string,
-  decision: "เห็นชอบ" | "ไม่เห็นชอบ",
-  signerName: string,
-  note?: string,
-) {
-  const supabase = await requireAdminOrGroup("รองผู้อำนวยการ");
+export async function endorseProposal(id: string, decision: "เห็นชอบ" | "ไม่เห็นชอบ", note?: string) {
+  const { supabase, signerName } = await requireAdminOrGroup("รองผู้อำนวยการ");
   const { error } = await supabase
     .from("plan_project_proposals")
     .update({
@@ -149,13 +144,8 @@ export async function endorseProposal(
   revalidatePath("/project-proposals");
 }
 
-export async function approveProposal(
-  id: string,
-  decision: "อนุมัติแล้ว" | "ไม่อนุมัติ",
-  signerName: string,
-  note?: string,
-) {
-  const supabase = await requireAdminOrGroup("ผู้อำนวยการ");
+export async function approveProposal(id: string, decision: "อนุมัติแล้ว" | "ไม่อนุมัติ", note?: string) {
+  const { supabase, signerName } = await requireAdminOrGroup("ผู้อำนวยการ");
   const { error } = await supabase
     .from("plan_project_proposals")
     .update({

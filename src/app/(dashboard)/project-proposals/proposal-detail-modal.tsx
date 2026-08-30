@@ -103,10 +103,8 @@ export function ProposalDetailModal({
   deleteProposal: typeof deleteProposalAction;
 }) {
   const modalRef = useRef<ModalHandle>(null);
-  const [endorseSigner, setEndorseSigner] = useState("");
   const [endorseNote, setEndorseNote] = useState("");
   const [endorseRejecting, setEndorseRejecting] = useState(false);
-  const [approveSigner, setApproveSigner] = useState("");
   const [approveNote, setApproveNote] = useState("");
   const [approveRejecting, setApproveRejecting] = useState(false);
 
@@ -116,7 +114,7 @@ export function ProposalDetailModal({
       return;
     }
     try {
-      await endorseProposal(proposal.id, decision, endorseSigner, endorseNote);
+      await endorseProposal(proposal.id, decision, endorseNote);
       await toastSuccess("บันทึกผลการเห็นชอบแล้ว");
       setEndorseRejecting(false);
     } catch (err) {
@@ -130,7 +128,7 @@ export function ProposalDetailModal({
       return;
     }
     try {
-      await approveProposal(proposal.id, decision, approveSigner, approveNote);
+      await approveProposal(proposal.id, decision, approveNote);
       await toastSuccess("บันทึกผลการอนุมัติแล้ว");
       setApproveRejecting(false);
     } catch (err) {
@@ -284,12 +282,6 @@ export function ProposalDetailModal({
           {canEndorse && proposal.status === "รอเห็นชอบ" && (
             <div className="grid grid-cols-1 gap-2">
               <p className="text-xs text-slate-500">ขั้นที่ 1: ผู้เห็นชอบโครงการ (เช่น รองผู้อำนวยการ)</p>
-              <input
-                value={endorseSigner}
-                onChange={(e) => setEndorseSigner(e.target.value)}
-                placeholder="ชื่อผู้เห็นชอบ"
-                className="input"
-              />
               {endorseRejecting && (
                 <textarea
                   value={endorseNote}
@@ -334,12 +326,6 @@ export function ProposalDetailModal({
           {canApprove && proposal.status === "รออนุมัติ" && (
             <div className="grid grid-cols-1 gap-2">
               <p className="text-xs text-slate-500">ขั้นที่ 2: ผู้อนุมัติโครงการ (ผู้อำนวยการ)</p>
-              <input
-                value={approveSigner}
-                onChange={(e) => setApproveSigner(e.target.value)}
-                placeholder="ชื่อผู้อนุมัติ"
-                className="input"
-              />
               {approveRejecting && (
                 <textarea
                   value={approveNote}
