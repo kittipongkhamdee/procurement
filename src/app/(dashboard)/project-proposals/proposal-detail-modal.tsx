@@ -145,7 +145,7 @@ export function ProposalDetailModal({
 
   return (
     <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm">
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4 text-left">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className={statusBadgeClass(proposal.status)}>{proposal.status}</span>
