@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
@@ -32,6 +32,10 @@ function emptyEvaluation(type: EvaluationRow["type"]): EvaluationRow {
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
+}
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return <div className="mb-1 text-sm font-bold text-navy-800">{children}</div>;
 }
 
 function numberedListToText(items: string[]) {
@@ -212,31 +216,31 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <label className="label">1. หลักการและเหตุผล</label>
+        <SectionHeading>1. หลักการและเหตุผล</SectionHeading>
         <textarea name="rationale" rows={4} className="input" />
       </div>
 
       <div>
-        <label className="label">2. วัตถุประสงค์</label>
+        <SectionHeading>2. วัตถุประสงค์</SectionHeading>
         <NumberedListField items={objectives} onChange={setObjectives} placeholder="ระบุวัตถุประสงค์ข้อที่..." />
       </div>
 
       <div>
-        <div className="card-title">3. เป้าหมาย</div>
+        <SectionHeading>3. เป้าหมาย</SectionHeading>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="label">3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)</label>
+            <SectionHeading>3.1 เป้าหมายเชิงปริมาณ (ผลผลิต)</SectionHeading>
             <NumberedListField items={targetQuantity} onChange={setTargetQuantity} placeholder="ระบุเป้าหมายเชิงปริมาณ" />
           </div>
           <div>
-            <label className="label">3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)</label>
+            <SectionHeading>3.2 เป้าหมายเชิงคุณภาพ (ผลลัพธ์)</SectionHeading>
             <NumberedListField items={targetQuality} onChange={setTargetQuality} placeholder="ระบุเป้าหมายเชิงคุณภาพ" />
           </div>
         </div>
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <div className="card-title">4. ขั้นตอนการดำเนินงาน และงบประมาณ</div>
+        <SectionHeading>4. ขั้นตอนการดำเนินงาน และงบประมาณ</SectionHeading>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[1fr_6rem_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>รายละเอียดการดำเนินงาน</div>
@@ -348,16 +352,16 @@ export function ProposalForm({
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <label className="label">7. การวิเคราะห์ความเสี่ยงของโครงการ — ปัจจัยความเสี่ยง</label>
+        <SectionHeading>7. การวิเคราะห์ความเสี่ยงของโครงการ — ปัจจัยความเสี่ยง</SectionHeading>
         <textarea name="risk_factors" rows={2} className="input" />
       </div>
       <div>
-        <label className="label">แนวทางการบริหารความเสี่ยง</label>
+        <SectionHeading>แนวทางการบริหารความเสี่ยง</SectionHeading>
         <textarea name="risk_mitigation" rows={2} className="input" />
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <div className="card-title">8. ตัวชี้วัดและเป้าหมายความสำเร็จ</div>
+        <SectionHeading>8. ตัวชี้วัดและเป้าหมายความสำเร็จ</SectionHeading>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
           <div className="hidden grid-cols-[6rem_1fr_6rem_1fr_1fr_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>ประเภท</div>
@@ -443,7 +447,7 @@ export function ProposalForm({
       </div>
 
       <div>
-        <label className="label">9. ผลที่คาดว่าจะได้รับ</label>
+        <SectionHeading>9. ผลที่คาดว่าจะได้รับ</SectionHeading>
         <textarea name="expected_results" rows={3} className="input" />
       </div>
 
