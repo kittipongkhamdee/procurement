@@ -3,6 +3,7 @@
 import { ProposalDetailModal } from "./proposal-detail-modal";
 import type {
   approveProposal as approveProposalAction,
+  cancelEndorsement as cancelEndorsementAction,
   deleteProposal as deleteProposalAction,
   endorseProposal as endorseProposalAction,
   resetProposalStatus as resetProposalStatusAction,
@@ -68,6 +69,7 @@ export function ProposalsTable({
   canApprove,
   currentUserId,
   endorseProposal,
+  cancelEndorsement,
   approveProposal,
   resetProposalStatus,
   deleteProposal,
@@ -78,6 +80,7 @@ export function ProposalsTable({
   canApprove: boolean;
   currentUserId: string | null;
   endorseProposal: typeof endorseProposalAction;
+  cancelEndorsement: typeof cancelEndorsementAction;
   approveProposal: typeof approveProposalAction;
   resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
@@ -119,6 +122,7 @@ export function ProposalsTable({
                   canApprove={canApprove}
                   canDelete={canDelete}
                   endorseProposal={endorseProposal}
+                  cancelEndorsement={cancelEndorsement}
                   approveProposal={approveProposal}
                   resetProposalStatus={resetProposalStatus}
                   deleteProposal={deleteProposal}

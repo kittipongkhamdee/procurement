@@ -6,6 +6,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { formatThaiDate } from "@/lib/thai";
 import type {
   approveProposal as approveProposalAction,
+  cancelEndorsement as cancelEndorsementAction,
   deleteProposal as deleteProposalAction,
   endorseProposal as endorseProposalAction,
   resetProposalStatus as resetProposalStatusAction,
@@ -88,6 +89,7 @@ export function ProposalDetailModal({
   canApprove,
   canDelete,
   endorseProposal,
+  cancelEndorsement,
   approveProposal,
   resetProposalStatus,
   deleteProposal,
@@ -98,6 +100,7 @@ export function ProposalDetailModal({
   canApprove: boolean;
   canDelete: boolean;
   endorseProposal: typeof endorseProposalAction;
+  cancelEndorsement: typeof cancelEndorsementAction;
   approveProposal: typeof approveProposalAction;
   resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
@@ -131,6 +134,15 @@ export function ProposalDetailModal({
       await approveProposal(proposal.id, decision, approveNote);
       await toastSuccess("บันทึกผลการอนุมัติแล้ว");
       setApproveRejecting(false);
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleCancelEndorsement() {
+    try {
+      await cancelEndorsement(proposal.id);
+      await toastSuccess("ยกเลิกการเห็นชอบแล้ว");
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -277,6 +289,12 @@ export function ProposalDetailModal({
               อนุมัติโดย {proposal.approvedByName} เมื่อ {proposal.approvedAt?.slice(0, 10)}
               {proposal.approveNote ? ` — ${proposal.approveNote}` : ""}
             </p>
+          )}
+
+          {canEndorse && proposal.status === "รออนุมัติ" && (
+            <button type="button" onClick={handleCancelEndorsement} className="btn-secondary btn-sm mb-2">
+              ยกเลิกเห็นชอบ
+            </button>
           )}
 
           {canEndorse && proposal.status === "รอเห็นชอบ" && (

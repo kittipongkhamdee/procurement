@@ -3,7 +3,14 @@ import { Modal } from "@/components/modal";
 import { CheckIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
 import { ProposalForm } from "./proposal-form";
 import { ProposalsTable } from "./proposals-table";
-import { approveProposal, createProposal, deleteProposal, endorseProposal, resetProposalStatus } from "./actions";
+import {
+  approveProposal,
+  cancelEndorsement,
+  createProposal,
+  deleteProposal,
+  endorseProposal,
+  resetProposalStatus,
+} from "./actions";
 
 export default async function ProjectProposalsPage() {
   const supabase = await createClient();
@@ -199,6 +206,7 @@ export default async function ProjectProposalsPage() {
           canApprove={canApprove}
           currentUserId={user?.id ?? null}
           endorseProposal={endorseProposal}
+          cancelEndorsement={cancelEndorsement}
           approveProposal={approveProposal}
           resetProposalStatus={resetProposalStatus}
           deleteProposal={deleteProposal}

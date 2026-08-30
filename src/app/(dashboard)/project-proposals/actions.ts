@@ -144,6 +144,23 @@ export async function endorseProposal(id: string, decision: "เห็นชอ�
   revalidatePath("/project-proposals");
 }
 
+/** ให้รองผู้อำนวยการยกเลิกการเห็นชอบของตนเองได้ ตราบใดที่ผู้อำนวยการยังไม่ได้กดอนุมัติ/ไม่อนุมัติ */
+export async function cancelEndorsement(id: string) {
+  const { supabase } = await requireAdminOrGroup("รองผู้อำนวยการ");
+  const { error } = await supabase
+    .from("plan_project_proposals")
+    .update({
+      status: "รอเห็นชอบ",
+      endorsed_by_name: null,
+      endorsed_at: null,
+      endorse_note: null,
+    })
+    .eq("id", id)
+    .eq("status", "รออนุมัติ");
+  if (error) throw new Error(error.message);
+  revalidatePath("/project-proposals");
+}
+
 export async function approveProposal(id: string, decision: "อนุมัติแล้ว" | "ไม่อนุมัติ", note?: string) {
   const { supabase, signerName } = await requireAdminOrGroup("ผู้อำนวยการ");
   const { error } = await supabase
