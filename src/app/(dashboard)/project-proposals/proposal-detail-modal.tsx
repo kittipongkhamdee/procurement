@@ -172,26 +172,11 @@ export function ProposalDetailModal({
   return (
     <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm">
       <div className="grid grid-cols-1 gap-4 text-left">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className={statusBadgeClass(proposal.status)}>{proposal.status}</span>
-            <span className="text-slate-500">
-              ผู้เสนอ: {proposal.proposerName ?? "-"} · {projectTypeLabel(proposal.projectType)} · {proposal.adminGroup}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <a
-              href={`/project-proposals/${proposal.id}/pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-secondary btn-sm"
-            >
-              ส่งออก PDF
-            </a>
-            <a href={`/project-proposals/${proposal.id}/docx`} className="btn-secondary btn-sm">
-              ส่งออก Word
-            </a>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className={statusBadgeClass(proposal.status)}>{proposal.status}</span>
+          <span className="text-slate-500">
+            ผู้เสนอ: {proposal.proposerName ?? "-"} · {projectTypeLabel(proposal.projectType)} · {proposal.adminGroup}
+          </span>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
