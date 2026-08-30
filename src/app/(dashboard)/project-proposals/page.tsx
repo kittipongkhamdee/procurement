@@ -10,13 +10,9 @@ import {
   deleteProposal,
   deleteProposalFile,
   endorseProposal,
-  extractProposalFromUploadedFile,
   resetProposalStatus,
   updateProposal,
 } from "./actions";
-
-// ให้เวลาการทำงานของ Server Action นานขึ้น (เผื่อการอ่านไฟล์ด้วย AI ที่อาจใช้เวลานาน)
-export const maxDuration = 60;
 
 export default async function ProjectProposalsPage() {
   const supabase = await createClient();
@@ -145,7 +141,6 @@ export default async function ProjectProposalsPage() {
               teachers={teachers ?? []}
               strategies={strategies ?? []}
               standards={standards ?? []}
-              extractProposalFromUploadedFile={extractProposalFromUploadedFile}
             />
           </Modal>
         )}
@@ -224,7 +219,6 @@ export default async function ProjectProposalsPage() {
           deleteProposal={deleteProposal}
           deleteProposalFile={deleteProposalFile}
           updateProposal={updateProposal}
-          extractProposalFromUploadedFile={extractProposalFromUploadedFile}
         />
       </div>
     </div>

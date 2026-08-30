@@ -5,7 +5,6 @@ import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
 import { ProposalFileUpload } from "@/components/proposal-file-upload";
-import type { extractProposalFromUploadedFile as extractProposalFromUploadedFileAction } from "./actions";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
@@ -50,7 +49,6 @@ export function ProposalForm({
   initial,
   submitLabel = "ส่งข้อเสนอโครงการ",
   successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
-  extractProposalFromUploadedFile,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   budgetYearId: string;
@@ -62,16 +60,12 @@ export function ProposalForm({
   initial?: ProposalFormInitial;
   submitLabel?: string;
   successMessage?: string;
-  extractProposalFromUploadedFile?: typeof extractProposalFromUploadedFileAction;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [strategyAlignment, setStrategyAlignment] = useState(initial?.strategyAlignment ?? "");
   const [standard, setStandard] = useState(initial?.standard ?? "");
   const [responsible, setResponsible] = useState<string[]>(initial?.responsible ?? []);
   const [activities, setActivities] = useState<ActivityRow[]>(initial?.activities ?? [emptyActivity()]);
-  const [wordPath, setWordPath] = useState<string | null>(initial?.fileUrlWordPath ?? null);
-  const [pdfPath, setPdfPath] = useState<string | null>(initial?.fileUrlPdfPath ?? null);
-  const [aiLoading, setAiLoading] = useState(false);
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -92,48 +86,6 @@ export function ProposalForm({
     }
   }
 
-  async function handleExtractWithAi() {
-    const filePath = pdfPath ?? wordPath;
-    if (!extractProposalFromUploadedFile || !filePath) return;
-    setAiLoading(true);
-    try {
-      const result = await extractProposalFromUploadedFile({
-        filePath,
-        strategies: strategies.map((s) => s.name),
-        standards: standards.map((s) => s.name),
-        teachers: teachers.map((t) => t.name),
-      });
-      if (!result.ok) {
-        await toastError(result.error);
-        return;
-      }
-      const data = result.data;
-      const teacherNames = new Set(teachers.map((t) => t.name));
-      if (data.name) setName(data.name);
-      if (data.strategy_alignment && strategies.some((s) => s.name === data.strategy_alignment)) {
-        setStrategyAlignment(data.strategy_alignment);
-      }
-      if (data.standard && standards.some((s) => s.name === data.standard)) {
-        setStandard(data.standard);
-      }
-      setResponsible(data.responsible.filter((n) => teacherNames.has(n)));
-      if (data.activities.length > 0) {
-        setActivities(
-          data.activities.map((a) => ({
-            name: a.name,
-            responsible: a.responsible.filter((n) => teacherNames.has(n)),
-            budget: a.budget ? String(a.budget) : "",
-          })),
-        );
-      }
-      await toastSuccess("AI อ่านไฟล์และกรอกข้อมูลให้แล้ว กรุณาตรวจสอบความถูกต้องอีกครั้ง");
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setAiLoading(false);
-    }
-  }
-
   return (
     <form action={handleSubmit} className="grid grid-cols-1 gap-4 text-left">
       <input type="hidden" name="budget_year_id" value={budgetYearId} />
@@ -147,28 +99,14 @@ export function ProposalForm({
               label="ไฟล์โครงการ Word (.doc, .docx)"
               accept=".doc,.docx"
               initialPath={initial?.fileUrlWordPath}
-              onPathChange={setWordPath}
             />
             <ProposalFileUpload
               name="file_url_pdf"
               label="ไฟล์โครงการ PDF (.pdf)"
               accept=".pdf"
               initialPath={initial?.fileUrlPdfPath}
-              onPathChange={setPdfPath}
             />
           </div>
-          {extractProposalFromUploadedFile && (wordPath || pdfPath) && (
-            <div>
-              <button
-                type="button"
-                onClick={handleExtractWithAi}
-                disabled={aiLoading}
-                className="btn-secondary btn-sm"
-              >
-                {aiLoading ? "กำลังให้ AI อ่านไฟล์..." : "✨ ให้ AI อ่านไฟล์และกรอกข้อมูลอัตโนมัติ"}
-              </button>
-            </div>
-          )}
           <div>
             <label className="label">ชื่อโครงการ</label>
             <input
