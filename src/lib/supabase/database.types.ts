@@ -137,6 +137,7 @@ export type Database = {
       }
       plan_project_proposals: {
         Row: {
+          activities: Json
           admin_group_id: string | null
           budget_amount: number
           budget_source_id: string | null
@@ -144,25 +145,26 @@ export type Database = {
           created_at: string
           created_by: string | null
           end_date: string | null
-          evaluation_method: string | null
+          evaluation_items: Json
           expected_results: string | null
           id: string
           name: string
           objectives: string | null
-          procedures: string | null
+          plan_name: string | null
           project_type: string
           proposer_name: string | null
           rationale: string | null
           responsible: string[]
+          standard: string | null
           start_date: string | null
           status: string
           status_note: string | null
           strategy_alignment: string | null
-          success_indicators: string | null
           target_quality: string | null
           target_quantity: string | null
         }
         Insert: {
+          activities?: Json
           admin_group_id?: string | null
           budget_amount?: number
           budget_source_id?: string | null
@@ -170,25 +172,26 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           end_date?: string | null
-          evaluation_method?: string | null
+          evaluation_items?: Json
           expected_results?: string | null
           id?: string
           name: string
           objectives?: string | null
-          procedures?: string | null
+          plan_name?: string | null
           project_type?: string
           proposer_name?: string | null
           rationale?: string | null
           responsible?: string[]
+          standard?: string | null
           start_date?: string | null
           status?: string
           status_note?: string | null
           strategy_alignment?: string | null
-          success_indicators?: string | null
           target_quality?: string | null
           target_quantity?: string | null
         }
         Update: {
+          activities?: Json
           admin_group_id?: string | null
           budget_amount?: number
           budget_source_id?: string | null
@@ -196,21 +199,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           end_date?: string | null
-          evaluation_method?: string | null
+          evaluation_items?: Json
           expected_results?: string | null
           id?: string
           name?: string
           objectives?: string | null
-          procedures?: string | null
+          plan_name?: string | null
           project_type?: string
           proposer_name?: string | null
           rationale?: string | null
           responsible?: string[]
+          standard?: string | null
           start_date?: string | null
           status?: string
           status_note?: string | null
           strategy_alignment?: string | null
-          success_indicators?: string | null
           target_quality?: string | null
           target_quantity?: string | null
         }

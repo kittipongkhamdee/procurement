@@ -3,6 +3,9 @@
 import { ProposalDetailModal } from "./proposal-detail-modal";
 import type { updateProposalStatus as updateProposalStatusAction, deleteProposal as deleteProposalAction } from "./actions";
 
+type ActivityRow = { name: string; period: string; responsible: string[] };
+type EvaluationRow = { indicator: string; method: string; tool: string };
+
 type ProposalRow = {
   id: string;
   name: string;
@@ -10,6 +13,8 @@ type ProposalRow = {
   createdBy: string | null;
   adminGroup: string;
   budgetSource: string;
+  planName: string | null;
+  standard: string | null;
   projectType: string;
   responsible: string[];
   strategyAlignment: string | null;
@@ -19,11 +24,10 @@ type ProposalRow = {
   objectives: string | null;
   targetQuantity: string | null;
   targetQuality: string | null;
-  successIndicators: string | null;
-  procedures: string | null;
+  activities: ActivityRow[];
   budgetAmount: number;
+  evaluationItems: EvaluationRow[];
   expectedResults: string | null;
-  evaluationMethod: string | null;
   status: string;
   statusNote: string | null;
 };

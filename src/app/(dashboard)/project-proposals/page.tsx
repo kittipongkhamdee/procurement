@@ -33,7 +33,7 @@ export default async function ProjectProposalsPage() {
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
     .select(
-      "id, name, proposer_name, created_by, project_type, responsible, strategy_alignment, start_date, end_date, rationale, objectives, target_quantity, target_quality, success_indicators, procedures, budget_amount, expected_results, evaluation_method, status, status_note, plan_admin_groups(name), plan_budget_sources(name)",
+      "id, name, proposer_name, created_by, plan_name, standard, project_type, responsible, strategy_alignment, start_date, end_date, rationale, objectives, target_quantity, target_quality, activities, budget_amount, evaluation_items, expected_results, status, status_note, plan_admin_groups(name), plan_budget_sources(name)",
     )
     .order("created_at", { ascending: false });
 
@@ -44,6 +44,8 @@ export default async function ProjectProposalsPage() {
     createdBy: p.created_by,
     adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
     budgetSource: (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? "-",
+    planName: p.plan_name,
+    standard: p.standard,
     projectType: p.project_type,
     responsible: p.responsible ?? [],
     strategyAlignment: p.strategy_alignment,
@@ -53,11 +55,10 @@ export default async function ProjectProposalsPage() {
     objectives: p.objectives,
     targetQuantity: p.target_quantity,
     targetQuality: p.target_quality,
-    successIndicators: p.success_indicators,
-    procedures: p.procedures,
+    activities: (p.activities as unknown as { name: string; period: string; responsible: string[] }[]) ?? [],
     budgetAmount: Number(p.budget_amount ?? 0),
+    evaluationItems: (p.evaluation_items as unknown as { indicator: string; method: string; tool: string }[]) ?? [],
     expectedResults: p.expected_results,
-    evaluationMethod: p.evaluation_method,
     status: p.status,
     statusNote: p.status_note,
   }));

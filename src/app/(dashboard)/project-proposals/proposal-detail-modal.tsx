@@ -5,12 +5,17 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import type { updateProposalStatus as updateProposalStatusAction, deleteProposal as deleteProposalAction } from "./actions";
 
+type ActivityRow = { name: string; period: string; responsible: string[] };
+type EvaluationRow = { indicator: string; method: string; tool: string };
+
 type Proposal = {
   id: string;
   name: string;
   proposerName: string | null;
   adminGroup: string;
   budgetSource: string;
+  planName: string | null;
+  standard: string | null;
   projectType: string;
   responsible: string[];
   strategyAlignment: string | null;
@@ -20,11 +25,10 @@ type Proposal = {
   objectives: string | null;
   targetQuantity: string | null;
   targetQuality: string | null;
-  successIndicators: string | null;
-  procedures: string | null;
+  activities: ActivityRow[];
   budgetAmount: number;
+  evaluationItems: EvaluationRow[];
   expectedResults: string | null;
-  evaluationMethod: string | null;
   status: string;
   statusNote: string | null;
 };
@@ -101,8 +105,10 @@ export function ProposalDetailModal({
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="แผนงาน" value={proposal.planName} />
+          <Field label="สนองมาตรฐาน" value={proposal.standard} />
           <Field label="ผู้รับผิดชอบ" value={proposal.responsible.join(", ") || "-"} />
-          <Field label="สนองกลยุทธ์/มาตรฐาน" value={proposal.strategyAlignment} />
+          <Field label="สนองกลยุทธ์/ประเด็นกลยุทธ์" value={proposal.strategyAlignment} />
           <Field
             label="ระยะเวลาดำเนินการ"
             value={proposal.startDate || proposal.endDate ? `${proposal.startDate ?? "-"} ถึง ${proposal.endDate ?? "-"}` : null}
@@ -113,16 +119,51 @@ export function ProposalDetailModal({
           />
         </div>
 
-        <Field label="หลักการและเหตุผล" value={proposal.rationale} />
-        <Field label="วัตถุประสงค์" value={proposal.objectives} />
+        <Field label="๑. หลักการและเหตุผล" value={proposal.rationale} />
+        <Field label="๒. วัตถุประสงค์" value={proposal.objectives} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="เป้าหมายเชิงปริมาณ" value={proposal.targetQuantity} />
+          <Field label="๓. เป้าหมายเชิงปริมาณ" value={proposal.targetQuantity} />
           <Field label="เป้าหมายเชิงคุณภาพ" value={proposal.targetQuality} />
         </div>
-        <Field label="ตัวชี้วัดความสำเร็จ" value={proposal.successIndicators} />
-        <Field label="วิธีดำเนินการ / ขั้นตอนการดำเนินงาน" value={proposal.procedures} />
-        <Field label="ผลที่คาดว่าจะได้รับ" value={proposal.expectedResults} />
-        <Field label="การติดตามและประเมินผล" value={proposal.evaluationMethod} />
+
+        {proposal.activities.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              ๔. กิจกรรม / ขั้นตอนการดำเนินงาน
+            </div>
+            <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+              {proposal.activities.map((a, i) => (
+                <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-[1fr_8rem_10rem]">
+                  <span className="text-slate-700">{a.name}</span>
+                  <span className="text-slate-500">{a.period || "-"}</span>
+                  <span className="text-slate-500">{a.responsible.join(", ") || "-"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Field
+          label="๕. งบประมาณที่ใช้"
+          value={`${formatBaht(proposal.budgetAmount)} บาท (${proposal.budgetSource})`}
+        />
+
+        {proposal.evaluationItems.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">๖. การประเมินผล</div>
+            <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+              {proposal.evaluationItems.map((e, i) => (
+                <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-3">
+                  <span className="text-slate-700">{e.indicator}</span>
+                  <span className="text-slate-500">{e.method || "-"}</span>
+                  <span className="text-slate-500">{e.tool || "-"}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <Field label="๗. ผลที่คาดว่าจะได้รับ" value={proposal.expectedResults} />
 
         {isAdmin && (
           <div className="border-t border-slate-100 pt-4">
