@@ -1,6 +1,9 @@
 "use client";
 
+import { Modal } from "@/components/modal";
+import type { Tables } from "@/lib/supabase/database.types";
 import { ProposalDetailModal } from "./proposal-detail-modal";
+import { ProposalForm } from "./proposal-form";
 import type {
   approveProposal as approveProposalAction,
   cancelEndorsement as cancelEndorsementAction,
@@ -8,7 +11,14 @@ import type {
   deleteProposalFile as deleteProposalFileAction,
   endorseProposal as endorseProposalAction,
   resetProposalStatus as resetProposalStatusAction,
+  updateProposal as updateProposalAction,
 } from "./actions";
+
+type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
+type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
+type Teacher = Pick<Tables<"plan_teachers">, "id" | "name" | "is_active">;
+type Strategy = Pick<Tables<"plan_strategies">, "id" | "name">;
+type Standard = Pick<Tables<"plan_standards">, "id" | "name">;
 
 type ActivityRow = {
   name: string;
@@ -21,12 +31,16 @@ type ProposalRow = {
   proposerName: string | null;
   createdBy: string | null;
   adminGroup: string;
+  adminGroupId: string | null;
   budgetSource: string;
+  budgetSourceId: string | null;
   standard: string | null;
   responsible: string[];
   strategyAlignment: string | null;
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
+  fileUrlWordPath: string | null;
+  fileUrlPdfPath: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;
@@ -54,24 +68,36 @@ export function ProposalsTable({
   canEndorse,
   canApprove,
   currentUserId,
+  adminGroups,
+  budgetSources,
+  teachers,
+  strategies,
+  standards,
   endorseProposal,
   cancelEndorsement,
   approveProposal,
   resetProposalStatus,
   deleteProposal,
   deleteProposalFile,
+  updateProposal,
 }: {
   rows: ProposalRow[];
   isAdmin: boolean;
   canEndorse: boolean;
   canApprove: boolean;
   currentUserId: string | null;
+  adminGroups: AdminGroup[];
+  budgetSources: BudgetSource[];
+  teachers: Teacher[];
+  strategies: Strategy[];
+  standards: Standard[];
   endorseProposal: typeof endorseProposalAction;
   cancelEndorsement: typeof cancelEndorsementAction;
   approveProposal: typeof approveProposalAction;
   resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
   deleteProposalFile: typeof deleteProposalFileAction;
+  updateProposal: typeof updateProposalAction;
 }) {
   return (
     <table className="table-base min-w-0">
@@ -88,7 +114,7 @@ export function ProposalsTable({
       </thead>
       <tbody>
         {rows.map((r, i) => {
-          const canDelete = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
+          const canEdit = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
           return (
             <tr key={r.id}>
               <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
@@ -103,19 +129,51 @@ export function ProposalsTable({
                 )}
               </td>
               <td className="text-right">
-                <ProposalDetailModal
-                  proposal={r}
-                  isAdmin={isAdmin}
-                  canEndorse={canEndorse}
-                  canApprove={canApprove}
-                  canDelete={canDelete}
-                  endorseProposal={endorseProposal}
-                  cancelEndorsement={cancelEndorsement}
-                  approveProposal={approveProposal}
-                  resetProposalStatus={resetProposalStatus}
-                  deleteProposal={deleteProposal}
-                  deleteProposalFile={deleteProposalFile}
-                />
+                <div className="flex justify-end gap-2">
+                  {canEdit && (
+                    <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit>
+                      <ProposalForm
+                        action={updateProposal.bind(null, r.id)}
+                        budgetYearId=""
+                        adminGroups={adminGroups}
+                        budgetSources={budgetSources}
+                        teachers={teachers}
+                        strategies={strategies}
+                        standards={standards}
+                        submitLabel="บันทึกการแก้ไข"
+                        successMessage="บันทึกการแก้ไขเรียบร้อยแล้ว"
+                        initial={{
+                          name: r.name,
+                          standard: r.standard,
+                          strategyAlignment: r.strategyAlignment,
+                          adminGroupId: r.adminGroupId,
+                          responsible: r.responsible,
+                          activities: r.activities.map((a) => ({
+                            name: a.name,
+                            responsible: a.responsible,
+                            budget: String(a.budget),
+                          })),
+                          budgetSourceId: r.budgetSourceId,
+                          fileUrlWordPath: r.fileUrlWordPath,
+                          fileUrlPdfPath: r.fileUrlPdfPath,
+                        }}
+                      />
+                    </Modal>
+                  )}
+                  <ProposalDetailModal
+                    proposal={r}
+                    isAdmin={isAdmin}
+                    canEndorse={canEndorse}
+                    canApprove={canApprove}
+                    canDelete={canEdit}
+                    endorseProposal={endorseProposal}
+                    cancelEndorsement={cancelEndorsement}
+                    approveProposal={approveProposal}
+                    resetProposalStatus={resetProposalStatus}
+                    deleteProposal={deleteProposal}
+                    deleteProposalFile={deleteProposalFile}
+                  />
+                </div>
               </td>
             </tr>
           );

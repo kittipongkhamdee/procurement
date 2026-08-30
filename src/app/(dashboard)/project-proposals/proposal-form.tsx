@@ -26,6 +26,18 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
+export type ProposalFormInitial = {
+  name: string;
+  standard: string | null;
+  strategyAlignment: string | null;
+  adminGroupId: string | null;
+  responsible: string[];
+  activities: ActivityRow[];
+  budgetSourceId: string | null;
+  fileUrlWordPath: string | null;
+  fileUrlPdfPath: string | null;
+};
+
 export function ProposalForm({
   action,
   budgetYearId,
@@ -34,6 +46,9 @@ export function ProposalForm({
   teachers,
   strategies,
   standards,
+  initial,
+  submitLabel = "ส่งข้อเสนอโครงการ",
+  successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
 }: {
   action: (formData: FormData) => void | Promise<void>;
   budgetYearId: string;
@@ -42,9 +57,12 @@ export function ProposalForm({
   teachers: Teacher[];
   strategies: Strategy[];
   standards: Standard[];
+  initial?: ProposalFormInitial;
+  submitLabel?: string;
+  successMessage?: string;
 }) {
-  const [responsible, setResponsible] = useState<string[]>([]);
-  const [activities, setActivities] = useState<ActivityRow[]>([emptyActivity()]);
+  const [responsible, setResponsible] = useState<string[]>(initial?.responsible ?? []);
+  const [activities, setActivities] = useState<ActivityRow[]>(initial?.activities ?? [emptyActivity()]);
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -59,7 +77,7 @@ export function ProposalForm({
     formData.set("activities_json", JSON.stringify(activities));
     try {
       await action(formData);
-      await toastSuccess("ส่งข้อเสนอโครงการเรียบร้อยแล้ว");
+      await toastSuccess(successMessage);
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -73,17 +91,27 @@ export function ProposalForm({
         <div className="card-title">ข้อมูลทั่วไป</div>
         <div className="grid grid-cols-1 gap-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <ProposalFileUpload name="file_url_word" label="ไฟล์โครงการ Word (.doc, .docx)" accept=".doc,.docx" />
-            <ProposalFileUpload name="file_url_pdf" label="ไฟล์โครงการ PDF (.pdf)" accept=".pdf" />
+            <ProposalFileUpload
+              name="file_url_word"
+              label="ไฟล์โครงการ Word (.doc, .docx)"
+              accept=".doc,.docx"
+              initialPath={initial?.fileUrlWordPath}
+            />
+            <ProposalFileUpload
+              name="file_url_pdf"
+              label="ไฟล์โครงการ PDF (.pdf)"
+              accept=".pdf"
+              initialPath={initial?.fileUrlPdfPath}
+            />
           </div>
           <div>
             <label className="label">ชื่อโครงการ</label>
-            <input name="name" required className="input" />
+            <input name="name" required defaultValue={initial?.name ?? ""} className="input" />
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label">สนองกลยุทธ์โรงเรียน</label>
-              <select name="strategy_alignment" defaultValue="" className="input">
+              <select name="strategy_alignment" defaultValue={initial?.strategyAlignment ?? ""} className="input">
                 <option value="">ไม่ระบุ</option>
                 {strategies.map((s) => (
                   <option key={s.id} value={s.name}>
@@ -94,7 +122,7 @@ export function ProposalForm({
             </div>
             <div>
               <label className="label">สอดคล้องกับมาตรฐานการศึกษาของสถานศึกษา</label>
-              <select name="standard" defaultValue="" className="input">
+              <select name="standard" defaultValue={initial?.standard ?? ""} className="input">
                 <option value="">ไม่ระบุ</option>
                 {standards.map((s) => (
                   <option key={s.id} value={s.name}>
@@ -106,7 +134,7 @@ export function ProposalForm({
           </div>
           <div>
             <label className="label">กลุ่มงานที่รับผิดชอบ</label>
-            <select name="admin_group_id" required defaultValue="" className="input">
+            <select name="admin_group_id" required defaultValue={initial?.adminGroupId ?? ""} className="input">
               <option value="" disabled>
                 เลือกกลุ่มบริหาร..
               </option>
@@ -131,7 +159,7 @@ export function ProposalForm({
         <div className="card-title">ขั้นตอนการดำเนินงาน และงบประมาณ</div>
         <div className="mb-3 w-full sm:w-56">
           <label className="label">แหล่งเงินงบประมาณ</label>
-          <select name="budget_source_id" defaultValue="" className="input">
+          <select name="budget_source_id" defaultValue={initial?.budgetSourceId ?? ""} className="input">
             <option value="">ไม่ระบุ</option>
             {budgetSources.map((s) => (
               <option key={s.id} value={s.id}>
@@ -204,7 +232,7 @@ export function ProposalForm({
       </div>
 
       <button type="submit" className="btn-primary mt-2">
-        ส่งข้อเสนอโครงการ
+        {submitLabel}
       </button>
     </form>
   );

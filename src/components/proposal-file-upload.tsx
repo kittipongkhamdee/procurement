@@ -6,17 +6,25 @@ import { createClient } from "@/lib/supabase/client";
 const BUCKET = "procurement-files";
 const PATH_PREFIX = "project-proposals";
 
+function baseNameOf(path: string) {
+  return path.split("/").pop() ?? path;
+}
+
 export function ProposalFileUpload({
   name,
   label,
   accept,
+  initialPath,
 }: {
   name: string;
   label: string;
   accept: string;
+  /** พาธไฟล์ที่บันทึกไว้แล้ว (โหมดแก้ไข) — ถ้ากดลบไฟล์นี้จะไม่ลบออกจาก storage ทันที รอให้บันทึกฟอร์มก่อน */
+  initialPath?: string | null;
 }) {
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [path, setPath] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(initialPath ? baseNameOf(initialPath) : null);
+  const [path, setPath] = useState<string | null>(initialPath ?? null);
+  const [isNew, setIsNew] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +71,7 @@ export function ProposalFileUpload({
       });
 
       setPath(newPath);
+      setIsNew(true);
       setProgress(100);
     } catch (err) {
       setError(err instanceof Error ? err.message : "อัปโหลดไฟล์ไม่สำเร็จ");
@@ -74,12 +83,13 @@ export function ProposalFileUpload({
   }
 
   async function handleRemove() {
-    if (path) {
+    if (path && isNew) {
       const supabase = createClient();
       await supabase.storage.from(BUCKET).remove([path]);
     }
     setPath(null);
     setFileName(null);
+    setIsNew(false);
     setProgress(0);
     setError(null);
   }

@@ -73,6 +73,41 @@ async function renameProposalFile(
   return error ? path : newPath;
 }
 
+/** เทียบไฟล์เดิมกับค่าที่ส่งมาจากฟอร์มแก้ไข: ถ้าไม่เปลี่ยนก็คงเดิม ถ้าเปลี่ยน/ลบ จะลบไฟล์เก่าออกจาก storage แล้วตั้งชื่อไฟล์ใหม่ (ถ้ามี) */
+async function replaceProposalFile(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  existingPath: string | null,
+  newRawPath: string | null,
+  baseName: string,
+) {
+  if (newRawPath === existingPath) return existingPath;
+  if (existingPath) await supabase.storage.from(PROPOSAL_FILES_BUCKET).remove([existingPath]);
+  if (!newRawPath) return null;
+  return renameProposalFile(supabase, newRawPath, baseName);
+}
+
+/** อนุญาตเฉพาะผู้ดูแลระบบหรือเจ้าของโครงการ และเฉพาะขณะสถานะ "รอเห็นชอบ" เท่านั้น */
+async function requireEditableProposal(id: string) {
+  const { supabase, user } = await requireUser();
+  const { data: profile } = await supabase
+    .from("proc_profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === "admin";
+
+  const { data: proposal } = await supabase
+    .from("plan_project_proposals")
+    .select("created_by, status, budget_year_id, file_url_word, file_url_pdf")
+    .eq("id", id)
+    .maybeSingle();
+  if (!proposal) throw new Error("ไม่พบข้อเสนอโครงการ");
+  if (!isAdmin && proposal.created_by !== user.id) throw new Error("ไม่มีสิทธิ์ทำรายการนี้");
+  if (proposal.status !== "รอเห็นชอบ") throw new Error('ทำรายการได้เฉพาะข้อเสนอที่สถานะ "รอเห็นชอบ" เท่านั้น');
+
+  return { supabase, proposal };
+}
+
 export async function createProposal(formData: FormData) {
   const { supabase, user } = await requireUser();
 
@@ -128,6 +163,58 @@ export async function createProposal(formData: FormData) {
     file_url_word: fileUrlWord,
     file_url_pdf: fileUrlPdf,
   });
+  if (error) throw new Error(error.message);
+  revalidatePath("/project-proposals");
+}
+
+export async function updateProposal(id: string, formData: FormData) {
+  const { supabase, proposal } = await requireEditableProposal(id);
+
+  const name = str(formData, "name");
+  if (!name) return;
+
+  const { data: budgetYear } = await supabase
+    .from("plan_budget_years")
+    .select("year")
+    .eq("id", proposal.budget_year_id ?? "")
+    .maybeSingle();
+
+  const responsible = formData.getAll("responsible").map(String).filter(Boolean);
+
+  let activities: ActivityRow[] = [];
+  try {
+    activities = JSON.parse(String(formData.get("activities_json") ?? "[]"));
+  } catch {
+    activities = [];
+  }
+  activities = activities
+    .filter((a) => a.name.trim() !== "")
+    .map((a) => ({
+      ...a,
+      budget: Number(a.budget) || 0,
+    })) as unknown as ActivityRow[];
+
+  const budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+
+  const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
+  const fileUrlWord = await replaceProposalFile(supabase, proposal.file_url_word, str(formData, "file_url_word"), baseName);
+  const fileUrlPdf = await replaceProposalFile(supabase, proposal.file_url_pdf, str(formData, "file_url_pdf"), baseName);
+
+  const { error } = await supabase
+    .from("plan_project_proposals")
+    .update({
+      standard: str(formData, "standard"),
+      admin_group_id: str(formData, "admin_group_id"),
+      name,
+      responsible,
+      strategy_alignment: str(formData, "strategy_alignment"),
+      activities,
+      budget_amount: budgetAmount,
+      budget_source_id: str(formData, "budget_source_id"),
+      file_url_word: fileUrlWord,
+      file_url_pdf: fileUrlPdf,
+    })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");
 }
@@ -216,7 +303,7 @@ export async function resetProposalStatus(id: string) {
 }
 
 export async function deleteProposal(id: string) {
-  const { supabase } = await requireUser();
+  const { supabase } = await requireEditableProposal(id);
   const { error } = await supabase.from("plan_project_proposals").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");
