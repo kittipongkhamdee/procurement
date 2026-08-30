@@ -8,6 +8,7 @@ import {
   FileSignatureIcon,
   FileTextIcon,
   FolderIcon,
+  GridIcon,
   HomeIcon,
   LightbulbIcon,
   SettingsIcon,
@@ -32,6 +33,13 @@ const NAV_SECTIONS = [
       { href: "/projects", label: "โครงการ", icon: <FolderIcon className={ICON_CLASS} /> },
       { href: "/project-reports", label: "รายงานโครงการ", icon: <FileTextIcon className={ICON_CLASS} /> },
       { href: "/approvals", label: "บันทึกขออนุมัติ", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
+    ],
+  },
+  {
+    heading: "กำหนดรายการ",
+    items: [
+      { href: "/strategies", label: "กลยุทธ์โรงเรียน", icon: <GridIcon className={ICON_CLASS} /> },
+      { href: "/standards", label: "มาตรฐานการศึกษา", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
     ],
   },
   {

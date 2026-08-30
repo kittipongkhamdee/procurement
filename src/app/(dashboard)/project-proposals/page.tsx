@@ -36,11 +36,14 @@ export default async function ProjectProposalsPage() {
     .order("year", { ascending: false });
   const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
 
-  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }] = await Promise.all([
-    supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
-  ]);
+  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }, { data: strategies }, { data: standards }] =
+    await Promise.all([
+      supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+      supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+      supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("plan_strategies").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+      supabase.from("plan_standards").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    ]);
 
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
@@ -114,6 +117,8 @@ export default async function ProjectProposalsPage() {
               adminGroups={adminGroups ?? []}
               budgetSources={budgetSources ?? []}
               teachers={teachers ?? []}
+              strategies={strategies ?? []}
+              standards={standards ?? []}
             />
           </Modal>
         )}

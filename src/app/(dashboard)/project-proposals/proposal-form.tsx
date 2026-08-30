@@ -8,6 +8,8 @@ import { TeacherMultiSelect } from "@/components/teacher-multi-select";
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
 type Teacher = Pick<Tables<"plan_teachers">, "id" | "name" | "is_active">;
+type Strategy = Pick<Tables<"plan_strategies">, "id" | "name">;
+type Standard = Pick<Tables<"plan_standards">, "id" | "name">;
 
 type ActivityRow = {
   name: string;
@@ -37,12 +39,16 @@ export function ProposalForm({
   adminGroups,
   budgetSources,
   teachers,
+  strategies,
+  standards,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   budgetYearId: string;
   adminGroups: AdminGroup[];
   budgetSources: BudgetSource[];
   teachers: Teacher[];
+  strategies: Strategy[];
+  standards: Standard[];
 }) {
   const [responsible, setResponsible] = useState<string[]>([]);
   const [activities, setActivities] = useState<ActivityRow[]>([emptyActivity()]);
@@ -89,11 +95,25 @@ export function ProposalForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label">สนองกลยุทธ์โรงเรียน</label>
-              <input name="strategy_alignment" className="input" placeholder="เช่น กลยุทธ์ที่ 1 พัฒนาคุณภาพผู้เรียน" />
+              <select name="strategy_alignment" defaultValue="" className="input">
+                <option value="">ไม่ระบุ</option>
+                {strategies.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label">สอดคล้องกับมาตรฐานการศึกษาของสถานศึกษา</label>
-              <input name="standard" className="input" placeholder="เช่น มาตรฐานที่ 1 คุณภาพของผู้เรียน" />
+              <select name="standard" defaultValue="" className="input">
+                <option value="">ไม่ระบุ</option>
+                {standards.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -36,6 +36,18 @@ export type Database = {
         Update: { created_at?: string; id?: string; is_active?: boolean; name?: string; sort_order?: number }
         Relationships: []
       }
+      plan_strategies: {
+        Row: { created_at: string; id: string; is_active: boolean; name: string; sort_order: number }
+        Insert: { created_at?: string; id?: string; is_active?: boolean; name: string; sort_order?: number }
+        Update: { created_at?: string; id?: string; is_active?: boolean; name?: string; sort_order?: number }
+        Relationships: []
+      }
+      plan_standards: {
+        Row: { created_at: string; id: string; is_active: boolean; name: string; sort_order: number }
+        Insert: { created_at?: string; id?: string; is_active?: boolean; name: string; sort_order?: number }
+        Update: { created_at?: string; id?: string; is_active?: boolean; name?: string; sort_order?: number }
+        Relationships: []
+      }
       plan_activities: {
         Row: {
           budget: number
