@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { setUserRole } from "./actions";
+import { setUserRole, updateUserFullName } from "./actions";
+import { UserNameField } from "./user-name-field";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "ผู้ดูแลระบบ",
@@ -57,7 +58,9 @@ export default async function AdminUsersPage() {
           <tbody>
             {users?.map((u) => (
               <tr key={u.user_id}>
-                <td className="font-medium text-slate-900">{u.full_name}</td>
+                <td className="min-w-[10rem]">
+                  <UserNameField userId={u.user_id} fullName={u.full_name} updateUserFullName={updateUserFullName} />
+                </td>
                 <td>{u.email}</td>
                 <td>{u.position ?? "-"}</td>
                 <td>

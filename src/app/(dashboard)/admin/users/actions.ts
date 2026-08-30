@@ -18,3 +18,15 @@ export async function setUserRole(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/users");
 }
+
+export async function updateUserFullName(userId: string, formData: FormData) {
+  const supabase = await createClient();
+
+  const fullName = String(formData.get("full_name") ?? "").trim();
+  if (!fullName) return;
+
+  const { error } = await supabase.from("proc_profiles").update({ full_name: fullName }).eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/users");
+  revalidatePath("/project-proposals");
+}
