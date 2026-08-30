@@ -77,7 +77,14 @@ export async function createProposal(formData: FormData) {
   } catch {
     activities = [];
   }
-  activities = activities.filter((a) => a.name.trim() !== "");
+  activities = activities
+    .filter((a) => a.name.trim() !== "")
+    .map((a) => ({
+      ...a,
+      compensation: Number(a.compensation) || 0,
+      service: Number(a.service) || 0,
+      material: Number(a.material) || 0,
+    })) as unknown as ActivityRow[];
 
   const budgetAmount = activities.reduce(
     (sum, a) => sum + (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0),

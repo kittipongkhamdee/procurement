@@ -201,15 +201,19 @@ export function ProposalDetailModal({
             </div>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.activities.map((a, i) => {
-                const rowTotal = (a.compensation || 0) + (a.service || 0) + (a.material || 0);
+                const rowTotal = (Number(a.compensation) || 0) + (Number(a.service) || 0) + (Number(a.material) || 0);
                 return (
-                  <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-[1fr_6rem_8rem_7rem]">
-                    <span className="text-slate-700">{a.name}</span>
-                    <span className="text-slate-500">{a.period || "-"}</span>
-                    <span className="text-slate-500">{a.responsible.join(", ") || "-"}</span>
-                    <span className="text-right font-medium text-navy-800 tabular-nums">
-                      {formatBaht(rowTotal)} บาท
-                    </span>
+                  <div key={i} className="grid grid-cols-1 gap-1.5 p-3 text-sm">
+                    <div className="text-left font-medium text-slate-700">
+                      {i + 1}. {a.name}
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 text-left text-slate-500 sm:grid-cols-2">
+                      <div>ระยะเวลา: {a.period || "-"}</div>
+                      <div>ผู้รับผิดชอบ: {a.responsible.join(", ") || "-"}</div>
+                    </div>
+                    <div className="text-left font-medium text-navy-800 tabular-nums">
+                      งบประมาณ: {formatBaht(rowTotal)} บาท
+                    </div>
                   </div>
                 );
               })}
@@ -231,12 +235,16 @@ export function ProposalDetailModal({
             </div>
             <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
               {proposal.evaluationItems.map((e, i) => (
-                <div key={i} className="grid grid-cols-1 gap-1 p-2 text-sm sm:grid-cols-[5rem_1fr_5rem_1fr_1fr]">
-                  <span className="badge-slate w-fit">{e.type}</span>
-                  <span className="text-slate-700">{e.indicator}</span>
-                  <span className="text-slate-500">{e.target || "-"}</span>
-                  <span className="text-slate-500">{e.method || "-"}</span>
-                  <span className="text-slate-500">{e.tool || "-"}</span>
+                <div key={i} className="grid grid-cols-1 gap-1.5 p-3 text-left text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="badge-slate w-fit">{e.type}</span>
+                    <span className="font-medium text-slate-700">{e.indicator}</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1 text-slate-500 sm:grid-cols-3">
+                    <div>ค่าเป้าหมาย: {e.target || "-"}</div>
+                    <div>วิธีวัดและประเมินผล: {e.method || "-"}</div>
+                    <div>เครื่องมือที่ใช้: {e.tool || "-"}</div>
+                  </div>
                 </div>
               ))}
             </div>
