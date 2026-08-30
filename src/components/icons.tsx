@@ -120,6 +120,10 @@ export const PlusIcon = base(<path strokeLinecap="round" strokeLinejoin="round" 
 
 export const CheckIcon = base(<path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />);
 
+export const DownloadIcon = base(
+  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0 4-4m-4 4-4-4M5 18.5h14" />,
+);
+
 export const TrashIcon = base(
   <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13M10 11v6m4-6v6" />,
 );

@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { ChevronRightIcon, SearchIcon } from "@/components/icons";
+import { ChevronRightIcon, DownloadIcon, SearchIcon } from "@/components/icons";
 import { ProjectEditModal } from "./project-edit-modal";
 import type { Tables } from "@/lib/supabase/database.types";
 import type {
@@ -116,6 +116,29 @@ export function ProjectsTable({
     setPage(1);
   }
 
+  function exportToExcel() {
+    const header = ["ลำดับ", "ชื่อโครงการ", "กลุ่มบริหาร", "แหล่งเงินงบประมาณ", "งบประมาณ", "เบิกจ่ายแล้ว", "คงเหลือ"];
+    const escapeCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+    const lines = [header.map(escapeCell).join(",")];
+    filteredRows.forEach((r, i) => {
+      lines.push(
+        [i + 1, r.name, r.adminGroup, r.budgetSource, r.budget.toFixed(2), r.spent.toFixed(2), r.remaining.toFixed(2)]
+          .map(escapeCell)
+          .join(","),
+      );
+    });
+    const csv = "\uFEFF" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `โครงการ-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const colSpan = isAdmin ? 8 : 7;
   const pageOffset = (currentPage - 1) * pageSize;
 
@@ -152,6 +175,15 @@ export function ProjectsTable({
           placeholder="ค้นหาชื่อโครงการ, กลุ่มบริหาร, แหล่งเงินงบประมาณ..."
           className="w-full border-0 bg-transparent p-0 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-0"
         />
+        <button
+          type="button"
+          onClick={exportToExcel}
+          disabled={filteredRows.length === 0}
+          className="btn-secondary btn-sm shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <DownloadIcon className="h-4 w-4" />
+          <span className="hidden sm:inline">ส่งออก Excel</span>
+        </button>
       </div>
 
       {/* มือถือ: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
