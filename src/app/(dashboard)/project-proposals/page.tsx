@@ -58,7 +58,7 @@ export default async function ProjectProposalsPage() {
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
     .select(
-      "id, name, proposer_name, created_by, standard, project_type, responsible, strategy_alignment, start_date, end_date, activities, budget_amount, status, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+      "id, name, proposer_name, created_by, standard, project_type, responsible, strategy_alignment, activities, budget_amount, status, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
     )
     .order("created_at", { ascending: false });
 
@@ -73,12 +73,9 @@ export default async function ProjectProposalsPage() {
     projectType: p.project_type,
     responsible: p.responsible ?? [],
     strategyAlignment: p.strategy_alignment,
-    startDate: p.start_date,
-    endDate: p.end_date,
     activities:
       (p.activities as unknown as {
         name: string;
-        period: string;
         responsible: string[];
         compensation: number;
         service: number;

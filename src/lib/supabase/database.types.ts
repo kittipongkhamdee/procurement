@@ -513,7 +513,6 @@ export type Database = {
           budget_year_id: string | null
           created_at: string
           created_by: string | null
-          end_date: string | null
           endorse_note: string | null
           endorsed_at: string | null
           endorsed_by_name: string | null
@@ -523,7 +522,6 @@ export type Database = {
           proposer_name: string | null
           responsible: string[]
           standard: string | null
-          start_date: string | null
           status: string
           strategy_alignment: string | null
         }
@@ -538,7 +536,6 @@ export type Database = {
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
-          end_date?: string | null
           endorse_note?: string | null
           endorsed_at?: string | null
           endorsed_by_name?: string | null
@@ -548,7 +545,6 @@ export type Database = {
           proposer_name?: string | null
           responsible?: string[]
           standard?: string | null
-          start_date?: string | null
           status?: string
           strategy_alignment?: string | null
         }
@@ -563,7 +559,6 @@ export type Database = {
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
-          end_date?: string | null
           endorse_note?: string | null
           endorsed_at?: string | null
           endorsed_by_name?: string | null
@@ -573,7 +568,6 @@ export type Database = {
           proposer_name?: string | null
           responsible?: string[]
           standard?: string | null
-          start_date?: string | null
           status?: string
           strategy_alignment?: string | null
         }

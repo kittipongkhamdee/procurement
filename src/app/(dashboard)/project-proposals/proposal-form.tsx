@@ -13,7 +13,6 @@ type Standard = Pick<Tables<"plan_standards">, "id" | "name">;
 
 type ActivityRow = {
   name: string;
-  period: string;
   responsible: string[];
   compensation: string;
   service: string;
@@ -21,7 +20,7 @@ type ActivityRow = {
 };
 
 function emptyActivity(): ActivityRow {
-  return { name: "", period: "", responsible: [], compensation: "", service: "", material: "" };
+  return { name: "", responsible: [], compensation: "", service: "", material: "" };
 }
 
 function formatBaht(n: number) {
@@ -135,25 +134,14 @@ export function ProposalForm({
               <input key={n} type="hidden" name="responsible" value={n} />
             ))}
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="label">วันที่เริ่มต้น</label>
-              <input type="date" name="start_date" className="input" />
-            </div>
-            <div>
-              <label className="label">วันที่สิ้นสุด</label>
-              <input type="date" name="end_date" className="input" />
-            </div>
-          </div>
         </div>
       </div>
 
       <div className="border-t border-slate-100 pt-4">
         <div className="card-title">ขั้นตอนการดำเนินงาน และงบประมาณ</div>
         <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
-          <div className="hidden grid-cols-[1fr_6rem_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <div className="hidden grid-cols-[1fr_8rem_5rem_5rem_5rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
             <div>รายละเอียดการดำเนินงาน</div>
-            <div>ระยะเวลา</div>
             <div>ผู้รับผิดชอบ</div>
             <div>ค่าตอบแทน</div>
             <div>ค่าใช้สอย</div>
@@ -164,7 +152,7 @@ export function ProposalForm({
             {activities.map((row, i) => (
               <div
                 key={i}
-                className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_6rem_8rem_5rem_5rem_5rem_3.5rem] sm:items-center"
+                className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_8rem_5rem_5rem_5rem_3.5rem] sm:items-center"
               >
                 <div>
                   <label className="label sm:hidden">รายละเอียดการดำเนินงาน</label>
@@ -173,15 +161,6 @@ export function ProposalForm({
                     onChange={(e) => updateActivity(i, { name: e.target.value })}
                     className="input"
                     placeholder={`กิจกรรมที่ ${i + 1}`}
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">ระยะเวลา</label>
-                  <input
-                    value={row.period}
-                    onChange={(e) => updateActivity(i, { period: e.target.value })}
-                    className="input"
-                    placeholder="เช่น พ.ค. 2569"
                   />
                 </div>
                 <div>

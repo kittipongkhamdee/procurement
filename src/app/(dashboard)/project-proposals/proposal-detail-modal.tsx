@@ -3,7 +3,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import { formatThaiDate } from "@/lib/thai";
 import type {
   approveProposal as approveProposalAction,
   cancelEndorsement as cancelEndorsementAction,
@@ -14,7 +13,6 @@ import type {
 
 type ActivityRow = {
   name: string;
-  period: string;
   responsible: string[];
   compensation: number;
   service: number;
@@ -31,8 +29,6 @@ type Proposal = {
   projectType: string;
   responsible: string[];
   strategyAlignment: string | null;
-  startDate: string | null;
-  endDate: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;
@@ -173,14 +169,6 @@ export function ProposalDetailModal({
           <Field label="สนองกลยุทธ์โรงเรียน" value={proposal.strategyAlignment} />
           <Field label="สอดคล้องกับมาตรฐานการศึกษา" value={proposal.standard} />
           <Field label="ผู้รับผิดชอบ" value={proposal.responsible.join(", ") || "-"} />
-          <Field
-            label="ระยะเวลาดำเนินการ"
-            value={
-              proposal.startDate || proposal.endDate
-                ? `${proposal.startDate ? formatThaiDate(proposal.startDate) : "-"} ถึง ${proposal.endDate ? formatThaiDate(proposal.endDate) : "-"}`
-                : null
-            }
-          />
         </div>
 
         {proposal.activities.length > 0 && (
@@ -194,10 +182,7 @@ export function ProposalDetailModal({
                     <div className="text-left font-medium text-slate-700">
                       {i + 1}. {a.name}
                     </div>
-                    <div className="grid grid-cols-1 gap-1 text-left text-slate-500 sm:grid-cols-2">
-                      <div>ระยะเวลา: {a.period || "-"}</div>
-                      <div>ผู้รับผิดชอบ: {a.responsible.join(", ") || "-"}</div>
-                    </div>
+                    <div className="text-left text-slate-500">ผู้รับผิดชอบ: {a.responsible.join(", ") || "-"}</div>
                     <div className="text-left font-medium text-navy-800 tabular-nums">
                       งบประมาณ: {formatBaht(rowTotal)} บาท
                     </div>

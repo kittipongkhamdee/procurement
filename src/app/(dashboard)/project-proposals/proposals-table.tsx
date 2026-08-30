@@ -11,7 +11,6 @@ import type {
 
 type ActivityRow = {
   name: string;
-  period: string;
   responsible: string[];
   compensation: number;
   service: number;
@@ -28,8 +27,6 @@ type ProposalRow = {
   projectType: string;
   responsible: string[];
   strategyAlignment: string | null;
-  startDate: string | null;
-  endDate: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;

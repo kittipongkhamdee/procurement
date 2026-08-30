@@ -49,7 +49,6 @@ function str(formData: FormData, key: string) {
 
 type ActivityRow = {
   name: string;
-  period: string;
   responsible: string[];
   compensation: string;
   service: string;
@@ -100,8 +99,6 @@ export async function createProposal(formData: FormData) {
     project_type: str(formData, "project_type") ?? "ใหม่",
     responsible,
     strategy_alignment: str(formData, "strategy_alignment"),
-    start_date: str(formData, "start_date"),
-    end_date: str(formData, "end_date"),
     activities,
     budget_amount: budgetAmount,
     budget_source_id: str(formData, "budget_source_id"),
