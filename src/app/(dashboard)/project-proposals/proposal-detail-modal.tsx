@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { formatThaiDate } from "@/lib/thai";
 import type {
   approveProposal as approveProposalAction,
   deleteProposal as deleteProposalAction,
@@ -170,7 +171,11 @@ export function ProposalDetailModal({
           <Field label="สถานที่ดำเนินการ" value={proposal.location} />
           <Field
             label="ระยะเวลาดำเนินการ"
-            value={proposal.startDate || proposal.endDate ? `${proposal.startDate ?? "-"} ถึง ${proposal.endDate ?? "-"}` : null}
+            value={
+              proposal.startDate || proposal.endDate
+                ? `${proposal.startDate ? formatThaiDate(proposal.startDate) : "-"} ถึง ${proposal.endDate ? formatThaiDate(proposal.endDate) : "-"}`
+                : null
+            }
           />
           <Field
             label="งบประมาณ / แหล่งเงิน"

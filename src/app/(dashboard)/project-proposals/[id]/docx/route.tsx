@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildProposalDocxData, renderProposalDocxBuffer } from "@/lib/docx/build-proposal-docx";
+import { contentDisposition } from "@/lib/http";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,7 +17,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="${result.fileLabel}.docx"`,
+      "Content-Disposition": contentDisposition("attachment", `${result.fileLabel}.docx`),
     },
   });
 }
