@@ -65,8 +65,10 @@ export default async function DocumentsPage() {
                           rel="noopener noreferrer"
                           aria-label="เปิดไฟล์ Word"
                           title="ไฟล์ Word"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 py-1 pl-1.5 pr-2.5 text-sm font-semibold text-blue-800"
                         >
-                          <WordFileIcon className="h-7 w-7" />
+                          <WordFileIcon className="h-6 w-6 shrink-0" />
+                          Word
                         </a>
                       )}
                       {p.file_url_pdf && signedProjectFileUrls.get(p.file_url_pdf) && (
@@ -76,8 +78,10 @@ export default async function DocumentsPage() {
                           rel="noopener noreferrer"
                           aria-label="เปิดไฟล์ PDF"
                           title="ไฟล์ PDF"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 py-1 pl-1.5 pr-2.5 text-sm font-semibold text-red-800"
                         >
-                          <PdfFileIcon className="h-7 w-7" />
+                          <PdfFileIcon className="h-6 w-6 shrink-0" />
+                          PDF
                         </a>
                       )}
                     </div>
