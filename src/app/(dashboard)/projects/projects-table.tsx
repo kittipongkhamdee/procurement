@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useState } from "react";
-import { ChevronRightIcon } from "@/components/icons";
+import { Fragment, useMemo, useState } from "react";
+import { ChevronRightIcon, SearchIcon } from "@/components/icons";
 import { ProjectEditModal } from "./project-edit-modal";
 import type { Tables } from "@/lib/supabase/database.types";
 import type {
@@ -83,6 +83,9 @@ export function ProjectsTable({
   deleteActivity: typeof deleteActivityAction;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -93,7 +96,28 @@ export function ProjectsTable({
     });
   }
 
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        r.adminGroup.toLowerCase().includes(q) ||
+        r.budgetSource.toLowerCase().includes(q),
+    );
+  }, [rows, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setPage(1);
+  }
+
   const colSpan = isAdmin ? 8 : 7;
+  const pageOffset = (currentPage - 1) * pageSize;
 
   function editModal(r: ProjectRow) {
     return (
@@ -119,9 +143,20 @@ export function ProjectsTable({
 
   return (
     <>
+      <div className="flex items-center gap-2 border-b border-slate-200/80 px-4 py-3">
+        <SearchIcon className="h-4 w-4 shrink-0 text-slate-400" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleQueryChange(e.target.value)}
+          placeholder="ค้นหาชื่อโครงการ, กลุ่มบริหาร, แหล่งเงินงบประมาณ..."
+          className="w-full border-0 bg-transparent p-0 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+        />
+      </div>
+
       {/* มือถือ: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
       <div className="divide-y divide-slate-100 sm:hidden">
-        {rows.map((r, i) => {
+        {pageRows.map((r, i) => {
           const isOpen = expanded.has(r.id);
           return (
             <div key={r.id}>
@@ -131,7 +166,7 @@ export function ProjectsTable({
                   onClick={() => toggle(r.id)}
                   className="flex min-w-0 flex-1 items-start gap-2 text-left"
                 >
-                  <span className="mt-0.5 shrink-0 text-xs tabular-nums text-slate-400">{i + 1}</span>
+                  <span className="mt-0.5 shrink-0 text-xs tabular-nums text-slate-400">{pageOffset + i + 1}</span>
                   <ChevronRightIcon
                     className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
                   />
@@ -158,7 +193,9 @@ export function ProjectsTable({
             </div>
           );
         })}
-        {rows.length === 0 && <p className="table-empty">ยังไม่มีโครงการในปีงบประมาณนี้</p>}
+        {pageRows.length === 0 && (
+          <p className="table-empty">{query ? "ไม่พบโครงการที่ค้นหา" : "ยังไม่มีโครงการในปีงบประมาณนี้"}</p>
+        )}
       </div>
 
       {/* จอกว้าง: ตาราง */}
@@ -176,12 +213,12 @@ export function ProjectsTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => {
+          {pageRows.map((r, i) => {
             const isOpen = expanded.has(r.id);
             return (
               <Fragment key={r.id}>
                 <tr onClick={() => toggle(r.id)} className="cursor-pointer">
-                  <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
+                  <td className="text-center tabular-nums text-slate-400">{pageOffset + i + 1}</td>
                   <td className="min-w-[10rem] max-w-[16rem] font-medium text-slate-900">
                     <span className="inline-flex items-start gap-1.5">
                       <ChevronRightIcon
@@ -215,15 +252,41 @@ export function ProjectsTable({
               </Fragment>
             );
           })}
-          {rows.length === 0 && (
+          {pageRows.length === 0 && (
             <tr>
               <td colSpan={colSpan} className="table-empty">
-                ยังไม่มีโครงการในปีงบประมาณนี้
+                {query ? "ไม่พบโครงการที่ค้นหา" : "ยังไม่มีโครงการในปีงบประมาณนี้"}
               </td>
             </tr>
           )}
         </tbody>
       </table>
+
+      {filteredRows.length > 0 && totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 px-4 py-3 text-sm">
+          <span className="text-slate-500">
+            หน้า {currentPage} จาก {totalPages} ({filteredRows.length.toLocaleString("th-TH")} โครงการ)
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ก่อนหน้า
+            </button>
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ถัดไป
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
