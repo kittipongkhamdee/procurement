@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Modal } from "@/components/modal";
-import { LightbulbIcon } from "@/components/icons";
+import { CheckIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
 import { ProposalForm } from "./proposal-form";
 import { ProposalsTable } from "./proposals-table";
 import { approveProposal, createProposal, deleteProposal, endorseProposal, resetProposalStatus } from "./actions";
@@ -102,6 +102,10 @@ export default async function ProjectProposalsPage() {
     ? rows.filter((r) => r.status !== "รอเห็นชอบ" || r.createdBy === user?.id)
     : rows;
 
+  const pendingEndorseCount = rows.filter((r) => r.status === "รอเห็นชอบ").length;
+  const pendingApproveCount = rows.filter((r) => r.status === "รออนุมัติ").length;
+  const approvedCount = rows.filter((r) => r.status === "อนุมัติแล้ว").length;
+
   return (
     <div>
       <div className="page-header">
@@ -132,6 +136,50 @@ export default async function ProjectProposalsPage() {
           </Modal>
         )}
       </div>
+
+      {(canEndorse || canApprove) && (
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="stat-card" style={{ "--accent": "#b45309" } as React.CSSProperties}>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon" style={{ background: "#b45309" }}>
+                <ClipboardCheckIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">รอเห็นชอบ</div>
+                <div className="stat-value">
+                  {pendingEndorseCount.toLocaleString("th-TH")} <span className="stat-suffix">โครงการ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon" style={{ background: "#1b4177" }}>
+                <ClipboardCheckIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">รออนุมัติ</div>
+                <div className="stat-value">
+                  {pendingApproveCount.toLocaleString("th-TH")} <span className="stat-suffix">โครงการ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="stat-card" style={{ "--accent": "#059669" } as React.CSSProperties}>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon" style={{ background: "#059669" }}>
+                <CheckIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">อนุมัติแล้ว</div>
+                <div className="stat-value">
+                  {approvedCount.toLocaleString("th-TH")} <span className="stat-suffix">โครงการ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card mb-4 flex items-start gap-3 bg-navy-950/[0.03]">
         <LightbulbIcon className="h-5 w-5 shrink-0 text-navy-700" />
