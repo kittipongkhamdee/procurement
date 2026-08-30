@@ -108,9 +108,10 @@ export async function extractProposalFromFile(
   let res: Response;
   try {
     res = await callGemini();
-    if (!res.ok && (res.status === 503 || res.status === 429)) {
+    for (const delayMs of [800, 1600]) {
+      if (res.ok || (res.status !== 503 && res.status !== 429)) break;
       // โมเดลกำลังโหลดสูง/ถูกจำกัดอัตราชั่วคราว ลองใหม่อีกครั้งหลังหน่วงเวลาสั้นๆ
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
       res = await callGemini();
     }
   } catch (err) {
@@ -120,8 +121,10 @@ export async function extractProposalFromFile(
     throw err;
   }
   if (!res.ok) {
-    if (res.status === 503) throw new Error("Gemini กำลังมีผู้ใช้งานหนาแน่น กรุณาลองใหม่อีกครั้งในสักครู่");
     const body = await res.text().catch(() => "");
+    console.error(`Gemini API error (${res.status}) model=${model}:`, body.slice(0, 1000));
+    if (res.status === 503) throw new Error("Gemini กำลังมีผู้ใช้งานหนาแน่น กรุณาลองใหม่อีกครั้งในสักครู่ (ลองหลายครั้งแล้วยังไม่สำเร็จ)");
+    if (res.status === 403 || res.status === 400) throw new Error("Gemini API Key ไม่ถูกต้องหรือไม่มีสิทธิ์ใช้งาน กรุณาตรวจสอบในหน้าตั้งค่าระบบ");
     throw new Error(`เรียก Gemini ไม่สำเร็จ (${res.status}) ${body.slice(0, 200)}`);
   }
   const json = await res.json();
