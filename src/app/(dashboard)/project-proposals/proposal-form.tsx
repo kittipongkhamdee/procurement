@@ -84,7 +84,7 @@ export function ProposalForm({
   }
 
   return (
-    <form action={handleSubmit} className="grid grid-cols-1 gap-4">
+    <form action={handleSubmit} className="grid grid-cols-1 gap-4 text-left">
       <input type="hidden" name="budget_year_id" value={budgetYearId} />
 
       <div>
