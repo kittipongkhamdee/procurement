@@ -30,6 +30,8 @@ export default async function ProjectProposalsPage() {
   const canEndorse = isAdmin || myGroupNames.has("รองผู้อำนวยการ");
   const canApprove = isAdmin || myGroupNames.has("ผู้อำนวยการ");
   const isApproverOnly = !isAdmin && (canEndorse || canApprove);
+  /** ผู้อำนวยการ (ไม่ใช่แอดมินและไม่ใช่รองผู้อำนวยการ) ยังไม่ควรเห็น/เปิดอ่านโครงการที่รองผู้อำนวยการยังไม่เห็นชอบ */
+  const isDirectorOnly = !isAdmin && canApprove && !canEndorse;
 
   const { data: budgetYears } = await supabase
     .from("plan_budget_years")
@@ -96,6 +98,10 @@ export default async function ProjectProposalsPage() {
     approveNote: p.approve_note,
   }));
 
+  const visibleRows = isDirectorOnly
+    ? rows.filter((r) => r.status !== "รอเห็นชอบ" || r.createdBy === user?.id)
+    : rows;
+
   return (
     <div>
       <div className="page-header">
@@ -139,7 +145,7 @@ export default async function ProjectProposalsPage() {
       <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
         <ProposalsTable
-          rows={rows}
+          rows={visibleRows}
           isAdmin={isAdmin}
           canEndorse={canEndorse}
           canApprove={canApprove}
