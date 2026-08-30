@@ -194,8 +194,8 @@ export default async function ProjectProposalsPage() {
         <LightbulbIcon className="h-5 w-5 shrink-0 text-navy-700" />
         <p className="text-sm text-slate-600">
           ข้อเสนอโครงการต้องผ่าน 2 ขั้นตอน: <strong>ผู้เห็นชอบ</strong> (เช่น รองผู้อำนวยการ) แล้วจึงส่งต่อให้
-          <strong> ผู้อนุมัติ</strong> (ผู้อำนวยการ) เมื่ออนุมัติแล้ว ให้นำไปบันทึกเป็นโครงการจริงในเมนู
-          &quot;โครงการ&quot; ต่อไป
+          <strong> ผู้อนุมัติ</strong> (ผู้อำนวยการ) เมื่ออนุมัติแล้ว ระบบจะบันทึกเป็นโครงการจริงในเมนู
+          &quot;โครงการ&quot; ให้อัตโนมัติ
         </p>
       </div>
 

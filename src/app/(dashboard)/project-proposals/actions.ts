@@ -268,6 +268,44 @@ export async function cancelEndorsement(id: string) {
   revalidatePath("/project-proposals");
 }
 
+/** เมื่ออนุมัติโครงการแล้ว ให้สร้างโครงการจริง (plan_projects) พร้อมกิจกรรมโดยอัตโนมัติ ถ้ายังไม่เคยสร้างมาก่อน */
+async function createProjectFromProposal(supabase: Awaited<ReturnType<typeof createClient>>, proposalId: string) {
+  const { data: proposal } = await supabase
+    .from("plan_project_proposals")
+    .select("project_id, name, budget_year_id, admin_group_id, budget_source_id, budget_amount, activities")
+    .eq("id", proposalId)
+    .maybeSingle();
+  if (!proposal || proposal.project_id || !proposal.budget_year_id || !proposal.admin_group_id) return;
+
+  const { data: project, error: projectError } = await supabase
+    .from("plan_projects")
+    .insert({
+      name: proposal.name,
+      budget_year_id: proposal.budget_year_id,
+      admin_group_id: proposal.admin_group_id,
+      budget_source_id: proposal.budget_source_id,
+      budget: proposal.budget_amount,
+    })
+    .select("id")
+    .single();
+  if (projectError || !project) return;
+
+  const activities =
+    (proposal.activities as unknown as { name: string; responsible: string[]; budget: number }[] | null) ?? [];
+  if (activities.length > 0) {
+    await supabase.from("plan_activities").insert(
+      activities.map((a) => ({
+        project_id: project.id,
+        name: a.name,
+        budget: Number(a.budget) || 0,
+        responsible: a.responsible,
+      })),
+    );
+  }
+
+  await supabase.from("plan_project_proposals").update({ project_id: project.id }).eq("id", proposalId);
+}
+
 export async function approveProposal(id: string, decision: "อนุมัติแล้ว" | "ไม่อนุมัติ", note?: string) {
   const { supabase, signerName } = await requireAdminOrGroup("ผู้อำนวยการ");
   const { error } = await supabase
@@ -281,7 +319,13 @@ export async function approveProposal(id: string, decision: "อนุมัต�
     .eq("id", id)
     .eq("status", "รออนุมัติ");
   if (error) throw new Error(error.message);
+
+  if (decision === "อนุมัติแล้ว") {
+    await createProjectFromProposal(supabase, id);
+  }
+
   revalidatePath("/project-proposals");
+  revalidatePath("/projects");
 }
 
 export async function resetProposalStatus(id: string) {

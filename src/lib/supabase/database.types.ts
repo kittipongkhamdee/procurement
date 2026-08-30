@@ -520,6 +520,7 @@ export type Database = {
           file_url_word: string | null
           id: string
           name: string
+          project_id: string | null
           proposer_name: string | null
           responsible: string[]
           standard: string | null
@@ -544,6 +545,7 @@ export type Database = {
           file_url_word?: string | null
           id?: string
           name: string
+          project_id?: string | null
           proposer_name?: string | null
           responsible?: string[]
           standard?: string | null
@@ -568,6 +570,7 @@ export type Database = {
           file_url_word?: string | null
           id?: string
           name?: string
+          project_id?: string | null
           proposer_name?: string | null
           responsible?: string[]
           standard?: string | null
@@ -594,6 +597,13 @@ export type Database = {
             columns: ["budget_year_id"]
             isOneToOne: false
             referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_project_proposals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
             referencedColumns: ["id"]
           },
         ]
