@@ -36,13 +36,6 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    heading: "กำหนดรายการ",
-    items: [
-      { href: "/strategies", label: "กลยุทธ์โรงเรียน", icon: <GridIcon className={ICON_CLASS} /> },
-      { href: "/standards", label: "มาตรฐานการศึกษา", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
-    ],
-  },
-  {
     heading: "งานพัสดุ",
     items: [
       { href: "/purchase-requests", label: "รายการขอซื้อ-ขอจ้าง", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
@@ -61,6 +54,13 @@ const NAV_SECTIONS = [
   {
     heading: "คลังเอกสาร",
     items: [{ href: "/documents", label: "คลังเอกสารดาวน์โหลด", icon: <ArchiveIcon className={ICON_CLASS} /> }],
+  },
+  {
+    heading: "กำหนดรายการ",
+    items: [
+      { href: "/strategies", label: "กลยุทธ์โรงเรียน", icon: <GridIcon className={ICON_CLASS} /> },
+      { href: "/standards", label: "มาตรฐานการศึกษา", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
+    ],
   },
 ];
 
