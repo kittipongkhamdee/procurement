@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
+import { ProposalFileUpload } from "@/components/proposal-file-upload";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
@@ -71,9 +72,9 @@ export function ProposalForm({
       <div>
         <div className="card-title">ข้อมูลทั่วไป</div>
         <div className="grid grid-cols-1 gap-3">
-          <div>
-            <label className="label">ไฟล์โครงการ (.doc, .docx)</label>
-            <input type="file" name="file" accept=".doc,.docx" className="input" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ProposalFileUpload name="file_url_word" label="ไฟล์โครงการ Word (.doc, .docx)" accept=".doc,.docx" />
+            <ProposalFileUpload name="file_url_pdf" label="ไฟล์โครงการ PDF (.pdf)" accept=".pdf" />
           </div>
           <div>
             <label className="label">ชื่อโครงการ</label>

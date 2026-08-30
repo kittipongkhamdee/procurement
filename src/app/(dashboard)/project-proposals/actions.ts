@@ -84,18 +84,6 @@ export async function createProposal(formData: FormData) {
 
   const budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
 
-  let fileUrl: string | null = null;
-  const file = formData.get("file") as File | null;
-  if (file && file.size > 0) {
-    const ext = file.name.split(".").pop();
-    const path = `project-proposals/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
-    const { error: uploadError } = await supabase.storage
-      .from(PROPOSAL_FILES_BUCKET)
-      .upload(path, file, { contentType: file.type || undefined });
-    if (uploadError) throw new Error(uploadError.message);
-    fileUrl = path;
-  }
-
   const { error } = await supabase.from("plan_project_proposals").insert({
     created_by: user.id,
     proposer_name: profile?.full_name ?? null,
@@ -108,8 +96,25 @@ export async function createProposal(formData: FormData) {
     activities,
     budget_amount: budgetAmount,
     budget_source_id: str(formData, "budget_source_id"),
-    file_url: fileUrl,
+    file_url_word: str(formData, "file_url_word"),
+    file_url_pdf: str(formData, "file_url_pdf"),
   });
+  if (error) throw new Error(error.message);
+  revalidatePath("/project-proposals");
+}
+
+export async function deleteProposalFile(id: string, field: "file_url_word" | "file_url_pdf") {
+  const supabase = await requireAdmin();
+  const { data: proposal } = await supabase
+    .from("plan_project_proposals")
+    .select("file_url_word, file_url_pdf")
+    .eq("id", id)
+    .maybeSingle();
+  const path = proposal?.[field];
+  if (path) await supabase.storage.from(PROPOSAL_FILES_BUCKET).remove([path]);
+
+  const update = field === "file_url_word" ? { file_url_word: null } : { file_url_pdf: null };
+  const { error } = await supabase.from("plan_project_proposals").update(update).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");
 }

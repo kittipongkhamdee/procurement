@@ -8,6 +8,7 @@ import {
   cancelEndorsement,
   createProposal,
   deleteProposal,
+  deleteProposalFile,
   endorseProposal,
   resetProposalStatus,
 } from "./actions";
@@ -58,11 +59,13 @@ export default async function ProjectProposalsPage() {
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
     .select(
-      "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, budget_amount, status, file_url, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+      "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, budget_amount, status, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
     )
     .order("created_at", { ascending: false });
 
-  const filePaths = (proposals ?? []).map((p) => p.file_url).filter((p): p is string => !!p);
+  const filePaths = (proposals ?? [])
+    .flatMap((p) => [p.file_url_word, p.file_url_pdf])
+    .filter((p): p is string => !!p);
   const signedFileUrls = new Map<string, string>();
   if (filePaths.length > 0) {
     const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(filePaths, 3600);
@@ -81,7 +84,8 @@ export default async function ProjectProposalsPage() {
     standard: p.standard,
     responsible: p.responsible ?? [],
     strategyAlignment: p.strategy_alignment,
-    fileUrl: p.file_url ? (signedFileUrls.get(p.file_url) ?? null) : null,
+    fileUrlWord: p.file_url_word ? (signedFileUrls.get(p.file_url_word) ?? null) : null,
+    fileUrlPdf: p.file_url_pdf ? (signedFileUrls.get(p.file_url_pdf) ?? null) : null,
     activities:
       (p.activities as unknown as {
         name: string;
@@ -203,6 +207,7 @@ export default async function ProjectProposalsPage() {
           approveProposal={approveProposal}
           resetProposalStatus={resetProposalStatus}
           deleteProposal={deleteProposal}
+          deleteProposalFile={deleteProposalFile}
         />
       </div>
     </div>

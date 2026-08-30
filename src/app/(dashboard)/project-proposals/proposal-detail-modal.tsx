@@ -7,6 +7,7 @@ import type {
   approveProposal as approveProposalAction,
   cancelEndorsement as cancelEndorsementAction,
   deleteProposal as deleteProposalAction,
+  deleteProposalFile as deleteProposalFileAction,
   endorseProposal as endorseProposalAction,
   resetProposalStatus as resetProposalStatusAction,
 } from "./actions";
@@ -26,7 +27,8 @@ type Proposal = {
   standard: string | null;
   responsible: string[];
   strategyAlignment: string | null;
-  fileUrl: string | null;
+  fileUrlWord: string | null;
+  fileUrlPdf: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;
@@ -73,6 +75,7 @@ export function ProposalDetailModal({
   approveProposal,
   resetProposalStatus,
   deleteProposal,
+  deleteProposalFile,
 }: {
   proposal: Proposal;
   isAdmin: boolean;
@@ -84,6 +87,7 @@ export function ProposalDetailModal({
   approveProposal: typeof approveProposalAction;
   resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
+  deleteProposalFile: typeof deleteProposalFileAction;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [endorseNote, setEndorseNote] = useState("");
@@ -149,6 +153,17 @@ export function ProposalDetailModal({
     }
   }
 
+  async function handleDeleteFile(field: "file_url_word" | "file_url_pdf") {
+    const ok = await confirmDelete({ title: "ลบไฟล์นี้?" });
+    if (!ok) return;
+    try {
+      await deleteProposalFile(proposal.id, field);
+      await toastSuccess("ลบไฟล์เรียบร้อยแล้ว");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
   return (
     <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm">
       <div className="grid grid-cols-1 gap-4 text-left">
@@ -157,17 +172,56 @@ export function ProposalDetailModal({
           <span className="text-slate-500">
             ผู้เสนอ: {proposal.proposerName ?? "-"} · {proposal.adminGroup}
           </span>
-          {proposal.fileUrl && (
-            <a
-              href={proposal.fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-navy-800 hover:underline"
-            >
-              เปิดไฟล์โครงการ
-            </a>
-          )}
         </div>
+
+        {(proposal.fileUrlWord || proposal.fileUrlPdf) && (
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            {proposal.fileUrlWord && (
+              <span className="flex items-center gap-1.5">
+                <a
+                  href={proposal.fileUrlWord}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-navy-800 hover:underline"
+                >
+                  เปิดไฟล์โครงการ (Word)
+                </a>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteFile("file_url_word")}
+                    aria-label="ลบไฟล์ Word"
+                    className="text-slate-400 hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </span>
+            )}
+            {proposal.fileUrlPdf && (
+              <span className="flex items-center gap-1.5">
+                <a
+                  href={proposal.fileUrlPdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-navy-800 hover:underline"
+                >
+                  เปิดไฟล์โครงการ (PDF)
+                </a>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteFile("file_url_pdf")}
+                    aria-label="ลบไฟล์ PDF"
+                    className="text-slate-400 hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="สนองกลยุทธ์โรงเรียน" value={proposal.strategyAlignment} />

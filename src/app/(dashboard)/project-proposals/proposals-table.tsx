@@ -5,6 +5,7 @@ import type {
   approveProposal as approveProposalAction,
   cancelEndorsement as cancelEndorsementAction,
   deleteProposal as deleteProposalAction,
+  deleteProposalFile as deleteProposalFileAction,
   endorseProposal as endorseProposalAction,
   resetProposalStatus as resetProposalStatusAction,
 } from "./actions";
@@ -24,7 +25,8 @@ type ProposalRow = {
   standard: string | null;
   responsible: string[];
   strategyAlignment: string | null;
-  fileUrl: string | null;
+  fileUrlWord: string | null;
+  fileUrlPdf: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;
@@ -57,6 +59,7 @@ export function ProposalsTable({
   approveProposal,
   resetProposalStatus,
   deleteProposal,
+  deleteProposalFile,
 }: {
   rows: ProposalRow[];
   isAdmin: boolean;
@@ -68,6 +71,7 @@ export function ProposalsTable({
   approveProposal: typeof approveProposalAction;
   resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
+  deleteProposalFile: typeof deleteProposalFileAction;
 }) {
   return (
     <table className="table-base min-w-0">
@@ -110,6 +114,7 @@ export function ProposalsTable({
                   approveProposal={approveProposal}
                   resetProposalStatus={resetProposalStatus}
                   deleteProposal={deleteProposal}
+                  deleteProposalFile={deleteProposalFile}
                 />
               </td>
             </tr>
