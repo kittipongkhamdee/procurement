@@ -103,18 +103,23 @@ export function ProposalForm({
         standards: standards.map((s) => s.name),
         teachers: teachers.map((t) => t.name),
       });
+      if (!result.ok) {
+        await toastError(result.error);
+        return;
+      }
+      const data = result.data;
       const teacherNames = new Set(teachers.map((t) => t.name));
-      if (result.name) setName(result.name);
-      if (result.strategy_alignment && strategies.some((s) => s.name === result.strategy_alignment)) {
-        setStrategyAlignment(result.strategy_alignment);
+      if (data.name) setName(data.name);
+      if (data.strategy_alignment && strategies.some((s) => s.name === data.strategy_alignment)) {
+        setStrategyAlignment(data.strategy_alignment);
       }
-      if (result.standard && standards.some((s) => s.name === result.standard)) {
-        setStandard(result.standard);
+      if (data.standard && standards.some((s) => s.name === data.standard)) {
+        setStandard(data.standard);
       }
-      setResponsible(result.responsible.filter((n) => teacherNames.has(n)));
-      if (result.activities.length > 0) {
+      setResponsible(data.responsible.filter((n) => teacherNames.has(n)));
+      if (data.activities.length > 0) {
         setActivities(
-          result.activities.map((a) => ({
+          data.activities.map((a) => ({
             name: a.name,
             responsible: a.responsible.filter((n) => teacherNames.has(n)),
             budget: a.budget ? String(a.budget) : "",

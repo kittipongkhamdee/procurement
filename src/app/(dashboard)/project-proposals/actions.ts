@@ -175,11 +175,16 @@ export async function extractProposalFromUploadedFile(input: {
   teachers: string[];
 }) {
   const { supabase } = await requireUser();
-  return extractProposalFromFile(supabase, input.filePath, {
-    strategies: input.strategies,
-    standards: input.standards,
-    teachers: input.teachers,
-  });
+  try {
+    const data = await extractProposalFromFile(supabase, input.filePath, {
+      strategies: input.strategies,
+      standards: input.standards,
+      teachers: input.teachers,
+    });
+    return { ok: true as const, data };
+  } catch (err) {
+    return { ok: false as const, error: err instanceof Error ? err.message : "อ่านไฟล์ด้วย AI ไม่สำเร็จ" };
+  }
 }
 
 export async function updateProposal(id: string, formData: FormData) {

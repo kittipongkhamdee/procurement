@@ -84,21 +84,23 @@ export async function extractProposalFromFile(
     throw new Error("รองรับเฉพาะไฟล์ .pdf และ .docx เท่านั้น");
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: buildPrompt(options) }, ...contentParts] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-        },
-      }),
+  const requestBody = JSON.stringify({
+    contents: [{ role: "user", parts: [{ text: buildPrompt(options) }, ...contentParts] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: RESPONSE_SCHEMA,
     },
-  );
+  });
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  let res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody });
+  if (!res.ok && (res.status === 503 || res.status === 429)) {
+    // โมเดลกำลังโหลดสูง/ถูกจำกัดอัตราชั่วคราว ลองใหม่อีกครั้งหลังหน่วงเวลาสั้นๆ
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody });
+  }
   if (!res.ok) {
+    if (res.status === 503) throw new Error("Gemini กำลังมีผู้ใช้งานหนาแน่น กรุณาลองใหม่อีกครั้งในสักครู่");
     const body = await res.text().catch(() => "");
     throw new Error(`เรียก Gemini ไม่สำเร็จ (${res.status}) ${body.slice(0, 200)}`);
   }
