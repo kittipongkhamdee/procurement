@@ -130,20 +130,26 @@ export async function createProposal(formData: FormData) {
 
   const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
-  let activities: ActivityRow[] = [];
-  try {
-    activities = JSON.parse(String(formData.get("activities_json") ?? "[]"));
-  } catch {
-    activities = [];
-  }
-  activities = activities
-    .filter((a) => a.name.trim() !== "")
-    .map((a) => ({
-      ...a,
-      budget: Number(a.budget) || 0,
-    })) as unknown as ActivityRow[];
+  const hasActivities = String(formData.get("has_activities") ?? "yes") !== "no";
 
-  const budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+  let activities: ActivityRow[] = [];
+  let budgetAmount = 0;
+  if (hasActivities) {
+    try {
+      activities = JSON.parse(String(formData.get("activities_json") ?? "[]"));
+    } catch {
+      activities = [];
+    }
+    activities = activities
+      .filter((a) => a.name.trim() !== "")
+      .map((a) => ({
+        ...a,
+        budget: Number(a.budget) || 0,
+      })) as unknown as ActivityRow[];
+    budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+  } else {
+    budgetAmount = Number(formData.get("project_budget") ?? 0) || 0;
+  }
 
   const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
   const fileUrlWord = await renameProposalFile(supabase, str(formData, "file_url_word"), baseName);
@@ -201,20 +207,26 @@ export async function updateProposal(id: string, formData: FormData) {
 
   const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
-  let activities: ActivityRow[] = [];
-  try {
-    activities = JSON.parse(String(formData.get("activities_json") ?? "[]"));
-  } catch {
-    activities = [];
-  }
-  activities = activities
-    .filter((a) => a.name.trim() !== "")
-    .map((a) => ({
-      ...a,
-      budget: Number(a.budget) || 0,
-    })) as unknown as ActivityRow[];
+  const hasActivities = String(formData.get("has_activities") ?? "yes") !== "no";
 
-  const budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+  let activities: ActivityRow[] = [];
+  let budgetAmount = 0;
+  if (hasActivities) {
+    try {
+      activities = JSON.parse(String(formData.get("activities_json") ?? "[]"));
+    } catch {
+      activities = [];
+    }
+    activities = activities
+      .filter((a) => a.name.trim() !== "")
+      .map((a) => ({
+        ...a,
+        budget: Number(a.budget) || 0,
+      })) as unknown as ActivityRow[];
+    budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+  } else {
+    budgetAmount = Number(formData.get("project_budget") ?? 0) || 0;
+  }
 
   const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
   const fileUrlWord = await replaceProposalFile(supabase, proposal.file_url_word, str(formData, "file_url_word"), baseName);

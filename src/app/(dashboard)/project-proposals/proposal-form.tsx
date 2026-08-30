@@ -33,6 +33,7 @@ export type ProposalFormInitial = {
   adminGroupId: string | null;
   responsible: string[];
   activities: ActivityRow[];
+  budgetAmount: number;
   budgetSourceId: string | null;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
@@ -65,10 +66,22 @@ export function ProposalForm({
   const [strategyAlignment, setStrategyAlignment] = useState(initial?.strategyAlignment ?? "");
   const [standard, setStandard] = useState(initial?.standard ?? "");
   const [responsible, setResponsible] = useState<string[]>(initial?.responsible ?? []);
+  const [hasActivities, setHasActivities] = useState((initial?.activities.length ?? 1) > 0);
   const [activities, setActivities] = useState<ActivityRow[]>(initial?.activities ?? [emptyActivity()]);
+  const [projectBudget, setProjectBudget] = useState(
+    initial && !hasActivities ? String(initial.budgetAmount) : "",
+  );
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function toggleHasActivities() {
+    setHasActivities((v) => {
+      const next = !v;
+      if (next && activities.length === 0) setActivities([emptyActivity()]);
+      return next;
+    });
   }
 
   const totalBudget = useMemo(
@@ -77,7 +90,8 @@ export function ProposalForm({
   );
 
   async function handleSubmit(formData: FormData) {
-    formData.set("activities_json", JSON.stringify(activities));
+    formData.set("has_activities", hasActivities ? "yes" : "no");
+    formData.set("activities_json", JSON.stringify(hasActivities ? activities : []));
     try {
       await action(formData);
       await toastSuccess(successMessage);
@@ -187,67 +201,105 @@ export function ProposalForm({
             ))}
           </select>
         </div>
-        <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
-          <div className="hidden grid-cols-[1fr_8rem_6rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
-            <div>รายละเอียดการดำเนินงาน</div>
-            <div>ผู้รับผิดชอบ</div>
-            <div>งบประมาณ</div>
-            <div></div>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {activities.map((row, i) => (
-              <div
-                key={i}
-                className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_8rem_6rem_3.5rem] sm:items-center"
-              >
-                <div>
-                  <label className="label sm:hidden">รายละเอียดการดำเนินงาน</label>
-                  <input
-                    value={row.name}
-                    onChange={(e) => updateActivity(i, { name: e.target.value })}
-                    className="input"
-                    placeholder={`กิจกรรมที่ ${i + 1}`}
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">ผู้รับผิดชอบ</label>
-                  <TeacherMultiSelect
-                    teachers={teachers}
-                    value={row.responsible}
-                    onChange={(next) => updateActivity(i, { responsible: next })}
-                  />
-                </div>
-                <div>
-                  <label className="label sm:hidden">งบประมาณ</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={row.budget}
-                    onChange={(e) => updateActivity(i, { budget: e.target.value })}
-                    className="input text-right"
-                    placeholder="0.00"
-                  />
-                </div>
-                {activities.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => setActivities((prev) => prev.filter((_, idx) => idx !== i))}
-                    className="btn-danger btn-sm sm:justify-self-end"
-                  >
-                    ลบ
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
-            <span className="font-semibold text-slate-600">รวมงบประมาณทั้งสิ้น</span>
-            <span className="font-bold text-navy-800">{formatBaht(totalBudget)} บาท</span>
-          </div>
+        <div className="mb-3 flex items-center gap-3 text-sm">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hasActivities}
+            onClick={toggleHasActivities}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+              hasActivities ? "bg-navy-800" : "bg-slate-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${
+                hasActivities ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className="font-medium text-slate-700">
+            {hasActivities ? "มีกิจกรรมย่อย" : "ไม่มีกิจกรรมย่อย"}
+          </span>
         </div>
-        <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
-          + เพิ่มกิจกรรม
-        </button>
+
+        {hasActivities ? (
+          <>
+            <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
+              <div className="hidden grid-cols-[1fr_8rem_6rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+                <div>รายละเอียดการดำเนินงาน</div>
+                <div>ผู้รับผิดชอบ</div>
+                <div>งบประมาณ</div>
+                <div></div>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {activities.map((row, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_8rem_6rem_3.5rem] sm:items-center"
+                  >
+                    <div>
+                      <label className="label sm:hidden">รายละเอียดการดำเนินงาน</label>
+                      <input
+                        value={row.name}
+                        onChange={(e) => updateActivity(i, { name: e.target.value })}
+                        className="input"
+                        placeholder={`กิจกรรมที่ ${i + 1}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="label sm:hidden">ผู้รับผิดชอบ</label>
+                      <TeacherMultiSelect
+                        teachers={teachers}
+                        value={row.responsible}
+                        onChange={(next) => updateActivity(i, { responsible: next })}
+                      />
+                    </div>
+                    <div>
+                      <label className="label sm:hidden">งบประมาณ</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={row.budget}
+                        onChange={(e) => updateActivity(i, { budget: e.target.value })}
+                        className="input text-right"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    {activities.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setActivities((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="btn-danger btn-sm sm:justify-self-end"
+                      >
+                        ลบ
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
+                <span className="font-semibold text-slate-600">รวมงบประมาณทั้งสิ้น</span>
+                <span className="font-bold text-navy-800">{formatBaht(totalBudget)} บาท</span>
+              </div>
+            </div>
+            <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
+              + เพิ่มกิจกรรม
+            </button>
+          </>
+        ) : (
+          <div>
+            <label className="label">งบประมาณโครงการ</label>
+            <input
+              type="number"
+              step="0.01"
+              name="project_budget"
+              value={projectBudget}
+              onChange={(e) => setProjectBudget(e.target.value)}
+              className="input"
+              placeholder="0.00"
+            />
+          </div>
+        )}
       </div>
 
       <button type="submit" className="btn-primary mt-2">

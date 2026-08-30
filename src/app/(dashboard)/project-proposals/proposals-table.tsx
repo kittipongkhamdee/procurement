@@ -150,6 +150,7 @@ export function ProposalsTable({
                             responsible: a.responsible,
                             budget: String(a.budget),
                           })),
+                          budgetAmount: r.budgetAmount,
                           budgetSourceId: r.budgetSourceId,
                           fileUrlWordPath: r.fileUrlWordPath,
                           fileUrlPdfPath: r.fileUrlPdfPath,
