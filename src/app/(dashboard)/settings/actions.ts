@@ -188,3 +188,13 @@ export async function setGeminiApiKey(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+export async function setGeminiModel(formData: FormData) {
+  const supabase = await requireAdmin();
+  const value = String(formData.get("gemini_model") ?? "").trim();
+  const { error } = await supabase
+    .from("proc_app_settings")
+    .upsert({ key: "gemini_model", value: value || null, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}

@@ -4,7 +4,7 @@ import type { createClient } from "@/lib/supabase/server";
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 const PROPOSAL_FILES_BUCKET = "procurement-files";
-const DEFAULT_MODEL = "gemini-flash-latest";
+const DEFAULT_MODEL = "gemini-2.5-flash";
 
 export type ExtractedProposal = {
   name: string;
