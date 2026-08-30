@@ -155,7 +155,7 @@ export function ProjectEditModal({
         </div>
 
         <div className="mt-6 border-t border-slate-100 pt-4">
-          <div className="card-title">กิจกรรมย่อย</div>
+          <div className="card-title text-base font-bold text-navy-800">กิจกรรมย่อย</div>
           <div className="mb-3 overflow-hidden rounded-xl border border-slate-200/80">
             <div className="hidden grid-cols-[1fr_8rem_8rem_6rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
               <div>ชื่อกิจกรรม</div>

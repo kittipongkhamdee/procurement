@@ -95,7 +95,7 @@ export function CreateProjectForm({
       </div>
 
       <div className="mt-2 border-t border-slate-100 pt-4">
-        <div className="card-title">กิจกรรมย่อย</div>
+        <div className="card-title text-base font-bold text-navy-800">กิจกรรมย่อย</div>
         <input type="hidden" name="has_activities" value={hasActivities ? "yes" : "no"} />
         <div className="mb-3 flex items-center gap-3 text-sm">
           <button
