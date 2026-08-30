@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
+import { PlusIcon } from "@/components/icons";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
@@ -33,6 +34,48 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
+function numberedListToText(items: string[]) {
+  const nonEmpty = items.map((i) => i.trim()).filter(Boolean);
+  return nonEmpty.map((item, i) => `${i + 1}. ${item}`).join("\n");
+}
+
+function NumberedListField({
+  items,
+  onChange,
+  placeholder,
+}: {
+  items: string[];
+  onChange: (next: string[]) => void;
+  placeholder: string;
+}) {
+  function update(i: number, value: string) {
+    onChange(items.map((item, idx) => (idx === i ? value : item)));
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-5 shrink-0 text-sm font-medium text-slate-500">{i + 1}.</span>
+          <input value={item} onChange={(e) => update(i, e.target.value)} className="input flex-1" placeholder={placeholder} />
+          {items.length > 1 && (
+            <button
+              type="button"
+              onClick={() => onChange(items.filter((_, idx) => idx !== i))}
+              className="btn-danger btn-sm shrink-0"
+            >
+              ลบ
+            </button>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={() => onChange([...items, ""])} className="icon-btn-add self-start">
+        <PlusIcon className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 export function ProposalForm({
   action,
   budgetYearId,
@@ -53,6 +96,9 @@ export function ProposalForm({
   const [responsible, setResponsible] = useState<string[]>([]);
   const [activities, setActivities] = useState<ActivityRow[]>([emptyActivity()]);
   const [evaluationItems, setEvaluationItems] = useState<EvaluationRow[]>([emptyEvaluation("เชิงปริมาณ")]);
+  const [objectives, setObjectives] = useState<string[]>([""]);
+  const [targetQuantity, setTargetQuantity] = useState<string[]>([""]);
+  const [targetQuality, setTargetQuality] = useState<string[]>([""]);
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -73,6 +119,9 @@ export function ProposalForm({
   async function handleSubmit(formData: FormData) {
     formData.set("activities_json", JSON.stringify(activities));
     formData.set("evaluation_items_json", JSON.stringify(evaluationItems));
+    formData.set("objectives", numberedListToText(objectives));
+    formData.set("target_quantity", numberedListToText(targetQuantity));
+    formData.set("target_quality", numberedListToText(targetQuality));
     try {
       await action(formData);
       await toastSuccess("ส่งข้อเสนอโครงการเรียบร้อยแล้ว");
@@ -169,17 +218,17 @@ export function ProposalForm({
 
       <div>
         <label className="label">2. วัตถุประสงค์</label>
-        <textarea name="objectives" rows={3} className="input" placeholder="ระบุเป็นข้อ ๆ" />
+        <NumberedListField items={objectives} onChange={setObjectives} placeholder="ระบุวัตถุประสงค์ข้อที่..." />
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className="label">3. เป้าหมาย — ผลผลิต/ด้านปริมาณ</label>
-          <textarea name="target_quantity" rows={3} className="input" />
+          <NumberedListField items={targetQuantity} onChange={setTargetQuantity} placeholder="ระบุเป้าหมายเชิงปริมาณ" />
         </div>
         <div>
           <label className="label">เป้าหมาย — ผลลัพธ์/ด้านคุณภาพ</label>
-          <textarea name="target_quality" rows={3} className="input" />
+          <NumberedListField items={targetQuality} onChange={setTargetQuality} placeholder="ระบุเป้าหมายเชิงคุณภาพ" />
         </div>
       </div>
 
