@@ -178,3 +178,13 @@ export async function setUserGroups(userId: string, groupIds: string[]) {
   }
   revalidatePath("/settings");
 }
+
+export async function setGeminiApiKey(formData: FormData) {
+  const supabase = await requireAdmin();
+  const value = String(formData.get("gemini_api_key") ?? "").trim();
+  const { error } = await supabase
+    .from("proc_app_settings")
+    .upsert({ key: "gemini_api_key", value: value || null, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}

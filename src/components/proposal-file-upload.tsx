@@ -15,12 +15,15 @@ export function ProposalFileUpload({
   label,
   accept,
   initialPath,
+  onPathChange,
 }: {
   name: string;
   label: string;
   accept: string;
   /** พาธไฟล์ที่บันทึกไว้แล้ว (โหมดแก้ไข) — ถ้ากดลบไฟล์นี้จะไม่ลบออกจาก storage ทันที รอให้บันทึกฟอร์มก่อน */
   initialPath?: string | null;
+  /** แจ้งพาธไฟล์ปัจจุบันขึ้นไปยัง component แม่ (เช่น เพื่อใช้เป็นต้นฉบับให้ AI อ่าน) */
+  onPathChange?: (path: string | null) => void;
 }) {
   const [fileName, setFileName] = useState<string | null>(initialPath ? baseNameOf(initialPath) : null);
   const [path, setPath] = useState<string | null>(initialPath ?? null);
@@ -73,10 +76,12 @@ export function ProposalFileUpload({
       setPath(newPath);
       setIsNew(true);
       setProgress(100);
+      onPathChange?.(newPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "อัปโหลดไฟล์ไม่สำเร็จ");
       setFileName(null);
       setPath(null);
+      onPathChange?.(null);
     } finally {
       setUploading(false);
     }
@@ -92,6 +97,7 @@ export function ProposalFileUpload({
     setIsNew(false);
     setProgress(0);
     setError(null);
+    onPathChange?.(null);
   }
 
   return (

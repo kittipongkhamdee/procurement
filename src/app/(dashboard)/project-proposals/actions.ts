@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { extractProposalFromFile } from "@/lib/ai/extract-proposal";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -165,6 +166,20 @@ export async function createProposal(formData: FormData) {
   });
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");
+}
+
+export async function extractProposalFromUploadedFile(input: {
+  filePath: string;
+  strategies: string[];
+  standards: string[];
+  teachers: string[];
+}) {
+  const { supabase } = await requireUser();
+  return extractProposalFromFile(supabase, input.filePath, {
+    strategies: input.strategies,
+    standards: input.standards,
+    teachers: input.teachers,
+  });
 }
 
 export async function updateProposal(id: string, formData: FormData) {

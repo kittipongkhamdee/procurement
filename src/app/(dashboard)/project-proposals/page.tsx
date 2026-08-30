@@ -10,6 +10,7 @@ import {
   deleteProposal,
   deleteProposalFile,
   endorseProposal,
+  extractProposalFromUploadedFile,
   resetProposalStatus,
   updateProposal,
 } from "./actions";
@@ -141,6 +142,7 @@ export default async function ProjectProposalsPage() {
               teachers={teachers ?? []}
               strategies={strategies ?? []}
               standards={standards ?? []}
+              extractProposalFromUploadedFile={extractProposalFromUploadedFile}
             />
           </Modal>
         )}
@@ -219,6 +221,7 @@ export default async function ProjectProposalsPage() {
           deleteProposal={deleteProposal}
           deleteProposalFile={deleteProposalFile}
           updateProposal={updateProposal}
+          extractProposalFromUploadedFile={extractProposalFromUploadedFile}
         />
       </div>
     </div>

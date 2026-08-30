@@ -4,6 +4,7 @@ import { AdminGroupManager } from "./admin-group-manager";
 import { UserGroupManager } from "./user-group-manager";
 import { UserGroupSelect } from "./user-group-select";
 import { BudgetSourceToggle } from "./budget-source-toggle";
+import { GeminiKeyForm } from "./gemini-key-form";
 import { CloseIcon } from "@/components/icons";
 import {
   createAdminGroup,
@@ -16,6 +17,7 @@ import {
   deleteTeacher,
   deleteUserGroup,
   setCurrentBudgetYear,
+  setGeminiApiKey,
   setUserGroups,
   toggleAdminGroupActive,
   toggleBudgetSourceActive,
@@ -55,6 +57,7 @@ export default async function SettingsPage() {
     { data: userGroups },
     { data: users },
     { data: groupMembers },
+    { data: geminiKeySetting },
   ] = await Promise.all([
     supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
     supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
@@ -63,6 +66,7 @@ export default async function SettingsPage() {
     supabase.from("proc_user_groups").select("id, name, is_active").order("sort_order").order("name"),
     supabase.rpc("proc_admin_list_users"),
     supabase.from("proc_user_group_members").select("user_id, group_id"),
+    supabase.from("proc_app_settings").select("value").eq("key", "gemini_api_key").maybeSingle(),
   ]);
 
   const groupIdsByUser = new Map<string, string[]>();
@@ -183,6 +187,17 @@ export default async function SettingsPage() {
               เพิ่ม
             </button>
           </form>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">Gemini API Key (สำหรับอ่านไฟล์โครงการด้วย AI)</div>
+            <p className="mb-3 text-sm text-slate-500">
+              ใช้ให้ AI อ่านไฟล์โครงการ (Word/PDF) แล้วกรอกข้อมูลในฟอร์มเสนอโครงการให้อัตโนมัติ
+              รับฟรีได้ที่ aistudio.google.com → Get API Key
+            </p>
+            <GeminiKeyForm currentKey={geminiKeySetting?.value ?? null} setGeminiApiKey={setGeminiApiKey} />
+          </div>
         </div>
 
         <AdminGroupManager

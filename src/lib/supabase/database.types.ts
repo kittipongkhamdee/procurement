@@ -878,6 +878,24 @@ export type Database = {
           },
         ]
       }
+      proc_app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       proc_approval_items: {
         Row: {
           approval_id: string
