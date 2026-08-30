@@ -135,6 +135,109 @@ export type Database = {
           },
         ]
       }
+      plan_project_proposals: {
+        Row: {
+          admin_group_id: string | null
+          budget_amount: number
+          budget_source_id: string | null
+          budget_year_id: string | null
+          created_at: string
+          created_by: string | null
+          end_date: string | null
+          evaluation_method: string | null
+          expected_results: string | null
+          id: string
+          name: string
+          objectives: string | null
+          procedures: string | null
+          project_type: string
+          proposer_name: string | null
+          rationale: string | null
+          responsible: string[]
+          start_date: string | null
+          status: string
+          status_note: string | null
+          strategy_alignment: string | null
+          success_indicators: string | null
+          target_quality: string | null
+          target_quantity: string | null
+        }
+        Insert: {
+          admin_group_id?: string | null
+          budget_amount?: number
+          budget_source_id?: string | null
+          budget_year_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          evaluation_method?: string | null
+          expected_results?: string | null
+          id?: string
+          name: string
+          objectives?: string | null
+          procedures?: string | null
+          project_type?: string
+          proposer_name?: string | null
+          rationale?: string | null
+          responsible?: string[]
+          start_date?: string | null
+          status?: string
+          status_note?: string | null
+          strategy_alignment?: string | null
+          success_indicators?: string | null
+          target_quality?: string | null
+          target_quantity?: string | null
+        }
+        Update: {
+          admin_group_id?: string | null
+          budget_amount?: number
+          budget_source_id?: string | null
+          budget_year_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_date?: string | null
+          evaluation_method?: string | null
+          expected_results?: string | null
+          id?: string
+          name?: string
+          objectives?: string | null
+          procedures?: string | null
+          project_type?: string
+          proposer_name?: string | null
+          rationale?: string | null
+          responsible?: string[]
+          start_date?: string | null
+          status?: string
+          status_note?: string | null
+          strategy_alignment?: string | null
+          success_indicators?: string | null
+          target_quality?: string | null
+          target_quantity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_project_proposals_admin_group_id_fkey"
+            columns: ["admin_group_id"]
+            isOneToOne: false
+            referencedRelation: "plan_admin_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_project_proposals_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_project_proposals_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_allowance_disbursements: {
         Row: {
           amount: number
