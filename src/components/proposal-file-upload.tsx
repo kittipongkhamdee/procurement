@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { displayNameForRef } from "@/lib/storage/ref";
+import { UploadIcon } from "@/components/icons";
 
 const UPLOAD_ENDPOINT = "/api/proposal-file-upload";
 
@@ -96,28 +97,21 @@ export function ProposalFileUpload({
     <div>
       <label className="label">{label}</label>
       <input type="hidden" name={name} value={path ?? ""} />
+      <input ref={inputRef} type="file" accept={accept} onChange={handleSelect} className="hidden" />
       {!fileName && (
-        <>
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="btn-secondary btn-sm"
-          >
-            เลือกไฟล์
-          </button>
-          <input
-            ref={inputRef}
-            type="file"
-            accept={accept}
-            onChange={handleSelect}
-            className="hidden"
-          />
-        </>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-navy-200 bg-navy-50/50 px-3 py-5 text-navy-700 transition-colors hover:border-navy-400 hover:bg-navy-50"
+        >
+          <UploadIcon className="h-6 w-6" />
+          <span className="text-sm font-semibold">เลือกไฟล์</span>
+        </button>
       )}
       {fileName && (
-        <div className="rounded-lg border border-slate-200 p-2">
+        <div className="rounded-xl border-2 border-navy-200 bg-navy-50/50 p-3">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm text-slate-700">{fileName}</span>
+            <span className="truncate text-sm font-medium text-slate-700">{fileName}</span>
             {!uploading && (
               <button
                 type="button"

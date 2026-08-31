@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveStorageUrls } from "@/lib/storage";
 import { uploadProjectReport, deleteProjectReport } from "./actions";
 
 export default async function ProjectReportsPage() {
@@ -12,13 +13,7 @@ export default async function ProjectReportsPage() {
   ]);
 
   const paths = (reports ?? []).map((r) => r.file_url);
-  const signedUrls = new Map<string, string>();
-  if (paths.length > 0) {
-    const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(paths, 3600);
-    signed?.forEach((s) => {
-      if (s.signedUrl && !s.error) signedUrls.set(s.path ?? "", s.signedUrl);
-    });
-  }
+  const signedUrls = await resolveStorageUrls(supabase, paths, "procurement-files");
 
   return (
     <div>
