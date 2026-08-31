@@ -90,6 +90,50 @@ function IndicatorList({
   );
 }
 
+function ListField({
+  label,
+  placeholder,
+  values,
+  onChange,
+  addLabel,
+}: {
+  label: string;
+  placeholder: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+  addLabel: string;
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className="grid grid-cols-1 gap-2">
+        {values.map((v, i) => (
+          <div key={i} className="flex gap-2">
+            <input
+              value={v}
+              onChange={(e) => onChange(values.map((row, idx) => (idx === i ? e.target.value : row)))}
+              className="input"
+              placeholder={placeholder}
+            />
+            {values.length > 1 && (
+              <button
+                type="button"
+                onClick={() => onChange(values.filter((_, idx) => idx !== i))}
+                className="btn-danger btn-sm shrink-0"
+              >
+                ลบ
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button type="button" onClick={() => onChange([...values, ""])} className="btn-secondary btn-sm mt-2">
+        {addLabel}
+      </button>
+    </div>
+  );
+}
+
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
@@ -103,9 +147,22 @@ function FieldError({ show, message }: { show: boolean; message: string }) {
 // ตัวชี้วัด — เป็น hidden input หรือรายการหลายแถวที่ native required ใช้ไม่ได้ตรงๆ)
 // ส่วนช่องอื่น (select/text/number) ใช้ required native ของเบราว์เซอร์ ซึ่งเบราว์เซอร์เลื่อน
 // และแสดง tooltip ชี้ตำแหน่งให้เองอยู่แล้ว
-type FieldKey = "file_url_word" | "file_url_pdf" | "responsible" | "indicators_quantity" | "indicators_quality";
+type FieldKey =
+  | "file_url_word"
+  | "file_url_pdf"
+  | "responsible"
+  | "objectives"
+  | "indicators_quantity"
+  | "indicators_quality";
 
-const FIELD_ORDER: FieldKey[] = ["file_url_word", "file_url_pdf", "responsible", "indicators_quantity", "indicators_quality"];
+const FIELD_ORDER: FieldKey[] = [
+  "file_url_word",
+  "file_url_pdf",
+  "responsible",
+  "objectives",
+  "indicators_quantity",
+  "indicators_quality",
+];
 
 export type ProposalFormInitial = {
   name: string;
@@ -113,6 +170,7 @@ export type ProposalFormInitial = {
   strategyAlignment: string | null;
   adminGroupId: string | null;
   responsible: string[];
+  objectives: string[];
   activities: ActivityRow[];
   budgetAmount: number;
   budgetSourceId: string | null;
@@ -149,6 +207,7 @@ export function ProposalForm({
   const [strategyAlignment, setStrategyAlignment] = useState(initial?.strategyAlignment ?? "");
   const [standard, setStandard] = useState(initial?.standard ?? "");
   const [responsible, setResponsible] = useState<string[]>(initial?.responsible ?? []);
+  const [objectives, setObjectives] = useState<string[]>(initial?.objectives ?? [""]);
   const [hasActivities, setHasActivities] = useState((initial?.activities.length ?? 1) > 0);
   const [activities, setActivities] = useState<ActivityRow[]>(initial?.activities ?? [emptyActivity()]);
   const [projectBudget, setProjectBudget] = useState(
@@ -165,6 +224,7 @@ export function ProposalForm({
   const fileWordRef = useRef<HTMLDivElement>(null);
   const filePdfRef = useRef<HTMLDivElement>(null);
   const responsibleRef = useRef<HTMLDivElement>(null);
+  const objectivesRef = useRef<HTMLDivElement>(null);
   const indicatorsQuantityRef = useRef<HTMLDivElement>(null);
   const indicatorsQualityRef = useRef<HTMLDivElement>(null);
 
@@ -176,6 +236,8 @@ export function ProposalForm({
         return filePdfRef;
       case "responsible":
         return responsibleRef;
+      case "objectives":
+        return objectivesRef;
       case "indicators_quantity":
         return indicatorsQuantityRef;
       case "indicators_quality":
@@ -205,6 +267,7 @@ export function ProposalForm({
     if (!String(formData.get("file_url_word") ?? "").trim()) errors.file_url_word = true;
     if (!String(formData.get("file_url_pdf") ?? "").trim()) errors.file_url_pdf = true;
     if (responsible.length === 0) errors.responsible = true;
+    if (!objectives.some((o) => o.trim() !== "")) errors.objectives = true;
     if (!indicatorsQuantity.some((r) => r.indicator.trim() !== "" && r.target.trim() !== ""))
       errors.indicators_quantity = true;
     if (!indicatorsQuality.some((r) => r.indicator.trim() !== "" && r.target.trim() !== ""))
@@ -215,6 +278,7 @@ export function ProposalForm({
   async function handleSubmit(formData: FormData) {
     formData.set("has_activities", hasActivities ? "yes" : "no");
     formData.set("activities_json", JSON.stringify(hasActivities ? activities : []));
+    formData.set("objectives_json", JSON.stringify(objectives.filter((o) => o.trim() !== "")));
     formData.set("indicators_quantity_json", JSON.stringify(indicatorsQuantity.filter((r) => r.indicator.trim() !== "")));
     formData.set("indicators_quality_json", JSON.stringify(indicatorsQuality.filter((r) => r.indicator.trim() !== "")));
 
@@ -335,6 +399,16 @@ export function ProposalForm({
               <input key={n} type="hidden" name="responsible" value={n} />
             ))}
             <FieldError show={!!fieldErrors.responsible} message="กรุณาเลือกผู้รับผิดชอบโครงการอย่างน้อย 1 คน" />
+          </div>
+          <div ref={objectivesRef} className={fieldErrors.objectives ? "rounded-xl ring-2 ring-red-400 p-1" : ""}>
+            <ListField
+              label="วัตถุประสงค์"
+              placeholder="เพื่อ..."
+              values={objectives}
+              onChange={setObjectives}
+              addLabel="+ เพิ่มวัตถุประสงค์"
+            />
+            <FieldError show={!!fieldErrors.objectives} message="กรุณากรอกวัตถุประสงค์อย่างน้อย 1 ข้อ" />
           </div>
         </div>
       </div>

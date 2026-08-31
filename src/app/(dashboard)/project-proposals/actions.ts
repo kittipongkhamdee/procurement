@@ -72,6 +72,18 @@ function indicatorsField(formData: FormData, key: string) {
   );
 }
 
+function listField(formData: FormData, key: string): string[] {
+  const raw = String(formData.get(key) ?? "[]");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((v): v is string => typeof v === "string" && v.trim() !== "");
+}
+
 function sanitizeFileNamePart(s: string) {
   return s.replace(/[\\/:*?"<>|]+/g, " ").trim();
 }
@@ -174,6 +186,7 @@ export async function createProposal(formData: FormData) {
     admin_group_id: str(formData, "admin_group_id"),
     name,
     responsible,
+    objectives: listField(formData, "objectives_json"),
     strategy_alignment: str(formData, "strategy_alignment"),
     activities,
     budget_amount: budgetAmount,
@@ -252,6 +265,7 @@ export async function updateProposal(id: string, formData: FormData) {
       admin_group_id: str(formData, "admin_group_id"),
       name,
       responsible,
+      objectives: listField(formData, "objectives_json"),
       strategy_alignment: str(formData, "strategy_alignment"),
       activities,
       budget_amount: budgetAmount,

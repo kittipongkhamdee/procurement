@@ -40,6 +40,7 @@ type ProposalRow = {
   budgetSourceId: string | null;
   standard: string | null;
   responsible: string[];
+  objectives: string[];
   strategyAlignment: string | null;
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
@@ -151,6 +152,7 @@ export function ProposalsTable({
                           strategyAlignment: r.strategyAlignment,
                           adminGroupId: r.adminGroupId,
                           responsible: r.responsible,
+                          objectives: r.objectives,
                           activities: r.activities.map((a) => ({
                             name: a.name,
                             responsible: a.responsible,
