@@ -310,7 +310,11 @@ export function ProjectReportForm({
           </div>
           <div className="sm:col-span-2">
             <label className="label">สถานที่ดำเนินการ</label>
-            <input name="location" className="input" placeholder="เช่น โรงเรียนตาเบาวิทยา อำเภอปราสาท จังหวัดสุรินทร์" />
+            <input
+              name="location"
+              className="input"
+              defaultValue="โรงเรียนตาเบาวิทยา อำเภอปราสาท จังหวัดสุรินทร์"
+            />
           </div>
         </div>
       </div>
