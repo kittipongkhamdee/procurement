@@ -12,7 +12,10 @@ export default async function ProjectReportsPage() {
       .select("id, file_url, photo_refs, created_at, plan_projects(name)")
       .order("created_at", { ascending: false }),
     supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
-    supabase.from("plan_project_proposals").select("project_id, strategy_alignment, standard").not("project_id", "is", null),
+    supabase
+      .from("plan_project_proposals")
+      .select("project_id, strategy_alignment, standard, responsible")
+      .not("project_id", "is", null),
   ]);
 
   const paths = (reports ?? []).map((r) => r.file_url);
@@ -36,6 +39,7 @@ export default async function ProjectReportsPage() {
                 budget: p.budget,
                 strategyAlignment: proposal?.strategy_alignment ?? null,
                 standard: proposal?.standard ?? null,
+                responsible: (proposal?.responsible as unknown as string[]) ?? [],
               };
             })}
             action={createProjectReport}

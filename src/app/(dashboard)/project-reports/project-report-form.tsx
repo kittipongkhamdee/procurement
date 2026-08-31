@@ -10,6 +10,7 @@ type Project = {
   budget: number | null;
   strategyAlignment: string | null;
   standard: string | null;
+  responsible: string[];
 };
 
 function formatBaht(n: number) {
@@ -75,6 +76,7 @@ export function ProjectReportForm({
   const [recommendations, setRecommendations] = useState<string[]>([""]);
   const [budgetApproved, setBudgetApproved] = useState("");
   const [budgetUsed, setBudgetUsed] = useState("");
+  const [responsibleName, setResponsibleName] = useState("");
   const photoUploadRef = useRef<ProjectReportPhotoUploadHandle>(null);
 
   const budgetRemaining = useMemo(() => {
@@ -90,6 +92,7 @@ export function ProjectReportForm({
     setProjectId(id);
     const project = projects.find((p) => p.id === id);
     if (project?.budget != null) setBudgetApproved(String(project.budget));
+    if (project?.responsible && project.responsible.length > 0) setResponsibleName(project.responsible.join(", "));
   }
 
   async function handleSubmit(formData: FormData) {
@@ -111,6 +114,7 @@ export function ProjectReportForm({
       setRecommendations([""]);
       setBudgetApproved("");
       setBudgetUsed("");
+      setResponsibleName("");
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -157,7 +161,13 @@ export function ProjectReportForm({
           )}
           <div>
             <label className="label">ผู้รับผิดชอบโครงการ</label>
-            <input name="responsible_name" className="input" placeholder="ชื่อ-นามสกุล และตำแหน่ง/กลุ่มสาระฯ" />
+            <input
+              name="responsible_name"
+              value={responsibleName}
+              onChange={(e) => setResponsibleName(e.target.value)}
+              className="input"
+              placeholder="ชื่อ-นามสกุล และตำแหน่ง/กลุ่มสาระฯ"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
