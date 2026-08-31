@@ -391,6 +391,24 @@ export async function approveProposal(id: string, decision: "อนุมัต�
 
 export async function resetProposalStatus(id: string) {
   const supabase = await requireAdmin();
+
+  const { data: proposal } = await supabase
+    .from("plan_project_proposals")
+    .select("project_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  // ถ้าเคยอนุมัติจนสร้างโครงการจริงไปแล้ว ต้องลบโครงการนั้นทิ้งไปด้วย ไม่งั้นโครงการจะค้างอยู่ที่หน้าโครงการ/
+  // คลังเอกสาร ทั้งที่ข้อเสนอถูกย้อนสถานะแล้ว (ลบไม่ได้ถ้ามีสัญญา/เบิกจ่าย/เอกสารอนุมัติจัดซื้อผูกอยู่แล้ว — กันข้อมูลจริงหาย)
+  if (proposal?.project_id) {
+    const { error: deleteError } = await supabase.from("plan_projects").delete().eq("id", proposal.project_id);
+    if (deleteError) {
+      throw new Error(
+        "ย้อนสถานะไม่ได้ เนื่องจากโครงการนี้มีสัญญา/การเบิกจ่าย/เอกสารอนุมัติจัดซื้อผูกอยู่แล้ว กรุณาลบข้อมูลเหล่านั้นก่อน",
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("plan_project_proposals")
     .update({
@@ -405,6 +423,8 @@ export async function resetProposalStatus(id: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");
+  revalidatePath("/projects");
+  revalidatePath("/documents");
 }
 
 export async function deleteProposal(id: string) {
