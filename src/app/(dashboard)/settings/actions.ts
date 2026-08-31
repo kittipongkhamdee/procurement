@@ -200,6 +200,16 @@ export async function setGeminiModel(formData: FormData) {
   revalidatePath("/settings");
 }
 
+export async function setAiExtractionEnabled(enabled: boolean) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("proc_app_settings")
+    .upsert({ key: "ai_extraction_enabled", value: enabled ? "true" : "false", updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/project-proposals");
+}
+
 export async function setStorageProvider(provider: "supabase" | "google_drive") {
   const supabase = await requireAdmin();
   await testStorageConnection(supabase, provider, "procurement-files");
