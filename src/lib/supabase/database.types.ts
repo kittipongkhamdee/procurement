@@ -1223,6 +1223,7 @@ export type Database = {
       }
       proc_project_reports: {
         Row: {
+          activities_done: Json
           background: string | null
           budget_approved: number | null
           budget_used: number | null
@@ -1230,6 +1231,7 @@ export type Database = {
           file_url: string | null
           highlights: Json
           id: string
+          location: string | null
           objectives: Json
           period_end: string | null
           period_start: string | null
@@ -1245,6 +1247,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          activities_done?: Json
           background?: string | null
           budget_approved?: number | null
           budget_used?: number | null
@@ -1252,6 +1255,7 @@ export type Database = {
           file_url?: string | null
           highlights?: Json
           id?: string
+          location?: string | null
           objectives?: Json
           period_end?: string | null
           period_start?: string | null
@@ -1267,6 +1271,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          activities_done?: Json
           background?: string | null
           budget_approved?: number | null
           budget_used?: number | null
@@ -1274,6 +1279,7 @@ export type Database = {
           file_url?: string | null
           highlights?: Json
           id?: string
+          location?: string | null
           objectives?: Json
           period_end?: string | null
           period_start?: string | null
