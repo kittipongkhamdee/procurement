@@ -11,13 +11,9 @@ import {
   deleteProposal,
   deleteProposalFile,
   endorseProposal,
-  extractProposalFromUploadedFile,
   resetProposalStatus,
   updateProposal,
 } from "./actions";
-
-// ให้เวลาการทำงานของ Server Action นานขึ้น (เผื่อการอ่านไฟล์ด้วย AI ที่อาจใช้เวลานาน)
-export const maxDuration = 60;
 
 export default async function ProjectProposalsPage() {
   const supabase = await createClient();
@@ -53,22 +49,14 @@ export default async function ProjectProposalsPage() {
     .order("year", { ascending: false });
   const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
 
-  const [
-    { data: adminGroups },
-    { data: budgetSources },
-    { data: teachers },
-    { data: strategies },
-    { data: standards },
-    { data: aiExtractionEnabledSetting },
-  ] = await Promise.all([
-    supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
-    supabase.from("plan_strategies").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    supabase.from("plan_standards").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
-  ]);
-  const aiExtractionEnabled = aiExtractionEnabledSetting?.value !== "false";
+  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }, { data: strategies }, { data: standards }] =
+    await Promise.all([
+      supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+      supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+      supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("plan_strategies").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+      supabase.from("plan_standards").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    ]);
 
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
@@ -148,7 +136,6 @@ export default async function ProjectProposalsPage() {
               teachers={teachers ?? []}
               strategies={strategies ?? []}
               standards={standards ?? []}
-              extractProposalFromUploadedFile={aiExtractionEnabled ? extractProposalFromUploadedFile : undefined}
             />
           </Modal>
         )}
@@ -227,7 +214,6 @@ export default async function ProjectProposalsPage() {
           deleteProposal={deleteProposal}
           deleteProposalFile={deleteProposalFile}
           updateProposal={updateProposal}
-          extractProposalFromUploadedFile={aiExtractionEnabled ? extractProposalFromUploadedFile : undefined}
         />
       </div>
     </div>
