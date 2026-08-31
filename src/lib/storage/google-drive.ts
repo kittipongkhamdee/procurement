@@ -1,14 +1,17 @@
-import { google } from "googleapis";
-import { Readable } from "stream";
+import { JWT } from "google-auth-library";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+const DRIVE_API = "https://www.googleapis.com/drive/v3";
+const DRIVE_UPLOAD_API = "https://www.googleapis.com/upload/drive/v3";
 
 async function getSetting(supabase: SupabaseServerClient, key: string) {
   const { data } = await supabase.from("proc_app_settings").select("value").eq("key", key).maybeSingle();
   return data?.value ?? null;
 }
 
+/** ใช้ google-auth-library แทน googleapis (ซึ่งมีขนาดใหญ่กว่าหลายร้อยเท่าเพราะรวม client ของทุก Google API) เพื่อลด cold-start ของ serverless function */
 async function getDriveClient(supabase: SupabaseServerClient) {
   const [serviceAccountJson, folderId] = await Promise.all([
     getSetting(supabase, "google_service_account_json"),
@@ -23,13 +26,12 @@ async function getDriveClient(supabase: SupabaseServerClient) {
   } catch {
     throw new Error("ข้อมูล Google Service Account ไม่ถูกต้อง");
   }
-  const auth = new google.auth.JWT({
+  const auth = new JWT({
     email: credentials.client_email,
     key: credentials.private_key,
     scopes: ["https://www.googleapis.com/auth/drive"],
   });
-  const drive = google.drive({ version: "v3", auth });
-  return { drive, folderId };
+  return { auth, folderId };
 }
 
 export async function driveUpload(
@@ -38,22 +40,36 @@ export async function driveUpload(
   fileName: string,
   mimeType: string,
 ): Promise<string> {
-  const { drive, folderId } = await getDriveClient(supabase);
-  const res = await drive.files.create({
-    requestBody: { name: fileName, parents: [folderId] },
-    media: { mimeType: mimeType || "application/octet-stream", body: Readable.from(buffer) },
-    fields: "id",
+  const { auth, folderId } = await getDriveClient(supabase);
+
+  const createRes = await auth.request<{ id: string }>({
+    url: `${DRIVE_API}/files`,
+    method: "POST",
+    data: { name: fileName, parents: [folderId] },
   });
-  const fileId = res.data.id;
+  const fileId = createRes.data.id;
   if (!fileId) throw new Error("อัปโหลดไฟล์ไป Google Drive ไม่สำเร็จ");
-  await drive.permissions.create({ fileId, requestBody: { role: "reader", type: "anyone" } });
+
+  await auth.request({
+    url: `${DRIVE_UPLOAD_API}/files/${fileId}?uploadType=media`,
+    method: "PATCH",
+    headers: { "Content-Type": mimeType || "application/octet-stream" },
+    data: buffer,
+  });
+
+  await auth.request({
+    url: `${DRIVE_API}/files/${fileId}/permissions`,
+    method: "POST",
+    data: { role: "reader", type: "anyone" },
+  });
+
   return fileId;
 }
 
 export async function driveDelete(supabase: SupabaseServerClient, fileId: string): Promise<void> {
-  const { drive } = await getDriveClient(supabase);
+  const { auth } = await getDriveClient(supabase);
   try {
-    await drive.files.delete({ fileId });
+    await auth.request({ url: `${DRIVE_API}/files/${fileId}`, method: "DELETE" });
   } catch {
     // ไฟล์อาจถูกลบไปแล้วหรือไม่พบ ไม่ต้อง throw ต่อ
   }
@@ -61,26 +77,40 @@ export async function driveDelete(supabase: SupabaseServerClient, fileId: string
 
 /** ตั้งชื่อไฟล์ใหม่โดยคงนามสกุลเดิมไว้ (ต้องอ่านชื่อปัจจุบันก่อนเพื่อดึงนามสกุล) */
 export async function driveRename(supabase: SupabaseServerClient, fileId: string, newBaseName: string): Promise<void> {
-  const { drive } = await getDriveClient(supabase);
-  const meta = await drive.files.get({ fileId, fields: "name" });
+  const { auth } = await getDriveClient(supabase);
+  const meta = await auth.request<{ name?: string }>({
+    url: `${DRIVE_API}/files/${fileId}`,
+    params: { fields: "name" },
+  });
   const currentName = meta.data.name ?? "";
   const dotIndex = currentName.lastIndexOf(".");
   const ext = dotIndex > 0 ? currentName.slice(dotIndex) : "";
-  await drive.files.update({ fileId, requestBody: { name: `${newBaseName}${ext}` } });
+  await auth.request({
+    url: `${DRIVE_API}/files/${fileId}`,
+    method: "PATCH",
+    data: { name: `${newBaseName}${ext}` },
+  });
 }
 
 export async function driveDownload(supabase: SupabaseServerClient, fileId: string): Promise<Buffer> {
-  const { drive } = await getDriveClient(supabase);
-  const res = await drive.files.get({ fileId, alt: "media" }, { responseType: "arraybuffer" });
-  return Buffer.from(res.data as ArrayBuffer);
+  const { auth } = await getDriveClient(supabase);
+  const res = await auth.request<ArrayBuffer>({
+    url: `${DRIVE_API}/files/${fileId}`,
+    params: { alt: "media" },
+    responseType: "arraybuffer",
+  });
+  return Buffer.from(res.data);
 }
 
 /** ทดสอบว่า Service Account เชื่อมต่อ Drive ได้จริงและเปิดโฟลเดอร์ปลายทางได้ (ต้องแชร์โฟลเดอร์ให้อีเมล Service Account เป็น Editor ไว้ก่อน) */
 export async function testDriveConnection(supabase: SupabaseServerClient): Promise<void> {
-  const { drive, folderId } = await getDriveClient(supabase);
+  const { auth, folderId } = await getDriveClient(supabase);
   let meta;
   try {
-    meta = await drive.files.get({ fileId: folderId, fields: "id, mimeType, trashed" });
+    meta = await auth.request<{ id: string; mimeType?: string; trashed?: boolean }>({
+      url: `${DRIVE_API}/files/${folderId}`,
+      params: { fields: "id, mimeType, trashed" },
+    });
   } catch {
     throw new Error(
       "เชื่อมต่อ Google Drive ไม่สำเร็จ กรุณาตรวจสอบ Service Account JSON และ Folder ID ให้ถูกต้อง และแชร์โฟลเดอร์ให้อีเมลของ Service Account เป็น Editor",
