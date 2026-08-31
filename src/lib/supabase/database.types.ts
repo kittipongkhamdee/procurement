@@ -1223,24 +1223,69 @@ export type Database = {
       }
       proc_project_reports: {
         Row: {
+          background: string | null
+          budget_approved: number | null
+          budget_used: number | null
           created_at: string
-          file_url: string
+          file_url: string | null
+          highlights: string | null
           id: string
+          objectives: Json
+          period_end: string | null
+          period_start: string | null
+          problems: string | null
           project_id: string | null
+          quality_result: string | null
+          quantity_actual: string | null
+          quantity_goal: string | null
+          recommendations: string | null
+          reporter_name: string | null
+          responsible_name: string | null
+          satisfaction_percent: number | null
           uploaded_by: string | null
         }
         Insert: {
+          background?: string | null
+          budget_approved?: number | null
+          budget_used?: number | null
           created_at?: string
-          file_url: string
+          file_url?: string | null
+          highlights?: string | null
           id?: string
+          objectives?: Json
+          period_end?: string | null
+          period_start?: string | null
+          problems?: string | null
           project_id?: string | null
+          quality_result?: string | null
+          quantity_actual?: string | null
+          quantity_goal?: string | null
+          recommendations?: string | null
+          reporter_name?: string | null
+          responsible_name?: string | null
+          satisfaction_percent?: number | null
           uploaded_by?: string | null
         }
         Update: {
+          background?: string | null
+          budget_approved?: number | null
+          budget_used?: number | null
           created_at?: string
-          file_url?: string
+          file_url?: string | null
+          highlights?: string | null
           id?: string
+          objectives?: Json
+          period_end?: string | null
+          period_start?: string | null
+          problems?: string | null
           project_id?: string | null
+          quality_result?: string | null
+          quantity_actual?: string | null
+          quantity_goal?: string | null
+          recommendations?: string | null
+          reporter_name?: string | null
+          responsible_name?: string | null
+          satisfaction_percent?: number | null
           uploaded_by?: string | null
         }
         Relationships: [

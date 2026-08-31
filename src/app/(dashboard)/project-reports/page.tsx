@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveStorageUrls } from "@/lib/storage";
-import { uploadProjectReport, deleteProjectReport } from "./actions";
+import { Modal } from "@/components/modal";
+import { ProjectReportForm } from "./project-report-form";
+import { createProjectReport, deleteProjectReport } from "./actions";
 
 export default async function ProjectReportsPage() {
   const supabase = await createClient();
@@ -9,7 +11,7 @@ export default async function ProjectReportsPage() {
       .from("proc_project_reports")
       .select("id, file_url, created_at, plan_projects(name)")
       .order("created_at", { ascending: false }),
-    supabase.from("plan_projects").select("id, name").order("sort_order"),
+    supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
   ]);
 
   const paths = (reports ?? []).map((r) => r.file_url);
@@ -21,26 +23,12 @@ export default async function ProjectReportsPage() {
         <div>
           <h1 className="page-title">ระบบรายงานโครงการ</h1>
         </div>
-      </div>
-
-      <div className="card mb-6">
-        <h2 className="card-title">ส่งรายงานโครงการ</h2>
-        <form action={uploadProjectReport} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <select name="project_id" required defaultValue="" className="input sm:col-span-2">
-            <option value="" disabled>
-              เลือกโครงการ..
-            </option>
-            {(projects ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <input type="file" name="file" required className="input" />
-          <button type="submit" className="btn-primary sm:col-span-3">
-            ส่งรายงาน
-          </button>
-        </form>
+        <Modal title="รายงานสรุปโครงการ" trigger="+ รายงานโครงการใหม่" triggerClassName="btn-primary" closeOnSubmit>
+          <ProjectReportForm
+            projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, budget: p.budget }))}
+            action={createProjectReport}
+          />
+        </Modal>
       </div>
 
       <div className="table-shell">
@@ -49,7 +37,7 @@ export default async function ProjectReportsPage() {
           <thead>
             <tr>
               <th>ชื่อโครงการ</th>
-              <th>วันที่อัปโหลด</th>
+              <th>วันที่รายงาน</th>
               <th></th>
               <th></th>
             </tr>
@@ -60,20 +48,28 @@ export default async function ProjectReportsPage() {
                 <td className="font-medium text-slate-900">
                   {(r.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
                 </td>
-                <td>
-                  {new Date(r.created_at).toLocaleDateString("th-TH")}
-                </td>
+                <td>{new Date(r.created_at).toLocaleDateString("th-TH")}</td>
                 <td className="text-right">
-                  {signedUrls.get(r.file_url) ? (
+                  {r.file_url ? (
+                    signedUrls.get(r.file_url) ? (
+                      <a
+                        href={signedUrls.get(r.file_url)}
+                        target="_blank"
+                        className="text-xs font-medium text-navy-800 hover:underline"
+                      >
+                        เปิดไฟล์
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
+                    )
+                  ) : (
                     <a
-                      href={signedUrls.get(r.file_url)}
+                      href={`/project-reports/${r.id}/pdf`}
                       target="_blank"
                       className="text-xs font-medium text-navy-800 hover:underline"
                     >
-                      เปิดไฟล์
+                      ดู/พิมพ์ PDF
                     </a>
-                  ) : (
-                    <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
                   )}
                 </td>
                 <td className="text-right">
