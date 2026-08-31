@@ -2,26 +2,34 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveStorageUrls } from "@/lib/storage";
 import { Modal } from "@/components/modal";
 import { ProjectReportForm } from "./project-report-form";
-import { createProjectReport, deleteProjectReport } from "./actions";
+import { createProjectReport, deleteProjectReport, extractBackgroundFromProposalFile } from "./actions";
+
+// ให้เวลาเพียงพอสำหรับ server action ที่เรียก Gemini อ่านไฟล์ข้อเสนอโครงการ (ค่าเริ่มต้นของ Vercel อาจตัดก่อน AI ตอบกลับ)
+export const maxDuration = 60;
 
 export default async function ProjectReportsPage() {
   const supabase = await createClient();
-  const [{ data: reports, error }, { data: projects }, { data: proposals }] = await Promise.all([
-    supabase
-      .from("proc_project_reports")
-      .select("id, file_url, photo_refs, created_at, plan_projects(name)")
-      .order("created_at", { ascending: false }),
-    supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
-    supabase
-      .from("plan_project_proposals")
-      .select("project_id, strategy_alignment, standard, responsible, indicators_quantity, indicators_quality")
-      .not("project_id", "is", null),
-  ]);
+  const [{ data: reports, error }, { data: projects }, { data: proposals }, { data: aiExtractionEnabledSetting }] =
+    await Promise.all([
+      supabase
+        .from("proc_project_reports")
+        .select("id, file_url, photo_refs, created_at, plan_projects(name)")
+        .order("created_at", { ascending: false }),
+      supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
+      supabase
+        .from("plan_project_proposals")
+        .select(
+          "project_id, strategy_alignment, standard, responsible, indicators_quantity, indicators_quality, file_url_pdf",
+        )
+        .not("project_id", "is", null),
+      supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
+    ]);
 
   const paths = (reports ?? []).map((r) => r.file_url);
   const signedUrls = await resolveStorageUrls(supabase, paths, "procurement-files");
 
   const proposalByProjectId = new Map((proposals ?? []).map((p) => [p.project_id as string, p]));
+  const aiExtractionEnabled = aiExtractionEnabledSetting?.value !== "false";
 
   return (
     <div>
@@ -44,9 +52,12 @@ export default async function ProjectReportsPage() {
                   (proposal?.indicators_quantity as unknown as { indicator: string; target: string }[]) ?? [],
                 indicatorsQuality:
                   (proposal?.indicators_quality as unknown as { indicator: string; target: string }[]) ?? [],
+                proposalPdfPath: proposal?.file_url_pdf ?? null,
               };
             })}
             action={createProjectReport}
+            aiExtractionEnabled={aiExtractionEnabled}
+            extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
           />
         </Modal>
       </div>

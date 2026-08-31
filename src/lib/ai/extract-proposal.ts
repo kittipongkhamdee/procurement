@@ -57,15 +57,8 @@ async function getSetting(supabase: SupabaseServerClient, key: string) {
   return data?.value ?? null;
 }
 
-export async function extractProposalFromFile(
-  supabase: SupabaseServerClient,
-  filePath: string,
-  options: { strategies: string[]; standards: string[]; teachers: string[] },
-): Promise<ExtractedProposal> {
-  const apiKey = await getSetting(supabase, "gemini_api_key");
-  if (!apiKey) throw new Error('ยังไม่ได้ตั้งค่า Gemini API Key ในหน้า "ตั้งค่าระบบ"');
-  const model = (await getSetting(supabase, "gemini_model")) || DEFAULT_MODEL;
-
+/** อ่านไฟล์ (pdf/docx) แล้วดาวน์โหลด+แปลงเป็น content parts สำหรับส่งให้ Gemini ใช้ร่วมกันทั้งการดึงข้อเสนอโครงการเต็มรูปแบบและการดึงเฉพาะบางส่วน */
+async function loadFileContentParts(supabase: SupabaseServerClient, filePath: string): Promise<unknown[]> {
   const ext = filePath.split(".").pop()?.toLowerCase();
   const buffer = await downloadFromStorage(supabase, filePath, PROPOSAL_FILES_BUCKET);
 
@@ -74,22 +67,32 @@ export async function extractProposalFromFile(
     throw new Error("ไฟล์มีขนาดใหญ่เกินไป (เกิน 15MB) กรุณาใช้ไฟล์ที่มีขนาดเล็กลง");
   }
 
-  let contentParts: unknown[];
   if (ext === "pdf") {
-    contentParts = [{ inlineData: { mimeType: "application/pdf", data: buffer.toString("base64") } }];
-  } else if (ext === "docx") {
+    return [{ inlineData: { mimeType: "application/pdf", data: buffer.toString("base64") } }];
+  }
+  if (ext === "docx") {
     const { value: text } = await mammoth.extractRawText({ buffer });
     if (!text.trim()) throw new Error("ไม่พบข้อความในไฟล์ Word");
-    contentParts = [{ text: `เนื้อหาไฟล์โครงการ:\n${text}` }];
-  } else {
-    throw new Error("รองรับเฉพาะไฟล์ .pdf และ .docx เท่านั้น");
+    return [{ text: `เนื้อหาไฟล์โครงการ:\n${text}` }];
   }
+  throw new Error("รองรับเฉพาะไฟล์ .pdf และ .docx เท่านั้น");
+}
+
+async function callGeminiJson(
+  supabase: SupabaseServerClient,
+  contentParts: unknown[],
+  prompt: string,
+  responseSchema: unknown,
+): Promise<unknown> {
+  const apiKey = await getSetting(supabase, "gemini_api_key");
+  if (!apiKey) throw new Error('ยังไม่ได้ตั้งค่า Gemini API Key ในหน้า "ตั้งค่าระบบ"');
+  const model = (await getSetting(supabase, "gemini_model")) || DEFAULT_MODEL;
 
   const requestBody = JSON.stringify({
-    contents: [{ role: "user", parts: [{ text: buildPrompt(options) }, ...contentParts] }],
+    contents: [{ role: "user", parts: [{ text: prompt }, ...contentParts] }],
     generationConfig: {
       responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
+      responseSchema,
     },
   });
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -127,12 +130,44 @@ export async function extractProposalFromFile(
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("AI ไม่ตอบกลับข้อมูล");
 
-  let parsed: ExtractedProposal;
   try {
-    parsed = JSON.parse(text);
+    return JSON.parse(text);
   } catch {
     throw new Error("แปลงผลลัพธ์จาก AI ไม่สำเร็จ");
   }
+}
+
+const BACKGROUND_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    background: { type: "STRING" },
+  },
+  required: ["background"],
+};
+
+/** ให้ AI อ่านไฟล์ข้อเสนอโครงการ (Word/PDF) แล้วสรุป "หลักการและเหตุผล" มาเป็นความเป็นมาสั้นๆ สำหรับใช้ในรายงานสรุปโครงการ */
+export async function extractProjectBackgroundFromFile(
+  supabase: SupabaseServerClient,
+  filePath: string,
+): Promise<string> {
+  const contentParts = await loadFileContentParts(supabase, filePath);
+  const prompt = `คุณเป็นผู้ช่วยอ่านไฟล์เอกสารข้อเสนอโครงการของโรงเรียน แล้วสรุปเฉพาะหัวข้อ "หลักการและเหตุผล" (หรือหัวข้อที่ความหมายใกล้เคียงกัน เช่น ความเป็นมา) ให้กระชับเป็นย่อหน้าสั้นๆ ไม่เกิน 5-6 บรรทัด เพื่อนำไปใช้เป็น "ความเป็นมา" ในรายงานสรุปผลโครงการ ห้ามแต่งเนื้อหาขึ้นเองถ้าไม่พบหัวข้อนี้ในไฟล์ให้ตอบเป็นข้อความว่างเปล่า ตอบเป็น JSON เท่านั้น`;
+  const parsed = await callGeminiJson(supabase, contentParts, prompt, BACKGROUND_RESPONSE_SCHEMA);
+  return String((parsed as { background?: string })?.background ?? "").trim();
+}
+
+export async function extractProposalFromFile(
+  supabase: SupabaseServerClient,
+  filePath: string,
+  options: { strategies: string[]; standards: string[]; teachers: string[] },
+): Promise<ExtractedProposal> {
+  const contentParts = await loadFileContentParts(supabase, filePath);
+  const parsed = (await callGeminiJson(
+    supabase,
+    contentParts,
+    buildPrompt(options),
+    RESPONSE_SCHEMA,
+  )) as Partial<ExtractedProposal>;
 
   return {
     name: String(parsed.name ?? ""),

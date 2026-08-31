@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { deleteFromStorage } from "@/lib/storage";
+import { extractProjectBackgroundFromFile } from "@/lib/ai/extract-proposal";
 
 const BUCKET = "procurement-files";
 
@@ -74,6 +75,11 @@ export async function createProjectReport(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/project-reports");
+}
+
+export async function extractBackgroundFromProposalFile(filePath: string): Promise<string> {
+  const supabase = await createClient();
+  return extractProjectBackgroundFromFile(supabase, filePath);
 }
 
 export async function deleteProjectReport(id: string, ref: string | null, photoRefs: string[]) {
