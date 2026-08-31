@@ -16,6 +16,7 @@ type Project = {
   responsible: string[];
   indicatorsQuantity: IndicatorTarget[];
   indicatorsQuality: IndicatorTarget[];
+  proposalPdfPath: string | null;
 };
 
 function formatBaht(n: number) {
@@ -140,11 +141,17 @@ function ListField({
 export function ProjectReportForm({
   projects,
   action,
+  aiExtractionEnabled,
+  extractBackgroundFromProposalFile,
 }: {
   projects: Project[];
   action: (formData: FormData) => void | Promise<void>;
+  aiExtractionEnabled?: boolean;
+  extractBackgroundFromProposalFile?: (filePath: string) => Promise<string>;
 }) {
   const [projectId, setProjectId] = useState("");
+  const [background, setBackground] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
   const [objectives, setObjectives] = useState<string[]>([""]);
   const [activitiesDone, setActivitiesDone] = useState<string[]>([""]);
   const [highlights, setHighlights] = useState<string[]>([""]);
@@ -181,6 +188,20 @@ export function ProjectReportForm({
     );
   }
 
+  async function handleExtractBackground() {
+    if (!selectedProject?.proposalPdfPath || !extractBackgroundFromProposalFile) return;
+    setAiLoading(true);
+    try {
+      const result = await extractBackgroundFromProposalFile(selectedProject.proposalPdfPath);
+      if (result) setBackground(result);
+      else await toastError("AI ไม่พบหัวข้อหลักการและเหตุผลในไฟล์นี้");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   async function handleSubmit(formData: FormData) {
     try {
       const photoRefs = await photoUploadRef.current?.uploadAll();
@@ -201,6 +222,7 @@ export function ProjectReportForm({
       await action(formData);
       await toastSuccess("บันทึกรายงานโครงการเรียบร้อยแล้ว");
       setProjectId("");
+      setBackground("");
       setObjectives([""]);
       setActivitiesDone([""]);
       setHighlights([""]);
@@ -286,8 +308,26 @@ export function ProjectReportForm({
         <div className="card-title">2. หลักการและวัตถุประสงค์</div>
         <div className="grid grid-cols-1 gap-3">
           <div>
-            <label className="label">ความเป็นมา (สรุปเหตุผลที่จัดโครงการนี้)</label>
-            <textarea name="background" rows={2} className="input" />
+            <div className="flex items-center justify-between gap-2">
+              <label className="label">ความเป็นมา (สรุปเหตุผลที่จัดโครงการนี้)</label>
+              {aiExtractionEnabled && extractBackgroundFromProposalFile && selectedProject?.proposalPdfPath && (
+                <button
+                  type="button"
+                  onClick={handleExtractBackground}
+                  disabled={aiLoading}
+                  className="btn-secondary btn-sm shrink-0 disabled:cursor-wait"
+                >
+                  {aiLoading ? "กำลังอ่านไฟล์..." : "✨ ให้ AI อ่านจากไฟล์ข้อเสนอโครงการ"}
+                </button>
+              )}
+            </div>
+            <textarea
+              name="background"
+              rows={3}
+              value={background}
+              onChange={(e) => setBackground(e.target.value)}
+              className="input"
+            />
           </div>
           <ListField
             label="วัตถุประสงค์"
