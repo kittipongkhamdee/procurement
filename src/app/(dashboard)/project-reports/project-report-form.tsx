@@ -342,7 +342,7 @@ export function ProjectReportForm({
               rows={3}
               value={background}
               onChange={(e) => setBackground(e.target.value)}
-              className="input resize-none overflow-hidden"
+              className="input min-h-24 resize-none overflow-hidden"
             />
           </div>
           <div>
