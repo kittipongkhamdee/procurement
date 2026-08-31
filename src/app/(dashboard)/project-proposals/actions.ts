@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { extractProposalFromFile } from "@/lib/ai/extract-proposal";
+import { deleteFromStorage, renameStorageFile } from "@/lib/storage";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -60,31 +61,26 @@ function sanitizeFileNamePart(s: string) {
   return s.replace(/[\\/:*?"<>|]+/g, " ").trim();
 }
 
-/** ย้ายไฟล์ที่อัปโหลดไว้ (ชื่อสุ่ม) ไปตั้งชื่อใหม่เป็น "ชื่อโครงการ_ปีงบประมาณ" ถ้าย้ายไม่สำเร็จ (เช่น ชื่อซ้ำ) จะคงชื่อเดิมไว้ */
+/** ตั้งชื่อไฟล์ที่อัปโหลดไว้ (ชื่อสุ่ม) ใหม่เป็น "ชื่อโครงการ_ปีงบประมาณ" ถ้าตั้งชื่อไม่สำเร็จ (เช่น ชื่อซ้ำ) จะคงชื่อเดิมไว้ */
 async function renameProposalFile(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  path: string | null,
+  ref: string | null,
   baseName: string,
 ) {
-  if (!path) return null;
-  const ext = path.split(".").pop();
-  const newPath = `project-proposals/${baseName}${ext ? `.${ext}` : ""}`;
-  if (newPath === path) return path;
-  const { error } = await supabase.storage.from(PROPOSAL_FILES_BUCKET).move(path, newPath);
-  return error ? path : newPath;
+  return renameStorageFile(supabase, ref, PROPOSAL_FILES_BUCKET, "project-proposals", baseName);
 }
 
 /** เทียบไฟล์เดิมกับค่าที่ส่งมาจากฟอร์มแก้ไข: ถ้าไม่เปลี่ยนก็คงเดิม ถ้าเปลี่ยน/ลบ จะลบไฟล์เก่าออกจาก storage แล้วตั้งชื่อไฟล์ใหม่ (ถ้ามี) */
 async function replaceProposalFile(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  existingPath: string | null,
-  newRawPath: string | null,
+  existingRef: string | null,
+  newRawRef: string | null,
   baseName: string,
 ) {
-  if (newRawPath === existingPath) return existingPath;
-  if (existingPath) await supabase.storage.from(PROPOSAL_FILES_BUCKET).remove([existingPath]);
-  if (!newRawPath) return null;
-  return renameProposalFile(supabase, newRawPath, baseName);
+  if (newRawRef === existingRef) return existingRef;
+  if (existingRef) await deleteFromStorage(supabase, existingRef, PROPOSAL_FILES_BUCKET);
+  if (!newRawRef) return null;
+  return renameProposalFile(supabase, newRawRef, baseName);
 }
 
 /** อนุญาตเฉพาะผู้ดูแลระบบหรือเจ้าของโครงการ และเฉพาะขณะสถานะ "รอเห็นชอบ" เท่านั้น */
@@ -258,8 +254,8 @@ export async function deleteProposalFile(id: string, field: "file_url_word" | "f
     .select("file_url_word, file_url_pdf")
     .eq("id", id)
     .maybeSingle();
-  const path = proposal?.[field];
-  if (path) await supabase.storage.from(PROPOSAL_FILES_BUCKET).remove([path]);
+  const ref = proposal?.[field];
+  if (ref) await deleteFromStorage(supabase, ref, PROPOSAL_FILES_BUCKET);
 
   const update = field === "file_url_word" ? { file_url_word: null } : { file_url_pdf: null };
   const { error } = await supabase.from("plan_project_proposals").update(update).eq("id", id);
