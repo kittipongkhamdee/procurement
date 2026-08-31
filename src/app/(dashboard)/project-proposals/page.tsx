@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveStorageUrls } from "@/lib/storage";
 import { Modal } from "@/components/modal";
-import { CheckIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
+import { CheckIcon, ClipboardCheckIcon, LightbulbIcon, PlusIcon } from "@/components/icons";
 import { ProposalForm } from "./proposal-form";
 import { ProposalsTable } from "./proposals-table";
 import {
@@ -126,8 +126,13 @@ export default async function ProjectProposalsPage() {
         {currentYear && !isApproverOnly && (
           <Modal
             title="เสนอโครงการใหม่"
-            trigger="+ เสนอโครงการใหม่"
-            triggerClassName="btn-primary"
+            trigger={
+              <>
+                <PlusIcon className="h-5 w-5" />
+                เสนอโครงการใหม่
+              </>
+            }
+            triggerClassName="btn-gold px-5 py-2.5 text-base shadow-md transition-transform hover:scale-[1.03]"
             closeOnSubmit
           >
             <ProposalForm
