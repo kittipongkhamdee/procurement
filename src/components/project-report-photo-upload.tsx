@@ -103,7 +103,7 @@ export const ProjectReportPhotoUpload = forwardRef<ProjectReportPhotoUploadHandl
           const p = photos[i];
           if (p) {
             return (
-              <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              <div key={p.id} className="relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                 {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview, not an optimizable remote asset */}
                 <img
                   src={p.previewUrl}
@@ -111,7 +111,7 @@ export const ProjectReportPhotoUpload = forwardRef<ProjectReportPhotoUploadHandl
                   className="h-full w-full object-cover transition-transform"
                   style={{ transform: `rotate(${p.rotation}deg)` }}
                 />
-                <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1.5 bg-black/40 p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1.5 bg-black/40 p-1.5">
                   <button
                     type="button"
                     onClick={() => rotatePhoto(p.id)}
