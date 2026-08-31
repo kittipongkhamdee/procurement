@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatThaiDate } from "@/lib/thai";
 import { deleteApproval } from "./actions";
 
 function formatBaht(n: number) {
@@ -49,7 +50,7 @@ export default async function ApprovalsPage() {
           <tbody>
             {approvals?.map((a) => (
               <tr key={a.id}>
-                <td>{a.doc_date}</td>
+                <td>{formatThaiDate(a.doc_date)}</td>
                 <td>{a.subject}</td>
                 <td>
                   {(a.plan_projects as unknown as { name: string } | null)?.name ?? "-"}

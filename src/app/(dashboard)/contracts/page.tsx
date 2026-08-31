@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatThaiDate } from "@/lib/thai";
 import { createContract, deleteContract } from "./actions";
 
 function formatBaht(n: number) {
@@ -82,7 +83,7 @@ export default async function ContractsPage() {
             {contracts?.map((c) => (
               <tr key={c.id}>
                 <td className="font-medium text-slate-900">{c.contract_no}</td>
-                <td>{c.contract_date}</td>
+                <td>{formatThaiDate(c.contract_date)}</td>
                 <td>
                   {(c.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
                 </td>

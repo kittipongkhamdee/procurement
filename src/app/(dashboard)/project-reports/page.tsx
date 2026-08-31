@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveStorageUrls } from "@/lib/storage";
+import { formatThaiDate } from "@/lib/thai";
 import { Modal } from "@/components/modal";
 import { ProjectReportForm } from "./project-report-form";
 import { createProjectReport, deleteProjectReport, extractBackgroundFromProposalFile } from "./actions";
@@ -80,7 +81,7 @@ export default async function ProjectReportsPage() {
                 <td className="font-medium text-slate-900">
                   {(r.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
                 </td>
-                <td>{new Date(r.created_at).toLocaleDateString("th-TH")}</td>
+                <td>{formatThaiDate(r.created_at)}</td>
                 <td className="text-right">
                   {r.file_url ? (
                     signedUrls.get(r.file_url) ? (

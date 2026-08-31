@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatThaiDate } from "@/lib/thai";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -60,7 +61,7 @@ export default async function PurchaseRequestsPage() {
                   </span>
                 </td>
                 <td>{r.doc_no}</td>
-                <td>{r.record_date}</td>
+                <td>{formatThaiDate(r.record_date)}</td>
                 <td>{r.item_name ?? "-"}</td>
                 <td>
                   {(r.proc_vendors as unknown as { name: string } | null)?.name ?? "-"}

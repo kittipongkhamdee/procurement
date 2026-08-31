@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatThaiDate } from "@/lib/thai";
 import { createDelivery, deleteDelivery } from "./actions";
 import { DeliveryForm } from "./delivery-form";
 
@@ -53,7 +54,7 @@ export default async function DeliveriesPage() {
                   <td className="font-medium text-slate-900">{contract?.contract_no ?? "-"}</td>
                   <td>{contract?.vendor_name ?? "-"}</td>
                   <td>
-                    {d.delivery_date} {d.delivery_month ? `(${d.delivery_month})` : ""}
+                    {formatThaiDate(d.delivery_date)} {d.delivery_month ? `(${d.delivery_month})` : ""}
                   </td>
                   <td>{d.inspector_name ?? "-"}</td>
                   <td className="text-right font-semibold text-slate-900">

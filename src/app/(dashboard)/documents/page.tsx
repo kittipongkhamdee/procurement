@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { resolveStorageUrls } from "@/lib/storage";
+import { formatThaiDate } from "@/lib/thai";
 import { uploadDocument, deleteDocument } from "./actions";
 
 export default async function DocumentsPage() {
@@ -118,7 +119,7 @@ export default async function DocumentsPage() {
               <tr key={d.id}>
                 <td className="font-medium text-slate-900">{d.file_name}</td>
                 <td>
-                  {new Date(d.created_at).toLocaleDateString("th-TH")}
+                  {formatThaiDate(d.created_at)}
                 </td>
                 <td className="text-right">
                   {signedUrls.get(d.file_url) ? (
