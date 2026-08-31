@@ -59,16 +59,22 @@ export function TeacherMultiSelect({
       if (!btn) return;
       const rect = btn.getBoundingClientRect();
       const gap = 4;
+      const margin = 12;
       const minHeight = 120;
       const preferredHeight = 224;
       const spaceBelow = window.innerHeight - rect.bottom - gap;
       const spaceAbove = rect.top - gap;
       const openAbove = spaceBelow < minHeight && spaceAbove > spaceBelow;
       const maxHeight = Math.max(minHeight, Math.min(preferredHeight, openAbove ? spaceAbove : spaceBelow));
+      // ปุ่มบางจุด (เช่นคอลัมน์ผู้รับผิดชอบในตารางกิจกรรมย่อย) แคบมาก ทำให้ dropdown แคบตามจนชื่อคนตัดบรรทัดดูไม่สวย
+      // จึงกำหนดความกว้างขั้นต่ำที่อ่านง่ายไว้ แล้วค่อยเลื่อนตำแหน่งซ้าย-ขวาให้ไม่ล้นจอ
+      const minPanelWidth = Math.max(rect.width, 224);
+      const width = Math.min(minPanelWidth, window.innerWidth - margin * 2);
+      const left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
       setCoords(
         openAbove
-          ? { left: rect.left, width: rect.width, maxHeight, bottom: window.innerHeight - rect.top + gap }
-          : { left: rect.left, width: rect.width, maxHeight, top: rect.bottom + gap },
+          ? { left, width, maxHeight, bottom: window.innerHeight - rect.top + gap }
+          : { left, width, maxHeight, top: rect.bottom + gap },
       );
     }
     updatePosition();
@@ -119,12 +125,12 @@ export function TeacherMultiSelect({
               maxHeight: coords.maxHeight,
               ...("top" in coords ? { top: coords.top } : { bottom: coords.bottom }),
             }}
-            className="z-50 overflow-y-auto rounded-md border border-slate-200 bg-white p-1.5 shadow-lg"
+            className="z-50 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
           >
             {visibleTeachers.map((t) => (
               <label
                 key={t.id}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                className="flex cursor-pointer items-center gap-2.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-sm text-slate-700 hover:bg-navy-50"
               >
                 <input
                   type="checkbox"
@@ -136,7 +142,7 @@ export function TeacherMultiSelect({
               </label>
             ))}
             {visibleTeachers.length === 0 && (
-              <p className="px-2 py-1.5 text-xs text-slate-400">ยังไม่มีรายชื่อครู (เพิ่มได้ที่หน้าตั้งค่าระบบ)</p>
+              <p className="px-2.5 py-2 text-xs text-slate-400">ยังไม่มีรายชื่อครู (เพิ่มได้ที่หน้าตั้งค่าระบบ)</p>
             )}
           </div>,
           portalTarget,
