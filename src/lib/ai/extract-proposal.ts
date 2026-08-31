@@ -57,9 +57,21 @@ async function getSetting(supabase: SupabaseServerClient, key: string) {
   return data?.value ?? null;
 }
 
+const PDF_MAGIC = Buffer.from("%PDF");
+const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]); // docx เป็นไฟล์ zip ข้างในนี้เอง
+
+/** ไฟล์ที่เก็บบน Google Drive ใช้ ref แบบ "gdrive:{fileId}" ไม่มีนามสกุลไฟล์แนบมาด้วย จึงต้องดูจาก
+ * magic bytes ของเนื้อไฟล์จริงเป็นสำรอง แทนที่จะเดาจากนามสกุลใน path อย่างเดียว (ใช้ได้เฉพาะไฟล์ Supabase) */
+function detectFileKind(filePath: string, buffer: Buffer): "pdf" | "docx" {
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  if (ext === "pdf" || ext === "docx") return ext;
+  if (buffer.subarray(0, PDF_MAGIC.length).equals(PDF_MAGIC)) return "pdf";
+  if (buffer.subarray(0, ZIP_MAGIC.length).equals(ZIP_MAGIC)) return "docx";
+  throw new Error("รองรับเฉพาะไฟล์ .pdf และ .docx เท่านั้น");
+}
+
 /** อ่านไฟล์ (pdf/docx) แล้วดาวน์โหลด+แปลงเป็น content parts สำหรับส่งให้ Gemini ใช้ร่วมกันทั้งการดึงข้อเสนอโครงการเต็มรูปแบบและการดึงเฉพาะบางส่วน */
 async function loadFileContentParts(supabase: SupabaseServerClient, filePath: string): Promise<unknown[]> {
-  const ext = filePath.split(".").pop()?.toLowerCase();
   const buffer = await downloadFromStorage(supabase, filePath, PROPOSAL_FILES_BUCKET);
 
   const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15MB — ไฟล์ใหญ่กว่านี้เสี่ยงหมดเวลาก่อน AI ประมวลผลเสร็จ
@@ -67,15 +79,13 @@ async function loadFileContentParts(supabase: SupabaseServerClient, filePath: st
     throw new Error("ไฟล์มีขนาดใหญ่เกินไป (เกิน 15MB) กรุณาใช้ไฟล์ที่มีขนาดเล็กลง");
   }
 
-  if (ext === "pdf") {
+  const kind = detectFileKind(filePath, buffer);
+  if (kind === "pdf") {
     return [{ inlineData: { mimeType: "application/pdf", data: buffer.toString("base64") } }];
   }
-  if (ext === "docx") {
-    const { value: text } = await mammoth.extractRawText({ buffer });
-    if (!text.trim()) throw new Error("ไม่พบข้อความในไฟล์ Word");
-    return [{ text: `เนื้อหาไฟล์โครงการ:\n${text}` }];
-  }
-  throw new Error("รองรับเฉพาะไฟล์ .pdf และ .docx เท่านั้น");
+  const { value: text } = await mammoth.extractRawText({ buffer });
+  if (!text.trim()) throw new Error("ไม่พบข้อความในไฟล์ Word");
+  return [{ text: `เนื้อหาไฟล์โครงการ:\n${text}` }];
 }
 
 async function callGeminiJson(
