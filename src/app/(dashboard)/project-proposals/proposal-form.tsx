@@ -468,8 +468,8 @@ export function ProposalForm({
               rows={indicatorsQuantity}
               onChange={setIndicatorsQuantity}
               addLabel="+ เพิ่มตัวชี้วัดเชิงปริมาณ"
-              indicatorPlaceholder="เช่น นักเรียนมีผลสัมฤทธิ์ทางการเรียนระดับดีขึ้นไป"
-              targetPlaceholder="เช่น ร้อยละ 65"
+              indicatorPlaceholder="เช่น ร้อยละของนักเรียนที่เข้าร่วมกิจกรรมตามเป้าหมายที่กำหนด"
+              targetPlaceholder="เช่น ร้อยละ 90"
             />
             <FieldError
               show={!!fieldErrors.indicators_quantity}
@@ -485,8 +485,8 @@ export function ProposalForm({
               rows={indicatorsQuality}
               onChange={setIndicatorsQuality}
               addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
-              indicatorPlaceholder="เช่น นักเรียนมีทักษะและความสามารถเรียนรู้ตามเป้าหมายของโรงเรียน"
-              targetPlaceholder="เช่น ร้อยละ 80"
+              indicatorPlaceholder="เช่น ระดับความพึงพอใจของผู้เข้าร่วมกิจกรรมต่อการดำเนินโครงการ"
+              targetPlaceholder="เช่น ระดับดีขึ้นไป (ร้อยละ 80)"
             />
             <FieldError
               show={!!fieldErrors.indicators_quality}
