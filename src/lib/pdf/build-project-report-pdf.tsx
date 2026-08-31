@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { Database } from "@/lib/supabase/database.types";
 import { downloadFromStorage } from "@/lib/storage";
-import { ProjectReportDocument, type ProjectReportPdfData, type ProjectReportPhoto } from "./project-report-document";
+import { ProjectReportDocument, type ProjectReportPdfData } from "./project-report-document";
 
 const BUCKET = "procurement-files";
 
@@ -19,7 +19,7 @@ export async function buildProjectReportPdfData(
   const { data: r, error } = await supabase
     .from("proc_project_reports")
     .select(
-      "responsible_name, period_start, period_end, location, background, objectives, activities_done, quantity_goal, quantity_actual, quality_result, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations, photo_refs, plan_projects(name)",
+      "project_id, responsible_name, period_start, period_end, location, background, objectives, activities_done, quantity_goal, quantity_actual, quality_result, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations, photo_refs, plan_projects(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -28,15 +28,27 @@ export async function buildProjectReportPdfData(
 
   const project = r.plan_projects as unknown as { name: string } | null;
   const photoRefs = ((r.photo_refs as unknown as string[]) ?? []).slice(0, 4);
-  const photos: ProjectReportPhoto[] = await Promise.all(
-    photoRefs.map(async (ref) => ({
-      data: await downloadFromStorage(supabase, ref, BUCKET),
-      format: inferImageFormat(ref),
-    })),
-  );
+  const [photos, proposal] = await Promise.all([
+    Promise.all(
+      photoRefs.map(async (ref) => ({
+        data: await downloadFromStorage(supabase, ref, BUCKET),
+        format: inferImageFormat(ref),
+      })),
+    ),
+    r.project_id
+      ? supabase
+          .from("plan_project_proposals")
+          .select("strategy_alignment, standard")
+          .eq("project_id", r.project_id)
+          .maybeSingle()
+          .then((res) => res.data)
+      : Promise.resolve(null),
+  ]);
 
   const data: ProjectReportPdfData = {
     project_name: project?.name ?? null,
+    strategy_alignment: proposal?.strategy_alignment ?? null,
+    standard: proposal?.standard ?? null,
     responsible_name: r.responsible_name,
     period_start: r.period_start,
     period_end: r.period_end,

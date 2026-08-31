@@ -98,6 +98,8 @@ export type ProjectReportPhoto = { data: Buffer; format: "png" | "jpg" };
 
 export type ProjectReportPdfData = {
   project_name: string | null;
+  strategy_alignment: string | null;
+  standard: string | null;
   responsible_name: string | null;
   period_start: string | null;
   period_end: string | null;
@@ -136,6 +138,18 @@ export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) 
           <Text style={styles.label}>{t("ชื่อโครงการ")}</Text>
           <Text style={styles.value}>{t(data.project_name)}</Text>
         </View>
+        {data.strategy_alignment && (
+          <View style={styles.row}>
+            <Text style={styles.label}>{t("สนองกลยุทธ์โรงเรียน")}</Text>
+            <Text style={styles.value}>{t(data.strategy_alignment)}</Text>
+          </View>
+        )}
+        {data.standard && (
+          <View style={styles.row}>
+            <Text style={styles.label}>{t("สอดคล้องมาตรฐานการศึกษา")}</Text>
+            <Text style={styles.value}>{t(data.standard)}</Text>
+          </View>
+        )}
         <View style={styles.row}>
           <Text style={styles.label}>{t("ผู้รับผิดชอบโครงการ")}</Text>
           <Text style={styles.value}>{t(data.responsible_name)}</Text>
