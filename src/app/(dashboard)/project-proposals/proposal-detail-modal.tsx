@@ -4,6 +4,7 @@ import { useRef, useState, type ReactNode } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { formatThaiDate } from "@/lib/thai";
 import type {
   approveProposal as approveProposalAction,
   cancelEndorsement as cancelEndorsementAction,
@@ -268,13 +269,13 @@ export function ProposalDetailModal({
 
           {proposal.endorsedByName && (
             <p className="mb-2 text-sm text-slate-600">
-              เห็นชอบโดย {proposal.endorsedByName} เมื่อ {proposal.endorsedAt?.slice(0, 10)}
+              เห็นชอบโดย {proposal.endorsedByName} เมื่อ {formatThaiDate(proposal.endorsedAt)}
               {proposal.endorseNote ? ` — ${proposal.endorseNote}` : ""}
             </p>
           )}
           {proposal.approvedByName && (
             <p className="mb-2 text-sm text-slate-600">
-              อนุมัติโดย {proposal.approvedByName} เมื่อ {proposal.approvedAt?.slice(0, 10)}
+              อนุมัติโดย {proposal.approvedByName} เมื่อ {formatThaiDate(proposal.approvedAt)}
               {proposal.approveNote ? ` — ${proposal.approveNote}` : ""}
             </p>
           )}

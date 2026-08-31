@@ -14,10 +14,10 @@ const THAI_MONTHS = [
   "ธันวาคม",
 ];
 
-/** "2026-08-25" -> "25 สิงหาคม 2569" */
+/** "2026-08-25" หรือ "2026-08-25T10:00:00.000Z" -> "25 สิงหาคม 2569" */
 export function formatThaiDate(isoDate: string | null | undefined): string {
   if (!isoDate) return "";
-  const [year, month, day] = isoDate.split("-").map(Number);
+  const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
   if (!year || !month || !day) return isoDate;
   return `${day} ${THAI_MONTHS[month]} ${year + 543}`;
 }
