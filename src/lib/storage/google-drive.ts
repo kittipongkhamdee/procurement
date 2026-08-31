@@ -74,3 +74,20 @@ export async function driveDownload(supabase: SupabaseServerClient, fileId: stri
   const res = await drive.files.get({ fileId, alt: "media" }, { responseType: "arraybuffer" });
   return Buffer.from(res.data as ArrayBuffer);
 }
+
+/** ทดสอบว่า Service Account เชื่อมต่อ Drive ได้จริงและเปิดโฟลเดอร์ปลายทางได้ (ต้องแชร์โฟลเดอร์ให้อีเมล Service Account เป็น Editor ไว้ก่อน) */
+export async function testDriveConnection(supabase: SupabaseServerClient): Promise<void> {
+  const { drive, folderId } = await getDriveClient(supabase);
+  let meta;
+  try {
+    meta = await drive.files.get({ fileId: folderId, fields: "id, mimeType, trashed" });
+  } catch {
+    throw new Error(
+      "เชื่อมต่อ Google Drive ไม่สำเร็จ กรุณาตรวจสอบ Service Account JSON และ Folder ID ให้ถูกต้อง และแชร์โฟลเดอร์ให้อีเมลของ Service Account เป็น Editor",
+    );
+  }
+  if (meta.data.trashed) throw new Error("โฟลเดอร์ Google Drive ที่ตั้งค่าไว้ถูกลบ (อยู่ในถังขยะ)");
+  if (meta.data.mimeType !== "application/vnd.google-apps.folder") {
+    throw new Error("Folder ID ที่ตั้งค่าไว้ไม่ใช่โฟลเดอร์");
+  }
+}

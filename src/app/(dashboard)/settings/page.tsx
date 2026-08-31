@@ -63,8 +63,6 @@ export default async function SettingsPage() {
     { data: geminiKeySetting },
     { data: geminiModelSetting },
     { data: storageProviderSetting },
-    { data: driveServiceAccountSetting },
-    { data: driveFolderIdSetting },
   ] = await Promise.all([
     supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
     supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
@@ -76,8 +74,6 @@ export default async function SettingsPage() {
     supabase.from("proc_app_settings").select("value").eq("key", "gemini_api_key").maybeSingle(),
     supabase.from("proc_app_settings").select("value").eq("key", "gemini_model").maybeSingle(),
     supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
-    supabase.from("proc_app_settings").select("value").eq("key", "google_service_account_json").maybeSingle(),
-    supabase.from("proc_app_settings").select("value").eq("key", "google_drive_folder_id").maybeSingle(),
   ]);
 
   const groupIdsByUser = new Map<string, string[]>();
@@ -225,7 +221,6 @@ export default async function SettingsPage() {
             </p>
             <StorageProviderToggle
               currentProvider={storageProviderSetting?.value === "google_drive" ? "google_drive" : "supabase"}
-              driveConfigured={!!driveServiceAccountSetting?.value && !!driveFolderIdSetting?.value}
               setStorageProvider={setStorageProvider}
             />
           </div>

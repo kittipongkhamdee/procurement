@@ -1,5 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
-import { driveUpload, driveDelete, driveRename, driveDownload } from "./google-drive";
+import { driveUpload, driveDelete, driveRename, driveDownload, testDriveConnection } from "./google-drive";
 import { isDriveRef, driveFileId, encodeDriveRef, driveViewUrl } from "./ref";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -90,4 +90,18 @@ export async function downloadFromStorage(supabase: SupabaseServerClient, ref: s
   const { data, error } = await supabase.storage.from(bucket).download(ref);
   if (error || !data) throw new Error("ดาวน์โหลดไฟล์ไม่สำเร็จ");
   return Buffer.from(await data.arrayBuffer());
+}
+
+/** ทดสอบว่าปลายทางที่จะสลับไปใช้อัปโหลดไฟล์ได้จริง ก่อนบันทึกการสลับ */
+export async function testStorageConnection(
+  supabase: SupabaseServerClient,
+  provider: "supabase" | "google_drive",
+  bucket: string,
+): Promise<void> {
+  if (provider === "google_drive") {
+    await testDriveConnection(supabase);
+    return;
+  }
+  const { error } = await supabase.storage.from(bucket).list("", { limit: 1 });
+  if (error) throw new Error(`เชื่อมต่อ Supabase Storage ไม่สำเร็จ: ${error.message}`);
 }
