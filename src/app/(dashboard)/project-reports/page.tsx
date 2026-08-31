@@ -9,7 +9,7 @@ export default async function ProjectReportsPage() {
   const [{ data: reports, error }, { data: projects }] = await Promise.all([
     supabase
       .from("proc_project_reports")
-      .select("id, file_url, created_at, plan_projects(name)")
+      .select("id, file_url, photo_refs, created_at, plan_projects(name)")
       .order("created_at", { ascending: false }),
     supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
   ]);
@@ -73,7 +73,7 @@ export default async function ProjectReportsPage() {
                   )}
                 </td>
                 <td className="text-right">
-                  <form action={deleteProjectReport.bind(null, r.id, r.file_url)}>
+                  <form action={deleteProjectReport.bind(null, r.id, r.file_url, (r.photo_refs as unknown as string[]) ?? [])}>
                     <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
                     </button>
