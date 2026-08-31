@@ -39,7 +39,7 @@ export const Modal = forwardRef<
           }}
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
+            <h2 className="text-lg font-bold text-navy-900">{title}</h2>
             <button
               type="button"
               onClick={() => ref.current?.close()}
