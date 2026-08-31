@@ -5,6 +5,7 @@ import { UserGroupManager } from "./user-group-manager";
 import { UserGroupSelect } from "./user-group-select";
 import { BudgetSourceToggle } from "./budget-source-toggle";
 import { GeminiKeyForm } from "./gemini-key-form";
+import { AiExtractionToggle } from "./ai-extraction-toggle";
 import { StorageProviderToggle } from "./storage-provider-toggle";
 import { CloseIcon } from "@/components/icons";
 import {
@@ -17,6 +18,7 @@ import {
   deleteBudgetSource,
   deleteTeacher,
   deleteUserGroup,
+  setAiExtractionEnabled,
   setCurrentBudgetYear,
   setGeminiApiKey,
   setGeminiModel,
@@ -62,6 +64,7 @@ export default async function SettingsPage() {
     { data: groupMembers },
     { data: geminiKeySetting },
     { data: geminiModelSetting },
+    { data: aiExtractionEnabledSetting },
     { data: storageProviderSetting },
   ] = await Promise.all([
     supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
@@ -73,6 +76,7 @@ export default async function SettingsPage() {
     supabase.from("proc_user_group_members").select("user_id, group_id"),
     supabase.from("proc_app_settings").select("value").eq("key", "gemini_api_key").maybeSingle(),
     supabase.from("proc_app_settings").select("value").eq("key", "gemini_model").maybeSingle(),
+    supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
     supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
   ]);
 
@@ -209,6 +213,18 @@ export default async function SettingsPage() {
               setGeminiApiKey={setGeminiApiKey}
               setGeminiModel={setGeminiModel}
             />
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <div>
+                <div className="text-sm font-medium text-slate-700">
+                  ปุ่ม &quot;ให้ AI อ่านไฟล์และกรอกข้อมูลอัตโนมัติ&quot; ในฟอร์มเสนอโครงการ
+                </div>
+                <p className="text-xs text-slate-500">เปิดแล้วผู้เสนอโครงการจะเห็นปุ่มนี้หลังอัปโหลดไฟล์ Word/PDF</p>
+              </div>
+              <AiExtractionToggle
+                enabled={aiExtractionEnabledSetting?.value !== "false"}
+                setAiExtractionEnabled={setAiExtractionEnabled}
+              />
+            </div>
           </div>
         </div>
 

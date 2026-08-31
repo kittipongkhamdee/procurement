@@ -10,6 +10,7 @@ import type {
   deleteProposal as deleteProposalAction,
   deleteProposalFile as deleteProposalFileAction,
   endorseProposal as endorseProposalAction,
+  extractProposalFromUploadedFile as extractProposalFromUploadedFileAction,
   resetProposalStatus as resetProposalStatusAction,
   updateProposal as updateProposalAction,
 } from "./actions";
@@ -80,6 +81,7 @@ export function ProposalsTable({
   deleteProposal,
   deleteProposalFile,
   updateProposal,
+  extractProposalFromUploadedFile,
 }: {
   rows: ProposalRow[];
   isAdmin: boolean;
@@ -98,6 +100,7 @@ export function ProposalsTable({
   deleteProposal: typeof deleteProposalAction;
   deleteProposalFile: typeof deleteProposalFileAction;
   updateProposal: typeof updateProposalAction;
+  extractProposalFromUploadedFile?: typeof extractProposalFromUploadedFileAction;
 }) {
   return (
     <table className="table-base min-w-0">
@@ -139,6 +142,7 @@ export function ProposalsTable({
                         standards={standards}
                         submitLabel="บันทึกการแก้ไข"
                         successMessage="บันทึกการแก้ไขเรียบร้อยแล้ว"
+                        extractProposalFromUploadedFile={extractProposalFromUploadedFile}
                         initial={{
                           name: r.name,
                           standard: r.standard,
