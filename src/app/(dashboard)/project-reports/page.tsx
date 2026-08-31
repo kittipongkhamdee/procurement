@@ -6,16 +6,19 @@ import { createProjectReport, deleteProjectReport } from "./actions";
 
 export default async function ProjectReportsPage() {
   const supabase = await createClient();
-  const [{ data: reports, error }, { data: projects }] = await Promise.all([
+  const [{ data: reports, error }, { data: projects }, { data: proposals }] = await Promise.all([
     supabase
       .from("proc_project_reports")
       .select("id, file_url, photo_refs, created_at, plan_projects(name)")
       .order("created_at", { ascending: false }),
     supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
+    supabase.from("plan_project_proposals").select("project_id, strategy_alignment, standard").not("project_id", "is", null),
   ]);
 
   const paths = (reports ?? []).map((r) => r.file_url);
   const signedUrls = await resolveStorageUrls(supabase, paths, "procurement-files");
+
+  const proposalByProjectId = new Map((proposals ?? []).map((p) => [p.project_id as string, p]));
 
   return (
     <div>
@@ -25,7 +28,16 @@ export default async function ProjectReportsPage() {
         </div>
         <Modal title="รายงานสรุปโครงการ" trigger="+ รายงานโครงการใหม่" triggerClassName="btn-primary" closeOnSubmit>
           <ProjectReportForm
-            projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name, budget: p.budget }))}
+            projects={(projects ?? []).map((p) => {
+              const proposal = proposalByProjectId.get(p.id);
+              return {
+                id: p.id,
+                name: p.name,
+                budget: p.budget,
+                strategyAlignment: proposal?.strategy_alignment ?? null,
+                standard: proposal?.standard ?? null,
+              };
+            })}
             action={createProjectReport}
           />
         </Modal>

@@ -4,7 +4,13 @@ import { useMemo, useRef, useState } from "react";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ProjectReportPhotoUpload, type ProjectReportPhotoUploadHandle } from "@/components/project-report-photo-upload";
 
-type Project = { id: string; name: string; budget: number | null };
+type Project = {
+  id: string;
+  name: string;
+  budget: number | null;
+  strategyAlignment: string | null;
+  standard: string | null;
+};
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -78,6 +84,8 @@ export function ProjectReportForm({
     return approved - used;
   }, [budgetApproved, budgetUsed]);
 
+  const selectedProject = projects.find((p) => p.id === projectId);
+
   function handleProjectChange(id: string) {
     setProjectId(id);
     const project = projects.find((p) => p.id === id);
@@ -132,6 +140,21 @@ export function ProjectReportForm({
               ))}
             </select>
           </div>
+          {selectedProject && (selectedProject.strategyAlignment || selectedProject.standard) && (
+            <div className="sm:col-span-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+              {selectedProject.strategyAlignment && (
+                <div>
+                  <span className="font-medium text-slate-700">สนองกลยุทธ์โรงเรียน:</span> {selectedProject.strategyAlignment}
+                </div>
+              )}
+              {selectedProject.standard && (
+                <div>
+                  <span className="font-medium text-slate-700">สอดคล้องมาตรฐานการศึกษา:</span> {selectedProject.standard}
+                </div>
+              )}
+              <p className="mt-1 text-xs text-slate-400">ดึงจากข้อเสนอโครงการเดิม จะแสดงในรายงาน PDF ให้อัตโนมัติ</p>
+            </div>
+          )}
           <div>
             <label className="label">ผู้รับผิดชอบโครงการ</label>
             <input name="responsible_name" className="input" placeholder="ชื่อ-นามสกุล และตำแหน่ง/กลุ่มสาระฯ" />
