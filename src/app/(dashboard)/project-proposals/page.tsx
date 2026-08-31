@@ -61,7 +61,7 @@ export default async function ProjectProposalsPage() {
   const { data: proposals, error } = await supabase
     .from("plan_project_proposals")
     .select(
-      "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+      "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, indicators_quantity, indicators_quality, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
     )
     .order("created_at", { ascending: false });
 
@@ -92,6 +92,8 @@ export default async function ProjectProposalsPage() {
         responsible: string[];
         budget: number;
       }[]) ?? [],
+    indicatorsQuantity: (p.indicators_quantity as unknown as { indicator: string; target: string }[]) ?? [],
+    indicatorsQuality: (p.indicators_quality as unknown as { indicator: string; target: string }[]) ?? [],
     budgetAmount: Number(p.budget_amount ?? 0),
     status: p.status,
     endorsedByName: p.endorsed_by_name,
