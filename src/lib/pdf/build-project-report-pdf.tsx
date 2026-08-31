@@ -19,7 +19,7 @@ export async function buildProjectReportPdfData(
   const { data: r, error } = await supabase
     .from("proc_project_reports")
     .select(
-      "project_id, responsible_name, period_start, period_end, location, background, objectives, activities_done, indicator_results_quantity, indicator_results_quality, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations, photo_refs, plan_projects(name)",
+      "project_id, not_implemented, not_implemented_reason, responsible_name, period_start, period_end, location, background, objectives, activities_done, indicator_results_quantity, indicator_results_quality, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations, photo_refs, plan_projects(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -49,6 +49,8 @@ export async function buildProjectReportPdfData(
     project_name: project?.name ?? null,
     strategy_alignment: proposal?.strategy_alignment ?? null,
     standard: proposal?.standard ?? null,
+    not_implemented: r.not_implemented,
+    not_implemented_reason: r.not_implemented_reason,
     responsible_name: r.responsible_name,
     period_start: r.period_start,
     period_end: r.period_end,

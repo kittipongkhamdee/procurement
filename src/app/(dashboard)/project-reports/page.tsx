@@ -14,7 +14,7 @@ export default async function ProjectReportsPage() {
     await Promise.all([
       supabase
         .from("proc_project_reports")
-        .select("id, file_url, photo_refs, created_at, plan_projects(name)")
+        .select("id, file_url, photo_refs, created_at, not_implemented, plan_projects(name)")
         .order("created_at", { ascending: false }),
       supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
       supabase
@@ -80,6 +80,7 @@ export default async function ProjectReportsPage() {
               <tr key={r.id}>
                 <td className="font-medium text-slate-900">
                   {(r.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
+                  {r.not_implemented && <span className="badge-red ml-2">ไม่ได้ดำเนินการ</span>}
                 </td>
                 <td>{formatThaiDate(r.created_at)}</td>
                 <td className="text-right">
