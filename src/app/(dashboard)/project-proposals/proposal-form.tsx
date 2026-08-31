@@ -107,19 +107,21 @@ export function ProposalForm({
       <div>
         <div className="card-title">ข้อมูลทั่วไป</div>
         <div className="grid grid-cols-1 gap-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <ProposalFileUpload
-              name="file_url_word"
-              label="ไฟล์โครงการ Word (.doc, .docx)"
-              accept=".doc,.docx"
-              initialPath={initial?.fileUrlWordPath}
-            />
-            <ProposalFileUpload
-              name="file_url_pdf"
-              label="ไฟล์โครงการ PDF (.pdf)"
-              accept=".pdf"
-              initialPath={initial?.fileUrlPdfPath}
-            />
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ProposalFileUpload
+                name="file_url_word"
+                label="ไฟล์โครงการ Word (.doc, .docx)"
+                accept=".doc,.docx"
+                initialPath={initial?.fileUrlWordPath}
+              />
+              <ProposalFileUpload
+                name="file_url_pdf"
+                label="ไฟล์โครงการ PDF (.pdf)"
+                accept=".pdf"
+                initialPath={initial?.fileUrlPdfPath}
+              />
+            </div>
           </div>
           <div>
             <label className="label">ชื่อโครงการ</label>

@@ -146,6 +146,13 @@ export const GridIcon = base(
   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />,
 );
 
+export const UploadIcon = base(
+  <>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15.5V4.5m0 0-4 4m4-4 4 4" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15v3.5a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V15" />
+  </>,
+);
+
 export function WordFileIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className}>
