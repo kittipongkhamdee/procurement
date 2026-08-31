@@ -99,45 +99,51 @@ export const ProjectReportPhotoUpload = forwardRef<ProjectReportPhotoUploadHandl
     <div>
       <input ref={inputRef} type="file" accept="image/*" multiple onChange={handleSelect} className="hidden" />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {photos.map((p) => (
-          <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-            {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview, not an optimizable remote asset */}
-            <img
-              src={p.previewUrl}
-              alt=""
-              className="h-full w-full object-cover transition-transform"
-              style={{ transform: `rotate(${p.rotation}deg)` }}
-            />
-            <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1.5 bg-black/40 p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-              <button
-                type="button"
-                onClick={() => rotatePhoto(p.id)}
-                aria-label="หมุนภาพ"
-                className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white"
-              >
-                ⟳ หมุน
-              </button>
-              <button
-                type="button"
-                onClick={() => removePhoto(p.id)}
-                aria-label="ลบภาพ"
-                className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-red-600 hover:bg-white"
-              >
-                ลบ
-              </button>
-            </div>
-          </div>
-        ))}
-        {photos.length < MAX_PHOTOS && (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-navy-200 bg-navy-50/50 text-navy-700 transition-colors hover:border-navy-400 hover:bg-navy-50"
-          >
-            <span className="text-2xl leading-none">+</span>
-            <span className="text-xs font-semibold">เพิ่มรูปภาพ</span>
-          </button>
-        )}
+        {Array.from({ length: MAX_PHOTOS }).map((_, i) => {
+          const p = photos[i];
+          if (p) {
+            return (
+              <div key={p.id} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview, not an optimizable remote asset */}
+                <img
+                  src={p.previewUrl}
+                  alt=""
+                  className="h-full w-full object-cover transition-transform"
+                  style={{ transform: `rotate(${p.rotation}deg)` }}
+                />
+                <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1.5 bg-black/40 p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => rotatePhoto(p.id)}
+                    aria-label="หมุนภาพ"
+                    className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-white"
+                  >
+                    ⟳ หมุน
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(p.id)}
+                    aria-label="ลบภาพ"
+                    className="rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-red-600 hover:bg-white"
+                  >
+                    ลบ
+                  </button>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-navy-200 bg-navy-50/50 text-navy-700 transition-colors hover:border-navy-400 hover:bg-navy-50"
+            >
+              <span className="text-2xl leading-none">+</span>
+              <span className="text-xs font-semibold">เพิ่มรูปภาพ</span>
+            </button>
+          );
+        })}
       </div>
       <p className="mt-1.5 text-xs text-slate-500">แนบภาพถ่ายกิจกรรมที่เด่น ๆ ได้สูงสุด {MAX_PHOTOS} ภาพ (ไม่บังคับ)</p>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
