@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { testStorageConnection } from "@/lib/storage";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -201,6 +202,7 @@ export async function setGeminiModel(formData: FormData) {
 
 export async function setStorageProvider(provider: "supabase" | "google_drive") {
   const supabase = await requireAdmin();
+  await testStorageConnection(supabase, provider, "procurement-files");
   const { error } = await supabase
     .from("proc_app_settings")
     .upsert({ key: "storage_provider", value: provider, updated_at: new Date().toISOString() });
