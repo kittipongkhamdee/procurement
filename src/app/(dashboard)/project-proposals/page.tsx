@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveStorageUrls } from "@/lib/storage";
 import { Modal } from "@/components/modal";
 import { CheckIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
 import { ProposalForm } from "./proposal-form";
@@ -67,13 +68,7 @@ export default async function ProjectProposalsPage() {
   const filePaths = (proposals ?? [])
     .flatMap((p) => [p.file_url_word, p.file_url_pdf])
     .filter((p): p is string => !!p);
-  const signedFileUrls = new Map<string, string>();
-  if (filePaths.length > 0) {
-    const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(filePaths, 3600);
-    signed?.forEach((s) => {
-      if (s.signedUrl && !s.error) signedFileUrls.set(s.path ?? "", s.signedUrl);
-    });
-  }
+  const signedFileUrls = await resolveStorageUrls(supabase, filePaths, "procurement-files");
 
   const rows = (proposals ?? []).map((p) => ({
     id: p.id,

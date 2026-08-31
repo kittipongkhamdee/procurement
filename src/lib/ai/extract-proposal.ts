@@ -1,5 +1,6 @@
 import mammoth from "mammoth";
 import type { createClient } from "@/lib/supabase/server";
+import { downloadFromStorage } from "@/lib/storage";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -66,22 +67,17 @@ export async function extractProposalFromFile(
   const model = (await getSetting(supabase, "gemini_model")) || DEFAULT_MODEL;
 
   const ext = filePath.split(".").pop()?.toLowerCase();
-  const { data: fileBlob, error: downloadError } = await supabase.storage
-    .from(PROPOSAL_FILES_BUCKET)
-    .download(filePath);
-  if (downloadError || !fileBlob) throw new Error("ดาวน์โหลดไฟล์ไม่สำเร็จ");
+  const buffer = await downloadFromStorage(supabase, filePath, PROPOSAL_FILES_BUCKET);
 
   const MAX_FILE_BYTES = 15 * 1024 * 1024; // 15MB — ไฟล์ใหญ่กว่านี้เสี่ยงหมดเวลาก่อน AI ประมวลผลเสร็จ
-  if (fileBlob.size > MAX_FILE_BYTES) {
+  if (buffer.byteLength > MAX_FILE_BYTES) {
     throw new Error("ไฟล์มีขนาดใหญ่เกินไป (เกิน 15MB) กรุณาใช้ไฟล์ที่มีขนาดเล็กลง");
   }
 
   let contentParts: unknown[];
   if (ext === "pdf") {
-    const buffer = Buffer.from(await fileBlob.arrayBuffer());
     contentParts = [{ inlineData: { mimeType: "application/pdf", data: buffer.toString("base64") } }];
   } else if (ext === "docx") {
-    const buffer = Buffer.from(await fileBlob.arrayBuffer());
     const { value: text } = await mammoth.extractRawText({ buffer });
     if (!text.trim()) throw new Error("ไม่พบข้อความในไฟล์ Word");
     contentParts = [{ text: `เนื้อหาไฟล์โครงการ:\n${text}` }];

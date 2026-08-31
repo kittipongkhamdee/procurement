@@ -5,6 +5,7 @@ import { UserGroupManager } from "./user-group-manager";
 import { UserGroupSelect } from "./user-group-select";
 import { BudgetSourceToggle } from "./budget-source-toggle";
 import { GeminiKeyForm } from "./gemini-key-form";
+import { StorageProviderToggle } from "./storage-provider-toggle";
 import { CloseIcon } from "@/components/icons";
 import {
   createAdminGroup,
@@ -19,6 +20,7 @@ import {
   setCurrentBudgetYear,
   setGeminiApiKey,
   setGeminiModel,
+  setStorageProvider,
   setUserGroups,
   toggleAdminGroupActive,
   toggleBudgetSourceActive,
@@ -60,6 +62,9 @@ export default async function SettingsPage() {
     { data: groupMembers },
     { data: geminiKeySetting },
     { data: geminiModelSetting },
+    { data: storageProviderSetting },
+    { data: driveServiceAccountSetting },
+    { data: driveFolderIdSetting },
   ] = await Promise.all([
     supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
     supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
@@ -70,6 +75,9 @@ export default async function SettingsPage() {
     supabase.from("proc_user_group_members").select("user_id, group_id"),
     supabase.from("proc_app_settings").select("value").eq("key", "gemini_api_key").maybeSingle(),
     supabase.from("proc_app_settings").select("value").eq("key", "gemini_model").maybeSingle(),
+    supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
+    supabase.from("proc_app_settings").select("value").eq("key", "google_service_account_json").maybeSingle(),
+    supabase.from("proc_app_settings").select("value").eq("key", "google_drive_folder_id").maybeSingle(),
   ]);
 
   const groupIdsByUser = new Map<string, string[]>();
@@ -204,6 +212,21 @@ export default async function SettingsPage() {
               currentModel={geminiModelSetting?.value ?? null}
               setGeminiApiKey={setGeminiApiKey}
               setGeminiModel={setGeminiModel}
+            />
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">พื้นที่จัดเก็บไฟล์</div>
+            <p className="mb-3 text-sm text-slate-500">
+              เลือกปลายทางสำหรับไฟล์ที่อัปโหลดใหม่ (ไฟล์โครงการ Word/PDF และเอกสารทั่วไปในคลังเอกสาร)
+              ไฟล์ที่อัปโหลดไว้ก่อนหน้านี้จะยังเปิดดูได้ตามปกติไม่ว่าจะเปลี่ยนมาใช้ปลายทางใด
+            </p>
+            <StorageProviderToggle
+              currentProvider={storageProviderSetting?.value === "google_drive" ? "google_drive" : "supabase"}
+              driveConfigured={!!driveServiceAccountSetting?.value && !!driveFolderIdSetting?.value}
+              setStorageProvider={setStorageProvider}
             />
           </div>
         </div>

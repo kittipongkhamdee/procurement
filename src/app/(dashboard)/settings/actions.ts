@@ -198,3 +198,12 @@ export async function setGeminiModel(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+export async function setStorageProvider(provider: "supabase" | "google_drive") {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("proc_app_settings")
+    .upsert({ key: "storage_provider", value: provider, updated_at: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}

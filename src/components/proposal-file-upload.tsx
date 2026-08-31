@@ -1,14 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { displayNameForRef } from "@/lib/storage/ref";
 
-const BUCKET = "procurement-files";
-const PATH_PREFIX = "project-proposals";
-
-function baseNameOf(path: string) {
-  return path.split("/").pop() ?? path;
-}
+const UPLOAD_ENDPOINT = "/api/proposal-file-upload";
 
 export function ProposalFileUpload({
   name,
@@ -20,12 +15,12 @@ export function ProposalFileUpload({
   name: string;
   label: string;
   accept: string;
-  /** พาธไฟล์ที่บันทึกไว้แล้ว (โหมดแก้ไข) — ถ้ากดลบไฟล์นี้จะไม่ลบออกจาก storage ทันที รอให้บันทึกฟอร์มก่อน */
+  /** ref ไฟล์ที่บันทึกไว้แล้ว (โหมดแก้ไข) — ถ้ากดลบไฟล์นี้จะไม่ลบออกจาก storage ทันที รอให้บันทึกฟอร์มก่อน */
   initialPath?: string | null;
-  /** แจ้งพาธไฟล์ปัจจุบันขึ้นไปยัง component แม่ (เช่น เพื่อใช้เป็นต้นฉบับให้ AI อ่าน) */
+  /** แจ้ง ref ไฟล์ปัจจุบันขึ้นไปยัง component แม่ (เช่น เพื่อใช้เป็นต้นฉบับให้ AI อ่าน) */
   onPathChange?: (path: string | null) => void;
 }) {
-  const [fileName, setFileName] = useState<string | null>(initialPath ? baseNameOf(initialPath) : null);
+  const [fileName, setFileName] = useState<string | null>(initialPath ? displayNameForRef(initialPath) : null);
   const [path, setPath] = useState<string | null>(initialPath ?? null);
   const [isNew, setIsNew] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -44,39 +39,33 @@ export function ProposalFileUpload({
     setFileName(file.name);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("กรุณาเข้าสู่ระบบ");
+      const formData = new FormData();
+      formData.set("file", file);
 
-      const ext = file.name.split(".").pop();
-      const newPath = `${PATH_PREFIX}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
-
-      await new Promise<void>((resolve, reject) => {
+      const ref = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open(
-          "POST",
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/${BUCKET}/${newPath}`,
-        );
-        xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
-        xhr.setRequestHeader("apikey", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.open("POST", UPLOAD_ENDPOINT);
         xhr.upload.onprogress = (ev) => {
           if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100));
         };
         xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error("อัปโหลดไฟล์ไม่สำเร็จ"));
+          let body: { ref?: string; error?: string } = {};
+          try {
+            body = JSON.parse(xhr.responseText);
+          } catch {
+            // ignore parse error, handled below
+          }
+          if (xhr.status >= 200 && xhr.status < 300 && body.ref) resolve(body.ref);
+          else reject(new Error(body.error || "อัปโหลดไฟล์ไม่สำเร็จ"));
         };
         xhr.onerror = () => reject(new Error("อัปโหลดไฟล์ไม่สำเร็จ"));
-        xhr.send(file);
+        xhr.send(formData);
       });
 
-      setPath(newPath);
+      setPath(ref);
       setIsNew(true);
       setProgress(100);
-      onPathChange?.(newPath);
+      onPathChange?.(ref);
     } catch (err) {
       setError(err instanceof Error ? err.message : "อัปโหลดไฟล์ไม่สำเร็จ");
       setFileName(null);
@@ -89,8 +78,11 @@ export function ProposalFileUpload({
 
   async function handleRemove() {
     if (path && isNew) {
-      const supabase = createClient();
-      await supabase.storage.from(BUCKET).remove([path]);
+      await fetch(UPLOAD_ENDPOINT, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ref: path }),
+      }).catch(() => {});
     }
     setPath(null);
     setFileName(null);

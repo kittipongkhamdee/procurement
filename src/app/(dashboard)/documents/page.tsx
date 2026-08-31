@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
+import { resolveStorageUrls } from "@/lib/storage";
 import { uploadDocument, deleteDocument } from "./actions";
 
 export default async function DocumentsPage() {
@@ -14,23 +15,11 @@ export default async function DocumentsPage() {
   ]);
 
   const paths = (documents ?? []).map((d) => d.file_url);
-  const signedUrls = new Map<string, string>();
-  if (paths.length > 0) {
-    const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(paths, 3600);
-    signed?.forEach((s) => {
-      if (s.signedUrl && !s.error) signedUrls.set(s.path ?? "", s.signedUrl);
-    });
-  }
+  const signedUrls = await resolveStorageUrls(supabase, paths, "procurement-files");
 
   const projectFiles = (proposals ?? []).filter((p) => p.file_url_word || p.file_url_pdf);
   const projectFilePaths = projectFiles.flatMap((p) => [p.file_url_word, p.file_url_pdf]).filter((p): p is string => !!p);
-  const signedProjectFileUrls = new Map<string, string>();
-  if (projectFilePaths.length > 0) {
-    const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(projectFilePaths, 3600);
-    signed?.forEach((s) => {
-      if (s.signedUrl && !s.error) signedProjectFileUrls.set(s.path ?? "", s.signedUrl);
-    });
-  }
+  const signedProjectFileUrls = await resolveStorageUrls(supabase, projectFilePaths, "procurement-files");
 
   return (
     <div>
