@@ -44,7 +44,7 @@ function IndicatorResultList({
         <div className="hidden grid-cols-[1fr_8rem_8rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
           <div>ตัวชี้วัด</div>
           <div>ค่าเป้าหมาย</div>
-          <div>ผลที่ทำได้จริง</div>
+          <div>ผลการดำเนินงาน</div>
           <div></div>
         </div>
         <div className="divide-y divide-slate-100">
@@ -66,7 +66,7 @@ function IndicatorResultList({
                 value={row.actual}
                 onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, actual: e.target.value } : r)))}
                 className="input"
-                placeholder="ผลจริง"
+                placeholder="ผลการดำเนินงาน"
               />
               {rows.length > 1 && (
                 <button
