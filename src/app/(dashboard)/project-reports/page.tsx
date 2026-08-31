@@ -19,7 +19,7 @@ export default async function ProjectReportsPage() {
       supabase
         .from("plan_project_proposals")
         .select(
-          "project_id, strategy_alignment, standard, responsible, indicators_quantity, indicators_quality, file_url_pdf",
+          "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
         )
         .not("project_id", "is", null),
       supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
@@ -48,6 +48,7 @@ export default async function ProjectReportsPage() {
                 strategyAlignment: proposal?.strategy_alignment ?? null,
                 standard: proposal?.standard ?? null,
                 responsible: (proposal?.responsible as unknown as string[]) ?? [],
+                objectives: (proposal?.objectives as unknown as string[]) ?? [],
                 indicatorsQuantity:
                   (proposal?.indicators_quantity as unknown as { indicator: string; target: string }[]) ?? [],
                 indicatorsQuality:

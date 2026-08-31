@@ -14,6 +14,7 @@ type Project = {
   strategyAlignment: string | null;
   standard: string | null;
   responsible: string[];
+  objectives: string[];
   indicatorsQuantity: IndicatorTarget[];
   indicatorsQuality: IndicatorTarget[];
   proposalPdfPath: string | null;
@@ -178,6 +179,7 @@ export function ProjectReportForm({
     const project = projects.find((p) => p.id === id);
     if (project?.budget != null) setBudgetApproved(String(project.budget));
     if (project?.responsible && project.responsible.length > 0) setResponsibleName(project.responsible.join(", "));
+    setObjectives(project && project.objectives.length > 0 ? project.objectives : [""]);
     setIndicatorResultsQuantity(
       project && project.indicatorsQuantity.length > 0
         ? project.indicatorsQuantity.map((t) => ({ ...t, actual: "" }))
@@ -329,13 +331,18 @@ export function ProjectReportForm({
               className="input"
             />
           </div>
-          <ListField
-            label="วัตถุประสงค์"
-            placeholder="เพื่อ..."
-            values={objectives}
-            onChange={setObjectives}
-            addLabel="+ เพิ่มวัตถุประสงค์"
-          />
+          <div>
+            <ListField
+              label="วัตถุประสงค์"
+              placeholder="เพื่อ..."
+              values={objectives}
+              onChange={setObjectives}
+              addLabel="+ เพิ่มวัตถุประสงค์"
+            />
+            {selectedProject && selectedProject.objectives.length > 0 && (
+              <p className="mt-1 text-xs text-slate-400">ดึงจากข้อเสนอโครงการเดิม แก้ไขได้ตามจริง</p>
+            )}
+          </div>
         </div>
       </div>
 

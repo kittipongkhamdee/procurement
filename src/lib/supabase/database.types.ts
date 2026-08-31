@@ -522,6 +522,7 @@ export type Database = {
           indicators_quality: Json
           indicators_quantity: Json
           name: string
+          objectives: Json
           project_id: string | null
           proposer_name: string | null
           responsible: string[]
@@ -549,6 +550,7 @@ export type Database = {
           indicators_quality?: Json
           indicators_quantity?: Json
           name: string
+          objectives?: Json
           project_id?: string | null
           proposer_name?: string | null
           responsible?: string[]
@@ -576,6 +578,7 @@ export type Database = {
           indicators_quality?: Json
           indicators_quantity?: Json
           name?: string
+          objectives?: Json
           project_id?: string | null
           proposer_name?: string | null
           responsible?: string[]
