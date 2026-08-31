@@ -57,6 +57,21 @@ type ActivityRow = {
 
 const PROPOSAL_FILES_BUCKET = "procurement-files";
 
+function indicatorsField(formData: FormData, key: string) {
+  const raw = String(formData.get(key) ?? "[]");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (r): r is { indicator: string; target: string } =>
+      r && typeof r.indicator === "string" && r.indicator.trim() !== "",
+  );
+}
+
 function sanitizeFileNamePart(s: string) {
   return s.replace(/[\\/:*?"<>|]+/g, " ").trim();
 }
@@ -165,6 +180,8 @@ export async function createProposal(formData: FormData) {
     budget_source_id: str(formData, "budget_source_id"),
     file_url_word: fileUrlWord,
     file_url_pdf: fileUrlPdf,
+    indicators_quantity: indicatorsField(formData, "indicators_quantity_json"),
+    indicators_quality: indicatorsField(formData, "indicators_quality_json"),
   });
   if (error) throw new Error(error.message);
   revalidatePath("/project-proposals");
@@ -241,6 +258,8 @@ export async function updateProposal(id: string, formData: FormData) {
       budget_source_id: str(formData, "budget_source_id"),
       file_url_word: fileUrlWord,
       file_url_pdf: fileUrlPdf,
+      indicators_quantity: indicatorsField(formData, "indicators_quantity_json"),
+      indicators_quality: indicatorsField(formData, "indicators_quality_json"),
     })
     .eq("id", id);
   if (error) throw new Error(error.message);

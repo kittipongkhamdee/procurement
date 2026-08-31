@@ -519,6 +519,8 @@ export type Database = {
           file_url_pdf: string | null
           file_url_word: string | null
           id: string
+          indicators_quality: Json
+          indicators_quantity: Json
           name: string
           project_id: string | null
           proposer_name: string | null
@@ -544,6 +546,8 @@ export type Database = {
           file_url_pdf?: string | null
           file_url_word?: string | null
           id?: string
+          indicators_quality?: Json
+          indicators_quantity?: Json
           name: string
           project_id?: string | null
           proposer_name?: string | null
@@ -569,6 +573,8 @@ export type Database = {
           file_url_pdf?: string | null
           file_url_word?: string | null
           id?: string
+          indicators_quality?: Json
+          indicators_quantity?: Json
           name?: string
           project_id?: string | null
           proposer_name?: string | null

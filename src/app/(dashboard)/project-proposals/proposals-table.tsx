@@ -25,6 +25,10 @@ type ActivityRow = {
   responsible: string[];
   budget: number;
 };
+type IndicatorRow = {
+  indicator: string;
+  target: string;
+};
 type ProposalRow = {
   id: string;
   name: string;
@@ -42,6 +46,8 @@ type ProposalRow = {
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];
+  indicatorsQuantity: IndicatorRow[];
+  indicatorsQuality: IndicatorRow[];
   budgetAmount: number;
   status: string;
   endorsedByName: string | null;
@@ -154,6 +160,8 @@ export function ProposalsTable({
                           budgetSourceId: r.budgetSourceId,
                           fileUrlWordPath: r.fileUrlWordPath,
                           fileUrlPdfPath: r.fileUrlPdfPath,
+                          indicatorsQuantity: r.indicatorsQuantity,
+                          indicatorsQuality: r.indicatorsQuality,
                         }}
                       />
                     </Modal>

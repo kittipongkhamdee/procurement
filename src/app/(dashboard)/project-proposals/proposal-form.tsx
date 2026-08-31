@@ -18,8 +18,72 @@ type ActivityRow = {
   budget: string;
 };
 
+type IndicatorRow = {
+  indicator: string;
+  target: string;
+};
+
 function emptyActivity(): ActivityRow {
   return { name: "", responsible: [], budget: "" };
+}
+
+function emptyIndicator(): IndicatorRow {
+  return { indicator: "", target: "" };
+}
+
+function IndicatorList({
+  label,
+  rows,
+  onChange,
+  addLabel,
+}: {
+  label: string;
+  rows: IndicatorRow[];
+  onChange: (next: IndicatorRow[]) => void;
+  addLabel: string;
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className="overflow-hidden rounded-xl border border-slate-200/80">
+        <div className="hidden grid-cols-[1fr_10rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <div>ตัวชี้วัด</div>
+          <div>ค่าเป้าหมาย</div>
+          <div></div>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {rows.map((row, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_10rem_3.5rem] sm:items-center">
+              <input
+                value={row.indicator}
+                onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, indicator: e.target.value } : r)))}
+                className="input"
+                placeholder="เช่น นักเรียนมีผลสัมฤทธิ์ทางการเรียนระดับดีขึ้นไป"
+              />
+              <input
+                value={row.target}
+                onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, target: e.target.value } : r)))}
+                className="input"
+                placeholder="เช่น ร้อยละ 65"
+              />
+              {rows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+                  className="btn-danger btn-sm sm:justify-self-end"
+                >
+                  ลบ
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <button type="button" onClick={() => onChange([...rows, emptyIndicator()])} className="btn-secondary btn-sm mt-2">
+        {addLabel}
+      </button>
+    </div>
+  );
 }
 
 function formatBaht(n: number) {
@@ -37,6 +101,8 @@ export type ProposalFormInitial = {
   budgetSourceId: string | null;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
+  indicatorsQuantity: IndicatorRow[];
+  indicatorsQuality: IndicatorRow[];
 };
 
 export function ProposalForm({
@@ -71,6 +137,12 @@ export function ProposalForm({
   const [projectBudget, setProjectBudget] = useState(
     initial && !hasActivities ? String(initial.budgetAmount) : "",
   );
+  const [indicatorsQuantity, setIndicatorsQuantity] = useState<IndicatorRow[]>(
+    initial?.indicatorsQuantity ?? [emptyIndicator()],
+  );
+  const [indicatorsQuality, setIndicatorsQuality] = useState<IndicatorRow[]>(
+    initial?.indicatorsQuality ?? [emptyIndicator()],
+  );
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -92,6 +164,8 @@ export function ProposalForm({
   async function handleSubmit(formData: FormData) {
     formData.set("has_activities", hasActivities ? "yes" : "no");
     formData.set("activities_json", JSON.stringify(hasActivities ? activities : []));
+    formData.set("indicators_quantity_json", JSON.stringify(indicatorsQuantity.filter((r) => r.indicator.trim() !== "")));
+    formData.set("indicators_quality_json", JSON.stringify(indicatorsQuality.filter((r) => r.indicator.trim() !== "")));
     try {
       await action(formData);
       await toastSuccess(successMessage);
@@ -302,6 +376,24 @@ export function ProposalForm({
             />
           </div>
         )}
+      </div>
+
+      <div className="border-t border-slate-100 pt-4">
+        <div className="card-title">ตัวชี้วัดและเป้าหมายความสำเร็จ</div>
+        <div className="grid grid-cols-1 gap-4">
+          <IndicatorList
+            label="เชิงปริมาณ"
+            rows={indicatorsQuantity}
+            onChange={setIndicatorsQuantity}
+            addLabel="+ เพิ่มตัวชี้วัดเชิงปริมาณ"
+          />
+          <IndicatorList
+            label="เชิงคุณภาพ"
+            rows={indicatorsQuality}
+            onChange={setIndicatorsQuality}
+            addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
+          />
+        </div>
       </div>
 
       <button type="submit" className="btn-primary mt-2">
