@@ -36,11 +36,15 @@ function IndicatorList({
   rows,
   onChange,
   addLabel,
+  indicatorPlaceholder,
+  targetPlaceholder,
 }: {
   label: string;
   rows: IndicatorRow[];
   onChange: (next: IndicatorRow[]) => void;
   addLabel: string;
+  indicatorPlaceholder: string;
+  targetPlaceholder: string;
 }) {
   return (
     <div>
@@ -58,13 +62,13 @@ function IndicatorList({
                 value={row.indicator}
                 onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, indicator: e.target.value } : r)))}
                 className="input"
-                placeholder="เช่น นักเรียนมีผลสัมฤทธิ์ทางการเรียนระดับดีขึ้นไป"
+                placeholder={indicatorPlaceholder}
               />
               <input
                 value={row.target}
                 onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, target: e.target.value } : r)))}
                 className="input"
-                placeholder="เช่น ร้อยละ 65"
+                placeholder={targetPlaceholder}
               />
               {rows.length > 1 && (
                 <button
@@ -464,6 +468,8 @@ export function ProposalForm({
               rows={indicatorsQuantity}
               onChange={setIndicatorsQuantity}
               addLabel="+ เพิ่มตัวชี้วัดเชิงปริมาณ"
+              indicatorPlaceholder="เช่น นักเรียนมีผลสัมฤทธิ์ทางการเรียนระดับดีขึ้นไป"
+              targetPlaceholder="เช่น ร้อยละ 65"
             />
             <FieldError
               show={!!fieldErrors.indicators_quantity}
@@ -479,6 +485,8 @@ export function ProposalForm({
               rows={indicatorsQuality}
               onChange={setIndicatorsQuality}
               addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
+              indicatorPlaceholder="เช่น นักเรียนมีทักษะและความสามารถเรียนรู้ตามเป้าหมายของโรงเรียน"
+              targetPlaceholder="เช่น ร้อยละ 80"
             />
             <FieldError
               show={!!fieldErrors.indicators_quality}
