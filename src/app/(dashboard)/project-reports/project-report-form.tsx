@@ -63,6 +63,7 @@ export function ProjectReportForm({
 }) {
   const [projectId, setProjectId] = useState("");
   const [objectives, setObjectives] = useState<string[]>([""]);
+  const [activitiesDone, setActivitiesDone] = useState<string[]>([""]);
   const [highlights, setHighlights] = useState<string[]>([""]);
   const [problems, setProblems] = useState<string[]>([""]);
   const [recommendations, setRecommendations] = useState<string[]>([""]);
@@ -87,6 +88,7 @@ export function ProjectReportForm({
     try {
       const photoRefs = await photoUploadRef.current?.uploadAll();
       formData.set("objectives_json", JSON.stringify(objectives));
+      formData.set("activities_done_json", JSON.stringify(activitiesDone));
       formData.set("highlights_json", JSON.stringify(highlights));
       formData.set("problems_json", JSON.stringify(problems));
       formData.set("recommendations_json", JSON.stringify(recommendations));
@@ -95,6 +97,7 @@ export function ProjectReportForm({
       await toastSuccess("บันทึกรายงานโครงการเรียบร้อยแล้ว");
       setProjectId("");
       setObjectives([""]);
+      setActivitiesDone([""]);
       setHighlights([""]);
       setProblems([""]);
       setRecommendations([""]);
@@ -143,6 +146,10 @@ export function ProjectReportForm({
               <input type="date" name="period_end" className="input" />
             </div>
           </div>
+          <div className="sm:col-span-2">
+            <label className="label">สถานที่ดำเนินการ</label>
+            <input name="location" className="input" placeholder="เช่น โรงเรียนตาเบาวิทยา อำเภอปราสาท จังหวัดสุรินทร์" />
+          </div>
         </div>
       </div>
 
@@ -166,6 +173,13 @@ export function ProjectReportForm({
       <div className="border-t border-slate-100 pt-4">
         <div className="card-title">3. ผลการดำเนินงานโครงการ</div>
         <div className="grid grid-cols-1 gap-3">
+          <ListField
+            label="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง"
+            placeholder="เช่น จัดกิจกรรมพัฒนาทักษะอาชีพ..."
+            values={activitiesDone}
+            onChange={setActivitiesDone}
+            addLabel="+ เพิ่มรายการ"
+          />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label">เชิงปริมาณ: เป้าหมาย</label>

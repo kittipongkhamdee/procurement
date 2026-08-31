@@ -101,8 +101,10 @@ export type ProjectReportPdfData = {
   responsible_name: string | null;
   period_start: string | null;
   period_end: string | null;
+  location: string | null;
   background: string | null;
   objectives: string[];
+  activities_done: string[];
   quantity_goal: string | null;
   quantity_actual: string | null;
   quality_result: string | null;
@@ -148,6 +150,10 @@ export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) 
             )}
           </Text>
         </View>
+        <View style={styles.row}>
+          <Text style={styles.label}>{t("สถานที่ดำเนินการ")}</Text>
+          <Text style={styles.value}>{t(data.location)}</Text>
+        </View>
 
         <Text style={styles.subtitle}>{t("2. หลักการและวัตถุประสงค์")}</Text>
         {data.background && <Paragraph text={`ความเป็นมา: ${data.background}`} />}
@@ -159,6 +165,7 @@ export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) 
         )}
 
         <Text style={styles.subtitle}>{t("3. ผลการดำเนินงานโครงการ")}</Text>
+        <BulletSection heading="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง" items={data.activities_done} />
         {(data.quantity_goal || data.quantity_actual) && (
           <Paragraph
             text={`เชิงปริมาณ: เป้าหมาย ${data.quantity_goal ?? "-"} ผลที่ทำได้จริง ${data.quantity_actual ?? "-"}`}
