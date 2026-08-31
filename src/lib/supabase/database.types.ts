@@ -1237,6 +1237,8 @@ export type Database = {
           file_url: string | null
           highlights: Json
           id: string
+          indicator_results_quality: Json
+          indicator_results_quantity: Json
           location: string | null
           objectives: Json
           period_end: string | null
@@ -1244,9 +1246,6 @@ export type Database = {
           photo_refs: Json
           problems: Json
           project_id: string | null
-          quality_result: string | null
-          quantity_actual: string | null
-          quantity_goal: string | null
           recommendations: Json
           responsible_name: string | null
           satisfaction_percent: number | null
@@ -1261,6 +1260,8 @@ export type Database = {
           file_url?: string | null
           highlights?: Json
           id?: string
+          indicator_results_quality?: Json
+          indicator_results_quantity?: Json
           location?: string | null
           objectives?: Json
           period_end?: string | null
@@ -1268,9 +1269,6 @@ export type Database = {
           photo_refs?: Json
           problems?: Json
           project_id?: string | null
-          quality_result?: string | null
-          quantity_actual?: string | null
-          quantity_goal?: string | null
           recommendations?: Json
           responsible_name?: string | null
           satisfaction_percent?: number | null
@@ -1285,6 +1283,8 @@ export type Database = {
           file_url?: string | null
           highlights?: Json
           id?: string
+          indicator_results_quality?: Json
+          indicator_results_quantity?: Json
           location?: string | null
           objectives?: Json
           period_end?: string | null
@@ -1292,9 +1292,6 @@ export type Database = {
           photo_refs?: Json
           problems?: Json
           project_id?: string | null
-          quality_result?: string | null
-          quantity_actual?: string | null
-          quantity_goal?: string | null
           recommendations?: Json
           responsible_name?: string | null
           satisfaction_percent?: number | null

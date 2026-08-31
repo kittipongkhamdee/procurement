@@ -27,6 +27,21 @@ function listField(formData: FormData, key: string): string[] {
   return parsed.filter((v): v is string => typeof v === "string" && v.trim() !== "");
 }
 
+function indicatorResultsField(formData: FormData, key: string) {
+  const raw = String(formData.get(key) ?? "[]");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (r): r is { indicator: string; target: string; actual: string } =>
+      r && typeof r.indicator === "string" && r.indicator.trim() !== "",
+  );
+}
+
 export async function createProjectReport(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -46,9 +61,8 @@ export async function createProjectReport(formData: FormData) {
     background: str(formData, "background"),
     objectives: listField(formData, "objectives_json"),
     activities_done: listField(formData, "activities_done_json"),
-    quantity_goal: str(formData, "quantity_goal"),
-    quantity_actual: str(formData, "quantity_actual"),
-    quality_result: str(formData, "quality_result"),
+    indicator_results_quantity: indicatorResultsField(formData, "indicator_results_quantity_json"),
+    indicator_results_quality: indicatorResultsField(formData, "indicator_results_quality_json"),
     satisfaction_percent: num(formData, "satisfaction_percent"),
     budget_approved: num(formData, "budget_approved"),
     budget_used: num(formData, "budget_used"),

@@ -43,6 +43,32 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#111827",
   },
+  indicatorTable: { marginTop: 4, marginBottom: 8, borderWidth: 1, borderColor: "#111827" },
+  indicatorHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
+  indicatorRow: { flexDirection: "row" },
+  indicatorCellIndicator: {
+    fontSize: 10,
+    padding: 4,
+    width: "50%",
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#111827",
+  },
+  indicatorCellTarget: {
+    fontSize: 10,
+    padding: 4,
+    width: "25%",
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "#111827",
+  },
+  indicatorCellActual: {
+    fontSize: 10,
+    padding: 4,
+    width: "25%",
+    borderBottomWidth: 1,
+    borderColor: "#111827",
+  },
   photoGrid: { marginTop: 4, flexDirection: "row", flexWrap: "wrap", gap: 10 },
   photoCell: {
     width: "47%",
@@ -94,6 +120,31 @@ function BulletSection({ heading, items }: { heading: string; items: string[] })
   );
 }
 
+export type IndicatorResult = { indicator: string; target: string; actual: string };
+
+function IndicatorTable({ heading, rows }: { heading: string; rows: IndicatorResult[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <>
+      <Text style={styles.subheading}>{t(heading)}</Text>
+      <View style={styles.indicatorTable}>
+        <View style={styles.indicatorHeaderRow}>
+          <Text style={[styles.indicatorCellIndicator, { fontWeight: "bold" }]}>{t("ตัวชี้วัด")}</Text>
+          <Text style={[styles.indicatorCellTarget, { fontWeight: "bold" }]}>{t("ค่าเป้าหมาย")}</Text>
+          <Text style={[styles.indicatorCellActual, { fontWeight: "bold" }]}>{t("ผลที่ทำได้จริง")}</Text>
+        </View>
+        {rows.map((row, i) => (
+          <View style={styles.indicatorRow} key={i}>
+            <Text style={styles.indicatorCellIndicator}>{t(row.indicator)}</Text>
+            <Text style={styles.indicatorCellTarget}>{t(row.target || "-")}</Text>
+            <Text style={styles.indicatorCellActual}>{t(row.actual || "-")}</Text>
+          </View>
+        ))}
+      </View>
+    </>
+  );
+}
+
 export type ProjectReportPhoto = { data: Buffer; format: "png" | "jpg" };
 
 export type ProjectReportPdfData = {
@@ -107,9 +158,8 @@ export type ProjectReportPdfData = {
   background: string | null;
   objectives: string[];
   activities_done: string[];
-  quantity_goal: string | null;
-  quantity_actual: string | null;
-  quality_result: string | null;
+  indicator_results_quantity: IndicatorResult[];
+  indicator_results_quality: IndicatorResult[];
   satisfaction_percent: number | null;
   budget_approved: number | null;
   budget_used: number | null;
@@ -180,12 +230,8 @@ export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) 
 
         <Text style={styles.subtitle}>{t("3. ผลการดำเนินงานโครงการ")}</Text>
         <BulletSection heading="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง" items={data.activities_done} />
-        {(data.quantity_goal || data.quantity_actual) && (
-          <Paragraph
-            text={`เชิงปริมาณ: เป้าหมาย ${data.quantity_goal ?? "-"} ผลที่ทำได้จริง ${data.quantity_actual ?? "-"}`}
-          />
-        )}
-        {data.quality_result && <Paragraph text={`เชิงคุณภาพ: ${data.quality_result}`} />}
+        <IndicatorTable heading="ตัวชี้วัดเชิงปริมาณ" rows={data.indicator_results_quantity} />
+        <IndicatorTable heading="ตัวชี้วัดเชิงคุณภาพ" rows={data.indicator_results_quality} />
         {data.satisfaction_percent != null && (
           <Paragraph text={`ผลการประเมินความพึงพอใจ: ร้อยละ ${data.satisfaction_percent}`} />
         )}

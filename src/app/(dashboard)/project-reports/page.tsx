@@ -14,7 +14,7 @@ export default async function ProjectReportsPage() {
     supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
     supabase
       .from("plan_project_proposals")
-      .select("project_id, strategy_alignment, standard, responsible")
+      .select("project_id, strategy_alignment, standard, responsible, indicators_quantity, indicators_quality")
       .not("project_id", "is", null),
   ]);
 
@@ -40,6 +40,10 @@ export default async function ProjectReportsPage() {
                 strategyAlignment: proposal?.strategy_alignment ?? null,
                 standard: proposal?.standard ?? null,
                 responsible: (proposal?.responsible as unknown as string[]) ?? [],
+                indicatorsQuantity:
+                  (proposal?.indicators_quantity as unknown as { indicator: string; target: string }[]) ?? [],
+                indicatorsQuality:
+                  (proposal?.indicators_quality as unknown as { indicator: string; target: string }[]) ?? [],
               };
             })}
             action={createProjectReport}

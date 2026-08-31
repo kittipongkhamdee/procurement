@@ -4,6 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ProjectReportPhotoUpload, type ProjectReportPhotoUploadHandle } from "@/components/project-report-photo-upload";
 
+type IndicatorTarget = { indicator: string; target: string };
+type IndicatorResult = { indicator: string; target: string; actual: string };
+
 type Project = {
   id: string;
   name: string;
@@ -11,10 +14,83 @@ type Project = {
   strategyAlignment: string | null;
   standard: string | null;
   responsible: string[];
+  indicatorsQuantity: IndicatorTarget[];
+  indicatorsQuality: IndicatorTarget[];
 };
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
+}
+
+function emptyIndicatorResult(): IndicatorResult {
+  return { indicator: "", target: "", actual: "" };
+}
+
+function IndicatorResultList({
+  label,
+  rows,
+  onChange,
+  addLabel,
+}: {
+  label: string;
+  rows: IndicatorResult[];
+  onChange: (next: IndicatorResult[]) => void;
+  addLabel: string;
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className="overflow-hidden rounded-xl border border-slate-200/80">
+        <div className="hidden grid-cols-[1fr_8rem_8rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <div>ตัวชี้วัด</div>
+          <div>ค่าเป้าหมาย</div>
+          <div>ผลที่ทำได้จริง</div>
+          <div></div>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {rows.map((row, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_8rem_8rem_3.5rem] sm:items-center">
+              <input
+                value={row.indicator}
+                onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, indicator: e.target.value } : r)))}
+                className="input"
+                placeholder="ตัวชี้วัด"
+              />
+              <input
+                value={row.target}
+                onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, target: e.target.value } : r)))}
+                className="input"
+                placeholder="ค่าเป้าหมาย"
+              />
+              <input
+                value={row.actual}
+                onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, actual: e.target.value } : r)))}
+                className="input"
+                placeholder="ผลจริง"
+              />
+              {rows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+                  className="btn-danger btn-sm sm:justify-self-end"
+                >
+                  ลบ
+                </button>
+              )}
+            </div>
+          ))}
+          {rows.length === 0 && <p className="p-3 text-xs text-slate-400">ยังไม่ได้กำหนดตัวชี้วัดไว้ในข้อเสนอโครงการ</p>}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange([...rows, emptyIndicatorResult()])}
+        className="btn-secondary btn-sm mt-2"
+      >
+        {addLabel}
+      </button>
+    </div>
+  );
 }
 
 function ListField({
@@ -77,6 +153,8 @@ export function ProjectReportForm({
   const [budgetApproved, setBudgetApproved] = useState("");
   const [budgetUsed, setBudgetUsed] = useState("");
   const [responsibleName, setResponsibleName] = useState("");
+  const [indicatorResultsQuantity, setIndicatorResultsQuantity] = useState<IndicatorResult[]>([]);
+  const [indicatorResultsQuality, setIndicatorResultsQuality] = useState<IndicatorResult[]>([]);
   const photoUploadRef = useRef<ProjectReportPhotoUploadHandle>(null);
 
   const budgetRemaining = useMemo(() => {
@@ -93,6 +171,14 @@ export function ProjectReportForm({
     const project = projects.find((p) => p.id === id);
     if (project?.budget != null) setBudgetApproved(String(project.budget));
     if (project?.responsible && project.responsible.length > 0) setResponsibleName(project.responsible.join(", "));
+    setIndicatorResultsQuantity(
+      project && project.indicatorsQuantity.length > 0
+        ? project.indicatorsQuantity.map((t) => ({ ...t, actual: "" }))
+        : [],
+    );
+    setIndicatorResultsQuality(
+      project && project.indicatorsQuality.length > 0 ? project.indicatorsQuality.map((t) => ({ ...t, actual: "" })) : [],
+    );
   }
 
   async function handleSubmit(formData: FormData) {
@@ -104,6 +190,14 @@ export function ProjectReportForm({
       formData.set("problems_json", JSON.stringify(problems));
       formData.set("recommendations_json", JSON.stringify(recommendations));
       formData.set("photo_refs_json", JSON.stringify(photoRefs ?? []));
+      formData.set(
+        "indicator_results_quantity_json",
+        JSON.stringify(indicatorResultsQuantity.filter((r) => r.indicator.trim() !== "")),
+      );
+      formData.set(
+        "indicator_results_quality_json",
+        JSON.stringify(indicatorResultsQuality.filter((r) => r.indicator.trim() !== "")),
+      );
       await action(formData);
       await toastSuccess("บันทึกรายงานโครงการเรียบร้อยแล้ว");
       setProjectId("");
@@ -115,6 +209,8 @@ export function ProjectReportForm({
       setBudgetApproved("");
       setBudgetUsed("");
       setResponsibleName("");
+      setIndicatorResultsQuantity([]);
+      setIndicatorResultsQuality([]);
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -213,25 +309,18 @@ export function ProjectReportForm({
             onChange={setActivitiesDone}
             addLabel="+ เพิ่มรายการ"
           />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="label">เชิงปริมาณ: เป้าหมาย</label>
-              <input name="quantity_goal" className="input" placeholder="เช่น ผู้เข้าร่วม 50 คน" />
-            </div>
-            <div>
-              <label className="label">เชิงปริมาณ: ผลที่ทำได้จริง</label>
-              <input name="quantity_actual" className="input" placeholder="เช่น ผู้เข้าร่วม 52 คน (104%)" />
-            </div>
-          </div>
-          <div>
-            <label className="label">เชิงคุณภาพ</label>
-            <textarea
-              name="quality_result"
-              rows={2}
-              className="input"
-              placeholder="ผู้เข้าร่วมได้รับความรู้อะไรบ้าง หรือเกิดการเปลี่ยนแปลงอย่างไร"
-            />
-          </div>
+          <IndicatorResultList
+            label="ตัวชี้วัดเชิงปริมาณ"
+            rows={indicatorResultsQuantity}
+            onChange={setIndicatorResultsQuantity}
+            addLabel="+ เพิ่มตัวชี้วัดเชิงปริมาณ"
+          />
+          <IndicatorResultList
+            label="ตัวชี้วัดเชิงคุณภาพ"
+            rows={indicatorResultsQuality}
+            onChange={setIndicatorResultsQuality}
+            addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
+          />
           <div className="sm:w-56">
             <label className="label">ผลการประเมินความพึงพอใจ (ร้อยละ)</label>
             <input type="number" step="0.01" name="satisfaction_percent" className="input" placeholder="0.00" />
