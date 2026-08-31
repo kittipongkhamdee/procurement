@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ProjectReportPhotoUpload, type ProjectReportPhotoUploadHandle } from "@/components/project-report-photo-upload";
 
@@ -164,6 +164,15 @@ export function ProjectReportForm({
   const [indicatorResultsQuantity, setIndicatorResultsQuantity] = useState<IndicatorResult[]>([]);
   const [indicatorResultsQuality, setIndicatorResultsQuality] = useState<IndicatorResult[]>([]);
   const photoUploadRef = useRef<ProjectReportPhotoUploadHandle>(null);
+  const backgroundRef = useRef<HTMLTextAreaElement>(null);
+
+  // ขยายกล่อง "ความเป็นมา" ตามความยาวเนื้อหาอัตโนมัติ เพราะข้อความที่ AI สรุปมาให้มักยาวเกินกรอบเดิม
+  useEffect(() => {
+    const el = backgroundRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [background]);
 
   const budgetRemaining = useMemo(() => {
     const approved = parseFloat(budgetApproved);
@@ -324,11 +333,12 @@ export function ProjectReportForm({
               )}
             </div>
             <textarea
+              ref={backgroundRef}
               name="background"
               rows={3}
               value={background}
               onChange={(e) => setBackground(e.target.value)}
-              className="input"
+              className="input resize-none overflow-hidden"
             />
           </div>
           <div>
