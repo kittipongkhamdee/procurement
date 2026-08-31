@@ -131,7 +131,7 @@ function IndicatorTable({ heading, rows }: { heading: string; rows: IndicatorRes
         <View style={styles.indicatorHeaderRow}>
           <Text style={[styles.indicatorCellIndicator, { fontWeight: "bold" }]}>{t("ตัวชี้วัด")}</Text>
           <Text style={[styles.indicatorCellTarget, { fontWeight: "bold" }]}>{t("ค่าเป้าหมาย")}</Text>
-          <Text style={[styles.indicatorCellActual, { fontWeight: "bold" }]}>{t("ผลที่ทำได้จริง")}</Text>
+          <Text style={[styles.indicatorCellActual, { fontWeight: "bold" }]}>{t("ผลการดำเนินงาน")}</Text>
         </View>
         {rows.map((row, i) => (
           <View style={styles.indicatorRow} key={i}>
