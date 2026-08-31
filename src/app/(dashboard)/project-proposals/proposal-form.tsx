@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
@@ -90,6 +90,19 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
+function FieldError({ show, message }: { show: boolean; message: string }) {
+  if (!show) return null;
+  return <p className="mt-1 text-xs font-medium text-red-600">{message}</p>;
+}
+
+// เฉพาะฟิลด์ที่เบราว์เซอร์ไม่รองรับ required แบบ native (ไฟล์แนบ, รายชื่อผู้รับผิดชอบ,
+// ตัวชี้วัด — เป็น hidden input หรือรายการหลายแถวที่ native required ใช้ไม่ได้ตรงๆ)
+// ส่วนช่องอื่น (select/text/number) ใช้ required native ของเบราว์เซอร์ ซึ่งเบราว์เซอร์เลื่อน
+// และแสดง tooltip ชี้ตำแหน่งให้เองอยู่แล้ว
+type FieldKey = "file_url_word" | "file_url_pdf" | "responsible" | "indicators_quantity" | "indicators_quality";
+
+const FIELD_ORDER: FieldKey[] = ["file_url_word", "file_url_pdf", "responsible", "indicators_quantity", "indicators_quality"];
+
 export type ProposalFormInitial = {
   name: string;
   standard: string | null;
@@ -143,6 +156,28 @@ export function ProposalForm({
   const [indicatorsQuality, setIndicatorsQuality] = useState<IndicatorRow[]>(
     initial?.indicatorsQuality ?? [emptyIndicator()],
   );
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldKey, boolean>>>({});
+
+  const fileWordRef = useRef<HTMLDivElement>(null);
+  const filePdfRef = useRef<HTMLDivElement>(null);
+  const responsibleRef = useRef<HTMLDivElement>(null);
+  const indicatorsQuantityRef = useRef<HTMLDivElement>(null);
+  const indicatorsQualityRef = useRef<HTMLDivElement>(null);
+
+  function refFor(key: FieldKey) {
+    switch (key) {
+      case "file_url_word":
+        return fileWordRef;
+      case "file_url_pdf":
+        return filePdfRef;
+      case "responsible":
+        return responsibleRef;
+      case "indicators_quantity":
+        return indicatorsQuantityRef;
+      case "indicators_quality":
+        return indicatorsQualityRef;
+    }
+  }
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -161,11 +196,34 @@ export function ProposalForm({
     [activities],
   );
 
+  function validate(formData: FormData): Partial<Record<FieldKey, boolean>> {
+    const errors: Partial<Record<FieldKey, boolean>> = {};
+    if (!String(formData.get("file_url_word") ?? "").trim()) errors.file_url_word = true;
+    if (!String(formData.get("file_url_pdf") ?? "").trim()) errors.file_url_pdf = true;
+    if (responsible.length === 0) errors.responsible = true;
+    if (!indicatorsQuantity.some((r) => r.indicator.trim() !== "" && r.target.trim() !== ""))
+      errors.indicators_quantity = true;
+    if (!indicatorsQuality.some((r) => r.indicator.trim() !== "" && r.target.trim() !== ""))
+      errors.indicators_quality = true;
+    return errors;
+  }
+
   async function handleSubmit(formData: FormData) {
     formData.set("has_activities", hasActivities ? "yes" : "no");
     formData.set("activities_json", JSON.stringify(hasActivities ? activities : []));
     formData.set("indicators_quantity_json", JSON.stringify(indicatorsQuantity.filter((r) => r.indicator.trim() !== "")));
     formData.set("indicators_quality_json", JSON.stringify(indicatorsQuality.filter((r) => r.indicator.trim() !== "")));
+
+    const errors = validate(formData);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstKey = FIELD_ORDER.find((k) => errors[k]);
+      if (firstKey) refFor(firstKey).current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      await toastError("กรุณากรอกข้อมูลให้ครบถ้วนตามที่ระบุ (จุดที่มีกรอบสีแดง)");
+      return;
+    }
+    setFieldErrors({});
+
     try {
       await action(formData);
       await toastSuccess(successMessage);
@@ -183,18 +241,24 @@ export function ProposalForm({
         <div className="grid grid-cols-1 gap-3">
           <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <ProposalFileUpload
-                name="file_url_word"
-                label="ไฟล์โครงการ Word (.doc, .docx)"
-                accept=".doc,.docx"
-                initialPath={initial?.fileUrlWordPath}
-              />
-              <ProposalFileUpload
-                name="file_url_pdf"
-                label="ไฟล์โครงการ PDF (.pdf)"
-                accept=".pdf"
-                initialPath={initial?.fileUrlPdfPath}
-              />
+              <div ref={fileWordRef} className={fieldErrors.file_url_word ? "rounded-xl ring-2 ring-red-400" : ""}>
+                <ProposalFileUpload
+                  name="file_url_word"
+                  label="ไฟล์โครงการ Word (.doc, .docx)"
+                  accept=".doc,.docx"
+                  initialPath={initial?.fileUrlWordPath}
+                />
+                <FieldError show={!!fieldErrors.file_url_word} message="กรุณาแนบไฟล์โครงการ Word" />
+              </div>
+              <div ref={filePdfRef} className={fieldErrors.file_url_pdf ? "rounded-xl ring-2 ring-red-400" : ""}>
+                <ProposalFileUpload
+                  name="file_url_pdf"
+                  label="ไฟล์โครงการ PDF (.pdf)"
+                  accept=".pdf"
+                  initialPath={initial?.fileUrlPdfPath}
+                />
+                <FieldError show={!!fieldErrors.file_url_pdf} message="กรุณาแนบไฟล์โครงการ PDF" />
+              </div>
             </div>
           </div>
           <div>
@@ -212,11 +276,14 @@ export function ProposalForm({
               <label className="label">สนองกลยุทธ์โรงเรียน</label>
               <select
                 name="strategy_alignment"
+                required
                 value={strategyAlignment}
                 onChange={(e) => setStrategyAlignment(e.target.value)}
                 className="input"
               >
-                <option value="">ไม่ระบุ</option>
+                <option value="" disabled>
+                  เลือกกลยุทธ์..
+                </option>
                 {strategies.map((s) => (
                   <option key={s.id} value={s.name}>
                     {s.name}
@@ -228,11 +295,14 @@ export function ProposalForm({
               <label className="label">สอดคล้องกับมาตรฐานการศึกษาของสถานศึกษา</label>
               <select
                 name="standard"
+                required
                 value={standard}
                 onChange={(e) => setStandard(e.target.value)}
                 className="input"
               >
-                <option value="">ไม่ระบุ</option>
+                <option value="" disabled>
+                  เลือกมาตรฐาน..
+                </option>
                 {standards.map((s) => (
                   <option key={s.id} value={s.name}>
                     {s.name}
@@ -254,12 +324,13 @@ export function ProposalForm({
               ))}
             </select>
           </div>
-          <div>
+          <div ref={responsibleRef} className={fieldErrors.responsible ? "rounded-xl ring-2 ring-red-400 p-1" : ""}>
             <label className="label">ผู้รับผิดชอบโครงการ</label>
             <TeacherMultiSelect teachers={teachers} value={responsible} onChange={setResponsible} />
             {responsible.map((n) => (
               <input key={n} type="hidden" name="responsible" value={n} />
             ))}
+            <FieldError show={!!fieldErrors.responsible} message="กรุณาเลือกผู้รับผิดชอบโครงการอย่างน้อย 1 คน" />
           </div>
         </div>
       </div>
@@ -268,8 +339,10 @@ export function ProposalForm({
         <div className="card-title">ขั้นตอนการดำเนินงาน และงบประมาณ</div>
         <div className="mb-3 w-full sm:w-56">
           <label className="label">แหล่งเงินงบประมาณ</label>
-          <select name="budget_source_id" defaultValue={initial?.budgetSourceId ?? ""} className="input">
-            <option value="">ไม่ระบุ</option>
+          <select name="budget_source_id" required defaultValue={initial?.budgetSourceId ?? ""} className="input">
+            <option value="" disabled>
+              เลือกแหล่งเงินงบประมาณ..
+            </option>
             {budgetSources.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -369,6 +442,7 @@ export function ProposalForm({
               type="number"
               step="0.01"
               name="project_budget"
+              required
               value={projectBudget}
               onChange={(e) => setProjectBudget(e.target.value)}
               className="input"
@@ -381,18 +455,36 @@ export function ProposalForm({
       <div className="border-t border-slate-100 pt-4">
         <div className="card-title">ตัวชี้วัดและเป้าหมายความสำเร็จ</div>
         <div className="grid grid-cols-1 gap-4">
-          <IndicatorList
-            label="เชิงปริมาณ"
-            rows={indicatorsQuantity}
-            onChange={setIndicatorsQuantity}
-            addLabel="+ เพิ่มตัวชี้วัดเชิงปริมาณ"
-          />
-          <IndicatorList
-            label="เชิงคุณภาพ"
-            rows={indicatorsQuality}
-            onChange={setIndicatorsQuality}
-            addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
-          />
+          <div
+            ref={indicatorsQuantityRef}
+            className={fieldErrors.indicators_quantity ? "rounded-xl ring-2 ring-red-400 p-1" : ""}
+          >
+            <IndicatorList
+              label="เชิงปริมาณ"
+              rows={indicatorsQuantity}
+              onChange={setIndicatorsQuantity}
+              addLabel="+ เพิ่มตัวชี้วัดเชิงปริมาณ"
+            />
+            <FieldError
+              show={!!fieldErrors.indicators_quantity}
+              message="กรุณากรอกตัวชี้วัดเชิงปริมาณอย่างน้อย 1 รายการ (ทั้งตัวชี้วัดและค่าเป้าหมาย)"
+            />
+          </div>
+          <div
+            ref={indicatorsQualityRef}
+            className={fieldErrors.indicators_quality ? "rounded-xl ring-2 ring-red-400 p-1" : ""}
+          >
+            <IndicatorList
+              label="เชิงคุณภาพ"
+              rows={indicatorsQuality}
+              onChange={setIndicatorsQuality}
+              addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
+            />
+            <FieldError
+              show={!!fieldErrors.indicators_quality}
+              message="กรุณากรอกตัวชี้วัดเชิงคุณภาพอย่างน้อย 1 รายการ (ทั้งตัวชี้วัดและค่าเป้าหมาย)"
+            />
+          </div>
         </div>
       </div>
 
