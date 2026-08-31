@@ -1,4 +1,11 @@
-import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  Image,
+  StyleSheet,
+} from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
 import { registerSarabunFont, t, wrapText } from "./thai-pdf";
 
@@ -13,7 +20,12 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: "center" },
   title: { fontSize: 16, fontWeight: "bold", marginBottom: 2 },
-  subtitle: { fontSize: 13, fontWeight: "bold", marginTop: 14, marginBottom: 6 },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: "bold",
+    marginTop: 14,
+    marginBottom: 6,
+  },
   subheading: { fontWeight: "bold", marginTop: 4, marginBottom: 2 },
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: "bold", width: 130 },
@@ -43,7 +55,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#111827",
   },
-  indicatorTable: { marginTop: 4, marginBottom: 8, borderWidth: 1, borderColor: "#111827" },
+  indicatorTable: {
+    marginTop: 4,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#111827",
+  },
   indicatorHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   indicatorRow: { flexDirection: "row" },
   indicatorCellIndicator: {
@@ -101,7 +118,9 @@ function Bullets({ items }: { items: string[] }) {
       {items.map((item, i) =>
         wrapText(item).map((line, j) => (
           <View style={styles.bulletRow} key={`${i}-${j}`}>
-            <Text style={styles.bulletMark}>{j === 0 ? t(`${i + 1}.`) : ""}</Text>
+            <Text style={styles.bulletMark}>
+              {j === 0 ? t(`${i + 1}.`) : ""}
+            </Text>
             <Text style={styles.bulletText}>{t(line)}</Text>
           </View>
         )),
@@ -110,7 +129,13 @@ function Bullets({ items }: { items: string[] }) {
   );
 }
 
-function BulletSection({ heading, items }: { heading: string; items: string[] }) {
+function BulletSection({
+  heading,
+  items,
+}: {
+  heading: string;
+  items: string[];
+}) {
   if (items.length === 0) return null;
   return (
     <>
@@ -120,24 +145,46 @@ function BulletSection({ heading, items }: { heading: string; items: string[] })
   );
 }
 
-export type IndicatorResult = { indicator: string; target: string; actual: string };
+export type IndicatorResult = {
+  indicator: string;
+  target: string;
+  actual: string;
+};
 
-function IndicatorTable({ heading, rows }: { heading: string; rows: IndicatorResult[] }) {
+function IndicatorTable({
+  heading,
+  rows,
+}: {
+  heading: string;
+  rows: IndicatorResult[];
+}) {
   if (rows.length === 0) return null;
   return (
     <>
       <Text style={styles.subheading}>{t(heading)}</Text>
       <View style={styles.indicatorTable}>
         <View style={styles.indicatorHeaderRow}>
-          <Text style={[styles.indicatorCellIndicator, { fontWeight: "bold" }]}>{t("ตัวชี้วัด")}</Text>
-          <Text style={[styles.indicatorCellTarget, { fontWeight: "bold" }]}>{t("ค่าเป้าหมาย")}</Text>
-          <Text style={[styles.indicatorCellActual, { fontWeight: "bold" }]}>{t("ผลการดำเนินงาน")}</Text>
+          <Text style={[styles.indicatorCellIndicator, { fontWeight: "bold" }]}>
+            {t("ตัวชี้วัด")}
+          </Text>
+          <Text style={[styles.indicatorCellTarget, { fontWeight: "bold" }]}>
+            {t("ค่าเป้าหมาย")}
+          </Text>
+          <Text style={[styles.indicatorCellActual, { fontWeight: "bold" }]}>
+            {t("ผลการดำเนินงาน")}
+          </Text>
         </View>
         {rows.map((row, i) => (
           <View style={styles.indicatorRow} key={i}>
-            <Text style={styles.indicatorCellIndicator}>{t(row.indicator)}</Text>
-            <Text style={styles.indicatorCellTarget}>{t(row.target || "-")}</Text>
-            <Text style={styles.indicatorCellActual}>{t(row.actual || "-")}</Text>
+            <Text style={styles.indicatorCellIndicator}>
+              {t(row.indicator)}
+            </Text>
+            <Text style={styles.indicatorCellTarget}>
+              {t(row.target || "-")}
+            </Text>
+            <Text style={styles.indicatorCellActual}>
+              {t(row.actual || "-")}
+            </Text>
           </View>
         ))}
       </View>
@@ -149,6 +196,8 @@ export type ProjectReportPhoto = { data: Buffer; format: "png" | "jpg" };
 
 export type ProjectReportPdfData = {
   project_name: string | null;
+  not_implemented: boolean;
+  not_implemented_reason: string | null;
   strategy_alignment: string | null;
   standard: string | null;
   responsible_name: string | null;
@@ -169,9 +218,15 @@ export type ProjectReportPdfData = {
   photos: ProjectReportPhoto[];
 };
 
-export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) {
+export function ProjectReportDocument({
+  data,
+}: {
+  data: ProjectReportPdfData;
+}) {
   const budgetRemaining =
-    data.budget_approved != null && data.budget_used != null ? data.budget_approved - data.budget_used : null;
+    data.budget_approved != null && data.budget_used != null
+      ? data.budget_approved - data.budget_used
+      : null;
 
   return (
     <Document>
@@ -219,57 +274,111 @@ export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) 
           <Text style={styles.value}>{t(data.location)}</Text>
         </View>
 
-        <Text style={styles.subtitle}>{t("2. หลักการและวัตถุประสงค์")}</Text>
-        {data.background && <Paragraph text={`ความเป็นมา: ${data.background}`} />}
-        {data.objectives.length > 0 && (
+        {data.not_implemented ? (
           <>
-            <Text style={{ marginTop: 2, marginBottom: 2 }}>{t("วัตถุประสงค์")}</Text>
-            <Bullets items={data.objectives} />
+            <Text style={styles.subtitle}>{t("ผลการดำเนินงาน")}</Text>
+            <Paragraph text="ไม่ได้ดำเนินการโครงการนี้" />
+            {data.not_implemented_reason && (
+              <Paragraph text={`เหตุผล: ${data.not_implemented_reason}`} />
+            )}
           </>
-        )}
-
-        <Text style={styles.subtitle}>{t("3. ผลการดำเนินงานโครงการ")}</Text>
-        <BulletSection heading="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง" items={data.activities_done} />
-        <IndicatorTable heading="ตัวชี้วัดเชิงปริมาณ" rows={data.indicator_results_quantity} />
-        <IndicatorTable heading="ตัวชี้วัดเชิงคุณภาพ" rows={data.indicator_results_quality} />
-        {data.satisfaction_percent != null && (
-          <Paragraph text={`ผลการประเมินความพึงพอใจ: ร้อยละ ${data.satisfaction_percent}`} />
-        )}
-        <View style={styles.budgetTable}>
-          <View style={styles.budgetRow}>
-            <Text style={styles.budgetLabel}>{t("งบประมาณที่ได้รับอนุมัติ")}</Text>
-            <Text style={styles.budgetValue}>
-              {data.budget_approved != null ? `${formatBaht(data.budget_approved)} บาท` : "-"}
-            </Text>
-          </View>
-          <View style={styles.budgetRow}>
-            <Text style={styles.budgetLabel}>{t("งบประมาณที่ใช้ไปจริง")}</Text>
-            <Text style={styles.budgetValue}>{data.budget_used != null ? `${formatBaht(data.budget_used)} บาท` : "-"}</Text>
-          </View>
-          <View style={[styles.budgetRow, { borderBottomWidth: 0 }]}>
-            <Text style={[styles.budgetLabel, { fontWeight: "bold" }]}>{t("คงเหลือ")}</Text>
-            <Text style={[styles.budgetValue, { fontWeight: "bold" }]}>
-              {budgetRemaining != null ? `${formatBaht(budgetRemaining)} บาท` : "-"}
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.subtitle}>{t("4. สรุปภาพรวมและข้อเสนอแนะ")}</Text>
-        <BulletSection heading="จุดเด่น / ประสบความสำเร็จ" items={data.highlights} />
-        <BulletSection heading="ปัญหาและอุปสรรค" items={data.problems} />
-        <BulletSection heading="ข้อเสนอแนะในการปรับปรุงครั้งต่อไป" items={data.recommendations} />
-
-        {data.photos.length > 0 && (
+        ) : (
           <>
-            <Text style={styles.subtitle}>{t("5. ภาพถ่ายกิจกรรม")}</Text>
-            <View style={styles.photoGrid}>
-              {data.photos.map((photo, i) => (
-                <View style={styles.photoCell} key={i}>
-                  {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is a PDF node, not an HTML <img> */}
-                  <Image style={styles.photoImage} src={{ data: photo.data, format: photo.format }} />
-                </View>
-              ))}
+            <Text style={styles.subtitle}>
+              {t("2. หลักการและวัตถุประสงค์")}
+            </Text>
+            {data.background && (
+              <Paragraph text={`ความเป็นมา: ${data.background}`} />
+            )}
+            {data.objectives.length > 0 && (
+              <>
+                <Text style={{ marginTop: 2, marginBottom: 2 }}>
+                  {t("วัตถุประสงค์")}
+                </Text>
+                <Bullets items={data.objectives} />
+              </>
+            )}
+
+            <Text style={styles.subtitle}>{t("3. ผลการดำเนินงานโครงการ")}</Text>
+            <BulletSection
+              heading="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง"
+              items={data.activities_done}
+            />
+            <IndicatorTable
+              heading="ตัวชี้วัดเชิงปริมาณ"
+              rows={data.indicator_results_quantity}
+            />
+            <IndicatorTable
+              heading="ตัวชี้วัดเชิงคุณภาพ"
+              rows={data.indicator_results_quality}
+            />
+            {data.satisfaction_percent != null && (
+              <Paragraph
+                text={`ผลการประเมินความพึงพอใจ: ร้อยละ ${data.satisfaction_percent}`}
+              />
+            )}
+            <View style={styles.budgetTable}>
+              <View style={styles.budgetRow}>
+                <Text style={styles.budgetLabel}>
+                  {t("งบประมาณที่ได้รับอนุมัติ")}
+                </Text>
+                <Text style={styles.budgetValue}>
+                  {data.budget_approved != null
+                    ? `${formatBaht(data.budget_approved)} บาท`
+                    : "-"}
+                </Text>
+              </View>
+              <View style={styles.budgetRow}>
+                <Text style={styles.budgetLabel}>
+                  {t("งบประมาณที่ใช้ไปจริง")}
+                </Text>
+                <Text style={styles.budgetValue}>
+                  {data.budget_used != null
+                    ? `${formatBaht(data.budget_used)} บาท`
+                    : "-"}
+                </Text>
+              </View>
+              <View style={[styles.budgetRow, { borderBottomWidth: 0 }]}>
+                <Text style={[styles.budgetLabel, { fontWeight: "bold" }]}>
+                  {t("คงเหลือ")}
+                </Text>
+                <Text style={[styles.budgetValue, { fontWeight: "bold" }]}>
+                  {budgetRemaining != null
+                    ? `${formatBaht(budgetRemaining)} บาท`
+                    : "-"}
+                </Text>
+              </View>
             </View>
+
+            <Text style={styles.subtitle}>
+              {t("4. สรุปภาพรวมและข้อเสนอแนะ")}
+            </Text>
+            <BulletSection
+              heading="จุดเด่น / ประสบความสำเร็จ"
+              items={data.highlights}
+            />
+            <BulletSection heading="ปัญหาและอุปสรรค" items={data.problems} />
+            <BulletSection
+              heading="ข้อเสนอแนะในการปรับปรุงครั้งต่อไป"
+              items={data.recommendations}
+            />
+
+            {data.photos.length > 0 && (
+              <>
+                <Text style={styles.subtitle}>{t("5. ภาพถ่ายกิจกรรม")}</Text>
+                <View style={styles.photoGrid}>
+                  {data.photos.map((photo, i) => (
+                    <View style={styles.photoCell} key={i}>
+                      {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is a PDF node, not an HTML <img> */}
+                      <Image
+                        style={styles.photoImage}
+                        src={{ data: photo.data, format: photo.format }}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
           </>
         )}
       </Page>

@@ -52,9 +52,16 @@ export async function createProjectReport(formData: FormData) {
   const projectId = String(formData.get("project_id") ?? "");
   if (!projectId) throw new Error("กรุณาเลือกโครงการ");
 
+  const notImplemented = formData.get("not_implemented") === "on";
+  if (notImplemented && !str(formData, "not_implemented_reason")) {
+    throw new Error("กรุณากรอกเหตุผลที่ไม่ได้ดำเนินการ");
+  }
+
   const { error } = await supabase.from("proc_project_reports").insert({
     project_id: projectId,
     uploaded_by: user?.id ?? null,
+    not_implemented: notImplemented,
+    not_implemented_reason: notImplemented ? str(formData, "not_implemented_reason") : null,
     responsible_name: str(formData, "responsible_name"),
     period_start: str(formData, "period_start"),
     period_end: str(formData, "period_end"),

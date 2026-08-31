@@ -1243,6 +1243,8 @@ export type Database = {
           indicator_results_quality: Json
           indicator_results_quantity: Json
           location: string | null
+          not_implemented: boolean
+          not_implemented_reason: string | null
           objectives: Json
           period_end: string | null
           period_start: string | null
@@ -1266,6 +1268,8 @@ export type Database = {
           indicator_results_quality?: Json
           indicator_results_quantity?: Json
           location?: string | null
+          not_implemented?: boolean
+          not_implemented_reason?: string | null
           objectives?: Json
           period_end?: string | null
           period_start?: string | null
@@ -1289,6 +1293,8 @@ export type Database = {
           indicator_results_quality?: Json
           indicator_results_quantity?: Json
           location?: string | null
+          not_implemented?: boolean
+          not_implemented_reason?: string | null
           objectives?: Json
           period_end?: string | null
           period_start?: string | null
