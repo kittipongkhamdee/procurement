@@ -31,6 +31,7 @@ export function TeacherMultiSelect({
   const selected = isControlled ? value! : internal;
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -47,8 +48,12 @@ export function TeacherMultiSelect({
 
   // ใช้ portal + fixed positioning แทน absolute เดิม เพราะ dropdown อยู่ใน modal ที่มี overflow-y-auto
   // ซึ่งตัด absolute dropdown ที่โผล่พ้นขอบล่างของ modal ทิ้ง ทำให้ตัวเลือกโดนบัง/มองไม่เห็น
+  // ต้อง portal เข้าไปใน <dialog> เอง (ไม่ใช่ document.body ตรงๆ) เพราะ dialog ที่เปิดด้วย showModal()
+  // ถูกเบราว์เซอร์เลื่อนขึ้น "top layer" ให้ลอยเหนือทุกอย่างเสมอ — ถ้า portal ไป document.body เฉยๆ
+  // dropdown จะกลายเป็นสิ่งที่อยู่นอก top layer แล้วโดน dialog บังทับจนมองไม่เห็นเลย (z-index ช่วยไม่ได้)
   useLayoutEffect(() => {
     if (!open) return;
+    setPortalTarget(wrapperRef.current?.closest("dialog") ?? document.body);
     function updatePosition() {
       const btn = buttonRef.current;
       if (!btn) return;
@@ -103,6 +108,7 @@ export function TeacherMultiSelect({
       </button>
       {open &&
         coords &&
+        portalTarget &&
         createPortal(
           <div
             ref={panelRef}
@@ -133,7 +139,7 @@ export function TeacherMultiSelect({
               <p className="px-2 py-1.5 text-xs text-slate-400">ยังไม่มีรายชื่อครู (เพิ่มได้ที่หน้าตั้งค่าระบบ)</p>
             )}
           </div>,
-          document.body,
+          portalTarget,
         )}
     </div>
   );
