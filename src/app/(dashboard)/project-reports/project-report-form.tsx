@@ -1,12 +1,57 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { ProjectReportPhotoUpload, type ProjectReportPhotoUploadHandle } from "@/components/project-report-photo-upload";
 
 type Project = { id: string; name: string; budget: number | null };
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
+}
+
+function ListField({
+  label,
+  placeholder,
+  values,
+  onChange,
+  addLabel,
+}: {
+  label: string;
+  placeholder: string;
+  values: string[];
+  onChange: (next: string[]) => void;
+  addLabel: string;
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div className="grid grid-cols-1 gap-2">
+        {values.map((v, i) => (
+          <div key={i} className="flex gap-2">
+            <input
+              value={v}
+              onChange={(e) => onChange(values.map((row, idx) => (idx === i ? e.target.value : row)))}
+              className="input"
+              placeholder={placeholder}
+            />
+            {values.length > 1 && (
+              <button
+                type="button"
+                onClick={() => onChange(values.filter((_, idx) => idx !== i))}
+                className="btn-danger btn-sm shrink-0"
+              >
+                ลบ
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button type="button" onClick={() => onChange([...values, ""])} className="btn-secondary btn-sm mt-2">
+        {addLabel}
+      </button>
+    </div>
+  );
 }
 
 export function ProjectReportForm({
@@ -18,8 +63,12 @@ export function ProjectReportForm({
 }) {
   const [projectId, setProjectId] = useState("");
   const [objectives, setObjectives] = useState<string[]>([""]);
+  const [highlights, setHighlights] = useState<string[]>([""]);
+  const [problems, setProblems] = useState<string[]>([""]);
+  const [recommendations, setRecommendations] = useState<string[]>([""]);
   const [budgetApproved, setBudgetApproved] = useState("");
   const [budgetUsed, setBudgetUsed] = useState("");
+  const photoUploadRef = useRef<ProjectReportPhotoUploadHandle>(null);
 
   const budgetRemaining = useMemo(() => {
     const approved = parseFloat(budgetApproved);
@@ -34,17 +83,21 @@ export function ProjectReportForm({
     if (project?.budget != null) setBudgetApproved(String(project.budget));
   }
 
-  function updateObjective(index: number, value: string) {
-    setObjectives((prev) => prev.map((o, i) => (i === index ? value : o)));
-  }
-
   async function handleSubmit(formData: FormData) {
-    formData.set("objectives_json", JSON.stringify(objectives));
     try {
+      const photoRefs = await photoUploadRef.current?.uploadAll();
+      formData.set("objectives_json", JSON.stringify(objectives));
+      formData.set("highlights_json", JSON.stringify(highlights));
+      formData.set("problems_json", JSON.stringify(problems));
+      formData.set("recommendations_json", JSON.stringify(recommendations));
+      formData.set("photo_refs_json", JSON.stringify(photoRefs ?? []));
       await action(formData);
       await toastSuccess("บันทึกรายงานโครงการเรียบร้อยแล้ว");
       setProjectId("");
       setObjectives([""]);
+      setHighlights([""]);
+      setProblems([""]);
+      setRecommendations([""]);
       setBudgetApproved("");
       setBudgetUsed("");
     } catch (err) {
@@ -100,37 +153,13 @@ export function ProjectReportForm({
             <label className="label">ความเป็นมา (สรุปเหตุผลที่จัดโครงการนี้)</label>
             <textarea name="background" rows={2} className="input" />
           </div>
-          <div>
-            <label className="label">วัตถุประสงค์</label>
-            <div className="grid grid-cols-1 gap-2">
-              {objectives.map((o, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    value={o}
-                    onChange={(e) => updateObjective(i, e.target.value)}
-                    className="input"
-                    placeholder={`เพื่อ...`}
-                  />
-                  {objectives.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setObjectives((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="btn-danger btn-sm shrink-0"
-                    >
-                      ลบ
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setObjectives((prev) => [...prev, ""])}
-              className="btn-secondary btn-sm mt-2"
-            >
-              + เพิ่มวัตถุประสงค์
-            </button>
-          </div>
+          <ListField
+            label="วัตถุประสงค์"
+            placeholder="เพื่อ..."
+            values={objectives}
+            onChange={setObjectives}
+            addLabel="+ เพิ่มวัตถุประสงค์"
+          />
         </div>
       </div>
 
@@ -197,28 +226,34 @@ export function ProjectReportForm({
 
       <div className="border-t border-slate-100 pt-4">
         <div className="card-title">4. สรุปภาพรวมและข้อเสนอแนะ</div>
-        <div className="grid grid-cols-1 gap-3">
-          <div>
-            <label className="label">จุดเด่น / ประสบความสำเร็จ</label>
-            <textarea name="highlights" rows={2} className="input" />
-          </div>
-          <div>
-            <label className="label">ปัญหาและอุปสรรค</label>
-            <textarea name="problems" rows={2} className="input" />
-          </div>
-          <div>
-            <label className="label">ข้อเสนอแนะในการปรับปรุงครั้งต่อไป</label>
-            <textarea name="recommendations" rows={2} className="input" />
-          </div>
+        <div className="grid grid-cols-1 gap-4">
+          <ListField
+            label="จุดเด่น / ประสบความสำเร็จ"
+            placeholder="สิ่งที่ทำได้ดีในโครงการนี้..."
+            values={highlights}
+            onChange={setHighlights}
+            addLabel="+ เพิ่มจุดเด่น"
+          />
+          <ListField
+            label="ปัญหาและอุปสรรค"
+            placeholder="ปัญหาที่เจอระหว่างดำเนินงาน..."
+            values={problems}
+            onChange={setProblems}
+            addLabel="+ เพิ่มปัญหา"
+          />
+          <ListField
+            label="ข้อเสนอแนะในการปรับปรุงครั้งต่อไป"
+            placeholder="แนวทางแก้ไขสำหรับปีหน้า..."
+            values={recommendations}
+            onChange={setRecommendations}
+            addLabel="+ เพิ่มข้อเสนอแนะ"
+          />
         </div>
       </div>
 
       <div className="border-t border-slate-100 pt-4">
-        <div className="card-title">5. ส่วนท้าย (ลงนาม)</div>
-        <div className="sm:w-72">
-          <label className="label">ชื่อผู้รายงาน</label>
-          <input name="reporter_name" className="input" placeholder="ชื่อ-นามสกุลผู้รายงาน" />
-        </div>
+        <div className="card-title">5. ภาพถ่ายกิจกรรม</div>
+        <ProjectReportPhotoUpload ref={photoUploadRef} />
       </div>
 
       <button type="submit" className="btn-primary mt-2">

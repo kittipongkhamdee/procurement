@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
 import { registerSarabunFont, t, wrapText } from "./thai-pdf";
 
@@ -14,6 +14,7 @@ const styles = StyleSheet.create({
   center: { textAlign: "center" },
   title: { fontSize: 16, fontWeight: "bold", marginBottom: 2 },
   subtitle: { fontSize: 13, fontWeight: "bold", marginTop: 14, marginBottom: 6 },
+  subheading: { fontWeight: "bold", marginTop: 4, marginBottom: 2 },
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: "bold", width: 130 },
   value: { flex: 1, paddingRight: 12 },
@@ -42,8 +43,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#111827",
   },
-  signBlock: { marginTop: 40, alignItems: "center", alignSelf: "flex-end", width: "50%" },
-  signLine: { marginBottom: 4 },
+  photoGrid: { marginTop: 4, flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  photoCell: {
+    width: "47%",
+    height: 190,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // objectFit: "contain" keeps the photo's original aspect ratio, fitting it inside the
+  // fixed cell without stretching or cropping — required since photos can be any shape.
+  photoImage: { width: "100%", height: "100%", objectFit: "contain" },
 });
 
 function Paragraph({ text }: { text: string }) {
@@ -73,6 +84,18 @@ function Bullets({ items }: { items: string[] }) {
   );
 }
 
+function BulletSection({ heading, items }: { heading: string; items: string[] }) {
+  if (items.length === 0) return null;
+  return (
+    <>
+      <Text style={styles.subheading}>{t(heading)}</Text>
+      <Bullets items={items} />
+    </>
+  );
+}
+
+export type ProjectReportPhoto = { data: Buffer; format: "png" | "jpg" };
+
 export type ProjectReportPdfData = {
   project_name: string | null;
   responsible_name: string | null;
@@ -86,10 +109,10 @@ export type ProjectReportPdfData = {
   satisfaction_percent: number | null;
   budget_approved: number | null;
   budget_used: number | null;
-  highlights: string | null;
-  problems: string | null;
-  recommendations: string | null;
-  reporter_name: string | null;
+  highlights: string[];
+  problems: string[];
+  recommendations: string[];
+  photos: ProjectReportPhoto[];
 };
 
 export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) {
@@ -165,16 +188,23 @@ export function ProjectReportDocument({ data }: { data: ProjectReportPdfData }) 
         </View>
 
         <Text style={styles.subtitle}>{t("4. สรุปภาพรวมและข้อเสนอแนะ")}</Text>
-        {data.highlights && <Paragraph text={`จุดเด่น/ประสบความสำเร็จ: ${data.highlights}`} />}
-        {data.problems && <Paragraph text={`ปัญหาและอุปสรรค: ${data.problems}`} />}
-        {data.recommendations && <Paragraph text={`ข้อเสนอแนะในการปรับปรุงครั้งต่อไป: ${data.recommendations}`} />}
+        <BulletSection heading="จุดเด่น / ประสบความสำเร็จ" items={data.highlights} />
+        <BulletSection heading="ปัญหาและอุปสรรค" items={data.problems} />
+        <BulletSection heading="ข้อเสนอแนะในการปรับปรุงครั้งต่อไป" items={data.recommendations} />
 
-        <Text style={styles.subtitle}>{t("5. ส่วนท้าย (ลงนาม)")}</Text>
-        <View style={styles.signBlock}>
-          <Text style={styles.signLine}>ลงชื่อ...........................................</Text>
-          <Text style={styles.signLine}>{t(`(${data.reporter_name ?? "..........................................."})`)}</Text>
-          <Text>{t("ผู้รายงาน")}</Text>
-        </View>
+        {data.photos.length > 0 && (
+          <>
+            <Text style={styles.subtitle}>{t("5. ภาพถ่ายกิจกรรม")}</Text>
+            <View style={styles.photoGrid}>
+              {data.photos.map((photo, i) => (
+                <View style={styles.photoCell} key={i}>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is a PDF node, not an HTML <img> */}
+                  <Image style={styles.photoImage} src={{ data: photo.data, format: photo.format }} />
+                </View>
+              ))}
+            </View>
+          </>
+        )}
       </Page>
     </Document>
   );

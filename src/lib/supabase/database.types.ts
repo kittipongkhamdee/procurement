@@ -1228,18 +1228,18 @@ export type Database = {
           budget_used: number | null
           created_at: string
           file_url: string | null
-          highlights: string | null
+          highlights: Json
           id: string
           objectives: Json
           period_end: string | null
           period_start: string | null
-          problems: string | null
+          photo_refs: Json
+          problems: Json
           project_id: string | null
           quality_result: string | null
           quantity_actual: string | null
           quantity_goal: string | null
-          recommendations: string | null
-          reporter_name: string | null
+          recommendations: Json
           responsible_name: string | null
           satisfaction_percent: number | null
           uploaded_by: string | null
@@ -1250,18 +1250,18 @@ export type Database = {
           budget_used?: number | null
           created_at?: string
           file_url?: string | null
-          highlights?: string | null
+          highlights?: Json
           id?: string
           objectives?: Json
           period_end?: string | null
           period_start?: string | null
-          problems?: string | null
+          photo_refs?: Json
+          problems?: Json
           project_id?: string | null
           quality_result?: string | null
           quantity_actual?: string | null
           quantity_goal?: string | null
-          recommendations?: string | null
-          reporter_name?: string | null
+          recommendations?: Json
           responsible_name?: string | null
           satisfaction_percent?: number | null
           uploaded_by?: string | null
@@ -1272,18 +1272,18 @@ export type Database = {
           budget_used?: number | null
           created_at?: string
           file_url?: string | null
-          highlights?: string | null
+          highlights?: Json
           id?: string
           objectives?: Json
           period_end?: string | null
           period_start?: string | null
-          problems?: string | null
+          photo_refs?: Json
+          problems?: Json
           project_id?: string | null
           quality_result?: string | null
           quantity_actual?: string | null
           quantity_goal?: string | null
-          recommendations?: string | null
-          reporter_name?: string | null
+          recommendations?: Json
           responsible_name?: string | null
           satisfaction_percent?: number | null
           uploaded_by?: string | null
