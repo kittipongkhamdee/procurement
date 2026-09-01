@@ -98,11 +98,6 @@ export default async function DashboardLayout({
     }
   }
 
-  const { count: pendingCount } = await supabase
-    .from("proc_project_disbursements")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending");
-
   const navSections = isAdmin ? [...NAV_SECTIONS, ADMIN_SECTION] : NAV_SECTIONS;
   const initial = displayName ? displayName.trim().charAt(0) : "?";
   const dateLabel = new Date().toLocaleDateString("th-TH", {
@@ -118,7 +113,6 @@ export default async function DashboardLayout({
       roleLabel={roleLabel}
       initial={initial}
       dateLabel={dateLabel}
-      pendingCount={pendingCount ?? 0}
       logoutAction={logout}
     >
       {children}

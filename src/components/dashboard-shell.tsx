@@ -34,7 +34,6 @@ export function DashboardShell({
   roleLabel,
   initial,
   dateLabel,
-  pendingCount,
   logoutAction,
   children,
 }: {
@@ -43,7 +42,6 @@ export function DashboardShell({
   roleLabel: string;
   initial: string;
   dateLabel: string;
-  pendingCount: number;
   logoutAction: (formData: FormData) => void | Promise<void>;
   children: ReactNode;
 }) {
@@ -198,15 +196,10 @@ export function DashboardShell({
 
           <Link
             href="/project-disbursements"
-            aria-label={`รายการรอเบิกจ่าย ${pendingCount} รายการ`}
+            aria-label="รายการเบิกจ่ายงบประมาณโครงการ"
             className="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-800"
           >
             <BellIcon className="h-5 w-5" />
-            {pendingCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                {pendingCount > 99 ? "99+" : pendingCount}
-              </span>
-            )}
           </Link>
 
           <div className="relative">
