@@ -1,0 +1,165 @@
+"use client";
+
+// Client Component ตามแพทเทิร์นเดียวกับ /projects — ดึงรายการแบบประเมิน + template ผ่าน browser
+// Supabase client, ครูเห็นเฉพาะแบบประเมินของตัวเอง (created_by = ตัวเอง) ส่วนแอดมินเห็นของทุกคน
+// และจัดการ template คำถามมาตรฐานได้เพิ่ม (ดู /root/.claude/plans)
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useAuth } from "@/lib/AuthContext";
+import { createClient } from "@/lib/supabase/client";
+import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { CreateFormModal } from "./create-form-modal";
+import { CreateTemplateModal } from "./create-template-modal";
+import { createForm, createTemplate } from "./actions";
+
+type Project = { id: string; name: string };
+type Template = { id: string; title: string; description: string | null };
+type FormRow = { id: string; title: string; status: string; project_name: string | null };
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "ฉบับร่าง",
+  published: "กำลังเปิดรับคำตอบ",
+  closed: "ปิดรับคำตอบแล้ว",
+};
+
+export default function EvaluationsPage() {
+  const { isAdmin, user, loading: authLoading } = useAuth();
+  const [forms, setForms] = useState<FormRow[] | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  const reload = useCallback(async () => {
+    const supabase = createClient();
+
+    const { data: templateData } = await supabase
+      .from("eval_forms")
+      .select("id, title, description")
+      .eq("is_template", true)
+      .order("created_at");
+    setTemplates(templateData ?? []);
+
+    const { data: projectData } = await supabase.from("plan_projects").select("id, name").order("sort_order");
+    setProjects(projectData ?? []);
+
+    let query = supabase
+      .from("eval_forms")
+      .select("id, title, status, plan_projects(name)")
+      .eq("is_template", false)
+      .order("created_at", { ascending: false });
+    if (!isAdmin) query = query.eq("created_by", user?.userId ?? "");
+    const { data: formData } = await query;
+    setForms(
+      (formData ?? []).map((f) => ({
+        id: f.id,
+        title: f.title,
+        status: f.status,
+        project_name: (f.plan_projects as unknown as { name: string } | null)?.name ?? null,
+      })),
+    );
+  }, [isAdmin, user?.userId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!authLoading) reload();
+  }, [authLoading, reload]);
+
+  if (forms === null) return <PageLoadingSkeleton />;
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">ประเมินความพึงพอใจ</h1>
+          <p className="page-subtitle">สร้างแบบประเมินความพึงพอใจโครงการ แจกลิงก์ให้ผู้ตอบโดยไม่ต้องล็อกอิน</p>
+        </div>
+        <CreateFormModal projects={projects} templates={templates} createForm={createForm} />
+      </div>
+
+      <div className="table-shell">
+        <table className="table-base">
+          <thead>
+            <tr>
+              <th>ชื่อแบบประเมิน</th>
+              <th>โครงการ</th>
+              <th>สถานะ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {forms.map((f) => (
+              <tr key={f.id}>
+                <td>
+                  <Link href={`/evaluations/${f.id}`} className="font-medium text-navy-800 hover:underline">
+                    {f.title}
+                  </Link>
+                </td>
+                <td>{f.project_name ?? "-"}</td>
+                <td>
+                  <span className={f.status === "published" ? "badge-emerald" : "badge-navy"}>
+                    {STATUS_LABELS[f.status] ?? f.status}
+                  </span>
+                </td>
+                <td className="text-right">
+                  <Link href={`/evaluations/${f.id}`} className="text-xs font-medium text-navy-800 hover:underline">
+                    ดูผลสรุป
+                  </Link>
+                </td>
+              </tr>
+            ))}
+            {forms.length === 0 && (
+              <tr>
+                <td colSpan={4} className="table-empty">
+                  ยังไม่มีแบบประเมิน
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {isAdmin && (
+        <div className="mt-8">
+          <div className="page-header">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Template คำถามมาตรฐาน</h2>
+              <p className="page-subtitle">ให้ครูเลือกใช้เป็นจุดเริ่มต้นตอนสร้างแบบประเมิน</p>
+            </div>
+            <CreateTemplateModal createTemplate={createTemplate} />
+          </div>
+          <div className="table-shell">
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th>ชื่อ Template</th>
+                  <th>คำอธิบาย</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {templates.map((t) => (
+                  <tr key={t.id}>
+                    <td>{t.title}</td>
+                    <td className="text-slate-500">{t.description ?? "-"}</td>
+                    <td className="text-right">
+                      <Link href={`/evaluations/${t.id}/edit`} className="text-xs font-medium text-navy-800 hover:underline">
+                        แก้ไข
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {templates.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="table-empty">
+                      ยังไม่มี template
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

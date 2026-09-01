@@ -300,6 +300,166 @@ export type Database = {
         }
         Relationships: []
       }
+      eval_answers: {
+        Row: {
+          answer_value: string
+          id: string
+          question_id: string
+          response_id: string
+        }
+        Insert: {
+          answer_value: string
+          id?: string
+          question_id: string
+          response_id: string
+        }
+        Update: {
+          answer_value?: string
+          id?: string
+          question_id?: string
+          response_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "eval_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_answers_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "eval_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eval_forms: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_template: boolean
+          project_id: string | null
+          status: string
+          template_source_id: string | null
+          title: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_template?: boolean
+          project_id?: string | null
+          status?: string
+          template_source_id?: string | null
+          title: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_template?: boolean
+          project_id?: string | null
+          status?: string
+          template_source_id?: string | null
+          title?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_forms_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eval_forms_template_source_id_fkey"
+            columns: ["template_source_id"]
+            isOneToOne: false
+            referencedRelation: "eval_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eval_questions: {
+        Row: {
+          created_at: string
+          form_id: string
+          id: string
+          options: Json | null
+          question_text: string
+          question_type: string
+          required: boolean
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          form_id: string
+          id?: string
+          options?: Json | null
+          question_text: string
+          question_type: string
+          required?: boolean
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          form_id?: string
+          id?: string
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+          required?: boolean
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_questions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "eval_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eval_responses: {
+        Row: {
+          form_id: string
+          id: string
+          submitted_at: string
+        }
+        Insert: {
+          form_id: string
+          id?: string
+          submitted_at?: string
+        }
+        Update: {
+          form_id?: string
+          id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "eval_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_activities: {
         Row: {
           budget: number
