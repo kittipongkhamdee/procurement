@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { toastSuccess } from "@/lib/swal";
 import { CreateFormModal } from "./create-form-modal";
 import { CreateTemplateModal } from "./create-template-modal";
 import { createForm, createTemplate } from "./actions";
@@ -16,6 +17,7 @@ import { createForm, createTemplate } from "./actions";
 type Project = { id: string; name: string };
 type Template = { id: string; title: string; description: string | null };
 type FormRow = { id: string; title: string; status: string; project_name: string | null };
+type BudgetYear = { id: string; year: number };
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "ฉบับร่าง",
@@ -28,9 +30,16 @@ export default function EvaluationsPage() {
   const [forms, setForms] = useState<FormRow[] | null>(null);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [currentYear, setCurrentYear] = useState<BudgetYear | null>(null);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
+
+    const { data: budgetYears } = await supabase
+      .from("plan_budget_years")
+      .select("id, year, is_open")
+      .order("year", { ascending: false });
+    setCurrentYear(budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null);
 
     const { data: templateData } = await supabase
       .from("eval_forms")
@@ -75,6 +84,32 @@ export default function EvaluationsPage() {
         </div>
         <CreateFormModal projects={projects} templates={templates} createForm={createForm} />
       </div>
+
+      {currentYear && (
+        <div className="card mb-6">
+          <div className="card-title">ลิงก์รวมแบบประเมิน ปีงบประมาณ {currentYear.year}</div>
+          <p className="mb-2 text-sm text-slate-500">
+            ลิงก์เดียวใช้ได้ตลอดปีงบประมาณ ผู้ตอบเลือกโครงการเองจากรายการแบบประเมินที่กำลังเปิดรับคำตอบ
+            (ข้ามขั้นตอนเลือกให้อัตโนมัติถ้ามีแบบประเมินเปิดอยู่แค่โครงการเดียว)
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <code className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">
+              {typeof window !== "undefined" ? `${window.location.origin}/survey/year/${currentYear.id}` : ""}
+            </code>
+            <button
+              type="button"
+              onClick={() => {
+                const link = `${window.location.origin}/survey/year/${currentYear.id}`;
+                navigator.clipboard.writeText(link);
+                toastSuccess("คัดลอกลิงก์แล้ว");
+              }}
+              className="btn-secondary btn-sm"
+            >
+              คัดลอกลิงก์
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="table-shell">
         <table className="table-base">
