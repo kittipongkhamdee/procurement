@@ -7,8 +7,14 @@
 // root layout ครอบหน้า /login ด้วย ถ้า mount ตั้งแต่หน้าล็อกอินจะได้ค่าว่าง แล้วตอนล็อกอินสำเร็จ
 // (server action + redirect ซึ่งเป็น client-side navigation) root layout จะไม่ mount ใหม่
 // ทำให้ข้อมูลค้างเป็นค่าว่างตลอด — เป็นสาเหตุที่ชื่อ/เมนูแอดมินหายไปในความพยายามรอบก่อน
+//
+// ระบบไม่มี Next.js middleware แล้ว (ลบทิ้งเพราะเพิ่ม ~250-350ms ทุก navigation โดยไม่จำเป็น —
+// ดู /root/.claude/plans เฟส 3) จุดนี้จึงเป็น auth gate เดียวของระบบ: ถ้าโหลดเสร็จแล้วไม่มี user
+// (session ไม่มี/หมดอายุ) ต้อง redirect ไป /login เอง — ข้อมูลจริงยังปลอดภัยเท่าเดิมเพราะ RLS
+// ที่ฐานข้อมูลบล็อกอยู่แล้วไม่ว่าจะมี gate ชั้นนี้หรือไม่
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth-actions";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -30,13 +36,13 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null | undefined>(undefined); // undefined = ยังโหลดไม่เสร็จ
 
   useEffect(() => {
     let active = true;
 
     async function load() {
-      // ผู้ที่เข้ามาถึงโซน dashboard ได้ต้องผ่าน middleware มาแล้ว = ล็อกอินอยู่แน่นอน
       // ถ้าครั้งแรกได้ค่าว่าง (เช่นเน็ตสะดุด) จึงลองซ้ำอีกครั้งก่อนยอมแพ้ โดยยังคงสถานะ
       // "กำลังโหลด" ไว้ ไม่ให้แถบผู้ใช้กระพริบเป็นค่าว่างระหว่างรอ
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -60,6 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    // โหลดเสร็จแล้วแต่ไม่มี user (ไม่มี session/session หมดอายุ) — ไม่มี middleware มา gate ให้
+    // อีกต่อไป ต้อง redirect เอง (ใช้ replace ไม่ใช่ push กันปุ่มย้อนกลับพากลับมาหน้านี้ได้อีก)
+    if (user === null) router.replace("/login");
+  }, [user, router]);
 
   const role = user?.role ?? "";
   const isAdmin = role === "admin";
