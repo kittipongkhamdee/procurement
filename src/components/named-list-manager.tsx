@@ -15,6 +15,7 @@ export function NamedListManager({
   updateItemName,
   toggleItemActive,
   deleteItem,
+  onChanged,
 }: {
   title: string;
   itemLabel: string;
@@ -24,6 +25,10 @@ export function NamedListManager({
   updateItemName: (id: string, formData: FormData) => Promise<void> | void;
   toggleItemActive: (id: string, isActive: boolean) => Promise<void> | void;
   deleteItem: (id: string) => Promise<void> | void;
+  /** เรียกหลัง mutation สำเร็จทุกครั้ง — ใช้เมื่อ items มาจาก state ฝั่ง client (ไม่ใช่ props จาก
+   * Server Component) เพื่อให้หน้าพ่อ refetch รายการใหม่ได้ ไม่จำเป็นต้องส่งถ้า items มาจากพ่อที่เป็น
+   * Server Component อยู่แล้ว (revalidatePath ในแต่ละ action จะทำให้พ่อ re-render เองตามปกติ) */
+  onChanged?: () => void;
 }) {
   async function handleRenameBlur(id: string, currentName: string, e: React.FocusEvent<HTMLInputElement>) {
     const name = e.target.value.trim();
@@ -36,6 +41,7 @@ export function NamedListManager({
     try {
       await updateItemName(id, formData);
       await toastSuccess("บันทึกชื่อเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       e.target.value = currentName;
       await toastError(errorMessage(err));
@@ -46,6 +52,7 @@ export function NamedListManager({
     try {
       await toggleItemActive(id, isActive);
       await toastSuccess(isActive ? "ปิดใช้งานแล้ว" : "เปิดใช้งานแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -57,6 +64,7 @@ export function NamedListManager({
     try {
       await deleteItem(id);
       await toastSuccess("ลบเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -70,6 +78,7 @@ export function NamedListManager({
       await createItem(formData);
       await toastSuccess("เพิ่มเรียบร้อยแล้ว");
       form.reset();
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
