@@ -42,6 +42,11 @@ export function SchoolBrandingForm({
   async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      await toastError("ไฟล์โลโก้ใหญ่เกินไป (สูงสุด 8MB) กรุณาเลือกไฟล์ที่เล็กกว่านี้");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setUploadingLogo(true);
     try {
       const fd = new FormData();

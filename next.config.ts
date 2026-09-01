@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
     staleTimes: {
       dynamic: 30,
     },
+    // ค่าเริ่มต้นของ Next.js จำกัด payload ของ Server Action ไว้แค่ 1MB — รูปถ่ายจากมือถือ
+    // (เช่น อัปโหลดโลโก้โรงเรียน หรือไฟล์เอกสารทั่วไป) มักใหญ่กว่านี้มาก ทำให้ก่อนหน้านี้ล้มเหลว
+    // แบบ error กำกวม (React error #441 "Server Components render error") ตั้งแต่ชั้น framework
+    // ก่อนโค้ดในแอ็กชันจะได้ทำงานด้วยซ้ำ ขยายเป็น 10MB ให้พอสำหรับไฟล์รูป/เอกสารทั่วไป
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
   },
 };
 
