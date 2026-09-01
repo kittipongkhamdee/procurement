@@ -30,7 +30,7 @@ export const Modal = forwardRef<
       </button>
       <dialog
         ref={ref}
-        className={`m-auto w-full ${wide ? "max-w-4xl" : "max-w-2xl"} rounded-xl border-0 bg-white p-0 shadow-2xl backdrop:bg-navy-950/60`}
+        className={`m-auto w-full ${wide ? "max-w-6xl" : "max-w-2xl"} rounded-xl border-0 bg-white p-0 shadow-2xl backdrop:bg-navy-950/60`}
         onClick={(e) => {
           if (e.target === ref.current) ref.current?.close();
         }}
