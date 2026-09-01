@@ -67,9 +67,15 @@ export function SchoolBrandingForm({
   return (
     <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
       <div className="flex shrink-0 flex-col items-center gap-2">
-        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-2 border-gold-400 bg-navy-950">
+        <div
+          className={
+            logoUrl
+              ? "flex h-20 w-20 items-center justify-center"
+              : "flex h-20 w-20 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-950"
+          }
+        >
           {logoUrl ? (
-            <Image src={logoUrl} alt={schoolName} width={80} height={80} unoptimized className="h-full w-full object-cover" />
+            <Image src={logoUrl} alt={schoolName} width={80} height={80} unoptimized className="h-full w-full object-contain" />
           ) : (
             <span className="text-lg font-bold text-gold-400">{schoolName.charAt(0) || "ร"}</span>
           )}

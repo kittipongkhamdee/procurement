@@ -96,9 +96,15 @@ export function DashboardShell({
         } ${collapsed ? "lg:w-[76px]" : "lg:w-64"}`}
       >
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-gold-400 bg-white/5 text-lg font-bold text-gold-400">
+          <div
+            className={
+              logoUrl
+                ? "flex h-11 w-11 shrink-0 items-center justify-center"
+                : "flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-gold-400 bg-white/5 text-lg font-bold text-gold-400"
+            }
+          >
             {logoUrl ? (
-              <Image src={logoUrl} alt={schoolName} width={44} height={44} unoptimized className="h-full w-full object-cover" />
+              <Image src={logoUrl} alt={schoolName} width={44} height={44} unoptimized className="h-full w-full object-contain" />
             ) : (
               schoolName.charAt(0) || "ร"
             )}

@@ -89,9 +89,15 @@ export default function SurveyYearLandingPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-navy-950 to-navy-800 px-4 py-10">
       <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-6 py-8 text-center text-white sm:px-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-gold-400 bg-white/10 text-xl font-bold text-gold-400">
+          <div
+            className={
+              logoUrl
+                ? "mx-auto flex h-14 w-14 items-center justify-center"
+                : "mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold-400 bg-white/10 text-xl font-bold text-gold-400"
+            }
+          >
             {logoUrl ? (
-              <Image src={logoUrl} alt={schoolName} width={56} height={56} unoptimized className="h-full w-full object-cover" />
+              <Image src={logoUrl} alt={schoolName} width={56} height={56} unoptimized className="h-full w-full object-contain" />
             ) : (
               schoolName.charAt(0) || "ร"
             )}

@@ -14,9 +14,15 @@ export default async function LoginPage({
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-gold-400 bg-navy-950 text-base font-bold text-gold-400">
+          <div
+            className={
+              logoUrl
+                ? "mx-auto mb-3 flex h-12 w-12 items-center justify-center"
+                : "mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-950 text-base font-bold text-gold-400"
+            }
+          >
             {logoUrl ? (
-              <Image src={logoUrl} alt={schoolName} width={48} height={48} unoptimized className="h-full w-full object-cover" />
+              <Image src={logoUrl} alt={schoolName} width={48} height={48} unoptimized className="h-full w-full object-contain" />
             ) : (
               schoolName.charAt(0) || "ร"
             )}
