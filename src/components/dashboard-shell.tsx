@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { useSchoolSettings } from "@/lib/school-settings";
 import {
   BellIcon,
   ChevronLeftIcon,
@@ -44,6 +46,7 @@ export function DashboardShell({
 }) {
   const pathname = usePathname();
   const { isAdmin, roleLabel, displayName, loading } = useAuth();
+  const { schoolName, logoUrl } = useSchoolSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -93,11 +96,15 @@ export function DashboardShell({
         } ${collapsed ? "lg:w-[76px]" : "lg:w-64"}`}
       >
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-gold-400 bg-white/5 text-lg font-bold text-gold-400">
-            ตว
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-gold-400 bg-white/5 text-lg font-bold text-gold-400">
+            {logoUrl ? (
+              <Image src={logoUrl} alt={schoolName} width={44} height={44} unoptimized className="h-full w-full object-cover" />
+            ) : (
+              schoolName.charAt(0) || "ร"
+            )}
           </div>
           <div className={`min-w-0 ${collapsed ? "lg:hidden" : ""}`}>
-            <div className="text-sm font-semibold leading-tight">โรงเรียนตาเบาวิทยา</div>
+            <div className="truncate text-sm font-semibold leading-tight">{schoolName}</div>
             <div className="text-xs leading-tight text-navy-200">ระบบบริหารงบประมาณ</div>
           </div>
           <button

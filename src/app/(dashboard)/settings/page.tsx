@@ -19,6 +19,7 @@ import { BudgetSourceToggle } from "./budget-source-toggle";
 import { GeminiKeyForm } from "./gemini-key-form";
 import { AiExtractionToggle } from "./ai-extraction-toggle";
 import { StorageProviderToggle } from "./storage-provider-toggle";
+import { SchoolBrandingForm } from "./school-branding-form";
 import { CloseIcon } from "@/components/icons";
 import {
   createAdminGroup,
@@ -34,6 +35,7 @@ import {
   setCurrentBudgetYear,
   setGeminiApiKey,
   setGeminiModel,
+  setSchoolName,
   setStorageProvider,
   setUserGroups,
   toggleAdminGroupActive,
@@ -43,6 +45,7 @@ import {
   updateAdminGroupName,
   updateTeacherName,
   updateUserGroupName,
+  uploadSchoolLogo,
 } from "./actions";
 
 type Item = { id: string; name: string; is_active: boolean };
@@ -61,6 +64,8 @@ type SettingsData = {
   geminiModel: string | null;
   aiExtractionEnabled: boolean;
   storageProvider: "supabase" | "google_drive";
+  schoolName: string;
+  schoolLogoUrl: string | null;
 };
 
 export default function SettingsPage() {
@@ -81,6 +86,7 @@ export default function SettingsPage() {
       { data: geminiModelSetting },
       { data: aiExtractionEnabledSetting },
       { data: storageProviderSetting },
+      { data: schoolSettings },
     ] = await Promise.all([
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
       supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
@@ -93,6 +99,7 @@ export default function SettingsPage() {
       supabase.from("proc_app_settings").select("value").eq("key", "gemini_model").maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
+      supabase.from("proc_school_settings").select("school_name, logo_url").eq("id", true).maybeSingle(),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -114,6 +121,8 @@ export default function SettingsPage() {
       geminiModel: geminiModelSetting?.value ?? null,
       aiExtractionEnabled: aiExtractionEnabledSetting?.value !== "false",
       storageProvider: storageProviderSetting?.value === "google_drive" ? "google_drive" : "supabase",
+      schoolName: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
+      schoolLogoUrl: schoolSettings?.logo_url ?? null,
     });
   }, []);
 
@@ -192,6 +201,23 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">ข้อมูลโรงเรียน</div>
+            <p className="mb-4 text-sm text-slate-500">
+              ชื่อโรงเรียนและโลโก้นี้จะแสดงแทนที่ค่าเดิมทั่วทั้งระบบ ทั้งแถบเมนู หน้าเข้าสู่ระบบ
+              และหน้าทำแบบประเมินสาธารณะที่ไม่ต้องล็อกอิน
+            </p>
+            <SchoolBrandingForm
+              schoolName={data.schoolName}
+              logoUrl={data.schoolLogoUrl}
+              setSchoolName={setSchoolName}
+              uploadSchoolLogo={uploadSchoolLogo}
+              onChanged={reload}
+            />
+          </div>
+        </div>
+
         <div className="card">
           <div className="card-title">ปีงบประมาณ</div>
           <div className="table-shell mb-4">

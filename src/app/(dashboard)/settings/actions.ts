@@ -219,3 +219,44 @@ export async function setStorageProvider(provider: "supabase" | "google_drive") 
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+// ชื่อโรงเรียน + โลโก้ — ใช้แทนค่า hardcode เดิม ("โรงเรียนตาเบาวิทยา" / วงกลม "ตว") ทั่วทั้งระบบ
+// (แถบเมนู, หน้า login, หน้าทำแบบประเมินสาธารณะ) เก็บในตาราง proc_school_settings แถวเดียว
+// อ่านได้แบบ public เพราะต้องแสดงบนหน้าที่ไม่ต้องล็อกอินด้วย ส่วนโลโก้อัปโหลดขึ้น bucket
+// procurement-branding ที่เป็น public bucket แยกต่างหาก (ไม่ใช่ bucket เอกสารเดิมที่เป็น private)
+export async function setSchoolName(formData: FormData) {
+  const supabase = await requireAdmin();
+  const schoolName = String(formData.get("school_name") ?? "").trim();
+  if (!schoolName) throw new Error("กรุณาระบุชื่อโรงเรียน");
+  const { error } = await supabase
+    .from("proc_school_settings")
+    .update({ school_name: schoolName, updated_at: new Date().toISOString() })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function uploadSchoolLogo(formData: FormData) {
+  const supabase = await requireAdmin();
+  const file = formData.get("logo") as File | null;
+  if (!file || file.size === 0) throw new Error("กรุณาเลือกไฟล์โลโก้");
+
+  const ext = file.name.split(".").pop();
+  // ใช้ path คงที่ (ไม่สุ่ม) แล้วอัปโหลดแบบ upsert เพื่อให้ URL เดิมใช้ต่อได้เรื่อยๆ ไม่ต้องอัปเดต
+  // logo_url ทุกครั้งที่เปลี่ยนโลโก้ — เติม query string กันแคชเบราว์เซอร์ค้างรูปเก่า
+  const path = `logo${ext ? `.${ext}` : ""}`;
+  const { error: uploadError } = await supabase.storage
+    .from("procurement-branding")
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data: publicUrlData } = supabase.storage.from("procurement-branding").getPublicUrl(path);
+  const logoUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+
+  const { error } = await supabase
+    .from("proc_school_settings")
+    .update({ logo_url: logoUrl, updated_at: new Date().toISOString() })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}

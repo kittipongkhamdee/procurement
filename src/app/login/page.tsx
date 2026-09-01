@@ -1,4 +1,6 @@
+import Image from "next/image";
 import { login } from "./actions";
+import { getSchoolSettings } from "@/lib/school-settings-server";
 
 export default async function LoginPage({
   searchParams,
@@ -6,18 +8,23 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
   const { error, notice } = await searchParams;
+  const { schoolName, logoUrl } = await getSchoolSettings();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border-2 border-gold-400 bg-navy-950 text-base font-bold text-gold-400">
-            ตว
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-gold-400 bg-navy-950 text-base font-bold text-gold-400">
+            {logoUrl ? (
+              <Image src={logoUrl} alt={schoolName} width={48} height={48} unoptimized className="h-full w-full object-cover" />
+            ) : (
+              schoolName.charAt(0) || "ร"
+            )}
           </div>
           <h1 className="text-lg font-bold text-slate-900">
             ระบบบริหารงานงบประมาณ
           </h1>
-          <p className="text-sm text-slate-500">โรงเรียนตาเบาวิทยา</p>
+          <p className="text-sm text-slate-500">{schoolName}</p>
         </div>
 
         {notice && (

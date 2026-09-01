@@ -8,15 +8,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { SurveyTaker } from "../../survey-taker";
 import { ChevronRightIcon, ClipboardCheckIcon, FolderIcon } from "@/components/icons";
+import { useSchoolSettings } from "@/lib/school-settings";
 
 type BudgetYear = { id: string; year: number; name: string };
 type FormOption = { token: string; title: string; projectName: string };
 
 export default function SurveyYearLandingPage() {
   const { year } = useParams<{ year: string }>();
+  const { schoolName, logoUrl } = useSchoolSettings();
   const [budgetYear, setBudgetYear] = useState<BudgetYear | null | undefined>(undefined);
   const [forms, setForms] = useState<FormOption[]>([]);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
@@ -86,11 +89,15 @@ export default function SurveyYearLandingPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-navy-950 to-navy-800 px-4 py-10">
       <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-6 py-8 text-center text-white sm:px-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold-400 bg-white/10 text-xl font-bold text-gold-400">
-            ตว
+          <div className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-gold-400 bg-white/10 text-xl font-bold text-gold-400">
+            {logoUrl ? (
+              <Image src={logoUrl} alt={schoolName} width={56} height={56} unoptimized className="h-full w-full object-cover" />
+            ) : (
+              schoolName.charAt(0) || "ร"
+            )}
           </div>
           <h1 className="mt-4 text-lg font-bold">แบบประเมินความพึงพอใจ</h1>
-          <p className="mt-1 text-sm text-navy-200">โรงเรียนตาเบาวิทยา</p>
+          <p className="mt-1 text-sm text-navy-200">{schoolName}</p>
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-gold-300">
             ปีงบประมาณ {budgetYear.year}
           </span>

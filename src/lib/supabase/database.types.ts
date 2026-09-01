@@ -1658,6 +1658,27 @@ export type Database = {
           },
         ]
       }
+      proc_school_settings: {
+        Row: {
+          id: boolean
+          logo_url: string | null
+          school_name: string
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          logo_url?: string | null
+          school_name?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          logo_url?: string | null
+          school_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proc_user_group_members: {
         Row: {
           created_at: string
