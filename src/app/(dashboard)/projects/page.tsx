@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { Modal } from "@/components/modal";
-import { FolderIcon } from "@/components/icons";
 import { CreateProjectForm } from "./create-project-form";
 import { ProjectsTable } from "./projects-table";
 import {
@@ -12,11 +11,12 @@ import {
   updateProject,
 } from "./actions";
 
-function formatBaht(n: number) {
-  return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
-}
-
-type Activity = { id: string; name: string | null; budget: number; responsible: string[] | null };
+type Activity = {
+  id: string;
+  name: string | null;
+  budget: number;
+  responsible: string[] | null;
+};
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
@@ -38,11 +38,25 @@ export default async function ProjectsPage() {
 
   const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
 
-  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }] = await Promise.all([
-    supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
-    supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
-  ]);
+  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }] =
+    await Promise.all([
+      supabase
+        .from("plan_admin_groups")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("sort_order"),
+      supabase
+        .from("plan_budget_sources")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("sort_order")
+        .order("name"),
+      supabase
+        .from("plan_teachers")
+        .select("id, name, is_active")
+        .order("sort_order")
+        .order("name"),
+    ]);
 
   const { data: projects, error } = currentYear
     ? await supabase
@@ -67,7 +81,10 @@ export default async function ProjectsPage() {
   const spentByProject = new Map<string, number>();
   for (const d of disbursements ?? []) {
     if (!d.project_id) continue;
-    spentByProject.set(d.project_id, (spentByProject.get(d.project_id) ?? 0) + Number(d.amount ?? 0));
+    spentByProject.set(
+      d.project_id,
+      (spentByProject.get(d.project_id) ?? 0) + Number(d.amount ?? 0),
+    );
   }
 
   const rows = (projects ?? []).map((p) => {
@@ -84,8 +101,12 @@ export default async function ProjectsPage() {
       budgetYearId: p.budget_year_id,
       adminGroupId: p.admin_group_id,
       budgetSourceId: p.budget_source_id,
-      adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
-      budgetSource: (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? "-",
+      adminGroup:
+        (p.plan_admin_groups as unknown as { name: string } | null)?.name ??
+        "-",
+      budgetSource:
+        (p.plan_budget_sources as unknown as { name: string } | null)?.name ??
+        "-",
       activities,
       budget,
       spent,
@@ -93,20 +114,23 @@ export default async function ProjectsPage() {
     };
   });
 
-  const totalBudget = rows.reduce((sum, r) => sum + r.budget, 0);
-  const totalSpent = rows.reduce((sum, r) => sum + r.spent, 0);
-
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">โครงการ</h1>
           <p className="page-subtitle">
-            ตามแผนปฏิบัติการ{currentYear ? ` ปีงบประมาณ ${currentYear.year}` : ""}
+            ตามแผนปฏิบัติการ
+            {currentYear ? ` ปีงบประมาณ ${currentYear.year}` : ""}
           </p>
         </div>
         {isAdmin && currentYear && (
-          <Modal title="เพิ่มโครงการใหม่" trigger="+ เพิ่มโครงการใหม่" triggerClassName="btn-primary" closeOnSubmit>
+          <Modal
+            title="เพิ่มโครงการใหม่"
+            trigger="+ เพิ่มโครงการใหม่"
+            triggerClassName="btn-primary"
+            closeOnSubmit
+          >
             <CreateProjectForm
               action={createProject}
               budgetYearId={currentYear.id}
@@ -118,36 +142,12 @@ export default async function ProjectsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
-          <div className="flex items-start gap-3">
-            <span className="stat-icon" style={{ background: "#1b4177" }}>
-              <FolderIcon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <div className="stat-label">จำนวนโครงการ</div>
-              <div className="stat-value">
-                {rows.length.toLocaleString("th-TH")} <span className="stat-suffix">โครงการ</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="stat-label">งบประมาณรวม</div>
-          <div className="mt-1.5 text-xl font-bold text-navy-800">{formatBaht(totalBudget)} บาท</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">เบิกจ่ายแล้ว</div>
-          <div className="mt-1.5 text-xl font-bold text-emerald-600">{formatBaht(totalSpent)} บาท</div>
-        </div>
-        <div className="card">
-          <div className="stat-label">คงเหลือ</div>
-          <div className="mt-1.5 text-xl font-bold text-amber-600">{formatBaht(totalBudget - totalSpent)} บาท</div>
-        </div>
-      </div>
-
       <div className="table-shell mt-6">
-        {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
+        {error && (
+          <p className="p-4 text-sm text-red-600">
+            โหลดข้อมูลไม่สำเร็จ: {error.message}
+          </p>
+        )}
         <ProjectsTable
           rows={rows}
           isAdmin={isAdmin}

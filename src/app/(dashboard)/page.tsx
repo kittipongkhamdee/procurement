@@ -28,40 +28,157 @@ export default async function DashboardPage() {
     { data: projectDisbursementRows },
     { count: approvalCount },
     { data: approvalSumRows },
+    { data: budgetYears },
   ] = await Promise.all([
     supabase.from("proc_vendors").select("*", { count: "exact", head: true }),
-    supabase.from("proc_purchase_requests").select("*", { count: "exact", head: true }),
+    supabase
+      .from("proc_purchase_requests")
+      .select("*", { count: "exact", head: true }),
     supabase.from("proc_contracts").select("*", { count: "exact", head: true }),
-    supabase.from("proc_deliveries").select("*", { count: "exact", head: true }),
+    supabase
+      .from("proc_deliveries")
+      .select("*", { count: "exact", head: true }),
     supabase.from("plan_projects").select("id"),
     supabase.from("proc_purchase_requests").select("amount"),
     supabase.from("proc_allowance_disbursements").select("amount"),
     supabase.from("proc_project_disbursements").select("amount, status"),
     supabase.from("proc_approvals").select("*", { count: "exact", head: true }),
     supabase.from("proc_approvals").select("requested_amount"),
+    supabase
+      .from("plan_budget_years")
+      .select("id, year, is_open")
+      .order("year", { ascending: false }),
   ]);
 
-  const totalPurchaseAmount = purchaseSumRows?.reduce((sum, r) => sum + Number(r.amount ?? 0), 0) ?? 0;
-  const totalAllowanceAmount = allowanceRows?.reduce((sum, r) => sum + Number(r.amount ?? 0), 0) ?? 0;
-  const totalApprovalAmount = approvalSumRows?.reduce((sum, r) => sum + Number(r.requested_amount ?? 0), 0) ?? 0;
+  const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
+  const { data: currentYearProjects } = currentYear
+    ? await supabase
+        .from("plan_projects")
+        .select("id, budget, plan_activities(budget)")
+        .eq("budget_year_id", currentYear.id)
+    : { data: [] };
 
-  const paidDisbursements = (projectDisbursementRows ?? []).filter((r) => r.status === "paid");
-  const pendingDisbursements = (projectDisbursementRows ?? []).filter((r) => r.status !== "paid");
-  const totalPaidAmount = paidDisbursements.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
-  const totalPendingAmount = pendingDisbursements.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
+  const currentYearProjectIds = (currentYearProjects ?? []).map((p) => p.id);
+  const { data: currentYearPaidDisbursements } =
+    currentYearProjectIds.length > 0
+      ? await supabase
+          .from("proc_project_disbursements")
+          .select("project_id, amount")
+          .eq("status", "paid")
+          .in("project_id", currentYearProjectIds)
+      : { data: [] };
+
+  const currentYearSpentByProject = new Map<string, number>();
+  for (const d of currentYearPaidDisbursements ?? []) {
+    if (!d.project_id) continue;
+    currentYearSpentByProject.set(
+      d.project_id,
+      (currentYearSpentByProject.get(d.project_id) ?? 0) +
+        Number(d.amount ?? 0),
+    );
+  }
+
+  const currentYearTotalBudget = (currentYearProjects ?? []).reduce(
+    (sum, p) => {
+      const activities = p.plan_activities as unknown as { budget: number }[];
+      const budget =
+        activities.length > 0
+          ? activities.reduce((s, a) => s + Number(a.budget ?? 0), 0)
+          : Number(p.budget ?? 0);
+      return sum + budget;
+    },
+    0,
+  );
+  const currentYearTotalSpent = (currentYearProjects ?? []).reduce(
+    (sum, p) => sum + (currentYearSpentByProject.get(p.id) ?? 0),
+    0,
+  );
+
+  const totalPurchaseAmount =
+    purchaseSumRows?.reduce((sum, r) => sum + Number(r.amount ?? 0), 0) ?? 0;
+  const totalAllowanceAmount =
+    allowanceRows?.reduce((sum, r) => sum + Number(r.amount ?? 0), 0) ?? 0;
+  const totalApprovalAmount =
+    approvalSumRows?.reduce(
+      (sum, r) => sum + Number(r.requested_amount ?? 0),
+      0,
+    ) ?? 0;
+
+  const paidDisbursements = (projectDisbursementRows ?? []).filter(
+    (r) => r.status === "paid",
+  );
+  const pendingDisbursements = (projectDisbursementRows ?? []).filter(
+    (r) => r.status !== "paid",
+  );
+  const totalPaidAmount = paidDisbursements.reduce(
+    (sum, r) => sum + Number(r.amount ?? 0),
+    0,
+  );
+  const totalPendingAmount = pendingDisbursements.reduce(
+    (sum, r) => sum + Number(r.amount ?? 0),
+    0,
+  );
 
   const cards = [
-    { label: "ผู้ขาย/ผู้รับจ้าง", value: vendorCount ?? 0, suffix: "ราย", accent: "#1b4177", icon: StoreIcon },
-    { label: "รายการขอซื้อ-ขอจ้าง", value: purchaseCount ?? 0, suffix: "รายการ", accent: "#a3791a", icon: ShoppingCartIcon },
-    { label: "สัญญาจ้าง", value: contractCount ?? 0, suffix: "สัญญา", accent: "#1b4177", icon: FileSignatureIcon },
-    { label: "โครงการทั้งหมด", value: projectsRes.data?.length ?? 0, suffix: "โครงการ", accent: "#a3791a", icon: FolderIcon },
+    {
+      label: "ผู้ขาย/ผู้รับจ้าง",
+      value: vendorCount ?? 0,
+      suffix: "ราย",
+      accent: "#1b4177",
+      icon: StoreIcon,
+    },
+    {
+      label: "รายการขอซื้อ-ขอจ้าง",
+      value: purchaseCount ?? 0,
+      suffix: "รายการ",
+      accent: "#a3791a",
+      icon: ShoppingCartIcon,
+    },
+    {
+      label: "สัญญาจ้าง",
+      value: contractCount ?? 0,
+      suffix: "สัญญา",
+      accent: "#1b4177",
+      icon: FileSignatureIcon,
+    },
+    {
+      label: "โครงการทั้งหมด",
+      value: projectsRes.data?.length ?? 0,
+      suffix: "โครงการ",
+      accent: "#a3791a",
+      icon: FolderIcon,
+    },
   ];
 
   const secondaryCards = [
-    { label: "บันทึกส่งมอบงาน", value: deliveryCount ?? 0, suffix: "รายการ", accent: "#7C3AED", icon: TruckIcon },
-    { label: "บันทึกขออนุมัติ", value: approvalCount ?? 0, suffix: "ฉบับ", accent: "#0EA5E9", icon: ClipboardCheckIcon },
-    { label: "เบิกจ่ายรอดำเนินการ", value: pendingDisbursements.length, suffix: "รายการ", accent: "#D97706", icon: WalletIcon },
-    { label: "เบิกจ่ายแล้ว", value: paidDisbursements.length, suffix: "รายการ", accent: "#16A34A", icon: WalletIcon },
+    {
+      label: "บันทึกส่งมอบงาน",
+      value: deliveryCount ?? 0,
+      suffix: "รายการ",
+      accent: "#7C3AED",
+      icon: TruckIcon,
+    },
+    {
+      label: "บันทึกขออนุมัติ",
+      value: approvalCount ?? 0,
+      suffix: "ฉบับ",
+      accent: "#0EA5E9",
+      icon: ClipboardCheckIcon,
+    },
+    {
+      label: "เบิกจ่ายรอดำเนินการ",
+      value: pendingDisbursements.length,
+      suffix: "รายการ",
+      accent: "#D97706",
+      icon: WalletIcon,
+    },
+    {
+      label: "เบิกจ่ายแล้ว",
+      value: paidDisbursements.length,
+      suffix: "รายการ",
+      accent: "#16A34A",
+      icon: WalletIcon,
+    },
   ];
 
   const shortcuts = [
@@ -80,9 +197,54 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <div className="card-title">
+        โครงการ{currentYear ? ` ปีงบประมาณ ${currentYear.year}` : ""}
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          className="stat-card"
+          style={{ "--accent": "#1b4177" } as React.CSSProperties}
+        >
+          <div className="flex items-start gap-3">
+            <span className="stat-icon" style={{ background: "#1b4177" }}>
+              <FolderIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <div className="stat-label">จำนวนโครงการ</div>
+              <div className="stat-value">
+                {(currentYearProjects?.length ?? 0).toLocaleString("th-TH")}{" "}
+                <span className="stat-suffix">โครงการ</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="stat-label">งบประมาณรวม</div>
+          <div className="mt-1.5 text-xl font-bold text-navy-800">
+            {formatBaht(currentYearTotalBudget)} บาท
+          </div>
+        </div>
+        <div className="card">
+          <div className="stat-label">เบิกจ่ายแล้ว</div>
+          <div className="mt-1.5 text-xl font-bold text-emerald-600">
+            {formatBaht(currentYearTotalSpent)} บาท
+          </div>
+        </div>
+        <div className="card">
+          <div className="stat-label">คงเหลือ</div>
+          <div className="mt-1.5 text-xl font-bold text-amber-600">
+            {formatBaht(currentYearTotalBudget - currentYearTotalSpent)} บาท
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <div key={c.label} className="stat-card" style={{ "--accent": c.accent } as React.CSSProperties}>
+          <div
+            key={c.label}
+            className="stat-card"
+            style={{ "--accent": c.accent } as React.CSSProperties}
+          >
             <div className="flex items-start gap-3">
               <span className="stat-icon" style={{ background: c.accent }}>
                 <c.icon className="h-5 w-5" />
@@ -90,7 +252,8 @@ export default async function DashboardPage() {
               <div className="min-w-0">
                 <div className="stat-label">{c.label}</div>
                 <div className="stat-value">
-                  {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
+                  {c.value.toLocaleString("th-TH")}{" "}
+                  <span className="stat-suffix">{c.suffix}</span>
                 </div>
               </div>
             </div>
@@ -102,13 +265,17 @@ export default async function DashboardPage() {
         {secondaryCards.map((c) => (
           <div key={c.label} className="card">
             <div className="flex items-start gap-3">
-              <span className="stat-icon h-9 w-9" style={{ background: c.accent }}>
+              <span
+                className="stat-icon h-9 w-9"
+                style={{ background: c.accent }}
+              >
                 <c.icon className="h-4 w-4" />
               </span>
               <div className="min-w-0">
                 <div className="stat-label">{c.label}</div>
                 <div className="stat-value text-lg">
-                  {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
+                  {c.value.toLocaleString("th-TH")}{" "}
+                  <span className="stat-suffix">{c.suffix}</span>
                 </div>
               </div>
             </div>
@@ -119,22 +286,34 @@ export default async function DashboardPage() {
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card">
           <div className="stat-label">ยอดขอซื้อ-ขอจ้างรวม</div>
-          <div className="mt-1.5 text-xl font-bold text-navy-800">{formatBaht(totalPurchaseAmount)} บาท</div>
+          <div className="mt-1.5 text-xl font-bold text-navy-800">
+            {formatBaht(totalPurchaseAmount)} บาท
+          </div>
         </div>
         <div className="card">
           <div className="stat-label">ยอดขออนุมัติรวม</div>
-          <div className="mt-1.5 text-xl font-bold text-gold-600">{formatBaht(totalApprovalAmount)} บาท</div>
+          <div className="mt-1.5 text-xl font-bold text-gold-600">
+            {formatBaht(totalApprovalAmount)} บาท
+          </div>
         </div>
         <div className="card">
           <div className="stat-label">เบี้ยเลี้ยง/สาธารณูปโภครวม</div>
-          <div className="mt-1.5 text-xl font-bold text-navy-700">{formatBaht(totalAllowanceAmount)} บาท</div>
+          <div className="mt-1.5 text-xl font-bold text-navy-700">
+            {formatBaht(totalAllowanceAmount)} บาท
+          </div>
         </div>
         <div className="card">
-          <div className="stat-label">เบิกจ่ายโครงการ (จ่ายแล้ว / รอดำเนินการ)</div>
+          <div className="stat-label">
+            เบิกจ่ายโครงการ (จ่ายแล้ว / รอดำเนินการ)
+          </div>
           <div className="mt-1.5 text-sm font-bold">
-            <span className="text-emerald-600">{formatBaht(totalPaidAmount)}</span>
+            <span className="text-emerald-600">
+              {formatBaht(totalPaidAmount)}
+            </span>
             <span className="mx-1 text-slate-400">/</span>
-            <span className="text-amber-600">{formatBaht(totalPendingAmount)}</span>
+            <span className="text-amber-600">
+              {formatBaht(totalPendingAmount)}
+            </span>
           </div>
         </div>
       </div>
