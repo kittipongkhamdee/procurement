@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useAuth } from "@/lib/AuthContext";
 import {
   BellIcon,
   ChevronLeftIcon,
@@ -29,28 +30,32 @@ const BOTTOM_TABS = [
 ];
 
 export function DashboardShell({
-  navSections,
-  displayName,
-  roleLabel,
-  initial,
+  baseNavSections,
+  adminSection,
   dateLabel,
   logoutAction,
   children,
 }: {
-  navSections: NavSection[];
-  displayName: string;
-  roleLabel: string;
-  initial: string;
+  baseNavSections: NavSection[];
+  adminSection: NavSection;
   dateLabel: string;
   logoutAction: (formData: FormData) => void | Promise<void>;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const { isAdmin, roleLabel, displayName: authDisplayName, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
+
+  const navSections = useMemo(
+    () => (isAdmin ? [...baseNavSections, adminSection] : baseNavSections),
+    [baseNavSections, adminSection, isAdmin],
+  );
+  const displayName = loading ? "" : authDisplayName;
+  const initial = displayName ? displayName.trim().charAt(0) : "?";
 
   useEffect(() => {
     if (localStorage.getItem("sidebar-collapsed") === "1") {
@@ -209,11 +214,17 @@ export function DashboardShell({
               className="flex items-center gap-2 rounded-md py-1 pl-1.5 pr-2 hover:bg-slate-100"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-500 text-xs font-bold text-navy-950">
-                {initial}
+                {loading ? "" : initial}
               </span>
               <span className="hidden text-left sm:block">
-                <span className="block truncate text-xs font-medium text-slate-800">{displayName}</span>
-                {roleLabel && <span className="block truncate text-[11px] text-slate-400">{roleLabel}</span>}
+                {loading ? (
+                  <span className="block h-3 w-20 animate-pulse rounded bg-slate-200" />
+                ) : (
+                  <>
+                    <span className="block truncate text-xs font-medium text-slate-800">{displayName}</span>
+                    {roleLabel && <span className="block truncate text-[11px] text-slate-400">{roleLabel}</span>}
+                  </>
+                )}
               </span>
             </button>
             {profileOpen && (
