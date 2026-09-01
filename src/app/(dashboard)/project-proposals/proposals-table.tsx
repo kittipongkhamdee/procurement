@@ -135,7 +135,7 @@ export function ProposalsTable({
               <td className="text-right">
                 <div className="flex justify-end gap-2">
                   {canEdit && (
-                    <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit>
+                    <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
                       <ProposalForm
                         action={updateProposal.bind(null, r.id)}
                         budgetYearId=""

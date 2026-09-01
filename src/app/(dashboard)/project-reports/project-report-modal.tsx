@@ -44,6 +44,7 @@ export function ProjectReportModal({
       title={title}
       trigger={trigger}
       triggerClassName={triggerClassName}
+      wide
     >
       <ProjectReportForm
         projects={projects}

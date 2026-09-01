@@ -13,8 +13,10 @@ export const Modal = forwardRef<
     children: ReactNode;
     /** ปิด popup ทันทีที่กด submit ฟอร์มใดๆ ข้างใน (เหมาะกับ popup ที่มีฟอร์มเดียว) */
     closeOnSubmit?: boolean;
+    /** ขยายความกว้างสูงสุดของ popup — ใช้กับฟอร์มที่มีเนื้อหาเยอะ/มีตาราง เช่น เสนอโครงการ, รายงานโครงการ (ค่าเริ่มต้น max-w-2xl) */
+    wide?: boolean;
   }
->(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit }, forwardedRef) {
+>(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit, wide }, forwardedRef) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useImperativeHandle(forwardedRef, () => ({
@@ -28,7 +30,7 @@ export const Modal = forwardRef<
       </button>
       <dialog
         ref={ref}
-        className="m-auto w-full max-w-2xl rounded-xl border-0 bg-white p-0 shadow-2xl backdrop:bg-navy-950/60"
+        className={`m-auto w-full ${wide ? "max-w-4xl" : "max-w-2xl"} rounded-xl border-0 bg-white p-0 shadow-2xl backdrop:bg-navy-950/60`}
         onClick={(e) => {
           if (e.target === ref.current) ref.current?.close();
         }}
