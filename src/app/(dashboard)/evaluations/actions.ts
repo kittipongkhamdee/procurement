@@ -45,13 +45,13 @@ export type QuestionInput = {
 export type CriterionInput = { min_score: number; max_score: number; label: string };
 
 // ค่าเริ่มต้นเกณฑ์แปลผลคะแนน 1-5 — เติมให้อัตโนมัติทุกครั้งที่สร้างฟอร์ม/template ใหม่ ครูแก้เอง
-// ได้ทีหลังที่แท็บ "เกณฑ์แปลผล" ในหน้าแก้ไข
+// ได้ทีหลังที่แท็บ "เกณฑ์แปลผล" ในหน้าแก้ไข — อิงมาตรฐาน Best (1977) ที่นิยมใช้ในงานวิจัยไทย
 const DEFAULT_CRITERIA: CriterionInput[] = [
-  { min_score: 1, max_score: 1.79, label: "ควรปรับปรุง" },
-  { min_score: 1.8, max_score: 2.59, label: "พอใช้" },
-  { min_score: 2.6, max_score: 3.39, label: "ปานกลาง" },
-  { min_score: 3.4, max_score: 4.19, label: "ดี" },
-  { min_score: 4.2, max_score: 5, label: "ดีมาก" },
+  { min_score: 1, max_score: 1.8, label: "น้อยที่สุด" },
+  { min_score: 1.81, max_score: 2.6, label: "น้อย" },
+  { min_score: 2.61, max_score: 3.4, label: "ปานกลาง" },
+  { min_score: 3.41, max_score: 4.2, label: "มาก" },
+  { min_score: 4.21, max_score: 5, label: "มากที่สุด" },
 ];
 
 export async function createForm(formData: FormData) {
