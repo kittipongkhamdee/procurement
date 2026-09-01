@@ -33,14 +33,19 @@ export default function SurveyYearLandingPage() {
 
     const { data: formData } = await supabase
       .from("eval_forms")
-      .select("token, title, plan_projects!inner(name, budget_year_id)")
+      .select("token, title, opens_at, closes_at, plan_projects!inner(name, budget_year_id)")
       .eq("status", "published")
       .eq("plan_projects.budget_year_id", yearData.id);
-    const options = (formData ?? []).map((f) => ({
-      token: f.token,
-      title: f.title,
-      projectName: (f.plan_projects as unknown as { name: string }).name,
-    }));
+    const now = new Date();
+    // กรองแบบประเมินที่ยังไม่ถึงเวลาเปิด/หมดเวลารับคำตอบตามที่ตั้งไว้ออกจากรายการให้เลือก —
+    // ไม่ต้องให้ผู้ตอบเลือกแล้วเจอข้อความ "ไม่พร้อมใช้งาน" ที่หน้าถัดไป
+    const options = (formData ?? [])
+      .filter((f) => !(f.opens_at && now < new Date(f.opens_at)) && !(f.closes_at && now > new Date(f.closes_at)))
+      .map((f) => ({
+        token: f.token,
+        title: f.title,
+        projectName: (f.plan_projects as unknown as { name: string }).name,
+      }));
     setForms(options);
     // ถ้ามีแบบประเมินเปิดรับคำตอบอยู่โครงการเดียว ข้ามหน้าเลือกไปทำแบบประเมินได้เลย
     if (options.length === 1) setSelectedToken(options[0].token);

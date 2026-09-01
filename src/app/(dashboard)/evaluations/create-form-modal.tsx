@@ -29,7 +29,7 @@ export function CreateFormModal({
   function handleProjectChange(projectId: string) {
     if (titleTouched) return;
     const project = projects.find((p) => p.id === projectId);
-    setTitle(project ? `แบบประเมินความพึงพอใจโครงการ${project.name}` : "");
+    setTitle(project ? `แบบประเมินความพึงพอใจ${project.name}` : "");
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
