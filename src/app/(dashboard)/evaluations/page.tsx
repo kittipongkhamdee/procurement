@@ -94,12 +94,12 @@ export default function EvaluationsPage() {
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <code className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">
-              {typeof window !== "undefined" ? `${window.location.origin}/survey/year/${currentYear.id}` : ""}
+              {typeof window !== "undefined" ? `${window.location.origin}/survey/year/${currentYear.year}` : ""}
             </code>
             <button
               type="button"
               onClick={() => {
-                const link = `${window.location.origin}/survey/year/${currentYear.id}`;
+                const link = `${window.location.origin}/survey/year/${currentYear.year}`;
                 navigator.clipboard.writeText(link);
                 toastSuccess("คัดลอกลิงก์แล้ว");
               }}
