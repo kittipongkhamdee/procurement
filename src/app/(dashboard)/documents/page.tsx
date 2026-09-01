@@ -1,26 +1,118 @@
-import { createClient } from "@/lib/supabase/server";
-import { WordFileIcon, PdfFileIcon } from "@/components/icons";
-import { resolveStorageUrls } from "@/lib/storage";
+"use client";
+
+// Client Component — ดึงรายการเอกสาร/ไฟล์โครงการและ signed URL ผ่าน browser Supabase client
+// แทนการรอ Server Component fetch ก่อนส่ง HTML กลับมา (ต่อจาก /, /vendors, /strategies,
+// /standards — ดู /root/.claude/plans)
+//
+// สำคัญ: import เฉพาะจาก "@/lib/storage/ref" (pure function ไม่มี dependency ฝั่ง server) ห้าม
+// import จาก "@/lib/storage" (บาร์เรลไฟล์) เด็ดขาด เพราะไฟล์นั้นดึง google-drive.ts เข้ามาด้วย ซึ่งใช้
+// google-auth-library + service account secret ที่รันได้เฉพาะฝั่ง server เท่านั้น จะทำให้ build พังหรือ
+// รั่ว secret ถ้าถูกดึงเข้า client bundle
+//
+// อัปโหลด/ลบไฟล์ยังคงเป็น server action เดิม (uploadDocument/deleteDocument) เพราะต้องเรียก Google
+// Drive API ด้วย service account ซึ่งทำได้แค่ฝั่ง server เท่านั้น
+
+import { useCallback, useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { isDriveRef, driveFileId, driveViewUrl } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
+import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { uploadDocument, deleteDocument } from "./actions";
 
-export default async function DocumentsPage() {
-  const supabase = await createClient();
-  const [{ data: documents, error }, { data: proposals }] = await Promise.all([
-    supabase.from("proc_documents").select("id, file_name, file_url, created_at").order("created_at", { ascending: false }),
-    supabase
-      .from("plan_project_proposals")
-      .select("id, name, file_url_word, file_url_pdf, approved_at")
-      .eq("status", "อนุมัติแล้ว")
-      .order("approved_at", { ascending: false }),
-  ]);
+const BUCKET = "procurement-files";
 
-  const paths = (documents ?? []).map((d) => d.file_url);
-  const signedUrls = await resolveStorageUrls(supabase, paths, "procurement-files");
+type DocumentRow = { id: string; file_name: string; file_url: string; created_at: string };
+type ProjectFile = { id: string; name: string; file_url_word: string | null; file_url_pdf: string | null };
 
-  const projectFiles = (proposals ?? []).filter((p) => p.file_url_word || p.file_url_pdf);
-  const projectFilePaths = projectFiles.flatMap((p) => [p.file_url_word, p.file_url_pdf]).filter((p): p is string => !!p);
-  const signedProjectFileUrls = await resolveStorageUrls(supabase, projectFilePaths, "procurement-files");
+async function resolveUrls(
+  supabase: ReturnType<typeof createClient>,
+  refs: (string | null | undefined)[],
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const supabasePaths: string[] = [];
+  for (const ref of refs) {
+    if (!ref) continue;
+    if (isDriveRef(ref)) result.set(ref, driveViewUrl(driveFileId(ref)));
+    else supabasePaths.push(ref);
+  }
+  if (supabasePaths.length > 0) {
+    const { data: signed } = await supabase.storage.from(BUCKET).createSignedUrls(supabasePaths, 3600);
+    signed?.forEach((s) => {
+      if (s.signedUrl && !s.error) result.set(s.path ?? "", s.signedUrl);
+    });
+  }
+  return result;
+}
+
+export default function DocumentsPage() {
+  const [documents, setDocuments] = useState<DocumentRow[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [signedUrls, setSignedUrls] = useState<Map<string, string>>(new Map());
+  const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
+  const [signedProjectFileUrls, setSignedProjectFileUrls] = useState<Map<string, string>>(new Map());
+
+  const reload = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: docs, error }, { data: proposals }] = await Promise.all([
+      supabase
+        .from("proc_documents")
+        .select("id, file_name, file_url, created_at")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("plan_project_proposals")
+        .select("id, name, file_url_word, file_url_pdf, approved_at")
+        .eq("status", "อนุมัติแล้ว")
+        .order("approved_at", { ascending: false }),
+    ]);
+    if (error) setError(error.message);
+    setDocuments(docs ?? []);
+
+    const files = (proposals ?? []).filter((p) => p.file_url_word || p.file_url_pdf);
+    setProjectFiles(files);
+
+    const [docUrls, projectFileUrls] = await Promise.all([
+      resolveUrls(
+        supabase,
+        (docs ?? []).map((d) => d.file_url),
+      ),
+      resolveUrls(
+        supabase,
+        files.flatMap((p) => [p.file_url_word, p.file_url_pdf]),
+      ),
+    ]);
+    setSignedUrls(docUrls);
+    setSignedProjectFileUrls(projectFileUrls);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    reload();
+  }, [reload]);
+
+  async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    try {
+      await uploadDocument(formData);
+      await toastSuccess("อัปโหลดไฟล์เรียบร้อยแล้ว");
+      form.reset();
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleDelete(id: string, ref: string) {
+    try {
+      await deleteDocument(id, ref);
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
 
   return (
     <div>
@@ -78,7 +170,7 @@ export default async function DocumentsPage() {
                   </td>
                 </tr>
               ))}
-              {projectFiles.length === 0 && (
+              {documents !== null && projectFiles.length === 0 && (
                 <tr>
                   <td colSpan={3} className="table-empty">
                     ยังไม่มีไฟล์โครงการ
@@ -94,7 +186,7 @@ export default async function DocumentsPage() {
 
       <div className="card mb-6">
         <h2 className="card-title">เพิ่มไฟล์ใหม่</h2>
-        <form action={uploadDocument} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <form onSubmit={handleUpload} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <input name="file_name" placeholder="ชื่อไฟล์เอกสาร (ไม่ระบุ = ใช้ชื่อไฟล์เดิม)" className="input sm:col-span-2" />
           <input type="file" name="file" required className="input" />
           <button type="submit" className="btn-primary sm:col-span-3">
@@ -103,56 +195,60 @@ export default async function DocumentsPage() {
         </form>
       </div>
 
-      <div className="table-shell">
-        {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th>ชื่อไฟล์เอกสาร</th>
-              <th>วันที่เพิ่ม</th>
-              <th></th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {documents?.map((d) => (
-              <tr key={d.id}>
-                <td className="font-medium text-slate-900">{d.file_name}</td>
-                <td>
-                  {formatThaiDate(d.created_at)}
-                </td>
-                <td className="text-right">
-                  {signedUrls.get(d.file_url) ? (
-                    <a
-                      href={signedUrls.get(d.file_url)}
-                      target="_blank"
-                      className="text-xs font-medium text-navy-800 hover:underline"
+      {documents === null ? (
+        <PageLoadingSkeleton />
+      ) : (
+        <div className="table-shell">
+          {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>ชื่อไฟล์เอกสาร</th>
+                <th>วันที่เพิ่ม</th>
+                <th></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {documents.map((d) => (
+                <tr key={d.id}>
+                  <td className="font-medium text-slate-900">{d.file_name}</td>
+                  <td>{formatThaiDate(d.created_at)}</td>
+                  <td className="text-right">
+                    {signedUrls.get(d.file_url) ? (
+                      <a
+                        href={signedUrls.get(d.file_url)}
+                        target="_blank"
+                        className="text-xs font-medium text-navy-800 hover:underline"
+                      >
+                        ดาวน์โหลด
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
+                    )}
+                  </td>
+                  <td className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(d.id, d.file_url)}
+                      className="text-xs font-medium text-red-600 hover:underline"
                     >
-                      ดาวน์โหลด
-                    </a>
-                  ) : (
-                    <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
-                  )}
-                </td>
-                <td className="text-right">
-                  <form action={deleteDocument.bind(null, d.id, d.file_url)}>
-                    <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
                       ลบ
                     </button>
-                  </form>
-                </td>
-              </tr>
-            ))}
-            {documents?.length === 0 && (
-              <tr>
-                <td colSpan={4} className="table-empty">
-                  ยังไม่มีข้อมูล
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </td>
+                </tr>
+              ))}
+              {documents.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="table-empty">
+                    ยังไม่มีข้อมูล
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
