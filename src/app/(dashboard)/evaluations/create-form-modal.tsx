@@ -21,6 +21,16 @@ export function CreateFormModal({
   const modalRef = useRef<ModalHandle>(null);
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [title, setTitle] = useState("");
+  const [titleTouched, setTitleTouched] = useState(false);
+
+  // เติมชื่อแบบประเมินให้อัตโนมัติตามโครงการที่เลือก (ครูแก้เองได้ตามปกติ — เติมให้ต่อเมื่อยังไม่ได้
+  // พิมพ์เองหรือชื่อยังตรงกับที่ระบบเติมให้ครั้งก่อน กันไม่ให้ทับสิ่งที่ครูตั้งใจพิมพ์เอง)
+  function handleProjectChange(projectId: string) {
+    if (titleTouched) return;
+    const project = projects.find((p) => p.id === projectId);
+    setTitle(project ? `แบบประเมินความพึงพอใจโครงการ${project.name}` : "");
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,7 +52,7 @@ export function CreateFormModal({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="label">โครงการ</label>
-          <select name="project_id" required className="input">
+          <select name="project_id" required className="input" onChange={(e) => handleProjectChange(e.target.value)}>
             <option value="" disabled>
               เลือกโครงการ..
             </option>
@@ -55,7 +65,17 @@ export function CreateFormModal({
         </div>
         <div>
           <label className="label">ชื่อแบบประเมิน</label>
-          <input name="title" required className="input" placeholder="เช่น แบบประเมินความพึงพอใจโครงการ..." />
+          <input
+            name="title"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setTitleTouched(true);
+            }}
+            required
+            className="input"
+            placeholder="เช่น แบบประเมินความพึงพอใจโครงการ..."
+          />
         </div>
         <div>
           <label className="label">คำอธิบาย (ไม่บังคับ)</label>

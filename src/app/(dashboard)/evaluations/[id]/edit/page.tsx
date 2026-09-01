@@ -5,10 +5,12 @@
 // ต่างกันแค่ template ไม่มีปุ่มเผยแพร่/ลิงก์สาธารณะ
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { toastSuccess, toastError, errorMessage } from "@/lib/swal";
+import { ChevronLeftIcon } from "@/components/icons";
 import { updateFormMeta, replaceQuestions, publishForm } from "../../actions";
 import { QuestionListEditor, type QuestionRow } from "../../question-list-editor";
 
@@ -131,6 +133,10 @@ export default function EvaluationEditPage() {
 
   return (
     <div>
+      <Link href="/evaluations" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+        <ChevronLeftIcon className="h-4 w-4" />
+        กลับไปรายการแบบประเมิน
+      </Link>
       <div className="page-header">
         <div>
           <h1 className="page-title">{form.is_template ? "แก้ไข Template" : "แก้ไขแบบประเมิน"}</h1>

@@ -11,6 +11,8 @@ import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { closeForm, deleteForm, publishForm } from "../actions";
+import { ChevronLeftIcon } from "@/components/icons";
+import { QuestionSummary } from "./question-summary";
 
 type Question = {
   id: string;
@@ -127,6 +129,10 @@ export default function EvaluationResultsPage() {
 
   return (
     <div>
+      <Link href="/evaluations" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+        <ChevronLeftIcon className="h-4 w-4" />
+        กลับไปรายการแบบประเมิน
+      </Link>
       <div className="page-header">
         <div>
           <h1 className="page-title">{form.title}</h1>
@@ -185,28 +191,18 @@ export default function EvaluationResultsPage() {
 
               {q.question_type === "likert" &&
                 (() => {
-                  const counts = [1, 2, 3, 4, 5].map((n) => qAnswers.filter((a) => a.answer_value === String(n)).length);
                   const total = qAnswers.length;
                   const avg = total > 0 ? qAnswers.reduce((s, a) => s + Number(a.answer_value), 0) / total : 0;
+                  const rows = [1, 2, 3, 4, 5].map((n) => ({
+                    label: String(n),
+                    count: qAnswers.filter((a) => a.answer_value === String(n)).length,
+                  }));
                   return (
                     <div>
-                      <p className="mb-2 text-sm text-slate-600">
+                      <p className="mb-3 text-sm text-slate-600">
                         คะแนนเฉลี่ย {avg.toFixed(2)} / 5 ({total} คำตอบ)
                       </p>
-                      <div className="space-y-1.5">
-                        {[1, 2, 3, 4, 5].map((n, idx) => (
-                          <div key={n} className="flex items-center gap-2 text-xs text-slate-500">
-                            <span className="w-4">{n}</span>
-                            <div className="h-3 flex-1 rounded bg-slate-100">
-                              <div
-                                className="h-3 rounded bg-navy-600"
-                                style={{ width: total > 0 ? `${(counts[idx] / total) * 100}%` : "0%" }}
-                              />
-                            </div>
-                            <span className="w-6 text-right">{counts[idx]}</span>
-                          </div>
-                        ))}
-                      </div>
+                      <QuestionSummary rows={rows} total={total} />
                     </div>
                   );
                 })()}
@@ -214,25 +210,14 @@ export default function EvaluationResultsPage() {
               {q.question_type === "choice" &&
                 (() => {
                   const total = qAnswers.length;
-                  return (
-                    <div className="space-y-1.5">
-                      {(q.options ?? []).map((opt) => {
-                        const count = qAnswers.filter((a) => a.answer_value === opt).length;
-                        return (
-                          <div key={opt} className="flex items-center gap-2 text-xs text-slate-500">
-                            <span className="w-24 shrink-0 truncate text-slate-700">{opt}</span>
-                            <div className="h-3 flex-1 rounded bg-slate-100">
-                              <div
-                                className="h-3 rounded bg-navy-600"
-                                style={{ width: total > 0 ? `${(count / total) * 100}%` : "0%" }}
-                              />
-                            </div>
-                            <span className="w-6 text-right">{count}</span>
-                          </div>
-                        );
-                      })}
-                      {total === 0 && <p className="text-xs text-slate-400">ยังไม่มีคำตอบ</p>}
-                    </div>
+                  const rows = (q.options ?? []).map((opt) => ({
+                    label: opt,
+                    count: qAnswers.filter((a) => a.answer_value === opt).length,
+                  }));
+                  return total === 0 ? (
+                    <p className="text-xs text-slate-400">ยังไม่มีคำตอบ</p>
+                  ) : (
+                    <QuestionSummary rows={rows} total={total} />
                   );
                 })()}
 
