@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import Image from "next/image";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { resizeLogoFile } from "@/lib/image-resize";
 import type { setSchoolName as setSchoolNameAction, uploadSchoolLogo as uploadSchoolLogoAction } from "./actions";
 
 export function SchoolBrandingForm({
@@ -49,8 +50,9 @@ export function SchoolBrandingForm({
     }
     setUploadingLogo(true);
     try {
+      const resized = await resizeLogoFile(file);
       const fd = new FormData();
-      fd.set("logo", file);
+      fd.set("logo", resized);
       await uploadSchoolLogo(fd);
       await toastSuccess("อัปโหลดโลโก้แล้ว");
       onChanged();

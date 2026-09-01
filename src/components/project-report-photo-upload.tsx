@@ -1,10 +1,10 @@
 "use client";
 
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { compressPhotoFile } from "@/lib/image-resize";
 
 const UPLOAD_ENDPOINT = "/api/project-report-photo-upload";
 const MAX_PHOTOS = 4;
-const MAX_DIMENSION = 1600;
 const JPEG_QUALITY = 0.82;
 
 type Photo = {
@@ -20,31 +20,6 @@ type Photo = {
   /** จำนวนองศาที่หมุนตามเข็มนาฬิกา (0/90/180/270) — ใช้ทั้งพรีวิวและตอนอัปโหลดจริง (เฉพาะรูปใหม่) */
   rotation: 0 | 90 | 180 | 270;
 };
-
-/** ย่อ/บีบอัดรูปที่ใหญ่เกินไปด้วย canvas — รูปจากกล้องมือถือมักมีขนาดหลาย MB ซึ่งเกินขีดจำกัดขนาด
- * request ของเซิร์ฟเวอร์ (413 Request Entity Too Large) ถ้าไม่ย่อไว้ก่อน และทำให้อัปโหลดช้ามาก */
-async function compressFile(file: File): Promise<File> {
-  const bitmap = await createImageBitmap(file);
-  const needsResize =
-    bitmap.width > MAX_DIMENSION || bitmap.height > MAX_DIMENSION;
-  if (!needsResize && file.type === "image/jpeg") return file;
-
-  const scale = needsResize
-    ? MAX_DIMENSION / Math.max(bitmap.width, bitmap.height)
-    : 1;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return file;
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY),
-  );
-  if (!blob) return file;
-  return new File([blob], file.name, { type: "image/jpeg" });
-}
 
 /** หมุนรูปที่เตรียม/ย่อไว้แล้วด้วย canvas — ทำงานเร็วเพราะไฟล์ต้นทางเล็กอยู่แล้ว */
 async function rotateFile(file: File, rotation: number): Promise<File> {
@@ -121,7 +96,7 @@ export const ProjectReportPhotoUpload = forwardRef<
         photos.map(async (photo) => {
           if (photo.existingRef) return photo.existingRef;
           if (!photo.file) throw new Error("อัปโหลดภาพถ่ายไม่สำเร็จ");
-          const base = photo.preparedFile ?? (await compressFile(photo.file));
+          const base = photo.preparedFile ?? (await compressPhotoFile(photo.file));
           const rotated = await rotateFile(base, photo.rotation);
           return uploadPreparedFile(rotated);
         }),
@@ -150,7 +125,7 @@ export const ProjectReportPhotoUpload = forwardRef<
 
     // เริ่มย่อ/บีบอัดรูปทันทีตอนเลือกไฟล์ ไม่ต้องรอถึงตอนกดบันทึก — ทำให้ตอนบันทึกจริงเร็วขึ้นมาก
     for (const p of accepted) {
-      compressFile(p.file).then((preparedFile) => {
+      compressPhotoFile(p.file).then((preparedFile) => {
         setPhotos((prev) =>
           prev.map((photo) =>
             photo.id === p.id ? { ...photo, preparedFile } : photo,
