@@ -32,6 +32,7 @@ const NAV_SECTIONS = [
       { href: "/project-proposals", label: "เสนอโครงการ", icon: <LightbulbIcon className={ICON_CLASS} /> },
       { href: "/projects", label: "โครงการ", icon: <FolderIcon className={ICON_CLASS} /> },
       { href: "/project-reports", label: "รายงานโครงการ", icon: <FileTextIcon className={ICON_CLASS} /> },
+      { href: "/evaluations", label: "ประเมินความพึงพอใจ", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
       { href: "/approvals", label: "บันทึกขออนุมัติ", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
     ],
   },
