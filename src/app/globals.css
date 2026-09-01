@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* บังคับ LTR ด้วย CSS ตรงๆ (ไม่พึ่ง attribute dir="ltr" อย่างเดียว) เพราะมือถือบางเครื่องที่เปิด
+   "บังคับ RTL" ระดับ OS จะ inject direction: rtl ที่ priority สูงกว่า attribute ทับอีกที ทำให้
+   ข้อความในฟอร์มเด้งไปชิดขวาทั้งแอปแม้ตั้ง dir="ltr" ที่ <html> ไว้แล้ว */
+html {
+  direction: ltr !important;
+}
+
 :root {
   --background: #f3f5f8;
   --foreground: #171717;
