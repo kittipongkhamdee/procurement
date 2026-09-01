@@ -15,8 +15,11 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
+  // บังคับ dir="ltr" เพราะมือถือบางเครื่องเปิด "บังคับ RTL" ระดับ OS (accessibility) ทำให้ข้อความ
+  // ที่ไม่ได้ระบุทิศทางชัดเจนเด้งไปชิดขวาทั้งแอป (พบใน popup แก้ไข/เพิ่มข้อมูล) — ภาษาไทยเป็น LTR เสมอ
+  // จึงบังคับตรงนี้จุดเดียวกันปัญหาซ้ำในทุกหน้า ไม่ต้องไล่แก้ทีละฟอร์ม
   return (
-    <html lang="th" className={`${notoSansThai.variable} h-full antialiased`}>
+    <html lang="th" dir="ltr" className={`${notoSansThai.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900">
         {children}
       </body>
