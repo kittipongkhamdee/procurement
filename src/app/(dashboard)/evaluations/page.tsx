@@ -12,6 +12,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { toastSuccess, toastError, errorMessage } from "@/lib/swal";
 import { CreateFormModal } from "./create-form-modal";
 import { CreateTemplateModal } from "./create-template-modal";
+import { QrCodeButton } from "./qr-code-button";
 import { createForm, createTemplate, publishForm, closeForm } from "./actions";
 
 type Project = { id: string; name: string };
@@ -122,6 +123,12 @@ export default function EvaluationsPage() {
             >
               คัดลอกลิงก์
             </button>
+            {typeof window !== "undefined" && (
+              <QrCodeButton
+                value={`${window.location.origin}/survey/year/${currentYear.year}`}
+                filename={`qr-แบบประเมิน-ปีงบ${currentYear.year}.png`}
+              />
+            )}
           </div>
         </div>
       )}

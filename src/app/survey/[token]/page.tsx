@@ -11,7 +11,7 @@ export default function SurveyPage() {
   const { token } = useParams<{ token: string }>();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-navy-950 to-navy-800 px-4 py-8">
       <SurveyTaker token={token} />
     </div>
   );
