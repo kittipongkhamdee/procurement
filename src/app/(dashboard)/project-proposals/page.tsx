@@ -18,20 +18,43 @@ import {
 export default async function ProjectProposalsPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: myProfile } = await supabase
-    .from("proc_profiles")
-    .select("role")
-    .eq("user_id", user?.id ?? "")
-    .maybeSingle();
+  // ยิงทุกอย่างที่ไม่ได้ขึ้นต่อกันพร้อมกัน — เดิมรอกันเป็นทอดๆ 7 รอบ ทั้งที่รายการตั้งค่าและ
+  // ข้อเสนอโครงการไม่ได้ขึ้นกับผู้ใช้เลย เหลือ 3 รอบ (ดูคอมเมนต์เดียวกันในหน้าโครงการ)
+  const [
+    {
+      data: { user },
+    },
+    { data: budgetYears },
+    { data: adminGroups },
+    { data: budgetSources },
+    { data: teachers },
+    { data: strategies },
+    { data: standards },
+    { data: proposals, error },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from("plan_budget_years").select("id, year, is_open").order("year", { ascending: false }),
+    supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.from("plan_strategies").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    supabase.from("plan_standards").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    supabase
+      .from("plan_project_proposals")
+      .select(
+        "id, name, proposer_name, created_by, standard, responsible, objectives, strategy_alignment, activities, indicators_quantity, indicators_quality, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+      )
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
+
+  const [{ data: myProfile }, { data: myGroups }] = await Promise.all([
+    supabase.from("proc_profiles").select("role").eq("user_id", user?.id ?? "").maybeSingle(),
+    supabase.from("proc_user_group_members").select("proc_user_groups(name)").eq("user_id", user?.id ?? ""),
+  ]);
   const isAdmin = myProfile?.role === "admin";
 
-  const { data: myGroups } = await supabase
-    .from("proc_user_group_members")
-    .select("proc_user_groups(name)")
-    .eq("user_id", user?.id ?? "");
   const myGroupNames = new Set(
     (myGroups ?? [])
       .map((g) => (g.proc_user_groups as unknown as { name: string } | null)?.name)
@@ -42,28 +65,6 @@ export default async function ProjectProposalsPage() {
   const isApproverOnly = !isAdmin && (canEndorse || canApprove);
   /** ผู้อำนวยการ (ไม่ใช่แอดมินและไม่ใช่รองผู้อำนวยการ) ยังไม่ควรเห็น/เปิดอ่านโครงการที่รองผู้อำนวยการยังไม่เห็นชอบ */
   const isDirectorOnly = !isAdmin && canApprove && !canEndorse;
-
-  const { data: budgetYears } = await supabase
-    .from("plan_budget_years")
-    .select("id, year, is_open")
-    .order("year", { ascending: false });
-  const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
-
-  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }, { data: strategies }, { data: standards }] =
-    await Promise.all([
-      supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-      supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-      supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
-      supabase.from("plan_strategies").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-      supabase.from("plan_standards").select("id, name").eq("is_active", true).order("sort_order").order("name"),
-    ]);
-
-  const { data: proposals, error } = await supabase
-    .from("plan_project_proposals")
-    .select(
-      "id, name, proposer_name, created_by, standard, responsible, objectives, strategy_alignment, activities, indicators_quantity, indicators_quality, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
-    )
-    .order("created_at", { ascending: false });
 
   const filePaths = (proposals ?? [])
     .flatMap((p) => [p.file_url_word, p.file_url_pdf])

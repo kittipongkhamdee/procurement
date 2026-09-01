@@ -41,7 +41,10 @@ export default async function DashboardPage() {
     supabase.from("plan_projects").select("id"),
     supabase.from("proc_purchase_requests").select("amount"),
     supabase.from("proc_allowance_disbursements").select("amount"),
-    supabase.from("proc_project_disbursements").select("amount, status"),
+    // ดึง project_id มาด้วย เพื่อใช้คำนวณยอดเบิกจ่ายรายโครงการต่อได้เลย ไม่ต้องยิงซ้ำอีกรอบ
+    supabase
+      .from("proc_project_disbursements")
+      .select("project_id, amount, status"),
     supabase.from("proc_approvals").select("*", { count: "exact", head: true }),
     supabase.from("proc_approvals").select("requested_amount"),
     supabase
@@ -58,15 +61,14 @@ export default async function DashboardPage() {
         .eq("budget_year_id", currentYear.id)
     : { data: [] };
 
-  const currentYearProjectIds = (currentYearProjects ?? []).map((p) => p.id);
-  const { data: currentYearPaidDisbursements } =
-    currentYearProjectIds.length > 0
-      ? await supabase
-          .from("proc_project_disbursements")
-          .select("project_id, amount")
-          .eq("status", "paid")
-          .in("project_id", currentYearProjectIds)
-      : { data: [] };
+  // กรองจากข้อมูลที่ดึงมาแล้วในรอบแรก แทนการยิง query ใหม่อีกรอบ
+  const currentYearProjectIds = new Set(
+    (currentYearProjects ?? []).map((p) => p.id),
+  );
+  const currentYearPaidDisbursements = (projectDisbursementRows ?? []).filter(
+    (d) =>
+      d.status === "paid" && d.project_id && currentYearProjectIds.has(d.project_id),
+  );
 
   const currentYearSpentByProject = new Map<string, number>();
   for (const d of currentYearPaidDisbursements ?? []) {
