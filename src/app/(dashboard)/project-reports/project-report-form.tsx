@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import {
   ProjectReportPhotoUpload,
@@ -268,7 +269,9 @@ export function ProjectReportForm({
   }
 
   async function handleSubmit(formData: FormData) {
-    setIsSubmitting(true);
+    // flushSync บังคับให้ปุ่มเปลี่ยนเป็น "กำลังบันทึก..." ทันทีก่อนเริ่มงานหนัก (บีบอัด/อัปโหลดรูป)
+    // ไม่งั้น React อาจรวม state นี้ไว้กับงานอื่นแล้วหน่วงการวาดหน้าจอ ทำให้ดูเหมือนกดแล้วไม่มีอะไรเกิดขึ้น
+    flushSync(() => setIsSubmitting(true));
     try {
       const photoRefs = await photoUploadRef.current?.uploadAll();
       formData.set("objectives_json", JSON.stringify(objectives));
