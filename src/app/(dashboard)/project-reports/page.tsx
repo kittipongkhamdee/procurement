@@ -1,35 +1,57 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveStorageUrls } from "@/lib/storage";
 import { formatThaiDate } from "@/lib/thai";
-import { Modal } from "@/components/modal";
-import { ProjectReportForm } from "./project-report-form";
-import { createProjectReport, deleteProjectReport, extractBackgroundFromProposalFile } from "./actions";
+import { ProjectReportModal } from "./project-report-modal";
+import {
+  createProjectReport,
+  deleteProjectReport,
+  extractBackgroundFromProposalFile,
+} from "./actions";
 
 // ให้เวลาเพียงพอสำหรับ server action ที่เรียก Gemini อ่านไฟล์ข้อเสนอโครงการ (ค่าเริ่มต้นของ Vercel อาจตัดก่อน AI ตอบกลับ)
 export const maxDuration = 60;
 
 export default async function ProjectReportsPage() {
   const supabase = await createClient();
-  const [{ data: reports, error }, { data: projects }, { data: proposals }, { data: aiExtractionEnabledSetting }] =
-    await Promise.all([
-      supabase
-        .from("proc_project_reports")
-        .select("id, file_url, photo_refs, created_at, not_implemented, plan_projects(name)")
-        .order("created_at", { ascending: false }),
-      supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
-      supabase
-        .from("plan_project_proposals")
-        .select(
-          "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
-        )
-        .not("project_id", "is", null),
-      supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
-    ]);
+  const [
+    { data: reports, error },
+    { data: projects },
+    { data: proposals },
+    { data: aiExtractionEnabledSetting },
+  ] = await Promise.all([
+    supabase
+      .from("proc_project_reports")
+      .select(
+        "id, file_url, photo_refs, created_at, not_implemented, plan_projects(name)",
+      )
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("plan_projects")
+      .select("id, name, budget")
+      .order("sort_order"),
+    supabase
+      .from("plan_project_proposals")
+      .select(
+        "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
+      )
+      .not("project_id", "is", null),
+    supabase
+      .from("proc_app_settings")
+      .select("value")
+      .eq("key", "ai_extraction_enabled")
+      .maybeSingle(),
+  ]);
 
   const paths = (reports ?? []).map((r) => r.file_url);
-  const signedUrls = await resolveStorageUrls(supabase, paths, "procurement-files");
+  const signedUrls = await resolveStorageUrls(
+    supabase,
+    paths,
+    "procurement-files",
+  );
 
-  const proposalByProjectId = new Map((proposals ?? []).map((p) => [p.project_id as string, p]));
+  const proposalByProjectId = new Map(
+    (proposals ?? []).map((p) => [p.project_id as string, p]),
+  );
   const aiExtractionEnabled = aiExtractionEnabledSetting?.value !== "false";
 
   return (
@@ -38,34 +60,42 @@ export default async function ProjectReportsPage() {
         <div>
           <h1 className="page-title">ระบบรายงานโครงการ</h1>
         </div>
-        <Modal title="รายงานสรุปโครงการ" trigger="+ รายงานโครงการใหม่" triggerClassName="btn-primary" closeOnSubmit>
-          <ProjectReportForm
-            projects={(projects ?? []).map((p) => {
-              const proposal = proposalByProjectId.get(p.id);
-              return {
-                id: p.id,
-                name: p.name,
-                budget: p.budget,
-                strategyAlignment: proposal?.strategy_alignment ?? null,
-                standard: proposal?.standard ?? null,
-                responsible: (proposal?.responsible as unknown as string[]) ?? [],
-                objectives: (proposal?.objectives as unknown as string[]) ?? [],
-                indicatorsQuantity:
-                  (proposal?.indicators_quantity as unknown as { indicator: string; target: string }[]) ?? [],
-                indicatorsQuality:
-                  (proposal?.indicators_quality as unknown as { indicator: string; target: string }[]) ?? [],
-                proposalPdfPath: proposal?.file_url_pdf ?? null,
-              };
-            })}
-            action={createProjectReport}
-            aiExtractionEnabled={aiExtractionEnabled}
-            extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
-          />
-        </Modal>
+        <ProjectReportModal
+          projects={(projects ?? []).map((p) => {
+            const proposal = proposalByProjectId.get(p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              budget: p.budget,
+              strategyAlignment: proposal?.strategy_alignment ?? null,
+              standard: proposal?.standard ?? null,
+              responsible: (proposal?.responsible as unknown as string[]) ?? [],
+              objectives: (proposal?.objectives as unknown as string[]) ?? [],
+              indicatorsQuantity:
+                (proposal?.indicators_quantity as unknown as {
+                  indicator: string;
+                  target: string;
+                }[]) ?? [],
+              indicatorsQuality:
+                (proposal?.indicators_quality as unknown as {
+                  indicator: string;
+                  target: string;
+                }[]) ?? [],
+              proposalPdfPath: proposal?.file_url_pdf ?? null,
+            };
+          })}
+          action={createProjectReport}
+          aiExtractionEnabled={aiExtractionEnabled}
+          extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
+        />
       </div>
 
       <div className="table-shell">
-        {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error.message}</p>}
+        {error && (
+          <p className="p-4 text-sm text-red-600">
+            โหลดข้อมูลไม่สำเร็จ: {error.message}
+          </p>
+        )}
         <table className="table-base">
           <thead>
             <tr>
@@ -79,8 +109,11 @@ export default async function ProjectReportsPage() {
             {reports?.map((r) => (
               <tr key={r.id}>
                 <td className="font-medium text-slate-900">
-                  {(r.plan_projects as unknown as { name: string } | null)?.name ?? "-"}
-                  {r.not_implemented && <span className="badge-red ml-2">ไม่ได้ดำเนินการ</span>}
+                  {(r.plan_projects as unknown as { name: string } | null)
+                    ?.name ?? "-"}
+                  {r.not_implemented && (
+                    <span className="badge-red ml-2">ไม่ได้ดำเนินการ</span>
+                  )}
                 </td>
                 <td>{formatThaiDate(r.created_at)}</td>
                 <td className="text-right">
@@ -107,8 +140,18 @@ export default async function ProjectReportsPage() {
                   )}
                 </td>
                 <td className="text-right">
-                  <form action={deleteProjectReport.bind(null, r.id, r.file_url, (r.photo_refs as unknown as string[]) ?? [])}>
-                    <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
+                  <form
+                    action={deleteProjectReport.bind(
+                      null,
+                      r.id,
+                      r.file_url,
+                      (r.photo_refs as unknown as string[]) ?? [],
+                    )}
+                  >
+                    <button
+                      type="submit"
+                      className="text-xs font-medium text-red-600 hover:underline"
+                    >
                       ลบ
                     </button>
                   </form>

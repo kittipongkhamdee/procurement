@@ -10,7 +10,7 @@ import {
 type IndicatorTarget = { indicator: string; target: string };
 type IndicatorResult = { indicator: string; target: string; actual: string };
 
-type Project = {
+export type Project = {
   id: string;
   name: string;
   budget: number | null;
@@ -180,13 +180,17 @@ export function ProjectReportForm({
   action,
   aiExtractionEnabled,
   extractBackgroundFromProposalFile,
+  onSuccess,
 }: {
   projects: Project[];
   action: (formData: FormData) => void | Promise<void>;
   aiExtractionEnabled?: boolean;
   extractBackgroundFromProposalFile?: (filePath: string) => Promise<string>;
+  /** เรียกหลังบันทึกสำเร็จเท่านั้น (เช่น สั่งปิด popup) — ไม่เรียกถ้าบันทึกไม่สำเร็จ ผู้ใช้จะได้เห็น toast แจ้ง error และแก้ไขฟอร์มต่อได้ */
+  onSuccess?: () => void;
 }) {
   const [projectId, setProjectId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [notImplemented, setNotImplemented] = useState(false);
   const [notImplementedReason, setNotImplementedReason] = useState("");
   const [background, setBackground] = useState("");
@@ -264,6 +268,7 @@ export function ProjectReportForm({
   }
 
   async function handleSubmit(formData: FormData) {
+    setIsSubmitting(true);
     try {
       const photoRefs = await photoUploadRef.current?.uploadAll();
       formData.set("objectives_json", JSON.stringify(objectives));
@@ -300,8 +305,11 @@ export function ProjectReportForm({
       setResponsibleName("");
       setIndicatorResultsQuantity([]);
       setIndicatorResultsQuality([]);
+      onSuccess?.();
     } catch (err) {
       await toastError(errorMessage(err));
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -566,8 +574,12 @@ export function ProjectReportForm({
         </>
       )}
 
-      <button type="submit" className="btn-primary mt-2">
-        บันทึกรายงานโครงการ
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="btn-primary mt-2 disabled:cursor-wait disabled:opacity-70"
+      >
+        {isSubmitting ? "กำลังบันทึก..." : "บันทึกรายงานโครงการ"}
       </button>
     </form>
   );
