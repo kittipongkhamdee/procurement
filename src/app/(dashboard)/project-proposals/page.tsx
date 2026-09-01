@@ -135,6 +135,7 @@ export default async function ProjectProposalsPage() {
             }
             triggerClassName="btn-gold px-5 py-2.5 text-base shadow-md transition-transform hover:scale-[1.03]"
             closeOnSubmit
+            wide
           >
             <ProposalForm
               action={createProposal}
