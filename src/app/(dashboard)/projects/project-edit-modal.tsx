@@ -33,6 +33,7 @@ export function ProjectEditModal({
   createActivity,
   updateActivity,
   deleteActivity,
+  onChanged,
 }: {
   projectId: string;
   name: string;
@@ -49,6 +50,8 @@ export function ProjectEditModal({
   createActivity: typeof createActivityAction;
   updateActivity: typeof updateActivityAction;
   deleteActivity: typeof deleteActivityAction;
+  /** เรียกหลัง mutation สำเร็จทุกครั้ง — ให้หน้าพ่อ refetch รายการใหม่เมื่อ items มาจาก client state */
+  onChanged?: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const projectFormId = useId();
@@ -71,6 +74,7 @@ export function ProjectEditModal({
         }),
       );
       await toastSuccess("บันทึกข้อมูลโครงการและกิจกรรมย่อยเรียบร้อยแล้ว");
+      onChanged?.();
       modalRef.current?.close();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -86,6 +90,7 @@ export function ProjectEditModal({
     try {
       await deleteProject(projectId);
       await toastSuccess("ลบโครงการเรียบร้อยแล้ว");
+      onChanged?.();
       modalRef.current?.close();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -101,6 +106,7 @@ export function ProjectEditModal({
       await toastSuccess("เพิ่มกิจกรรมย่อยเรียบร้อยแล้ว");
       form.reset();
       setAddActivityKey((k) => k + 1);
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -112,6 +118,7 @@ export function ProjectEditModal({
     try {
       await deleteActivity(activityId);
       await toastSuccess("ลบกิจกรรมย่อยเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }

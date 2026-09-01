@@ -1,6 +1,17 @@
-import { createClient } from "@/lib/supabase/server";
-import { resolveStorageUrls } from "@/lib/storage";
+"use client";
+
+// Client Component — หน้าสุดท้ายในการแปลงเฟส 2 (ดู /root/.claude/plans) ดึงรายงานโครงการผ่าน
+// browser Supabase client แทนการรอ Server Component fetch — extractBackgroundFromProposalFile
+// (เรียก Gemini AI) และ mutation ทั้งหมดยังคงเป็น server action เดิม ไม่แตะ
+//
+// สำคัญ: ใช้ resolveUrls แบบ client เอง (เหมือน /documents, /project-proposals) ไม่ import จาก
+// บาร์เรล @/lib/storage เพราะดึง google-drive.ts (service account secret) เข้ามาด้วย
+
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/lib/AuthContext";
+import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
+import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ProjectReportModal } from "./project-report-modal";
 import { DeleteReportButton } from "./delete-report-button";
 import {
@@ -10,92 +21,143 @@ import {
   updateProjectReport,
 } from "./actions";
 
-// ให้เวลาเพียงพอสำหรับ server action ที่เรียก Gemini อ่านไฟล์ข้อเสนอโครงการ (ค่าเริ่มต้นของ Vercel อาจตัดก่อน AI ตอบกลับ)
-export const maxDuration = 60;
+type IndicatorResult = { indicator: string; target: string; actual: string };
+type Proposal = {
+  project_id: string;
+  strategy_alignment: string | null;
+  standard: string | null;
+  responsible: string[] | null;
+  objectives: string[] | null;
+  indicators_quantity: { indicator: string; target: string }[] | null;
+  indicators_quality: { indicator: string; target: string }[] | null;
+  file_url_pdf: string | null;
+};
+type Report = {
+  id: string;
+  project_id: string | null;
+  uploaded_by: string | null;
+  file_url: string | null;
+  photo_refs: string[] | null;
+  created_at: string;
+  not_implemented: boolean;
+  not_implemented_reason: string | null;
+  responsible_name: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  location: string | null;
+  background: string | null;
+  objectives: string[] | null;
+  activities_done: string[] | null;
+  indicator_results_quantity: IndicatorResult[] | null;
+  indicator_results_quality: IndicatorResult[] | null;
+  satisfaction_percent: number | null;
+  budget_approved: number | null;
+  budget_used: number | null;
+  highlights: string[] | null;
+  problems: string[] | null;
+  recommendations: string[] | null;
+  plan_projects: { name: string } | null;
+};
 
-export default async function ProjectReportsPage() {
-  const supabase = await createClient();
-
-  // ยิงพร้อมกันทั้งหมด — เดิมรอ getUser แล้วค่อยถาม role แล้วค่อยยิงชุดข้อมูลหลัก
-  // ทั้งที่ข้อมูลหลักไม่ได้ขึ้นกับผู้ใช้เลย (role ใช้แค่ตัดสินใจว่าจะโชว์ปุ่มแก้ไข/ลบหรือไม่)
-  const [
+export default function ProjectReportsPage() {
+  const { user, isAdmin, loading: authLoading } = useAuth();
+  const [reports, setReports] = useState<Report[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [projectOptions, setProjectOptions] = useState<
     {
-      data: { user },
-    },
-    { data: reports, error },
-    { data: projects },
-    { data: proposals },
-    { data: aiExtractionEnabledSetting },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase
-      .from("proc_project_reports")
-      .select(
-        "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, not_implemented_reason, responsible_name, period_start, period_end, location, background, objectives, activities_done, indicator_results_quantity, indicator_results_quality, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations, plan_projects(name)",
-      )
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("plan_projects")
-      .select("id, name, budget")
-      .order("sort_order"),
-    supabase
-      .from("plan_project_proposals")
-      .select(
-        "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
-      )
-      .not("project_id", "is", null),
-    supabase
-      .from("proc_app_settings")
-      .select("value")
-      .eq("key", "ai_extraction_enabled")
-      .maybeSingle(),
-  ]);
+      id: string;
+      name: string;
+      budget: number;
+      strategyAlignment: string | null;
+      standard: string | null;
+      responsible: string[];
+      objectives: string[];
+      indicatorsQuantity: { indicator: string; target: string }[];
+      indicatorsQuality: { indicator: string; target: string }[];
+      proposalPdfPath: string | null;
+    }[]
+  >([]);
+  const [aiExtractionEnabled, setAiExtractionEnabled] = useState(true);
+  const [signedUrls, setSignedUrls] = useState<Map<string, string>>(new Map());
+  const [signedPhotoUrls, setSignedPhotoUrls] = useState<Map<string, string>>(new Map());
 
-  const paths = (reports ?? []).map((r) => r.file_url);
-  const allPhotoRefs = (reports ?? []).flatMap(
-    (r) => (r.photo_refs as unknown as string[]) ?? [],
-  );
+  const reload = useCallback(async () => {
+    const supabase = createClient();
 
-  // ขอ role กับ signed URL ทั้งสองชุดพร้อมกัน แทนการรอกันทีละอย่าง
-  const [{ data: myProfile }, signedUrls, signedPhotoUrls] = await Promise.all([
-    supabase
-      .from("proc_profiles")
-      .select("role")
-      .eq("user_id", user?.id ?? "")
-      .maybeSingle(),
-    resolveStorageUrls(supabase, paths, "procurement-files"),
-    resolveStorageUrls(supabase, allPhotoRefs, "procurement-files"),
-  ]);
-  const isAdmin = myProfile?.role === "admin";
+    const [
+      { data: reportsData, error },
+      { data: projects },
+      { data: proposals },
+      { data: aiExtractionEnabledSetting },
+    ] = await Promise.all([
+      supabase
+        .from("proc_project_reports")
+        .select(
+          "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, not_implemented_reason, responsible_name, period_start, period_end, location, background, objectives, activities_done, indicator_results_quantity, indicator_results_quality, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations, plan_projects(name)",
+        )
+        .order("created_at", { ascending: false }),
+      supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
+      supabase
+        .from("plan_project_proposals")
+        .select(
+          "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
+        )
+        .not("project_id", "is", null),
+      supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
+    ]);
+    if (error) setError(error.message);
 
-  const proposalByProjectId = new Map(
-    (proposals ?? []).map((p) => [p.project_id as string, p]),
-  );
-  const aiExtractionEnabled = aiExtractionEnabledSetting?.value !== "false";
+    const rows = (reportsData as unknown as Report[]) ?? [];
+    setReports(rows);
+    setAiExtractionEnabled(aiExtractionEnabledSetting?.value !== "false");
 
-  const projectOptions = (projects ?? []).map((p) => {
-    const proposal = proposalByProjectId.get(p.id);
-    return {
-      id: p.id,
-      name: p.name,
-      budget: p.budget,
-      strategyAlignment: proposal?.strategy_alignment ?? null,
-      standard: proposal?.standard ?? null,
-      responsible: (proposal?.responsible as unknown as string[]) ?? [],
-      objectives: (proposal?.objectives as unknown as string[]) ?? [],
-      indicatorsQuantity:
-        (proposal?.indicators_quantity as unknown as {
-          indicator: string;
-          target: string;
-        }[]) ?? [],
-      indicatorsQuality:
-        (proposal?.indicators_quality as unknown as {
-          indicator: string;
-          target: string;
-        }[]) ?? [],
-      proposalPdfPath: proposal?.file_url_pdf ?? null,
-    };
-  });
+    const proposalByProjectId = new Map((proposals as unknown as Proposal[] ?? []).map((p) => [p.project_id, p]));
+    setProjectOptions(
+      (projects ?? []).map((p) => {
+        const proposal = proposalByProjectId.get(p.id);
+        return {
+          id: p.id,
+          name: p.name,
+          budget: p.budget,
+          strategyAlignment: proposal?.strategy_alignment ?? null,
+          standard: proposal?.standard ?? null,
+          responsible: proposal?.responsible ?? [],
+          objectives: proposal?.objectives ?? [],
+          indicatorsQuantity: proposal?.indicators_quantity ?? [],
+          indicatorsQuality: proposal?.indicators_quality ?? [],
+          proposalPdfPath: proposal?.file_url_pdf ?? null,
+        };
+      }),
+    );
+
+    const paths = rows.map((r) => r.file_url).filter((p): p is string => !!p);
+    const allPhotoRefs = rows.flatMap((r) => r.photo_refs ?? []);
+    const [fileUrlsMap, photoUrlsMap] = await Promise.all([
+      paths.length > 0
+        ? supabase.storage.from("procurement-files").createSignedUrls(paths, 3600)
+        : Promise.resolve({ data: [] }),
+      allPhotoRefs.length > 0
+        ? supabase.storage.from("procurement-files").createSignedUrls(allPhotoRefs, 3600)
+        : Promise.resolve({ data: [] }),
+    ]);
+    const fileMap = new Map<string, string>();
+    fileUrlsMap.data?.forEach((s) => {
+      if (s.signedUrl && !s.error) fileMap.set(s.path ?? "", s.signedUrl);
+    });
+    setSignedUrls(fileMap);
+    const photoMap = new Map<string, string>();
+    photoUrlsMap.data?.forEach((s) => {
+      if (s.signedUrl && !s.error) photoMap.set(s.path ?? "", s.signedUrl);
+    });
+    setSignedPhotoUrls(photoMap);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    reload();
+  }, [reload]);
+
+  if (reports === null || authLoading) return <PageLoadingSkeleton />;
 
   return (
     <div>
@@ -108,15 +170,12 @@ export default async function ProjectReportsPage() {
           action={createProjectReport}
           aiExtractionEnabled={aiExtractionEnabled}
           extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
+          onChanged={reload}
         />
       </div>
 
       <div className="table-shell">
-        {error && (
-          <p className="p-4 text-sm text-red-600">
-            โหลดข้อมูลไม่สำเร็จ: {error.message}
-          </p>
-        )}
+        {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
         <table className="table-base">
           <thead>
             <tr>
@@ -127,17 +186,14 @@ export default async function ProjectReportsPage() {
             </tr>
           </thead>
           <tbody>
-            {reports?.map((r) => {
-              const canManage = isAdmin || (user && r.uploaded_by === user.id);
-              const photoRefs = (r.photo_refs as unknown as string[]) ?? [];
+            {reports.map((r) => {
+              const canManage = isAdmin || (user && r.uploaded_by === user.userId);
+              const photoRefs = r.photo_refs ?? [];
               return (
                 <tr key={r.id}>
                   <td className="font-medium text-slate-900">
-                    {(r.plan_projects as unknown as { name: string } | null)
-                      ?.name ?? "-"}
-                    {r.not_implemented && (
-                      <span className="badge-red ml-2">ไม่ได้ดำเนินการ</span>
-                    )}
+                    {r.plan_projects?.name ?? "-"}
+                    {r.not_implemented && <span className="badge-red ml-2">ไม่ได้ดำเนินการ</span>}
                   </td>
                   <td>{formatThaiDate(r.created_at)}</td>
                   <td className="text-right">
@@ -151,9 +207,7 @@ export default async function ProjectReportsPage() {
                           เปิดไฟล์
                         </a>
                       ) : (
-                        <span className="text-xs text-slate-400">
-                          ไม่พบไฟล์
-                        </span>
+                        <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
                       )
                     ) : (
                       <a
@@ -172,52 +226,33 @@ export default async function ProjectReportsPage() {
                           projects={projectOptions}
                           action={updateProjectReport.bind(null, r.id)}
                           aiExtractionEnabled={aiExtractionEnabled}
-                          extractBackgroundFromProposalFile={
-                            extractBackgroundFromProposalFile
-                          }
+                          extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
                           title="แก้ไขรายงานโครงการ"
                           trigger="แก้ไข"
                           triggerClassName="text-xs font-medium text-navy-800 hover:underline"
                           submitLabel="บันทึกการแก้ไข"
+                          onChanged={reload}
                           initial={{
                             projectId: r.project_id ?? "",
                             notImplemented: r.not_implemented,
-                            notImplementedReason:
-                              r.not_implemented_reason ?? "",
+                            notImplementedReason: r.not_implemented_reason ?? "",
                             responsibleName: r.responsible_name ?? "",
                             periodStart: r.period_start,
                             periodEnd: r.period_end,
                             location: r.location,
                             background: r.background ?? "",
-                            objectives:
-                              (r.objectives as unknown as string[]) ?? [],
-                            activitiesDone:
-                              (r.activities_done as unknown as string[]) ?? [],
-                            indicatorResultsQuantity:
-                              (r.indicator_results_quantity as unknown as {
-                                indicator: string;
-                                target: string;
-                                actual: string;
-                              }[]) ?? [],
-                            indicatorResultsQuality:
-                              (r.indicator_results_quality as unknown as {
-                                indicator: string;
-                                target: string;
-                                actual: string;
-                              }[]) ?? [],
+                            objectives: r.objectives ?? [],
+                            activitiesDone: r.activities_done ?? [],
+                            indicatorResultsQuantity: r.indicator_results_quantity ?? [],
+                            indicatorResultsQuality: r.indicator_results_quality ?? [],
                             satisfactionPercent: r.satisfaction_percent,
                             budgetApproved: r.budget_approved,
                             budgetUsed: r.budget_used,
-                            highlights:
-                              (r.highlights as unknown as string[]) ?? [],
-                            problems: (r.problems as unknown as string[]) ?? [],
-                            recommendations:
-                              (r.recommendations as unknown as string[]) ?? [],
+                            highlights: r.highlights ?? [],
+                            problems: r.problems ?? [],
+                            recommendations: r.recommendations ?? [],
                             photos: photoRefs
-                              .map((ref) => ({
-                                ref,
-                                url: signedPhotoUrls.get(ref) ?? "",
-                              }))
+                              .map((ref) => ({ ref, url: signedPhotoUrls.get(ref) ?? "" }))
                               .filter((p) => p.url),
                           }}
                         />
@@ -225,10 +260,9 @@ export default async function ProjectReportsPage() {
                           id={r.id}
                           fileUrl={r.file_url}
                           photoRefs={photoRefs}
-                          projectName={
-                            (r.plan_projects as unknown as { name: string } | null)?.name ?? "โครงการนี้"
-                          }
+                          projectName={r.plan_projects?.name ?? "โครงการนี้"}
                           action={deleteProjectReport}
+                          onChanged={reload}
                         />
                       </div>
                     )}
@@ -236,7 +270,7 @@ export default async function ProjectReportsPage() {
                 </tr>
               );
             })}
-            {reports?.length === 0 && (
+            {reports.length === 0 && (
               <tr>
                 <td colSpan={4} className="table-empty">
                   ยังไม่มีข้อมูล

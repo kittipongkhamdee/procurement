@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Tables } from "@/lib/supabase/database.types";
+import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
 type Contract = Pick<Tables<"proc_contracts">, "id" | "contract_no" | "vendor_name" | "amount" | "inspector_name">;
 
@@ -23,15 +24,32 @@ const MONTHS = [
 export function DeliveryForm({
   action,
   contracts,
+  onSuccess,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   contracts: Contract[];
+  onSuccess?: () => void;
 }) {
   const [contractId, setContractId] = useState("");
   const selected = useMemo(() => contracts.find((c) => c.id === contractId) ?? null, [contracts, contractId]);
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    try {
+      await action(formData);
+      await toastSuccess("บันทึกการส่งมอบงานเรียบร้อยแล้ว");
+      form.reset();
+      setContractId("");
+      onSuccess?.();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
   return (
-    <form action={action} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <div className="sm:col-span-2">
         <label className="label">อ้างอิงเลขที่สัญญา</label>
         <select

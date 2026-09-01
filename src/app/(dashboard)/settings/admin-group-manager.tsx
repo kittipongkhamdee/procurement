@@ -18,12 +18,14 @@ export function AdminGroupManager({
   updateAdminGroupName,
   toggleAdminGroupActive,
   deleteAdminGroup,
+  onChanged,
 }: {
   adminGroups: AdminGroup[];
   createAdminGroup: typeof createAdminGroupAction;
   updateAdminGroupName: typeof updateAdminGroupNameAction;
   toggleAdminGroupActive: typeof toggleAdminGroupActiveAction;
   deleteAdminGroup: typeof deleteAdminGroupAction;
+  onChanged?: () => void;
 }) {
   async function handleRenameBlur(id: string, currentName: string, e: React.FocusEvent<HTMLInputElement>) {
     const name = e.target.value.trim();
@@ -36,6 +38,7 @@ export function AdminGroupManager({
     try {
       await updateAdminGroupName(id, formData);
       await toastSuccess("บันทึกชื่อเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       e.target.value = currentName;
       await toastError(errorMessage(err));
@@ -46,6 +49,7 @@ export function AdminGroupManager({
     try {
       await toggleAdminGroupActive(id, isActive);
       await toastSuccess(isActive ? "ปิดใช้งานแล้ว" : "เปิดใช้งานแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -57,6 +61,7 @@ export function AdminGroupManager({
     try {
       await deleteAdminGroup(id);
       await toastSuccess("ลบกลุ่มบริหารเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -70,6 +75,7 @@ export function AdminGroupManager({
       await createAdminGroup(formData);
       await toastSuccess("เพิ่มกลุ่มบริหารเรียบร้อยแล้ว");
       form.reset();
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }

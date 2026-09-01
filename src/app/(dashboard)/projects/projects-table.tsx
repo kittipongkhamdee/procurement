@@ -70,6 +70,7 @@ export function ProjectsTable({
   createActivity,
   updateActivity,
   deleteActivity,
+  onChanged,
 }: {
   rows: ProjectRow[];
   isAdmin: boolean;
@@ -81,6 +82,7 @@ export function ProjectsTable({
   createActivity: typeof createActivityAction;
   updateActivity: typeof updateActivityAction;
   deleteActivity: typeof deleteActivityAction;
+  onChanged?: () => void;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -160,6 +162,7 @@ export function ProjectsTable({
         createActivity={createActivity}
         updateActivity={updateActivity}
         deleteActivity={deleteActivity}
+        onChanged={onChanged}
       />
     );
   }

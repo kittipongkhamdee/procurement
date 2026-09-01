@@ -25,6 +25,7 @@ export function ProjectReportModal({
   triggerClassName = "btn-primary",
   initial,
   submitLabel,
+  onChanged,
 }: {
   projects: Project[];
   action: typeof createProjectReport;
@@ -35,6 +36,7 @@ export function ProjectReportModal({
   triggerClassName?: string;
   initial?: ProjectReportInitial;
   submitLabel?: string;
+  onChanged?: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
 
@@ -51,7 +53,10 @@ export function ProjectReportModal({
         action={action}
         aiExtractionEnabled={aiExtractionEnabled}
         extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
-        onSuccess={() => modalRef.current?.close()}
+        onSuccess={() => {
+          onChanged?.();
+          modalRef.current?.close();
+        }}
         initial={initial}
         submitLabel={submitLabel}
       />

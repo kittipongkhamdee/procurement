@@ -78,6 +78,7 @@ export function ProposalDetailModal({
   resetProposalStatus,
   deleteProposal,
   deleteProposalFile,
+  onChanged,
 }: {
   proposal: Proposal;
   isAdmin: boolean;
@@ -90,6 +91,7 @@ export function ProposalDetailModal({
   resetProposalStatus: typeof resetProposalStatusAction;
   deleteProposal: typeof deleteProposalAction;
   deleteProposalFile: typeof deleteProposalFileAction;
+  onChanged?: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [endorseNote, setEndorseNote] = useState("");
@@ -106,6 +108,7 @@ export function ProposalDetailModal({
       await endorseProposal(proposal.id, decision, endorseNote);
       await toastSuccess("บันทึกผลการเห็นชอบแล้ว");
       setEndorseRejecting(false);
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -120,6 +123,7 @@ export function ProposalDetailModal({
       await approveProposal(proposal.id, decision, approveNote);
       await toastSuccess("บันทึกผลการอนุมัติแล้ว");
       setApproveRejecting(false);
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -129,6 +133,7 @@ export function ProposalDetailModal({
     try {
       await cancelEndorsement(proposal.id);
       await toastSuccess("ยกเลิกการเห็นชอบแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -138,6 +143,7 @@ export function ProposalDetailModal({
     try {
       await resetProposalStatus(proposal.id);
       await toastSuccess("ย้อนสถานะเป็นรอเห็นชอบแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -149,6 +155,7 @@ export function ProposalDetailModal({
     try {
       await deleteProposal(proposal.id);
       await toastSuccess("ลบข้อเสนอโครงการเรียบร้อยแล้ว");
+      onChanged?.();
       modalRef.current?.close();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -161,6 +168,7 @@ export function ProposalDetailModal({
     try {
       await deleteProposalFile(proposal.id, field);
       await toastSuccess("ลบไฟล์เรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }

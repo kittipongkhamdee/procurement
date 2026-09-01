@@ -9,12 +9,14 @@ export function DeleteReportButton({
   photoRefs,
   projectName,
   action,
+  onChanged,
 }: {
   id: string;
   fileUrl: string | null;
   photoRefs: string[];
   projectName: string;
   action: typeof deleteProjectReport;
+  onChanged?: () => void;
 }) {
   async function handleDelete() {
     const ok = await confirmDelete({ title: `ลบรายงานโครงการ "${projectName}"?` });
@@ -22,6 +24,7 @@ export function DeleteReportButton({
     try {
       await action(id, fileUrl, photoRefs);
       await toastSuccess("ลบรายงานโครงการเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
