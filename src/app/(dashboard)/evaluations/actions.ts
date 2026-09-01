@@ -42,6 +42,18 @@ export type QuestionInput = {
   category: string | null;
 };
 
+export type CriterionInput = { min_score: number; max_score: number; label: string };
+
+// ค่าเริ่มต้นเกณฑ์แปลผลคะแนน 1-5 — เติมให้อัตโนมัติทุกครั้งที่สร้างฟอร์ม/template ใหม่ ครูแก้เอง
+// ได้ทีหลังที่แท็บ "เกณฑ์แปลผล" ในหน้าแก้ไข
+const DEFAULT_CRITERIA: CriterionInput[] = [
+  { min_score: 1, max_score: 1.79, label: "ควรปรับปรุง" },
+  { min_score: 1.8, max_score: 2.59, label: "พอใช้" },
+  { min_score: 2.6, max_score: 3.39, label: "ปานกลาง" },
+  { min_score: 3.4, max_score: 4.19, label: "ดี" },
+  { min_score: 4.2, max_score: 5, label: "ดีมาก" },
+];
+
 export async function createForm(formData: FormData) {
   const { supabase, userId } = await requireTeacherOrAdmin();
 
@@ -72,6 +84,18 @@ export async function createForm(formData: FormData) {
       const { error: qInsertError } = await supabase.from("eval_questions").insert(rows);
       if (qInsertError) throw new Error(qInsertError.message);
     }
+
+    const { data: templateCriteria } = await supabase
+      .from("eval_criteria")
+      .select("sort_order, min_score, max_score, label")
+      .eq("form_id", template_source_id)
+      .order("sort_order");
+    const criteriaToClone = templateCriteria && templateCriteria.length > 0 ? templateCriteria : DEFAULT_CRITERIA.map((c, idx) => ({ ...c, sort_order: idx }));
+    await supabase.from("eval_criteria").insert(criteriaToClone.map((c) => ({ ...c, form_id: form.id })));
+  } else {
+    await supabase
+      .from("eval_criteria")
+      .insert(DEFAULT_CRITERIA.map((c, idx) => ({ ...c, form_id: form.id, sort_order: idx })));
   }
 
   revalidatePath("/evaluations");
@@ -91,6 +115,8 @@ export async function createTemplate(formData: FormData) {
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+
+  await supabase.from("eval_criteria").insert(DEFAULT_CRITERIA.map((c, idx) => ({ ...c, form_id: form.id, sort_order: idx })));
 
   revalidatePath("/evaluations");
   return form.id as string;
@@ -168,6 +194,36 @@ export async function replaceQuestions(formId: string, formData: FormData) {
 
   if (rows.length > 0) {
     const { error } = await supabase.from("eval_questions").insert(rows);
+    if (error) throw new Error(error.message);
+  }
+}
+
+// เช่นเดียวกับ replaceQuestions — ลบเกณฑ์เดิมทั้งหมดแล้ว insert ชุดใหม่
+export async function replaceCriteria(formId: string, formData: FormData) {
+  const { supabase } = await requireTeacherOrAdmin();
+
+  let criteria: CriterionInput[] = [];
+  try {
+    criteria = JSON.parse(String(formData.get("criteria_json") ?? "[]"));
+  } catch {
+    criteria = [];
+  }
+
+  const { error: delError } = await supabase.from("eval_criteria").delete().eq("form_id", formId);
+  if (delError) throw new Error(delError.message);
+
+  const rows = criteria
+    .filter((c) => c.label.trim() !== "")
+    .map((c, idx) => ({
+      form_id: formId,
+      sort_order: idx,
+      min_score: c.min_score,
+      max_score: c.max_score,
+      label: c.label.trim(),
+    }));
+
+  if (rows.length > 0) {
+    const { error } = await supabase.from("eval_criteria").insert(rows);
     if (error) throw new Error(error.message);
   }
 }

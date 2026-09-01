@@ -11,8 +11,9 @@ import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { toastSuccess, toastError, errorMessage } from "@/lib/swal";
 import { ChevronLeftIcon } from "@/components/icons";
-import { updateFormMeta, replaceQuestions, publishForm } from "../../actions";
+import { updateFormMeta, replaceQuestions, replaceCriteria, publishForm } from "../../actions";
 import { QuestionListEditor, type QuestionRow } from "../../question-list-editor";
+import { CriteriaEditor, type CriterionRow } from "../../criteria-editor";
 
 type FormMeta = {
   id: string;
@@ -31,8 +32,10 @@ export default function EvaluationEditPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
+  const [criteria, setCriteria] = useState<CriterionRow[]>([]);
   const [savingMeta, setSavingMeta] = useState(false);
   const [savingQuestions, setSavingQuestions] = useState(false);
+  const [savingCriteria, setSavingCriteria] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   const reload = useCallback(async () => {
@@ -75,6 +78,13 @@ export default function EvaluationEditPage() {
         category: q.category,
       })),
     );
+
+    const { data: cData } = await supabase
+      .from("eval_criteria")
+      .select("min_score, max_score, label")
+      .eq("form_id", id)
+      .order("sort_order");
+    setCriteria((cData ?? []).map((c) => ({ min_score: Number(c.min_score), max_score: Number(c.max_score), label: c.label })));
   }, [id]);
 
   useEffect(() => {
@@ -111,6 +121,21 @@ export default function EvaluationEditPage() {
       await toastError(errorMessage(err));
     } finally {
       setSavingQuestions(false);
+    }
+  }
+
+  async function handleSaveCriteria() {
+    setSavingCriteria(true);
+    try {
+      const fd = new FormData();
+      fd.set("criteria_json", JSON.stringify(criteria));
+      await replaceCriteria(id, fd);
+      await toastSuccess("บันทึกเกณฑ์แปลผลแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSavingCriteria(false);
     }
   }
 
@@ -170,6 +195,14 @@ export default function EvaluationEditPage() {
         <QuestionListEditor rows={questions} onChange={setQuestions} />
         <button type="button" onClick={handleSaveQuestions} disabled={savingQuestions} className="btn-primary mt-4">
           {savingQuestions ? "กำลังบันทึก..." : "บันทึกคำถาม"}
+        </button>
+      </div>
+
+      <div className="card mb-6">
+        <div className="card-title">เกณฑ์แปลผล</div>
+        <CriteriaEditor rows={criteria} onChange={setCriteria} />
+        <button type="button" onClick={handleSaveCriteria} disabled={savingCriteria} className="btn-primary mt-4">
+          {savingCriteria ? "กำลังบันทึก..." : "บันทึกเกณฑ์"}
         </button>
       </div>
 

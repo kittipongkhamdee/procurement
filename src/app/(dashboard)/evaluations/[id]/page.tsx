@@ -13,6 +13,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { closeForm, deleteForm, publishForm } from "../actions";
 import { ChevronLeftIcon } from "@/components/icons";
 import { QuestionSummary } from "./question-summary";
+import { interpretScore, type Criterion } from "../interpret";
 
 type Question = {
   id: string;
@@ -63,6 +64,7 @@ export default function EvaluationResultsPage() {
   const [form, setForm] = useState<Form | null | undefined>(undefined);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [responseCount, setResponseCount] = useState(0);
 
   const reload = useCallback(async () => {
@@ -93,6 +95,13 @@ export default function EvaluationResultsPage() {
       .eq("form_id", id)
       .order("sort_order");
     setQuestions((qData ?? []) as Question[]);
+
+    const { data: cData } = await supabase
+      .from("eval_criteria")
+      .select("min_score, max_score, label")
+      .eq("form_id", id)
+      .order("sort_order");
+    setCriteria((cData ?? []).map((c) => ({ min_score: Number(c.min_score), max_score: Number(c.max_score), label: c.label })));
 
     const { data: responses } = await supabase.from("eval_responses").select("id").eq("form_id", id);
     setResponseCount(responses?.length ?? 0);
@@ -200,12 +209,12 @@ export default function EvaluationResultsPage() {
         </div>
       )}
 
-      <ResultSections questions={questions} answers={answers} />
+      <ResultSections questions={questions} answers={answers} criteria={criteria} />
     </div>
   );
 }
 
-function QuestionResultCard({ q, answers }: { q: Question; answers: Answer[] }) {
+function QuestionResultCard({ q, answers, criteria }: { q: Question; answers: Answer[]; criteria: Criterion[] }) {
   const qAnswers = answers.filter((a) => a.question_id === q.id);
   return (
     <div className="card">
@@ -215,14 +224,16 @@ function QuestionResultCard({ q, answers }: { q: Question; answers: Answer[] }) 
         (() => {
           const total = qAnswers.length;
           const avg = total > 0 ? qAnswers.reduce((s, a) => s + Number(a.answer_value), 0) / total : 0;
+          const label = total > 0 ? interpretScore(avg, criteria) : null;
           const rows = [1, 2, 3, 4, 5].map((n) => ({
             label: String(n),
             count: qAnswers.filter((a) => a.answer_value === String(n)).length,
           }));
           return (
             <div>
-              <p className="mb-3 text-sm text-slate-600">
+              <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
                 คะแนนเฉลี่ย {avg.toFixed(2)} / 5 ({total} คำตอบ)
+                {label && <span className="badge-emerald">{label}</span>}
               </p>
               <QuestionSummary rows={rows} total={total} />
             </div>
@@ -253,7 +264,15 @@ function QuestionResultCard({ q, answers }: { q: Question; answers: Answer[] }) 
   );
 }
 
-function ResultSections({ questions, answers }: { questions: Question[]; answers: Answer[] }) {
+function ResultSections({
+  questions,
+  answers,
+  criteria,
+}: {
+  questions: Question[];
+  answers: Answer[];
+  criteria: Criterion[];
+}) {
   const { personal, satisfactionByCategory, suggestions } = groupQuestions(questions);
   const sectionFlags = [personal.length > 0, satisfactionByCategory.length > 0, suggestions.length > 0];
   const [personalIndex, satisfactionIndex, suggestionsIndex] = sectionFlags.reduce<number[]>((acc, show) => {
@@ -268,7 +287,7 @@ function ResultSections({ questions, answers }: { questions: Question[]; answers
         <ResultSection index={personalIndex} title="ข้อมูลส่วนตัว">
           <div className="space-y-4">
             {personal.map((q) => (
-              <QuestionResultCard key={q.id} q={q} answers={answers} />
+              <QuestionResultCard key={q.id} q={q} answers={answers} criteria={criteria} />
             ))}
           </div>
         </ResultSection>
@@ -284,7 +303,7 @@ function ResultSections({ questions, answers }: { questions: Question[]; answers
                 )}
                 <div className="space-y-4">
                   {qs.map((q) => (
-                    <QuestionResultCard key={q.id} q={q} answers={answers} />
+                    <QuestionResultCard key={q.id} q={q} answers={answers} criteria={criteria} />
                   ))}
                 </div>
               </div>
@@ -297,7 +316,7 @@ function ResultSections({ questions, answers }: { questions: Question[]; answers
         <ResultSection index={suggestionsIndex} title="ข้อเสนอแนะ">
           <div className="space-y-4">
             {suggestions.map((q) => (
-              <QuestionResultCard key={q.id} q={q} answers={answers} />
+              <QuestionResultCard key={q.id} q={q} answers={answers} criteria={criteria} />
             ))}
           </div>
         </ResultSection>

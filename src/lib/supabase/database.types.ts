@@ -336,6 +336,44 @@ export type Database = {
           },
         ]
       }
+      eval_criteria: {
+        Row: {
+          created_at: string
+          form_id: string
+          id: string
+          label: string
+          max_score: number
+          min_score: number
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          form_id: string
+          id?: string
+          label: string
+          max_score: number
+          min_score: number
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          form_id?: string
+          id?: string
+          label?: string
+          max_score?: number
+          min_score?: number
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eval_criteria_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "eval_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       eval_forms: {
         Row: {
           created_at: string
