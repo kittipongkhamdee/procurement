@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveStorageUrls } from "@/lib/storage";
 import { formatThaiDate } from "@/lib/thai";
 import { ProjectReportModal } from "./project-report-modal";
+import { DeleteReportButton } from "./delete-report-button";
 import {
   createProjectReport,
   deleteProjectReport,
@@ -223,21 +224,15 @@ export default async function ProjectReportsPage() {
                               .filter((p) => p.url),
                           }}
                         />
-                        <form
-                          action={deleteProjectReport.bind(
-                            null,
-                            r.id,
-                            r.file_url,
-                            photoRefs,
-                          )}
-                        >
-                          <button
-                            type="submit"
-                            className="text-xs font-medium text-red-600 hover:underline"
-                          >
-                            ลบ
-                          </button>
-                        </form>
+                        <DeleteReportButton
+                          id={r.id}
+                          fileUrl={r.file_url}
+                          photoRefs={photoRefs}
+                          projectName={
+                            (r.plan_projects as unknown as { name: string } | null)?.name ?? "โครงการนี้"
+                          }
+                          action={deleteProjectReport}
+                        />
                       </div>
                     )}
                   </td>
