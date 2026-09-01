@@ -88,7 +88,7 @@ export function DashboardShell({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-gradient-to-b from-navy-950 to-navy-800 text-white transition-all duration-200 lg:static lg:z-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col bg-gradient-to-b from-navy-950 to-navy-800 text-white transition-all duration-200 print:hidden lg:static lg:z-auto lg:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         } ${collapsed ? "lg:w-[76px]" : "lg:w-64"}`}
       >
@@ -158,7 +158,7 @@ export function DashboardShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 lg:px-6">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 print:hidden lg:px-6">
           <button
             type="button"
             onClick={() => setMobileOpen(true)}
@@ -255,11 +255,11 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="flex-1 bg-slate-100 p-4 pb-24 lg:p-6 lg:pb-6">{children}</main>
+        <main className="flex-1 bg-slate-100 p-4 pb-24 print:bg-white print:p-0 lg:p-6 lg:pb-6">{children}</main>
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] print:hidden lg:hidden"
         aria-label="เมนูหลัก (มือถือ)"
       >
         {BOTTOM_TABS.map((tab) => {

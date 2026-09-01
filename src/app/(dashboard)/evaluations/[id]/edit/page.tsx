@@ -25,10 +25,20 @@ type FormMeta = {
   project_name: string | null;
 };
 
+type TabKey = "meta" | "questions" | "criteria" | "publish";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "meta", label: "ข้อมูลทั่วไป" },
+  { key: "questions", label: "คำถาม" },
+  { key: "criteria", label: "เกณฑ์แปลผล" },
+  { key: "publish", label: "เผยแพร่" },
+];
+
 export default function EvaluationEditPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [form, setForm] = useState<FormMeta | null | undefined>(undefined);
+  const [tab, setTab] = useState<TabKey>("meta");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
@@ -173,40 +183,63 @@ export default function EvaluationEditPage() {
         </button>
       </div>
 
-      <form onSubmit={handleSaveMeta} className="card mb-6">
-        <div className="card-title">ข้อมูลแบบประเมิน</div>
-        <div className="space-y-3">
-          <div>
-            <label className="label">ชื่อแบบประเมิน</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} required className="input" />
+      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-slate-200">
+        {TABS.filter((t) => t.key !== "publish" || !form.is_template).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={
+              tab === t.key
+                ? "border-b-2 border-navy-800 px-4 py-2.5 text-sm font-semibold text-navy-900"
+                : "border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-navy-800"
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "meta" && (
+        <form onSubmit={handleSaveMeta} className="card">
+          <div className="card-title">ข้อมูลแบบประเมิน</div>
+          <div className="space-y-3">
+            <div>
+              <label className="label">ชื่อแบบประเมิน</label>
+              <input value={title} onChange={(e) => setTitle(e.target.value)} required className="input" />
+            </div>
+            <div>
+              <label className="label">คำอธิบาย (แสดงให้ผู้ตอบเห็น)</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="input" />
+            </div>
           </div>
-          <div>
-            <label className="label">คำอธิบาย (แสดงให้ผู้ตอบเห็น)</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="input" />
-          </div>
+          <button type="submit" disabled={savingMeta} className="btn-primary mt-3">
+            {savingMeta ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
+          </button>
+        </form>
+      )}
+
+      {tab === "questions" && (
+        <div className="card">
+          <div className="card-title">คำถาม</div>
+          <QuestionListEditor rows={questions} onChange={setQuestions} />
+          <button type="button" onClick={handleSaveQuestions} disabled={savingQuestions} className="btn-primary mt-4">
+            {savingQuestions ? "กำลังบันทึก..." : "บันทึกคำถาม"}
+          </button>
         </div>
-        <button type="submit" disabled={savingMeta} className="btn-primary mt-3">
-          {savingMeta ? "กำลังบันทึก..." : "บันทึกข้อมูล"}
-        </button>
-      </form>
+      )}
 
-      <div className="card mb-6">
-        <div className="card-title">คำถาม</div>
-        <QuestionListEditor rows={questions} onChange={setQuestions} />
-        <button type="button" onClick={handleSaveQuestions} disabled={savingQuestions} className="btn-primary mt-4">
-          {savingQuestions ? "กำลังบันทึก..." : "บันทึกคำถาม"}
-        </button>
-      </div>
+      {tab === "criteria" && (
+        <div className="card">
+          <div className="card-title">เกณฑ์แปลผล</div>
+          <CriteriaEditor rows={criteria} onChange={setCriteria} />
+          <button type="button" onClick={handleSaveCriteria} disabled={savingCriteria} className="btn-primary mt-4">
+            {savingCriteria ? "กำลังบันทึก..." : "บันทึกเกณฑ์"}
+          </button>
+        </div>
+      )}
 
-      <div className="card mb-6">
-        <div className="card-title">เกณฑ์แปลผล</div>
-        <CriteriaEditor rows={criteria} onChange={setCriteria} />
-        <button type="button" onClick={handleSaveCriteria} disabled={savingCriteria} className="btn-primary mt-4">
-          {savingCriteria ? "กำลังบันทึก..." : "บันทึกเกณฑ์"}
-        </button>
-      </div>
-
-      {!form.is_template && (
+      {tab === "publish" && !form.is_template && (
         <div className="card">
           <div className="card-title">เผยแพร่</div>
           {form.status === "draft" ? (
