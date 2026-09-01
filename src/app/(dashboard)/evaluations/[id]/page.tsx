@@ -160,11 +160,14 @@ export default function EvaluationResultsPage() {
 
   return (
     <div>
-      <Link href="/evaluations" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+      <Link
+        href="/evaluations"
+        className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800 print:hidden"
+      >
         <ChevronLeftIcon className="h-4 w-4" />
         กลับไปรายการแบบประเมิน
       </Link>
-      <div className="page-header">
+      <div className="page-header print:block print:border-0 print:pb-0">
         <div>
           <h1 className="page-title">{form.title}</h1>
           <p className="page-subtitle">
@@ -172,7 +175,10 @@ export default function EvaluationResultsPage() {
             ผู้ตอบแบบประเมิน {responseCount} คน
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
+          <button type="button" onClick={() => window.print()} className="btn-secondary">
+            พิมพ์ / บันทึก PDF
+          </button>
           <Link href={`/evaluations/${form.id}/edit`} className="btn-secondary">
             แก้ไข
           </Link>
@@ -183,7 +189,7 @@ export default function EvaluationResultsPage() {
       </div>
 
       {!form.is_template && (
-        <div className="card mb-6">
+        <div className="card mb-6 print:hidden">
           <div className="card-title">ลิงก์แบบประเมิน</div>
           {form.status === "draft" ? (
             <p className="text-sm text-slate-500">ยังไม่เผยแพร่ — ไปที่หน้าแก้ไขเพื่อเผยแพร่แบบประเมิน</p>

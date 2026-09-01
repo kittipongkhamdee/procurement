@@ -1,9 +1,10 @@
 "use client";
 
 // ลิงก์รวมแบบประเมินต่อปีงบประมาณ — 1 ลิงก์ถาวร ครอบคลุมทุกโครงการ (ทุกครู) ที่มีแบบประเมิน
-// เปิดรับคำตอบอยู่ในปีงบประมาณนั้น ไม่ต้องล็อกอิน ใช้ id ของ plan_budget_years ตรงๆ เป็นส่วนหนึ่ง
-// ของลิงก์ (ไม่ใช่ข้อมูลอ่อนไหว อ่านได้แบบ public อยู่แล้วผ่าน plan_budget_years_public_select)
-// ถ้ามีแบบประเมินเปิดรับคำตอบอยู่แค่โครงการเดียว ข้ามหน้าเลือกไปเลย ตรงตามที่ผู้ใช้ขอ
+// เปิดรับคำตอบอยู่ในปีงบประมาณนั้น ไม่ต้องล็อกอิน ใช้ "เลขปีงบประมาณ" (พ.ศ. เช่น 2569) ตรงๆ เป็น
+// ส่วนหนึ่งของลิงก์แทน uuid เพื่อให้จำง่าย/สั้นลง (plan_budget_years.year มี unique constraint
+// อยู่แล้ว จึงใช้แทน id ได้ปลอดภัย — ไม่ใช่ข้อมูลอ่อนไหว อ่านได้แบบ public อยู่แล้วผ่าน
+// plan_budget_years_public_select) ถ้ามีแบบประเมินเปิดรับคำตอบอยู่แค่โครงการเดียว ข้ามหน้าเลือกไปเลย
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -14,7 +15,7 @@ type BudgetYear = { id: string; year: number; name: string };
 type FormOption = { token: string; title: string; projectName: string };
 
 export default function SurveyYearLandingPage() {
-  const { yearId } = useParams<{ yearId: string }>();
+  const { year } = useParams<{ year: string }>();
   const [budgetYear, setBudgetYear] = useState<BudgetYear | null | undefined>(undefined);
   const [forms, setForms] = useState<FormOption[]>([]);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export default function SurveyYearLandingPage() {
     const { data: yearData } = await supabase
       .from("plan_budget_years")
       .select("id, year, name")
-      .eq("id", yearId)
+      .eq("year", Number(year))
       .maybeSingle();
     setBudgetYear(yearData ?? null);
     if (!yearData) return;
@@ -33,7 +34,7 @@ export default function SurveyYearLandingPage() {
       .from("eval_forms")
       .select("token, title, plan_projects!inner(name, budget_year_id)")
       .eq("status", "published")
-      .eq("plan_projects.budget_year_id", yearId);
+      .eq("plan_projects.budget_year_id", yearData.id);
     const options = (formData ?? []).map((f) => ({
       token: f.token,
       title: f.title,
@@ -42,7 +43,7 @@ export default function SurveyYearLandingPage() {
     setForms(options);
     // ถ้ามีแบบประเมินเปิดรับคำตอบอยู่โครงการเดียว ข้ามหน้าเลือกไปทำแบบประเมินได้เลย
     if (options.length === 1) setSelectedToken(options[0].token);
-  }, [yearId]);
+  }, [year]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
