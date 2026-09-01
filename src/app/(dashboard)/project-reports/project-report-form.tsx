@@ -6,6 +6,7 @@ import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import {
   ProjectReportPhotoUpload,
   type ProjectReportPhotoUploadHandle,
+  type ExistingPhoto,
 } from "@/components/project-report-photo-upload";
 
 type IndicatorTarget = { indicator: string; target: string };
@@ -31,6 +32,28 @@ function formatBaht(n: number) {
 function emptyIndicatorResult(): IndicatorResult {
   return { indicator: "", target: "", actual: "" };
 }
+
+export type ProjectReportInitial = {
+  projectId: string;
+  notImplemented: boolean;
+  notImplementedReason: string;
+  responsibleName: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  location: string | null;
+  background: string;
+  objectives: string[];
+  activitiesDone: string[];
+  indicatorResultsQuantity: IndicatorResult[];
+  indicatorResultsQuality: IndicatorResult[];
+  satisfactionPercent: number | null;
+  budgetApproved: number | null;
+  budgetUsed: number | null;
+  highlights: string[];
+  problems: string[];
+  recommendations: string[];
+  photos: ExistingPhoto[];
+};
 
 function IndicatorResultList({
   label,
@@ -182,6 +205,8 @@ export function ProjectReportForm({
   aiExtractionEnabled,
   extractBackgroundFromProposalFile,
   onSuccess,
+  initial,
+  submitLabel,
 }: {
   projects: Project[];
   action: (formData: FormData) => void | Promise<void>;
@@ -189,27 +214,54 @@ export function ProjectReportForm({
   extractBackgroundFromProposalFile?: (filePath: string) => Promise<string>;
   /** เรียกหลังบันทึกสำเร็จเท่านั้น (เช่น สั่งปิด popup) — ไม่เรียกถ้าบันทึกไม่สำเร็จ ผู้ใช้จะได้เห็น toast แจ้ง error และแก้ไขฟอร์มต่อได้ */
   onSuccess?: () => void;
+  /** ข้อมูลรายงานเดิม — ใส่มาเมื่อเป็นการแก้ไขรายงานที่มีอยู่แล้ว */
+  initial?: ProjectReportInitial;
+  submitLabel?: string;
 }) {
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(initial?.projectId ?? "");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notImplemented, setNotImplemented] = useState(false);
-  const [notImplementedReason, setNotImplementedReason] = useState("");
-  const [background, setBackground] = useState("");
+  const [notImplemented, setNotImplemented] = useState(
+    initial?.notImplemented ?? false,
+  );
+  const [notImplementedReason, setNotImplementedReason] = useState(
+    initial?.notImplementedReason ?? "",
+  );
+  const [background, setBackground] = useState(initial?.background ?? "");
   const [aiLoading, setAiLoading] = useState(false);
-  const [objectives, setObjectives] = useState<string[]>([""]);
-  const [activitiesDone, setActivitiesDone] = useState<string[]>([""]);
-  const [highlights, setHighlights] = useState<string[]>([""]);
-  const [problems, setProblems] = useState<string[]>([""]);
-  const [recommendations, setRecommendations] = useState<string[]>([""]);
-  const [budgetApproved, setBudgetApproved] = useState("");
-  const [budgetUsed, setBudgetUsed] = useState("");
-  const [responsibleName, setResponsibleName] = useState("");
+  const [objectives, setObjectives] = useState<string[]>(
+    initial && initial.objectives.length > 0 ? initial.objectives : [""],
+  );
+  const [activitiesDone, setActivitiesDone] = useState<string[]>(
+    initial && initial.activitiesDone.length > 0
+      ? initial.activitiesDone
+      : [""],
+  );
+  const [highlights, setHighlights] = useState<string[]>(
+    initial && initial.highlights.length > 0 ? initial.highlights : [""],
+  );
+  const [problems, setProblems] = useState<string[]>(
+    initial && initial.problems.length > 0 ? initial.problems : [""],
+  );
+  const [recommendations, setRecommendations] = useState<string[]>(
+    initial && initial.recommendations.length > 0
+      ? initial.recommendations
+      : [""],
+  );
+  const [budgetApproved, setBudgetApproved] = useState(
+    initial?.budgetApproved != null ? String(initial.budgetApproved) : "",
+  );
+  const [budgetUsed, setBudgetUsed] = useState(
+    initial?.budgetUsed != null ? String(initial.budgetUsed) : "",
+  );
+  const [responsibleName, setResponsibleName] = useState(
+    initial?.responsibleName ?? "",
+  );
   const [indicatorResultsQuantity, setIndicatorResultsQuantity] = useState<
     IndicatorResult[]
-  >([]);
+  >(initial?.indicatorResultsQuantity ?? []);
   const [indicatorResultsQuality, setIndicatorResultsQuality] = useState<
     IndicatorResult[]
-  >([]);
+  >(initial?.indicatorResultsQuality ?? []);
   const photoUploadRef = useRef<ProjectReportPhotoUploadHandle>(null);
   const backgroundRef = useRef<HTMLTextAreaElement>(null);
 
@@ -293,21 +345,28 @@ export function ProjectReportForm({
         ),
       );
       await action(formData);
-      await toastSuccess("บันทึกรายงานโครงการเรียบร้อยแล้ว");
-      setProjectId("");
-      setNotImplemented(false);
-      setNotImplementedReason("");
-      setBackground("");
-      setObjectives([""]);
-      setActivitiesDone([""]);
-      setHighlights([""]);
-      setProblems([""]);
-      setRecommendations([""]);
-      setBudgetApproved("");
-      setBudgetUsed("");
-      setResponsibleName("");
-      setIndicatorResultsQuantity([]);
-      setIndicatorResultsQuality([]);
+      await toastSuccess(
+        initial
+          ? "บันทึกการแก้ไขรายงานโครงการเรียบร้อยแล้ว"
+          : "บันทึกรายงานโครงการเรียบร้อยแล้ว",
+      );
+      if (!initial) {
+        // โหมดเสนอรายงานใหม่ — เคลียร์ฟอร์มให้กรอกรายการถัดไปได้ทันที (โหมดแก้ไขไม่ต้องเคลียร์เพราะ popup จะปิดไปเลย)
+        setProjectId("");
+        setNotImplemented(false);
+        setNotImplementedReason("");
+        setBackground("");
+        setObjectives([""]);
+        setActivitiesDone([""]);
+        setHighlights([""]);
+        setProblems([""]);
+        setRecommendations([""]);
+        setBudgetApproved("");
+        setBudgetUsed("");
+        setResponsibleName("");
+        setIndicatorResultsQuantity([]);
+        setIndicatorResultsQuality([]);
+      }
       onSuccess?.();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -377,11 +436,21 @@ export function ProjectReportForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">เริ่มดำเนินงาน</label>
-              <input type="date" name="period_start" className="input" />
+              <input
+                type="date"
+                name="period_start"
+                defaultValue={initial?.periodStart ?? ""}
+                className="input"
+              />
             </div>
             <div>
               <label className="label">สิ้นสุดดำเนินงาน</label>
-              <input type="date" name="period_end" className="input" />
+              <input
+                type="date"
+                name="period_end"
+                defaultValue={initial?.periodEnd ?? ""}
+                className="input"
+              />
             </div>
           </div>
           <div className="sm:col-span-2">
@@ -389,7 +458,10 @@ export function ProjectReportForm({
             <input
               name="location"
               className="input"
-              defaultValue="โรงเรียนตาเบาวิทยา อำเภอปราสาท จังหวัดสุรินทร์"
+              defaultValue={
+                initial?.location ??
+                "โรงเรียนตาเบาวิทยา อำเภอปราสาท จังหวัดสุรินทร์"
+              }
             />
           </div>
           <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -502,6 +574,7 @@ export function ProjectReportForm({
                   type="number"
                   step="0.01"
                   name="satisfaction_percent"
+                  defaultValue={initial?.satisfactionPercent ?? ""}
                   className="input"
                   placeholder="0.00"
                 />
@@ -572,7 +645,10 @@ export function ProjectReportForm({
 
           <div className="border-t border-slate-100 pt-4">
             <div className="card-title">5. ภาพถ่ายกิจกรรม</div>
-            <ProjectReportPhotoUpload ref={photoUploadRef} />
+            <ProjectReportPhotoUpload
+              ref={photoUploadRef}
+              initialPhotos={initial?.photos}
+            />
           </div>
         </>
       )}
@@ -582,7 +658,9 @@ export function ProjectReportForm({
         disabled={isSubmitting}
         className="btn-primary mt-2 disabled:cursor-wait disabled:opacity-70"
       >
-        {isSubmitting ? "กำลังบันทึก..." : "บันทึกรายงานโครงการ"}
+        {isSubmitting
+          ? "กำลังบันทึก..."
+          : (submitLabel ?? "บันทึกรายงานโครงการ")}
       </button>
     </form>
   );
