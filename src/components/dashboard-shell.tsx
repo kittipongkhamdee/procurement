@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useAuth } from "@/lib/AuthContext";
 import {
   BellIcon,
   ChevronLeftIcon,
@@ -29,23 +30,20 @@ const BOTTOM_TABS = [
 ];
 
 export function DashboardShell({
-  navSections,
-  displayName,
-  roleLabel,
-  initial,
+  baseNavSections,
+  adminSection,
   dateLabel,
   logoutAction,
   children,
 }: {
-  navSections: NavSection[];
-  displayName: string;
-  roleLabel: string;
-  initial: string;
+  baseNavSections: NavSection[];
+  adminSection: NavSection;
   dateLabel: string;
   logoutAction: (formData: FormData) => void | Promise<void>;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const { isAdmin, roleLabel, displayName, loading } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -67,6 +65,14 @@ export function DashboardShell({
       return next;
     });
   }
+
+  // เมนู "ผู้ดูแลระบบ" โผล่เฉพาะแอดมิน — กรองฝั่ง client จาก context (หน้า /admin/users และ
+  // /settings ยังเช็คสิทธิ์ฝั่ง server ของตัวเองอยู่แล้ว การซ่อนเมนูเป็นแค่เรื่องการแสดงผล)
+  const navSections = useMemo(
+    () => (isAdmin ? [...baseNavSections, adminSection] : baseNavSections),
+    [baseNavSections, adminSection, isAdmin],
+  );
+  const initial = displayName ? displayName.trim().charAt(0) : "?";
 
   const allItems = useMemo(() => navSections.flatMap((s) => s.items), [navSections]);
   const matches = query.trim() ? allItems.filter((i) => i.label.toLowerCase().includes(query.trim().toLowerCase())) : [];
@@ -208,12 +214,22 @@ export function DashboardShell({
               onClick={() => setProfileOpen((v) => !v)}
               className="flex items-center gap-2 rounded-md py-1 pl-1.5 pr-2 hover:bg-slate-100"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gold-500 text-xs font-bold text-navy-950">
-                {initial}
+              <span
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-navy-950 ${
+                  loading ? "animate-pulse bg-slate-200" : "bg-gold-500"
+                }`}
+              >
+                {loading ? "" : initial}
               </span>
               <span className="hidden text-left sm:block">
-                <span className="block truncate text-xs font-medium text-slate-800">{displayName}</span>
-                {roleLabel && <span className="block truncate text-[11px] text-slate-400">{roleLabel}</span>}
+                {loading ? (
+                  <span className="block h-3 w-20 animate-pulse rounded bg-slate-200" />
+                ) : (
+                  <>
+                    <span className="block truncate text-xs font-medium text-slate-800">{displayName}</span>
+                    {roleLabel && <span className="block truncate text-[11px] text-slate-400">{roleLabel}</span>}
+                  </>
+                )}
               </span>
             </button>
             {profileOpen && (

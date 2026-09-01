@@ -21,52 +21,62 @@ type Activity = {
 export default async function ProjectsPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: myProfile } = await supabase
-    .from("proc_profiles")
-    .select("role")
-    .eq("user_id", user?.id ?? "")
-    .maybeSingle();
-  const isAdmin = myProfile?.role === "admin";
-
-  const { data: budgetYears } = await supabase
-    .from("plan_budget_years")
-    .select("id, year, name, is_open")
-    .order("year", { ascending: false });
+  // ยิงทุกอย่างที่ไม่ได้ขึ้นต่อกันพร้อมกัน — เดิมรอกันเป็นทอดๆ 6 รอบ ทั้งที่รายการตั้งค่าพวกนี้
+  // ไม่ได้ขึ้นกับผู้ใช้หรือปีงบประมาณเลย (เวลา query จริงในฐานข้อมูลไม่ถึง 1 ms
+  // ที่ช้าคือค่าใช้จ่ายของการยิงแต่ละรอบ จึงต้องลดจำนวน "รอบที่ต้องรอต่อกัน" ให้น้อยที่สุด)
+  const [
+    {
+      data: { user },
+    },
+    { data: budgetYears },
+    { data: adminGroups },
+    { data: budgetSources },
+    { data: teachers },
+  ] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("plan_budget_years")
+      .select("id, year, name, is_open")
+      .order("year", { ascending: false }),
+    supabase
+      .from("plan_admin_groups")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("sort_order"),
+    supabase
+      .from("plan_budget_sources")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name"),
+    supabase
+      .from("plan_teachers")
+      .select("id, name, is_active")
+      .order("sort_order")
+      .order("name"),
+  ]);
 
   const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
 
-  const [{ data: adminGroups }, { data: budgetSources }, { data: teachers }] =
-    await Promise.all([
-      supabase
-        .from("plan_admin_groups")
-        .select("id, name")
-        .eq("is_active", true)
-        .order("sort_order"),
-      supabase
-        .from("plan_budget_sources")
-        .select("id, name")
-        .eq("is_active", true)
-        .order("sort_order")
-        .order("name"),
-      supabase
-        .from("plan_teachers")
-        .select("id, name, is_active")
-        .order("sort_order")
-        .order("name"),
-    ]);
-
-  const { data: projects, error } = currentYear
-    ? await supabase
+  const projectsPromise = currentYear
+    ? supabase
         .from("plan_projects")
         .select(
           "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name), plan_budget_sources(name), plan_activities(id, name, budget, responsible)",
         )
         .eq("budget_year_id", currentYear.id)
         .order("sort_order")
-    : { data: [], error: null };
+    : Promise.resolve({ data: [], error: null });
+
+  const [{ data: myProfile }, { data: projects, error }] = await Promise.all([
+    supabase
+      .from("proc_profiles")
+      .select("role")
+      .eq("user_id", user?.id ?? "")
+      .maybeSingle(),
+    projectsPromise,
+  ]);
+  const isAdmin = myProfile?.role === "admin";
 
   const projectIds = (projects ?? []).map((p) => p.id);
   const { data: disbursements } =

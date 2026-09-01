@@ -16,22 +16,18 @@ export const maxDuration = 60;
 export default async function ProjectReportsPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: myProfile } = await supabase
-    .from("proc_profiles")
-    .select("role")
-    .eq("user_id", user?.id ?? "")
-    .maybeSingle();
-  const isAdmin = myProfile?.role === "admin";
-
+  // ยิงพร้อมกันทั้งหมด — เดิมรอ getUser แล้วค่อยถาม role แล้วค่อยยิงชุดข้อมูลหลัก
+  // ทั้งที่ข้อมูลหลักไม่ได้ขึ้นกับผู้ใช้เลย (role ใช้แค่ตัดสินใจว่าจะโชว์ปุ่มแก้ไข/ลบหรือไม่)
   const [
+    {
+      data: { user },
+    },
     { data: reports, error },
     { data: projects },
     { data: proposals },
     { data: aiExtractionEnabledSetting },
   ] = await Promise.all([
+    supabase.auth.getUser(),
     supabase
       .from("proc_project_reports")
       .select(
@@ -56,20 +52,21 @@ export default async function ProjectReportsPage() {
   ]);
 
   const paths = (reports ?? []).map((r) => r.file_url);
-  const signedUrls = await resolveStorageUrls(
-    supabase,
-    paths,
-    "procurement-files",
-  );
-
   const allPhotoRefs = (reports ?? []).flatMap(
     (r) => (r.photo_refs as unknown as string[]) ?? [],
   );
-  const signedPhotoUrls = await resolveStorageUrls(
-    supabase,
-    allPhotoRefs,
-    "procurement-files",
-  );
+
+  // ขอ role กับ signed URL ทั้งสองชุดพร้อมกัน แทนการรอกันทีละอย่าง
+  const [{ data: myProfile }, signedUrls, signedPhotoUrls] = await Promise.all([
+    supabase
+      .from("proc_profiles")
+      .select("role")
+      .eq("user_id", user?.id ?? "")
+      .maybeSingle(),
+    resolveStorageUrls(supabase, paths, "procurement-files"),
+    resolveStorageUrls(supabase, allPhotoRefs, "procurement-files"),
+  ]);
+  const isAdmin = myProfile?.role === "admin";
 
   const proposalByProjectId = new Map(
     (proposals ?? []).map((p) => [p.project_id as string, p]),
