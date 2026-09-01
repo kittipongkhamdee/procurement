@@ -395,6 +395,7 @@ export type Database = {
       }
       eval_questions: {
         Row: {
+          category: string | null
           created_at: string
           form_id: string
           id: string
@@ -405,6 +406,7 @@ export type Database = {
           sort_order: number
         }
         Insert: {
+          category?: string | null
           created_at?: string
           form_id: string
           id?: string
@@ -415,6 +417,7 @@ export type Database = {
           sort_order?: number
         }
         Update: {
+          category?: string | null
           created_at?: string
           form_id?: string
           id?: string
@@ -1732,6 +1735,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["asset_user_role"]
       }
       asset_is_staff: { Args: never; Returns: boolean }
+      eval_response_belongs_to_published_form: {
+        Args: { p_response_id: string }
+        Returns: boolean
+      }
       proc_admin_list_users: {
         Args: never
         Returns: {

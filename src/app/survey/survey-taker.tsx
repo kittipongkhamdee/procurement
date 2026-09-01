@@ -14,8 +14,28 @@ type Question = {
   question_text: string;
   options: string[] | null;
   required: boolean;
+  category: string | null;
 };
 type Form = { id: string; title: string; description: string | null };
+
+const NO_CATEGORY = "ความพึงพอใจ";
+
+/** จัดคำถามเป็น 3 หมวดตามชนิดคำถามเสมอ (ตัวเลือก = ข้อมูลส่วนตัว, Likert = ความพึงพอใจ
+ * แบ่งย่อยตาม category, ปลายเปิด = ข้อเสนอแนะ) — ให้ตรงกับดีไซน์อ้างอิงที่ผู้ใช้ส่งมา */
+function groupQuestions(questions: Question[]) {
+  const personal = questions.filter((q) => q.question_type === "choice");
+  const satisfaction = questions.filter((q) => q.question_type === "likert");
+  const suggestions = questions.filter((q) => q.question_type === "text");
+
+  const categories = new Map<string, Question[]>();
+  for (const q of satisfaction) {
+    const key = q.category || NO_CATEGORY;
+    if (!categories.has(key)) categories.set(key, []);
+    categories.get(key)!.push(q);
+  }
+
+  return { personal, satisfactionByCategory: Array.from(categories.entries()), suggestions };
+}
 
 export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => void }) {
   const [form, setForm] = useState<Form | null | undefined>(undefined);
@@ -38,7 +58,7 @@ export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => v
     if (formData) {
       const { data: qData } = await supabase
         .from("eval_questions")
-        .select("id, sort_order, question_type, question_text, options, required")
+        .select("id, sort_order, question_type, question_text, options, required, category")
         .eq("form_id", formData.id)
         .order("sort_order");
       setQuestions((qData ?? []) as Question[]);
@@ -114,6 +134,14 @@ export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => v
     );
   }
 
+  const { personal, satisfactionByCategory, suggestions } = groupQuestions(questions);
+  const sectionFlags = [personal.length > 0, satisfactionByCategory.length > 0, suggestions.length > 0];
+  const [personalIndex, satisfactionIndex, suggestionsIndex] = sectionFlags.reduce<number[]>((acc, show) => {
+    const prev = acc.at(-1) ?? 0;
+    acc.push(show ? prev + 1 : prev);
+    return acc;
+  }, []);
+
   return (
     <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       {onBack && (
@@ -125,61 +153,40 @@ export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => v
       {form.description && <p className="mt-1 text-sm text-slate-500">{form.description}</p>}
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-        {questions.map((q, i) => (
-          <div key={q.id}>
-            <label className="label">
-              {i + 1}. {q.question_text} {q.required && <span className="text-red-500">*</span>}
-            </label>
+        {personal.length > 0 && (
+          <SurveySection index={personalIndex} title="ข้อมูลส่วนตัว">
+            {personal.map((q) => (
+              <QuestionField key={q.id} q={q} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
+            ))}
+          </SurveySection>
+        )}
 
-            {q.question_type === "likert" && (
-              <div>
-                <p className="mb-1 text-xs text-slate-400">1 = น้อยที่สุด, 5 = มากที่สุด</p>
-                <div className="flex items-center justify-between gap-2">
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <label key={n} className="flex flex-col items-center gap-1 text-xs text-slate-500">
-                      <input
-                        type="radio"
-                        name={q.id}
-                        value={n}
-                        checked={answers[q.id] === String(n)}
-                        onChange={() => setAnswers((a) => ({ ...a, [q.id]: String(n) }))}
-                        className="h-4 w-4"
-                      />
-                      {n}
-                    </label>
-                  ))}
+        {satisfactionByCategory.length > 0 && (
+          <SurveySection index={satisfactionIndex} title="ความพึงพอใจ">
+            <div className="space-y-5">
+              {satisfactionByCategory.map(([category, qs]) => (
+                <div key={category}>
+                  {satisfactionByCategory.length > 1 && (
+                    <p className="mb-2 text-sm font-semibold text-navy-800">{category}</p>
+                  )}
+                  <div className="space-y-4">
+                    {qs.map((q) => (
+                      <QuestionField key={q.id} q={q} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+          </SurveySection>
+        )}
 
-            {q.question_type === "choice" && (
-              <div className="space-y-1.5 pt-1">
-                {(q.options ?? []).map((opt) => (
-                  <label key={opt} className="flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                      type="radio"
-                      name={q.id}
-                      value={opt}
-                      checked={answers[q.id] === opt}
-                      onChange={() => setAnswers((a) => ({ ...a, [q.id]: opt }))}
-                      className="h-4 w-4"
-                    />
-                    {opt}
-                  </label>
-                ))}
-              </div>
-            )}
-
-            {q.question_type === "text" && (
-              <textarea
-                rows={3}
-                value={answers[q.id] ?? ""}
-                onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-                className="input"
-              />
-            )}
-          </div>
-        ))}
+        {suggestions.length > 0 && (
+          <SurveySection index={suggestionsIndex} title="ข้อเสนอแนะ">
+            {suggestions.map((q) => (
+              <QuestionField key={q.id} q={q} value={answers[q.id]} onChange={(v) => setAnswers((a) => ({ ...a, [q.id]: v }))} />
+            ))}
+          </SurveySection>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -187,6 +194,77 @@ export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => v
           {submitting ? "กำลังส่ง..." : "ส่งแบบประเมิน"}
         </button>
       </form>
+    </div>
+  );
+}
+
+function SurveySection({ index, title, children }: { index: number; title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-white">
+          {index}
+        </span>
+        <h2 className="text-sm font-bold text-navy-900">{title}</h2>
+      </div>
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4">{children}</div>
+    </div>
+  );
+}
+
+function QuestionField({ q, value, onChange }: { q: Question; value: string | undefined; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="label">
+        {q.question_text} {q.required && <span className="text-red-500">*</span>}
+      </label>
+
+      {q.question_type === "likert" && (
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onChange(String(n))}
+                className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition ${
+                  value === String(n)
+                    ? "border-navy-700 bg-navy-700 text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:border-navy-300"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="mt-1 flex justify-between text-xs text-slate-400">
+            <span>น้อยที่สุด</span>
+            <span>มากที่สุด</span>
+          </div>
+        </div>
+      )}
+
+      {q.question_type === "choice" && (
+        <div className="space-y-1.5 pt-1">
+          {(q.options ?? []).map((opt) => (
+            <label key={opt} className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="radio"
+                name={q.id}
+                value={opt}
+                checked={value === opt}
+                onChange={() => onChange(opt)}
+                className="h-4 w-4"
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
+      )}
+
+      {q.question_type === "text" && (
+        <textarea rows={3} value={value ?? ""} onChange={(e) => onChange(e.target.value)} className="input" />
+      )}
     </div>
   );
 }

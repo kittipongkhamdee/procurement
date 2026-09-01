@@ -63,7 +63,7 @@ export default function EvaluationEditPage() {
 
     const { data: qData } = await supabase
       .from("eval_questions")
-      .select("question_type, question_text, options, required")
+      .select("question_type, question_text, options, required, category")
       .eq("form_id", id)
       .order("sort_order");
     setQuestions(
@@ -72,6 +72,7 @@ export default function EvaluationEditPage() {
         question_text: q.question_text,
         options: (q.options as string[] | null) ?? [],
         required: q.required,
+        category: q.category,
       })),
     );
   }, [id]);

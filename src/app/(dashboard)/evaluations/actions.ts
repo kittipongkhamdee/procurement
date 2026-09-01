@@ -38,6 +38,8 @@ export type QuestionInput = {
   question_text: string;
   options: string[];
   required: boolean;
+  /** หมวดหมู่ย่อยสำหรับจัดกลุ่มคำถามแบบ Likert (เช่น "ด้านการบริการ") — ไม่ใช้กับชนิดอื่น */
+  category: string | null;
 };
 
 export async function createForm(formData: FormData) {
@@ -161,6 +163,7 @@ export async function replaceQuestions(formId: string, formData: FormData) {
       question_text: q.question_text.trim(),
       options: q.question_type === "choice" ? q.options.map((o) => o.trim()).filter(Boolean) : null,
       required: q.required,
+      category: q.question_type === "likert" ? q.category?.trim() || null : null,
     }));
 
   if (rows.length > 0) {

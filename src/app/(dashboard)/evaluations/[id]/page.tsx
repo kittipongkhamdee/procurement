@@ -20,7 +20,27 @@ type Question = {
   question_type: "likert" | "choice" | "text";
   question_text: string;
   options: string[] | null;
+  category: string | null;
 };
+
+const NO_CATEGORY = "ความพึงพอใจ";
+
+/** จัดคำถามเป็นหมวดตามชนิด (ตัวเลือก/Likert/ปลายเปิด) แล้วแบ่งย่อย Likert ตาม category —
+ * ต้องตรงกับตรรกะเดียวกันในหน้าทำแบบประเมิน (src/app/survey/survey-taker.tsx) */
+function groupQuestions(questions: Question[]) {
+  const byType = (t: Question["question_type"]) => questions.filter((q) => q.question_type === t);
+  const categories = new Map<string, Question[]>();
+  for (const q of byType("likert")) {
+    const key = q.category || NO_CATEGORY;
+    if (!categories.has(key)) categories.set(key, []);
+    categories.get(key)!.push(q);
+  }
+  return {
+    personal: byType("choice"),
+    satisfactionByCategory: Array.from(categories.entries()),
+    suggestions: byType("text"),
+  };
+}
 type Form = {
   id: string;
   title: string;
@@ -69,7 +89,7 @@ export default function EvaluationResultsPage() {
 
     const { data: qData } = await supabase
       .from("eval_questions")
-      .select("id, sort_order, question_type, question_text, options")
+      .select("id, sort_order, question_type, question_text, options, category")
       .eq("form_id", id)
       .order("sort_order");
     setQuestions((qData ?? []) as Question[]);
@@ -180,61 +200,122 @@ export default function EvaluationResultsPage() {
         </div>
       )}
 
-      <div className="space-y-4">
-        {questions.map((q, i) => {
-          const qAnswers = answers.filter((a) => a.question_id === q.id);
+      <ResultSections questions={questions} answers={answers} />
+    </div>
+  );
+}
+
+function QuestionResultCard({ q, answers }: { q: Question; answers: Answer[] }) {
+  const qAnswers = answers.filter((a) => a.question_id === q.id);
+  return (
+    <div className="card">
+      <div className="card-title">{q.question_text}</div>
+
+      {q.question_type === "likert" &&
+        (() => {
+          const total = qAnswers.length;
+          const avg = total > 0 ? qAnswers.reduce((s, a) => s + Number(a.answer_value), 0) / total : 0;
+          const rows = [1, 2, 3, 4, 5].map((n) => ({
+            label: String(n),
+            count: qAnswers.filter((a) => a.answer_value === String(n)).length,
+          }));
           return (
-            <div key={q.id} className="card">
-              <div className="card-title">
-                {i + 1}. {q.question_text}
-              </div>
-
-              {q.question_type === "likert" &&
-                (() => {
-                  const total = qAnswers.length;
-                  const avg = total > 0 ? qAnswers.reduce((s, a) => s + Number(a.answer_value), 0) / total : 0;
-                  const rows = [1, 2, 3, 4, 5].map((n) => ({
-                    label: String(n),
-                    count: qAnswers.filter((a) => a.answer_value === String(n)).length,
-                  }));
-                  return (
-                    <div>
-                      <p className="mb-3 text-sm text-slate-600">
-                        คะแนนเฉลี่ย {avg.toFixed(2)} / 5 ({total} คำตอบ)
-                      </p>
-                      <QuestionSummary rows={rows} total={total} />
-                    </div>
-                  );
-                })()}
-
-              {q.question_type === "choice" &&
-                (() => {
-                  const total = qAnswers.length;
-                  const rows = (q.options ?? []).map((opt) => ({
-                    label: opt,
-                    count: qAnswers.filter((a) => a.answer_value === opt).length,
-                  }));
-                  return total === 0 ? (
-                    <p className="text-xs text-slate-400">ยังไม่มีคำตอบ</p>
-                  ) : (
-                    <QuestionSummary rows={rows} total={total} />
-                  );
-                })()}
-
-              {q.question_type === "text" && (
-                <div className="max-h-64 space-y-2 overflow-y-auto">
-                  {qAnswers.length === 0 && <p className="text-xs text-slate-400">ยังไม่มีคำตอบ</p>}
-                  {qAnswers.map((a, idx) => (
-                    <p key={idx} className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                      {a.answer_value}
-                    </p>
-                  ))}
-                </div>
-              )}
+            <div>
+              <p className="mb-3 text-sm text-slate-600">
+                คะแนนเฉลี่ย {avg.toFixed(2)} / 5 ({total} คำตอบ)
+              </p>
+              <QuestionSummary rows={rows} total={total} />
             </div>
           );
-        })}
+        })()}
+
+      {q.question_type === "choice" &&
+        (() => {
+          const total = qAnswers.length;
+          const rows = (q.options ?? []).map((opt) => ({
+            label: opt,
+            count: qAnswers.filter((a) => a.answer_value === opt).length,
+          }));
+          return total === 0 ? <p className="text-xs text-slate-400">ยังไม่มีคำตอบ</p> : <QuestionSummary rows={rows} total={total} />;
+        })()}
+
+      {q.question_type === "text" && (
+        <div className="max-h-64 space-y-2 overflow-y-auto">
+          {qAnswers.length === 0 && <p className="text-xs text-slate-400">ยังไม่มีคำตอบ</p>}
+          {qAnswers.map((a, idx) => (
+            <p key={idx} className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              {a.answer_value}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultSections({ questions, answers }: { questions: Question[]; answers: Answer[] }) {
+  const { personal, satisfactionByCategory, suggestions } = groupQuestions(questions);
+  const sectionFlags = [personal.length > 0, satisfactionByCategory.length > 0, suggestions.length > 0];
+  const [personalIndex, satisfactionIndex, suggestionsIndex] = sectionFlags.reduce<number[]>((acc, show) => {
+    const prev = acc.at(-1) ?? 0;
+    acc.push(show ? prev + 1 : prev);
+    return acc;
+  }, []);
+
+  return (
+    <div className="space-y-8">
+      {personal.length > 0 && (
+        <ResultSection index={personalIndex} title="ข้อมูลส่วนตัว">
+          <div className="space-y-4">
+            {personal.map((q) => (
+              <QuestionResultCard key={q.id} q={q} answers={answers} />
+            ))}
+          </div>
+        </ResultSection>
+      )}
+
+      {satisfactionByCategory.length > 0 && (
+        <ResultSection index={satisfactionIndex} title="ความพึงพอใจ">
+          <div className="space-y-6">
+            {satisfactionByCategory.map(([category, qs]) => (
+              <div key={category}>
+                {satisfactionByCategory.length > 1 && (
+                  <p className="mb-2 text-sm font-semibold text-navy-800">{category}</p>
+                )}
+                <div className="space-y-4">
+                  {qs.map((q) => (
+                    <QuestionResultCard key={q.id} q={q} answers={answers} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </ResultSection>
+      )}
+
+      {suggestions.length > 0 && (
+        <ResultSection index={suggestionsIndex} title="ข้อเสนอแนะ">
+          <div className="space-y-4">
+            {suggestions.map((q) => (
+              <QuestionResultCard key={q.id} q={q} answers={answers} />
+            ))}
+          </div>
+        </ResultSection>
+      )}
+    </div>
+  );
+}
+
+function ResultSection({ index, title, children }: { index: number; title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy-700 text-xs font-bold text-white">
+          {index}
+        </span>
+        <h2 className="text-sm font-bold text-navy-900">{title}</h2>
       </div>
+      {children}
     </div>
   );
 }

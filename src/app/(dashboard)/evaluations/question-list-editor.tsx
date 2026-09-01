@@ -6,7 +6,7 @@ import type { QuestionInput } from "./actions";
 export type QuestionRow = QuestionInput;
 
 export function emptyQuestion(): QuestionRow {
-  return { question_type: "likert", question_text: "", options: [], required: true };
+  return { question_type: "likert", question_text: "", options: [], required: true, category: null };
 }
 
 const TYPE_LABELS: Record<QuestionRow["question_type"], string> = {
@@ -34,8 +34,15 @@ export function QuestionListEditor({
     onChange(next);
   }
 
+  const existingCategories = Array.from(new Set(rows.map((r) => r.category).filter((c): c is string => !!c)));
+
   return (
     <div className="space-y-3">
+      <datalist id="eval-category-suggestions">
+        {existingCategories.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
       {rows.map((row, i) => (
         <div key={i} className="rounded-xl border border-slate-200/80 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -68,6 +75,16 @@ export function QuestionListEditor({
             placeholder="ข้อความคำถาม"
             className="input mb-2"
           />
+
+          {row.question_type === "likert" && (
+            <input
+              value={row.category ?? ""}
+              onChange={(e) => updateRow(i, { category: e.target.value || null })}
+              placeholder="หมวดหมู่ (ไม่บังคับ) เช่น ด้านการบริการ, ด้านกิจกรรม — ใช้จัดกลุ่มคำถามในหน้าทำแบบประเมิน/สรุปผล"
+              list="eval-category-suggestions"
+              className="input"
+            />
+          )}
 
           {row.question_type === "choice" && (
             <textarea
