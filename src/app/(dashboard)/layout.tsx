@@ -74,6 +74,15 @@ const ADMIN_SECTION = {
 
 // ไม่มี await ใดๆ ในเลย์เอาต์นี้แล้ว — ชื่อ/สิทธิ์ผู้ใช้ย้ายไปโหลดครั้งเดียวที่ AuthProvider
 // (ซึ่ง mount ตอนเข้าโซน dashboard) แทนการยิง Supabase ใหม่ทุกครั้งที่เปลี่ยนเมนู
+
+// ให้เวลาเพียงพอสำหรับ server action ที่เรียก Gemini อ่านไฟล์ข้อเสนอโครงการ (ค่าเริ่มต้นของ Vercel
+// อาจตัดก่อน AI ตอบกลับ) — ย้ายมาจาก project-reports/page.tsx เดิม เพราะ route segment config
+// อย่าง maxDuration ประกาศได้เฉพาะใน Server Component เท่านั้น (page.tsx ของ project-reports
+// กลายเป็น Client Component แล้วหลังแปลงเป็น client-side fetch) เลย์เอาต์นี้ยังเป็น Server
+// Component และครอบทุกหน้า จึงเป็นจุดที่ใกล้เคียงที่สุดที่ยังประกาศได้ — มีผลกับทุกหน้าใน dashboard
+// ซึ่งไม่เป็นปัญหา (แค่ขยายเวลาสูงสุดที่อนุญาต ไม่ได้บังคับให้ทุกอย่างช้าลง)
+export const maxDuration = 60;
+
 export default function DashboardLayout({
   children,
 }: {

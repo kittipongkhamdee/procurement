@@ -18,12 +18,14 @@ export function TeacherManager({
   updateTeacherName,
   toggleTeacherActive,
   deleteTeacher,
+  onChanged,
 }: {
   teachers: Teacher[];
   createTeacher: typeof createTeacherAction;
   updateTeacherName: typeof updateTeacherNameAction;
   toggleTeacherActive: typeof toggleTeacherActiveAction;
   deleteTeacher: typeof deleteTeacherAction;
+  onChanged?: () => void;
 }) {
   async function handleRenameBlur(id: string, currentName: string, e: React.FocusEvent<HTMLInputElement>) {
     const name = e.target.value.trim();
@@ -36,6 +38,7 @@ export function TeacherManager({
     try {
       await updateTeacherName(id, formData);
       await toastSuccess("บันทึกชื่อเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       e.target.value = currentName;
       await toastError(errorMessage(err));
@@ -46,6 +49,7 @@ export function TeacherManager({
     try {
       await toggleTeacherActive(id, isActive);
       await toastSuccess(isActive ? "ปิดการแสดงชื่อแล้ว" : "เปิดการแสดงชื่อแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -57,6 +61,7 @@ export function TeacherManager({
     try {
       await deleteTeacher(id);
       await toastSuccess("ลบรายชื่อเรียบร้อยแล้ว");
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -70,6 +75,7 @@ export function TeacherManager({
       await createTeacher(formData);
       await toastSuccess("เพิ่มรายชื่อเรียบร้อยแล้ว");
       form.reset();
+      onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }

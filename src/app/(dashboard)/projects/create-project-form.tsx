@@ -25,12 +25,14 @@ export function CreateProjectForm({
   adminGroups,
   budgetSources,
   teachers,
+  onSuccess,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   budgetYearId: string;
   adminGroups: AdminGroup[];
   budgetSources: BudgetSource[];
   teachers: Teacher[];
+  onSuccess?: () => void;
 }) {
   const [hasActivities, setHasActivities] = useState(true);
   const [projectBudget, setProjectBudget] = useState("");
@@ -55,6 +57,7 @@ export function CreateProjectForm({
     try {
       await action(formData);
       await toastSuccess("เพิ่มโครงการเรียบร้อยแล้ว");
+      onSuccess?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }

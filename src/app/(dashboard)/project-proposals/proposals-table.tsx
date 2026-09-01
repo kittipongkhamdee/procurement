@@ -87,6 +87,7 @@ export function ProposalsTable({
   deleteProposal,
   deleteProposalFile,
   updateProposal,
+  onChanged,
 }: {
   rows: ProposalRow[];
   isAdmin: boolean;
@@ -105,6 +106,7 @@ export function ProposalsTable({
   deleteProposal: typeof deleteProposalAction;
   deleteProposalFile: typeof deleteProposalFileAction;
   updateProposal: typeof updateProposalAction;
+  onChanged?: () => void;
 }) {
   return (
     <table className="table-base min-w-0">
@@ -146,6 +148,7 @@ export function ProposalsTable({
                         standards={standards}
                         submitLabel="บันทึกการแก้ไข"
                         successMessage="บันทึกการแก้ไขเรียบร้อยแล้ว"
+                        onSuccess={onChanged}
                         initial={{
                           name: r.name,
                           standard: r.standard,
@@ -180,6 +183,7 @@ export function ProposalsTable({
                     resetProposalStatus={resetProposalStatus}
                     deleteProposal={deleteProposal}
                     deleteProposalFile={deleteProposalFile}
+                    onChanged={onChanged}
                   />
                 </div>
               </td>

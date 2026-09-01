@@ -191,6 +191,7 @@ export function ProposalForm({
   initial,
   submitLabel = "ส่งข้อเสนอโครงการ",
   successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
+  onSuccess,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   budgetYearId: string;
@@ -202,6 +203,7 @@ export function ProposalForm({
   initial?: ProposalFormInitial;
   submitLabel?: string;
   successMessage?: string;
+  onSuccess?: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [strategyAlignment, setStrategyAlignment] = useState(initial?.strategyAlignment ?? "");
@@ -295,6 +297,7 @@ export function ProposalForm({
     try {
       await action(formData);
       await toastSuccess(successMessage);
+      onSuccess?.();
     } catch (err) {
       await toastError(errorMessage(err));
     }
