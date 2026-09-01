@@ -14,6 +14,8 @@ import { closeForm, deleteForm, publishForm } from "../actions";
 import { ChevronLeftIcon } from "@/components/icons";
 import { QuestionSummary } from "./question-summary";
 import { interpretScore, type Criterion } from "../interpret";
+import { computeStats } from "../stats";
+import { LikertSummaryTable } from "./likert-summary-table";
 
 type Question = {
   id: string;
@@ -223,7 +225,7 @@ function QuestionResultCard({ q, answers, criteria }: { q: Question; answers: An
       {q.question_type === "likert" &&
         (() => {
           const total = qAnswers.length;
-          const avg = total > 0 ? qAnswers.reduce((s, a) => s + Number(a.answer_value), 0) / total : 0;
+          const { avg, sd, cv } = computeStats(qAnswers.map((a) => Number(a.answer_value)));
           const label = total > 0 ? interpretScore(avg, criteria) : null;
           const rows = [1, 2, 3, 4, 5].map((n) => ({
             label: String(n),
@@ -232,7 +234,8 @@ function QuestionResultCard({ q, answers, criteria }: { q: Question; answers: An
           return (
             <div>
               <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-                คะแนนเฉลี่ย {avg.toFixed(2)} / 5 ({total} คำตอบ)
+                คะแนนเฉลี่ย {avg.toFixed(2)} / 5 (S.D. {sd.toFixed(2)}
+                {cv !== null && `, CV ${cv.toFixed(1)}%`}) ({total} คำตอบ)
                 {label && <span className="badge-emerald">{label}</span>}
               </p>
               <QuestionSummary rows={rows} total={total} />
@@ -301,6 +304,9 @@ function ResultSections({
                 {satisfactionByCategory.length > 1 && (
                   <p className="mb-2 text-sm font-semibold text-navy-800">{category}</p>
                 )}
+                <div className="mb-4">
+                  <LikertSummaryTable questions={qs} answers={answers} criteria={criteria} />
+                </div>
                 <div className="space-y-4">
                   {qs.map((q) => (
                     <QuestionResultCard key={q.id} q={q} answers={answers} criteria={criteria} />
