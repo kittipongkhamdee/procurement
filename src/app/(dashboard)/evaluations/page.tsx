@@ -144,7 +144,7 @@ export default function EvaluationsPage() {
         <table className="table-base">
           <thead>
             <tr>
-              <th className="w-12 text-right">ลำดับที่</th>
+              <th className="whitespace-nowrap text-right">ลำดับที่</th>
               <th>ชื่อแบบประเมิน</th>
               <th>โครงการ</th>
               <th>สถานะ</th>
