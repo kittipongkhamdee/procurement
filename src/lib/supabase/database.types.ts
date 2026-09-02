@@ -1372,6 +1372,7 @@ export type Database = {
           full_name: string
           position: string | null
           role: Database["public"]["Enums"]["proc_user_role"]
+          status: string
           updated_at: string
           user_id: string
         }
@@ -1380,6 +1381,7 @@ export type Database = {
           full_name: string
           position?: string | null
           role?: Database["public"]["Enums"]["proc_user_role"]
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -1388,6 +1390,7 @@ export type Database = {
           full_name?: string
           position?: string | null
           role?: Database["public"]["Enums"]["proc_user_role"]
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -1804,6 +1807,10 @@ export type Database = {
         Args: { p_response_id: string }
         Returns: boolean
       }
+      proc_admin_approve_user: {
+        Args: { target_user_id: string }
+        Returns: undefined
+      }
       proc_admin_list_users: {
         Args: never
         Returns: {
@@ -1812,6 +1819,7 @@ export type Database = {
           full_name: string
           position: string
           role: Database["public"]["Enums"]["proc_user_role"]
+          status: string
           user_id: string
         }[]
       }

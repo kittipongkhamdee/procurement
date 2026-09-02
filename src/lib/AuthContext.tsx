@@ -31,6 +31,7 @@ type AuthContextValue = {
   roleLabel: string;
   displayName: string;
   loading: boolean;
+  pendingApproval: boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const role = user?.role ?? "";
   const isAdmin = role === "admin";
   const roleLabel = role ? (ROLE_LABELS[role] ?? role) : "";
+  const pendingApproval = user?.status === "pending";
 
   return (
     <AuthContext.Provider
@@ -85,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         roleLabel,
         displayName: user?.displayName ?? "",
         loading: user === undefined,
+        pendingApproval,
       }}
     >
       {children}

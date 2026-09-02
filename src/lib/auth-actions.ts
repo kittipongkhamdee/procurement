@@ -11,6 +11,7 @@ export type CurrentUser = {
   userId: string;
   displayName: string;
   role: string;
+  status: string;
 };
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
@@ -23,7 +24,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const { data: profile } = await supabase
     .from("proc_profiles")
-    .select("full_name, role")
+    .select("full_name, role, status")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -31,5 +32,6 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     userId: user.id,
     displayName: profile?.full_name || user.email || "",
     role: profile?.role ?? "",
+    status: profile?.status ?? "approved",
   };
 }
