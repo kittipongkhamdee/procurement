@@ -144,7 +144,7 @@ export function ProjectsTable({
   const colSpan = isAdmin ? 8 : 7;
   const pageOffset = (currentPage - 1) * pageSize;
 
-  function editModal(r: ProjectRow) {
+  function editModal(r: ProjectRow, textSizeClass?: string) {
     return (
       <ProjectEditModal
         projectId={r.id}
@@ -163,6 +163,7 @@ export function ProjectsTable({
         updateActivity={updateActivity}
         deleteActivity={deleteActivity}
         onChanged={onChanged}
+        textSizeClass={textSizeClass}
       />
     );
   }
@@ -273,7 +274,7 @@ export function ProjectsTable({
                   </td>
                   {isAdmin && (
                     <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                      {editModal(r)}
+                      {editModal(r, "text-sm")}
                     </td>
                   )}
                 </tr>
