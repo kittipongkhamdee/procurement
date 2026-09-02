@@ -99,7 +99,7 @@ export function CreateFormModal({
           <div>
             <label className="label">เริ่มจาก Template (ไม่บังคับ)</label>
             <select name="template_source_id" className="input">
-              <option value="">เริ่มจากว่าง</option>
+              <option value="">สร้างใหม่</option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.title}

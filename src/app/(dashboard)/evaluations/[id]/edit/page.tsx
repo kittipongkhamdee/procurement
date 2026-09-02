@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { toastSuccess, toastError, errorMessage } from "@/lib/swal";
@@ -14,6 +15,7 @@ import { ChevronLeftIcon } from "@/components/icons";
 import { updateFormMeta, replaceQuestions, replaceCriteria, publishForm, closeForm, updateSchedule } from "../../actions";
 import { QuestionListEditor, type QuestionRow } from "../../question-list-editor";
 import { CriteriaEditor, type CriterionRow } from "../../criteria-editor";
+import { QrCodeButton } from "../../qr-code-button";
 
 type FormMeta = {
   id: string;
@@ -23,6 +25,7 @@ type FormMeta = {
   token: string;
   is_template: boolean;
   project_name: string | null;
+  created_by: string | null;
 };
 
 // แปลง ISO string (UTC จาก DB) เป็นค่าที่ <input type="datetime-local"> ใช้ได้ (แสดงเป็นเวลาท้องถิ่น
@@ -52,6 +55,7 @@ const TABS: { key: TabKey; label: string }[] = [
 export default function EvaluationEditPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { isAdmin, user, loading: authLoading } = useAuth();
   const [form, setForm] = useState<FormMeta | null | undefined>(undefined);
   const [tab, setTab] = useState<TabKey>("meta");
   const [title, setTitle] = useState("");
@@ -71,7 +75,7 @@ export default function EvaluationEditPage() {
 
     const { data } = await supabase
       .from("eval_forms")
-      .select("id, title, description, status, token, is_template, opens_at, closes_at, plan_projects(name)")
+      .select("id, title, description, status, token, is_template, created_by, opens_at, closes_at, plan_projects(name)")
       .eq("id", id)
       .maybeSingle();
 
@@ -84,6 +88,7 @@ export default function EvaluationEditPage() {
         token: data.token,
         is_template: data.is_template,
         project_name: (data.plan_projects as unknown as { name: string } | null)?.name ?? null,
+        created_by: data.created_by,
       };
       setForm(meta);
       setTitle(meta.title);
@@ -213,8 +218,11 @@ export default function EvaluationEditPage() {
     }
   }
 
-  if (form === undefined) return <PageLoadingSkeleton />;
+  if (form === undefined || authLoading) return <PageLoadingSkeleton />;
   if (form === null) return <p className="p-4 text-sm text-red-600">ไม่พบแบบประเมินนี้</p>;
+  if (!isAdmin && form.created_by !== user?.userId) {
+    return <p className="p-4 text-sm text-red-600">คุณไม่มีสิทธิ์แก้ไขแบบประเมินนี้ (แก้ไขได้เฉพาะเจ้าของหรือผู้ดูแลระบบ)</p>;
+  }
 
   const link = typeof window !== "undefined" ? `${window.location.origin}/survey/${form.token}` : "";
 
@@ -313,6 +321,7 @@ export default function EvaluationEditPage() {
                   >
                     คัดลอกลิงก์
                   </button>
+                  {link && <QrCodeButton value={link} filename={`qr-แบบประเมิน-${form.title}.png`} />}
                   <button type="button" onClick={handleToggleStatus} disabled={publishing} className="btn-secondary btn-sm">
                     {form.status === "published" ? "ปิดรับคำตอบ" : "เปิดรับคำตอบอีกครั้ง"}
                   </button>

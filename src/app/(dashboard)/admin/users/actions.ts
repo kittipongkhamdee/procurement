@@ -19,6 +19,15 @@ export async function setUserRole(formData: FormData) {
   revalidatePath("/admin/users");
 }
 
+export async function approveUser(userId: string) {
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc("proc_admin_approve_user", { target_user_id: userId });
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/users");
+}
+
 export async function updateUserFullName(userId: string, formData: FormData) {
   const supabase = await createClient();
 

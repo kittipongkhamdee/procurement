@@ -30,7 +30,7 @@ export function LikertSummaryTable({
   const overall = computeStats(overallValues);
 
   return (
-    <div className="overflow-x-auto overflow-hidden rounded-lg border border-slate-200/80">
+    <div className="table-shell">
       <table className="table-base">
         <thead>
           <tr>

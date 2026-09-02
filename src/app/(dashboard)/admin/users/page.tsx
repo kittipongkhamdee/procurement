@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { setUserRole, updateUserFullName } from "./actions";
+import { approveUser, setUserRole, updateUserFullName } from "./actions";
 import { UserNameField } from "./user-name-field";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -22,7 +22,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const ROLES = ["admin", "supply_officer", "finance_officer", "teacher", "director"] as const;
 
-type AppUser = { user_id: string; email: string; full_name: string; position: string | null; role: string };
+type AppUser = { user_id: string; email: string; full_name: string; position: string | null; role: string; status: string };
 
 export default function AdminUsersPage() {
   const { isAdmin, loading: authLoading } = useAuth();
@@ -49,6 +49,16 @@ export default function AdminUsersPage() {
     try {
       await setUserRole(formData);
       await toastSuccess("บันทึกสิทธิ์เรียบร้อยแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleApprove(userId: string) {
+    try {
+      await approveUser(userId);
+      await toastSuccess("อนุมัติผู้ใช้เรียบร้อยแล้ว");
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -85,6 +95,7 @@ export default function AdminUsersPage() {
                 <th>ชื่อ-นามสกุล</th>
                 <th>อีเมล</th>
                 <th>ตำแหน่ง</th>
+                <th>สถานะ</th>
                 <th>สิทธิ์การใช้งาน</th>
               </tr>
             </thead>
@@ -96,6 +107,18 @@ export default function AdminUsersPage() {
                   </td>
                   <td>{u.email}</td>
                   <td>{u.position ?? "-"}</td>
+                  <td>
+                    {u.status === "pending" ? (
+                      <div className="flex items-center gap-2">
+                        <span className="badge-navy">รออนุมัติ</span>
+                        <button type="button" onClick={() => handleApprove(u.user_id)} className="btn-primary btn-sm">
+                          อนุมัติ
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="badge-emerald">อนุมัติแล้ว</span>
+                    )}
+                  </td>
                   <td>
                     <form onSubmit={handleSetRole} className="flex items-center gap-2">
                       <input type="hidden" name="user_id" value={u.user_id} />
@@ -119,7 +142,7 @@ export default function AdminUsersPage() {
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="table-empty">
+                  <td colSpan={5} className="table-empty">
                     ยังไม่มีผู้ใช้
                   </td>
                 </tr>

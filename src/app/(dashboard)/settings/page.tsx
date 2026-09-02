@@ -3,7 +3,7 @@
 // Client Component — ดึงข้อมูลตั้งค่าทั้งหมดผ่าน browser Supabase client (ต่อจาก /projects,
 // /strategies ฯลฯ — ดู /root/.claude/plans) admin gate เช็คฝั่ง client ผ่าน useAuth().isAdmin
 // เหมือน /strategies, /standards ทุกจุดที่มี component ลูกดึงข้อมูลเอง (AdminGroupManager,
-// TeacherManager, UserGroupManager, BudgetSourceToggle) เพิ่ม onChanged callback ให้เรียก
+// UserGroupManager, BudgetSourceToggle) เพิ่ม onChanged callback ให้เรียก
 // หลัง mutation สำเร็จ เพื่อ refetch รายการใหม่ (แทนที่ revalidatePath เดิม)
 
 import { useCallback, useEffect, useState } from "react";
@@ -11,7 +11,6 @@ import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { TeacherManager } from "./teacher-manager";
 import { AdminGroupManager } from "./admin-group-manager";
 import { UserGroupManager } from "./user-group-manager";
 import { UserGroupSelect } from "./user-group-select";
@@ -25,11 +24,9 @@ import {
   createAdminGroup,
   createBudgetSource,
   createBudgetYear,
-  createTeacher,
   createUserGroup,
   deleteAdminGroup,
   deleteBudgetSource,
-  deleteTeacher,
   deleteUserGroup,
   removeSchoolLogo,
   setAiExtractionEnabled,
@@ -41,10 +38,8 @@ import {
   setUserGroups,
   toggleAdminGroupActive,
   toggleBudgetSourceActive,
-  toggleTeacherActive,
   toggleUserGroupActive,
   updateAdminGroupName,
-  updateTeacherName,
   updateUserGroupName,
   uploadSchoolLogo,
 } from "./actions";
@@ -56,7 +51,6 @@ type AppUser = { user_id: string; email: string; full_name: string; position: st
 type SettingsData = {
   budgetYears: BudgetYear[];
   budgetSources: Item[];
-  teachers: Item[];
   adminGroups: Item[];
   userGroups: Item[];
   users: AppUser[];
@@ -78,7 +72,6 @@ export default function SettingsPage() {
     const [
       { data: budgetYears },
       { data: budgetSources },
-      { data: teachers },
       { data: adminGroups },
       { data: userGroups },
       { data: users },
@@ -91,7 +84,6 @@ export default function SettingsPage() {
     ] = await Promise.all([
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
       supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
-      supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("plan_admin_groups").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("proc_user_groups").select("id, name, is_active").order("sort_order").order("name"),
       supabase.rpc("proc_admin_list_users"),
@@ -113,7 +105,6 @@ export default function SettingsPage() {
     setData({
       budgetYears: budgetYears ?? [],
       budgetSources: budgetSources ?? [],
-      teachers: teachers ?? [],
       adminGroups: adminGroups ?? [],
       userGroups: userGroups ?? [],
       users: (users as unknown as AppUser[]) ?? [],
@@ -369,17 +360,6 @@ export default function SettingsPage() {
           deleteAdminGroup={deleteAdminGroup}
           onChanged={reload}
         />
-
-        <div className="lg:col-span-2">
-          <TeacherManager
-            teachers={data.teachers}
-            createTeacher={createTeacher}
-            updateTeacherName={updateTeacherName}
-            toggleTeacherActive={toggleTeacherActive}
-            deleteTeacher={deleteTeacher}
-            onChanged={reload}
-          />
-        </div>
 
         <UserGroupManager
           userGroups={data.userGroups}

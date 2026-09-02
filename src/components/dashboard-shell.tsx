@@ -10,6 +10,7 @@ import {
   BellIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ClipboardCheckIcon,
   CloseIcon,
   FolderIcon,
   GridIcon,
@@ -57,7 +58,7 @@ export function DashboardShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin, roleLabel, displayName, loading } = useAuth();
+  const { isAdmin, roleLabel, displayName, loading, pendingApproval } = useAuth();
   const { schoolName, logoUrl } = useSchoolSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -94,6 +95,31 @@ export function DashboardShell({
     [navSections],
   );
   const matches = query.trim() ? allItems.filter((i) => i.label.toLowerCase().includes(query.trim().toLowerCase())) : [];
+
+  // บัญชีที่สมัครเองแล้วยังไม่ผ่านการอนุมัติจากแอดมิน — กันไว้ทั้งชั้น UI (ไม่โชว์เมนู/ข้อมูลใดๆ
+  // เลย) ส่วนการบังคับจริงอยู่ที่ proc_current_role() ในฐานข้อมูล (คืนค่า role เฉพาะบัญชีที่
+  // status='approved') ทำให้ RLS ทุกจุดบล็อกบัญชี pending อยู่แล้วไม่ว่าจะผ่านหน้านี้หรือไม่
+  if (!loading && pendingApproval) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+            <ClipboardCheckIcon className="h-6 w-6" />
+          </div>
+          <h1 className="text-lg font-bold text-slate-900">รอการอนุมัติ</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            บัญชีของคุณสมัครสำเร็จแล้ว แต่ยังใช้งานไม่ได้จนกว่าผู้ดูแลระบบจะอนุมัติ กรุณาติดต่อผู้ดูแลระบบ
+            หรือรอการอนุมัติแล้วลองเข้าสู่ระบบใหม่อีกครั้ง
+          </p>
+          <form action={logoutAction} className="mt-6">
+            <button type="submit" className="btn-secondary w-full">
+              ออกจากระบบ
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen">

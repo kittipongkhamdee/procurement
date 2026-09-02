@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { login } from "./actions";
 import { getSchoolSettings } from "@/lib/school-settings-server";
+import { LoginErrorAlert } from "./login-error-alert";
 
 export default async function LoginPage({
   searchParams,
@@ -38,11 +39,7 @@ export default async function LoginPage({
             {notice}
           </div>
         )}
-        {error && (
-          <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {error && <LoginErrorAlert message={error} />}
 
         <form action={login} className="space-y-4">
           <div>

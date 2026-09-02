@@ -1,8 +1,10 @@
 "use client";
 
 // Client Component ตามแพทเทิร์นเดียวกับ /projects — ดึงรายการแบบประเมิน + template ผ่าน browser
-// Supabase client, ครูเห็นเฉพาะแบบประเมินของตัวเอง (created_by = ตัวเอง) ส่วนแอดมินเห็นของทุกคน
-// และจัดการ template คำถามมาตรฐานได้เพิ่ม (ดู /root/.claude/plans)
+// Supabase client ครูทุกคนมองเห็นแบบประเมินของทุกคนและดูผลสรุปได้ แต่แก้ไข/ลบ/เปลี่ยนสถานะได้
+// เฉพาะของตัวเอง (created_by = ตัวเอง) หรือแอดมิน (canManage) — ฝั่ง RLS บังคับจริงอยู่แล้วที่
+// eval_forms_teacher_own, ที่นี่แค่ซ่อนปุ่มไม่ให้กดของคนอื่น และจัดการ template คำถามมาตรฐาน
+// ได้เพิ่ม (ดู /root/.claude/plans)
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -17,7 +19,7 @@ import { createForm, createTemplate, publishForm, closeForm } from "./actions";
 
 type Project = { id: string; name: string };
 type Template = { id: string; title: string; description: string | null };
-type FormRow = { id: string; title: string; status: string; project_name: string | null };
+type FormRow = { id: string; title: string; status: string; project_name: string | null; created_by: string | null };
 type BudgetYear = { id: string; year: number };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -54,23 +56,22 @@ export default function EvaluationsPage() {
     const { data: projectData } = await supabase.from("plan_projects").select("id, name").order("sort_order");
     setProjects(projectData ?? []);
 
-    let query = supabase
+    const { data: formData } = await supabase
       .from("eval_forms")
-      .select("id, title, status, project_id, plan_projects(name)")
+      .select("id, title, status, project_id, created_by, plan_projects(name)")
       .eq("is_template", false)
       .order("created_at", { ascending: false });
-    if (!isAdmin) query = query.eq("created_by", user?.userId ?? "");
-    const { data: formData } = await query;
     setForms(
       (formData ?? []).map((f) => ({
         id: f.id,
         title: f.title,
         status: f.status,
         project_name: (f.plan_projects as unknown as { name: string } | null)?.name ?? null,
+        created_by: f.created_by,
       })),
     );
     setExistingProjectIds((formData ?? []).map((f) => f.project_id).filter((id): id is string => !!id));
-  }, [isAdmin, user?.userId]);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -144,6 +145,7 @@ export default function EvaluationsPage() {
         <table className="table-base">
           <thead>
             <tr>
+              <th className="w-16 whitespace-nowrap px-3 text-center">ลำดับที่</th>
               <th>ชื่อแบบประเมิน</th>
               <th>โครงการ</th>
               <th>สถานะ</th>
@@ -151,8 +153,9 @@ export default function EvaluationsPage() {
             </tr>
           </thead>
           <tbody>
-            {forms.map((f) => (
+            {forms.map((f, i) => (
               <tr key={f.id}>
+                <td className="px-3 text-center text-slate-500">{i + 1}</td>
                 <td>
                   <Link href={`/evaluations/${f.id}`} className="block max-w-xs whitespace-normal break-words font-medium text-navy-800 hover:underline">
                     {f.title}
@@ -160,21 +163,27 @@ export default function EvaluationsPage() {
                 </td>
                 <td className="max-w-[10rem] whitespace-normal break-words">{f.project_name ?? "-"}</td>
                 <td>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleStatus(f)}
-                    disabled={togglingId === f.id}
-                    className={`${f.status === "published" ? "badge-emerald" : "badge-navy"} disabled:cursor-not-allowed disabled:opacity-50`}
-                    title={
-                      f.status === "published"
-                        ? "คลิกเพื่อปิดรับคำตอบ"
-                        : f.status === "draft"
-                          ? "คลิกเพื่อเผยแพร่และเปิดรับคำตอบ"
-                          : "คลิกเพื่อเปิดรับคำตอบอีกครั้ง"
-                    }
-                  >
-                    {STATUS_LABELS[f.status] ?? f.status}
-                  </button>
+                  {isAdmin || f.created_by === user?.userId ? (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStatus(f)}
+                      disabled={togglingId === f.id}
+                      className={`${f.status === "published" ? "badge-emerald" : "badge-navy"} disabled:cursor-not-allowed disabled:opacity-50`}
+                      title={
+                        f.status === "published"
+                          ? "คลิกเพื่อปิดรับคำตอบ"
+                          : f.status === "draft"
+                            ? "คลิกเพื่อเผยแพร่และเปิดรับคำตอบ"
+                            : "คลิกเพื่อเปิดรับคำตอบอีกครั้ง"
+                      }
+                    >
+                      {STATUS_LABELS[f.status] ?? f.status}
+                    </button>
+                  ) : (
+                    <span className={f.status === "published" ? "badge-emerald" : "badge-navy"}>
+                      {STATUS_LABELS[f.status] ?? f.status}
+                    </span>
+                  )}
                 </td>
                 <td className="text-right">
                   <Link href={`/evaluations/${f.id}`} className="text-xs font-medium text-navy-800 hover:underline">
@@ -185,7 +194,7 @@ export default function EvaluationsPage() {
             ))}
             {forms.length === 0 && (
               <tr>
-                <td colSpan={4} className="table-empty">
+                <td colSpan={5} className="table-empty">
                   ยังไม่มีแบบประเมิน
                 </td>
               </tr>
