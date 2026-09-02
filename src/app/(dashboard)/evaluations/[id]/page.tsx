@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
@@ -51,6 +52,7 @@ type Form = {
   token: string;
   is_template: boolean;
   project_name: string | null;
+  created_by: string | null;
 };
 type Answer = { question_id: string; answer_value: string };
 
@@ -63,6 +65,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function EvaluationResultsPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { isAdmin, user } = useAuth();
   const [form, setForm] = useState<Form | null | undefined>(undefined);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Answer[]>([]);
@@ -74,7 +77,7 @@ export default function EvaluationResultsPage() {
 
     const { data } = await supabase
       .from("eval_forms")
-      .select("id, title, status, token, is_template, plan_projects(name)")
+      .select("id, title, status, token, is_template, created_by, plan_projects(name)")
       .eq("id", id)
       .maybeSingle();
 
@@ -89,6 +92,7 @@ export default function EvaluationResultsPage() {
       token: data.token,
       is_template: data.is_template,
       project_name: (data.plan_projects as unknown as { name: string } | null)?.name ?? null,
+      created_by: data.created_by,
     });
 
     const { data: qData } = await supabase
@@ -157,6 +161,7 @@ export default function EvaluationResultsPage() {
   if (form === null) return <p className="p-4 text-sm text-red-600">ไม่พบแบบประเมินนี้</p>;
 
   const link = typeof window !== "undefined" ? `${window.location.origin}/survey/${form.token}` : "";
+  const canManage = isAdmin || (user && form.created_by === user.userId);
 
   return (
     <div>
@@ -179,12 +184,16 @@ export default function EvaluationResultsPage() {
           <button type="button" onClick={() => window.print()} className="btn-secondary">
             พิมพ์ / บันทึก PDF
           </button>
-          <Link href={`/evaluations/${form.id}/edit`} className="btn-secondary">
-            แก้ไข
-          </Link>
-          <button type="button" onClick={handleDelete} className="btn-danger">
-            ลบ
-          </button>
+          {canManage && (
+            <>
+              <Link href={`/evaluations/${form.id}/edit`} className="btn-secondary">
+                แก้ไข
+              </Link>
+              <button type="button" onClick={handleDelete} className="btn-danger">
+                ลบ
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -192,7 +201,9 @@ export default function EvaluationResultsPage() {
         <div className="card mb-6 print:hidden">
           <div className="card-title">ลิงก์แบบประเมิน</div>
           {form.status === "draft" ? (
-            <p className="text-sm text-slate-500">ยังไม่เผยแพร่ — ไปที่หน้าแก้ไขเพื่อเผยแพร่แบบประเมิน</p>
+            <p className="text-sm text-slate-500">
+              {canManage ? "ยังไม่เผยแพร่ — ไปที่หน้าแก้ไขเพื่อเผยแพร่แบบประเมิน" : "ยังไม่เผยแพร่"}
+            </p>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
               <code className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">{link}</code>
@@ -206,9 +217,11 @@ export default function EvaluationResultsPage() {
               >
                 คัดลอกลิงก์
               </button>
-              <button type="button" onClick={handleToggleStatus} className="btn-secondary btn-sm">
-                {form.status === "published" ? "ปิดรับคำตอบ" : "เปิดรับคำตอบอีกครั้ง"}
-              </button>
+              {canManage && (
+                <button type="button" onClick={handleToggleStatus} className="btn-secondary btn-sm">
+                  {form.status === "published" ? "ปิดรับคำตอบ" : "เปิดรับคำตอบอีกครั้ง"}
+                </button>
+              )}
               <span className={form.status === "published" ? "badge-emerald" : "badge-navy"}>
                 {STATUS_LABELS[form.status] ?? form.status}
               </span>
