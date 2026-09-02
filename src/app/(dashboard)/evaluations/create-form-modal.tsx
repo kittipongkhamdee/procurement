@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal, type ModalHandle } from "@/components/modal";
-import { errorMessage, toastError } from "@/lib/swal";
+import { confirmWarning, errorMessage, toastError } from "@/lib/swal";
 import type { createForm as createFormAction } from "./actions";
 
 type Project = { id: string; name: string };
@@ -12,10 +12,12 @@ type Template = { id: string; title: string };
 export function CreateFormModal({
   projects,
   templates,
+  existingProjectIds,
   createForm,
 }: {
   projects: Project[];
   templates: Template[];
+  existingProjectIds: string[];
   createForm: typeof createFormAction;
 }) {
   const modalRef = useRef<ModalHandle>(null);
@@ -35,6 +37,18 @@ export function CreateFormModal({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+
+    // โครงการนี้มีแบบประเมินอยู่แล้ว — เตือนก่อนสร้างซ้ำ แต่ไม่บังคับ (บางโครงการอาจต้องประเมิน
+    // มากกว่า 1 รอบ/ครั้งจริงๆ) ผู้ใช้กด "ดำเนินการต่อ" เพื่อข้ามคำเตือนนี้ได้
+    const projectId = String(formData.get("project_id") ?? "");
+    if (existingProjectIds.includes(projectId)) {
+      const proceed = await confirmWarning({
+        title: "โครงการนี้มีแบบประเมินความพึงพอใจอยู่แล้ว",
+        text: "ต้องการสร้างแบบประเมินซ้ำสำหรับโครงการนี้อีกหรือไม่?",
+      });
+      if (!proceed) return;
+    }
+
     setSubmitting(true);
     try {
       const id = await createForm(formData);

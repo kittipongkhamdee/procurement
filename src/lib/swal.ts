@@ -37,6 +37,20 @@ export async function confirmDelete(opts: { title: string; text?: string }) {
   return result.isConfirmed;
 }
 
+export async function confirmWarning(opts: { title: string; text?: string; confirmButtonText?: string }) {
+  const swal = await loadSwal();
+  const result = await swal.fire({
+    title: opts.title,
+    text: opts.text,
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: opts.confirmButtonText ?? "ดำเนินการต่อ",
+    cancelButtonText: "ยกเลิก",
+    focusCancel: true,
+  });
+  return result.isConfirmed;
+}
+
 export async function toastSuccess(title: string) {
   const swal = await loadSwal();
   await swal.fire({

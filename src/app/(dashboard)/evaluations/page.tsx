@@ -33,6 +33,7 @@ export default function EvaluationsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentYear, setCurrentYear] = useState<BudgetYear | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [existingProjectIds, setExistingProjectIds] = useState<string[]>([]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -55,7 +56,7 @@ export default function EvaluationsPage() {
 
     let query = supabase
       .from("eval_forms")
-      .select("id, title, status, plan_projects(name)")
+      .select("id, title, status, project_id, plan_projects(name)")
       .eq("is_template", false)
       .order("created_at", { ascending: false });
     if (!isAdmin) query = query.eq("created_by", user?.userId ?? "");
@@ -68,6 +69,7 @@ export default function EvaluationsPage() {
         project_name: (f.plan_projects as unknown as { name: string } | null)?.name ?? null,
       })),
     );
+    setExistingProjectIds((formData ?? []).map((f) => f.project_id).filter((id): id is string => !!id));
   }, [isAdmin, user?.userId]);
 
   useEffect(() => {
@@ -98,7 +100,12 @@ export default function EvaluationsPage() {
           <h1 className="page-title">ประเมินความพึงพอใจ</h1>
           <p className="page-subtitle">สร้างแบบประเมินความพึงพอใจโครงการ แจกลิงก์ให้ผู้ตอบโดยไม่ต้องล็อกอิน</p>
         </div>
-        <CreateFormModal projects={projects} templates={templates} createForm={createForm} />
+        <CreateFormModal
+          projects={projects}
+          templates={templates}
+          existingProjectIds={existingProjectIds}
+          createForm={createForm}
+        />
       </div>
 
       {currentYear && (
