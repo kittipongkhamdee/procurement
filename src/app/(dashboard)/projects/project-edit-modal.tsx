@@ -34,6 +34,7 @@ export function ProjectEditModal({
   updateActivity,
   deleteActivity,
   onChanged,
+  textSizeClass = "text-xs",
 }: {
   projectId: string;
   name: string;
@@ -52,6 +53,9 @@ export function ProjectEditModal({
   deleteActivity: typeof deleteActivityAction;
   /** เรียกหลัง mutation สำเร็จทุกครั้ง — ให้หน้าพ่อ refetch รายการใหม่เมื่อ items มาจาก client state */
   onChanged?: () => void;
+  /** ขนาดตัวหนังสือ — การ์ดมือถือใช้ text-xs ให้เข้ากับ meta บรรทัดเล็ก ส่วนตารางจอกว้างใช้
+   * text-sm ให้เท่ากับเซลล์อื่นในแถวเดียวกัน */
+  textSizeClass?: string;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const projectFormId = useId();
@@ -129,7 +133,7 @@ export function ProjectEditModal({
       ref={modalRef}
       title={`แก้ไขโครงการ: ${name}`}
       trigger="แก้ไข"
-      triggerClassName="text-xs font-medium text-navy-800 hover:underline"
+      triggerClassName={`${textSizeClass} font-medium text-navy-800 hover:underline`}
     >
       <form id={projectFormId} onSubmit={handleSaveAll}>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

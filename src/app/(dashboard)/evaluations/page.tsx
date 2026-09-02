@@ -168,7 +168,7 @@ export default function EvaluationsPage() {
                       type="button"
                       onClick={() => handleToggleStatus(f)}
                       disabled={togglingId === f.id}
-                      className={`${f.status === "published" ? "badge-emerald" : "badge-navy"} disabled:cursor-not-allowed disabled:opacity-50`}
+                      className={`${f.status === "published" ? "badge-emerald" : "badge-navy"} !text-sm disabled:cursor-not-allowed disabled:opacity-50`}
                       title={
                         f.status === "published"
                           ? "คลิกเพื่อปิดรับคำตอบ"
@@ -180,13 +180,13 @@ export default function EvaluationsPage() {
                       {STATUS_LABELS[f.status] ?? f.status}
                     </button>
                   ) : (
-                    <span className={f.status === "published" ? "badge-emerald" : "badge-navy"}>
+                    <span className={`${f.status === "published" ? "badge-emerald" : "badge-navy"} !text-sm`}>
                       {STATUS_LABELS[f.status] ?? f.status}
                     </span>
                   )}
                 </td>
                 <td className="text-right">
-                  <Link href={`/evaluations/${f.id}`} className="text-xs font-medium text-navy-800 hover:underline">
+                  <Link href={`/evaluations/${f.id}`} className="text-sm font-medium text-navy-800 hover:underline">
                     ดูผลสรุป
                   </Link>
                 </td>

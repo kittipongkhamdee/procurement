@@ -11,6 +11,7 @@ export function DeleteReportButton({
   projectName,
   action,
   onChanged,
+  textSizeClass = "text-xs",
 }: {
   id: string;
   fileUrl: string | null;
@@ -18,6 +19,9 @@ export function DeleteReportButton({
   projectName: string;
   action: typeof deleteProjectReport;
   onChanged?: () => void;
+  /** ขนาดตัวหนังสือ — การ์ดมือถือใช้ text-xs ให้เข้ากับ meta บรรทัดเล็ก ส่วนตารางจอกว้างใช้
+   * text-sm ให้เท่ากับเซลล์อื่นในแถวเดียวกัน */
+  textSizeClass?: string;
 }) {
   async function handleDelete() {
     const ok = await confirmDelete({ title: `ลบรายงานโครงการ "${projectName}"?` });
@@ -35,7 +39,7 @@ export function DeleteReportButton({
     <button
       type="button"
       onClick={handleDelete}
-      className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline"
+      className={`inline-flex items-center gap-1 ${textSizeClass} font-medium text-red-600 hover:underline`}
     >
       <TrashIcon className="h-3.5 w-3.5" />
       ลบ

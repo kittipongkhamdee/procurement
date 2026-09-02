@@ -2,12 +2,20 @@
 
 // หน้าแก้ไขรายงานโครงการแบบเต็มหน้า (แปลงจาก popup เดิม) ดึงรายงานตาม id + รายชื่อโครงการ +
 // URL รูปภาพเดิม (เซ็นใหม่) มาแสดงในฟอร์มเดียวกับหน้าเสนอรายงานใหม่
+//
+// สำคัญ: import เฉพาะจาก "@/lib/storage/ref" (pure function ไม่มี dependency ฝั่ง server) ห้าม
+// import จาก "@/lib/storage" (บาร์เรลไฟล์) เด็ดขาด เพราะไฟล์นั้นดึง google-drive.ts เข้ามาด้วย ซึ่งใช้
+// google-auth-library + service account secret ที่รันได้เฉพาะฝั่ง server เท่านั้น (ดูแพทเทิร์นเดียวกัน
+// ที่ /documents/page.tsx) — รูปเก่าบางส่วนอัปโหลดไว้ตอนระบบตั้งค่าเป็น Google Drive (ref ขึ้นต้นด้วย
+// "gdrive:") ถ้าเอา ref พวกนี้ไปยิง supabase.storage.createSignedUrls() ตรงๆ จะหา path ไม่เจอ (error)
+// แล้วถูก .filter((p) => p.url) กรองทิ้งเงียบๆ ทำให้รูปเดิมหายไปจากฟอร์มแก้ไข (และหายจริงถ้ากดบันทึก)
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { isDriveRef, driveFileId, driveThumbnailUrl } from "@/lib/storage/ref";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ChevronLeftIcon } from "@/components/icons";
 import { ProjectReportForm, type Project, type ProjectReportInitial } from "../../project-report-form";
@@ -105,11 +113,15 @@ export default function EditProjectReportPage() {
     setReport(r);
 
     const photoRefs = r.photo_refs ?? [];
-    const { data: signedPhotos } =
-      photoRefs.length > 0
-        ? await supabase.storage.from("procurement-files").createSignedUrls(photoRefs, 3600)
-        : { data: [] };
     const photoUrlByRef = new Map<string, string>();
+    const supabasePhotoRefs = photoRefs.filter((ref) => !isDriveRef(ref));
+    for (const ref of photoRefs) {
+      if (isDriveRef(ref)) photoUrlByRef.set(ref, driveThumbnailUrl(driveFileId(ref)));
+    }
+    const { data: signedPhotos } =
+      supabasePhotoRefs.length > 0
+        ? await supabase.storage.from("procurement-files").createSignedUrls(supabasePhotoRefs, 3600)
+        : { data: [] };
     signedPhotos?.forEach((s) => {
       if (s.signedUrl && !s.error) photoUrlByRef.set(s.path ?? "", s.signedUrl);
     });

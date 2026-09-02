@@ -132,7 +132,7 @@ export function ProposalsTable({
               <td className="whitespace-nowrap">{r.proposerName ?? "-"}</td>
               <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budgetAmount)}</td>
               <td className="whitespace-nowrap text-center">
-                <span className={statusBadgeClass(r.status)}>{r.status}</span>
+                <span className={`${statusBadgeClass(r.status)} !text-sm`}>{r.status}</span>
               </td>
               <td className="text-right">
                 <div className="flex justify-end gap-2">

@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { FileTextIcon, PencilIcon, PrinterIcon } from "@/components/icons";
+import { FileTextIcon, PencilIcon, PrinterIcon, WordFileIcon } from "@/components/icons";
 import { DeleteReportButton } from "./delete-report-button";
 import { deleteProjectReport } from "./actions";
 
@@ -68,29 +68,46 @@ export default function ProjectReportsPage() {
 
   if (reports === null || authLoading) return <PageLoadingSkeleton />;
 
-  function fileLink(r: Report) {
+  // การ์ดมือถือใช้ text-xs ให้เข้ากับ meta บรรทัดเล็ก ส่วนตารางจอกว้างใช้ text-sm ให้เท่ากับ
+  // เซลล์อื่นในแถวเดียวกัน
+  function fileLink(r: Report, textSizeClass: string = "text-xs") {
     if (r.file_url) {
       return signedUrls.get(r.file_url) ? (
         <a
           href={signedUrls.get(r.file_url)}
           target="_blank"
-          className="inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline"
+          className={`inline-flex items-center gap-1 ${textSizeClass} font-medium text-navy-800 hover:underline`}
         >
           <FileTextIcon className="h-3.5 w-3.5" />
           เปิดไฟล์
         </a>
       ) : (
-        <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
+        <span className={`${textSizeClass} text-slate-400`}>ไม่พบไฟล์</span>
       );
     }
     return (
       <a
         href={`/project-reports/${r.id}/pdf`}
         target="_blank"
-        className="inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline"
+        className={`inline-flex items-center gap-1 ${textSizeClass} font-medium text-navy-800 hover:underline`}
       >
         <PrinterIcon className="h-3.5 w-3.5" />
         ดู/พิมพ์ PDF
+      </a>
+    );
+  }
+
+  // ปุ่มดาวน์โหลด Word ใช้ได้เฉพาะรายงานที่กรอกผ่านฟอร์ม (สร้างเอกสารจากข้อมูลในระบบ) — รายงานที่
+  // อัปโหลดไฟล์ของตัวเองมา (r.file_url) ไม่มีข้อมูลให้สร้างเอกสาร Word ใหม่
+  function wordLink(r: Report, textSizeClass: string = "text-xs") {
+    if (r.file_url) return null;
+    return (
+      <a
+        href={`/project-reports/${r.id}/word`}
+        className={`inline-flex items-center gap-1 ${textSizeClass} font-medium text-navy-800 hover:underline`}
+      >
+        <WordFileIcon className="h-3.5 w-3.5" />
+        ดาวน์โหลด Word
       </a>
     );
   }
@@ -100,7 +117,7 @@ export default function ProjectReportsPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">ระบบรายงานโครงการ</h1>
-          <p className="page-subtitle">สรุปผลการดำเนินงานหลังปิดโครงการ พร้อมออกรายงาน PDF</p>
+          <p className="page-subtitle">สรุปผลการดำเนินงานหลังปิดโครงการ พร้อมออกรายงาน PDF และ Word</p>
         </div>
         <Link href="/project-reports/new" className="btn-primary">
           + รายงานโครงการใหม่
@@ -127,6 +144,7 @@ export default function ProjectReportsPage() {
                   </span>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     {fileLink(r)}
+                    {wordLink(r)}
                     {canManage && (
                       <>
                         <Link
@@ -179,13 +197,18 @@ export default function ProjectReportsPage() {
                   </td>
                   <td>{r.responsible_name ?? "-"}</td>
                   <td className="whitespace-nowrap">{formatThaiDate(r.created_at)}</td>
-                  <td className="text-right">{fileLink(r)}</td>
+                  <td className="text-right">
+                    <div className="flex flex-col items-end gap-1">
+                      {fileLink(r, "text-sm")}
+                      {wordLink(r, "text-sm")}
+                    </div>
+                  </td>
                   <td className="text-right">
                     {canManage && (
                       <div className="flex justify-end gap-3">
                         <Link
                           href={`/project-reports/${r.id}/edit`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-navy-800 hover:underline"
                         >
                           <PencilIcon className="h-3.5 w-3.5" />
                           แก้ไข
@@ -197,6 +220,7 @@ export default function ProjectReportsPage() {
                           projectName={r.plan_projects?.name ?? "โครงการนี้"}
                           action={deleteProjectReport}
                           onChanged={reload}
+                          textSizeClass="text-sm"
                         />
                       </div>
                     )}
