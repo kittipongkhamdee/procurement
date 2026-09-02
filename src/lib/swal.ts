@@ -77,6 +77,16 @@ export async function toastError(title: string) {
   });
 }
 
+export async function alertError(opts: { title: string; text?: string }) {
+  const swal = await loadSwal();
+  await swal.fire({
+    icon: "error",
+    title: opts.title,
+    text: opts.text,
+    confirmButtonText: "ตกลง",
+  });
+}
+
 export function errorMessage(err: unknown) {
   return err instanceof Error ? err.message : "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
 }
