@@ -1,37 +1,21 @@
 "use client";
 
 // Client Component — หน้าสุดท้ายในการแปลงเฟส 2 (ดู /root/.claude/plans) ดึงรายงานโครงการผ่าน
-// browser Supabase client แทนการรอ Server Component fetch — extractBackgroundFromProposalFile
-// (เรียก Gemini AI) และ mutation ทั้งหมดยังคงเป็น server action เดิม ไม่แตะ
+// browser Supabase client แทนการรอ Server Component fetch — mutation ทั้งหมดยังคงเป็น server
+// action เดิม ไม่แตะ
 //
-// สำคัญ: ใช้ resolveUrls แบบ client เอง (เหมือน /documents, /project-proposals) ไม่ import จาก
-// บาร์เรล @/lib/storage เพราะดึง google-drive.ts (service account secret) เข้ามาด้วย
+// หน้าเสนอ/แก้ไขรายงานย้ายไปเป็นเต็มหน้า (/project-reports/new, /project-reports/[id]/edit)
+// แทน popup เดิม เพราะฟอร์มยาวหลายส่วนทำให้ popup อึดอัด — หน้านี้เหลือแค่รายการ+ลิงก์ไปหน้าเหล่านั้น
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { ProjectReportModal } from "./project-report-modal";
 import { DeleteReportButton } from "./delete-report-button";
-import {
-  createProjectReport,
-  deleteProjectReport,
-  extractBackgroundFromProposalFile,
-  updateProjectReport,
-} from "./actions";
+import { deleteProjectReport } from "./actions";
 
-type IndicatorResult = { indicator: string; target: string; actual: string };
-type Proposal = {
-  project_id: string;
-  strategy_alignment: string | null;
-  standard: string | null;
-  responsible: string[] | null;
-  objectives: string[] | null;
-  indicators_quantity: { indicator: string; target: string }[] | null;
-  indicators_quality: { indicator: string; target: string }[] | null;
-  file_url_pdf: string | null;
-};
 type Report = {
   id: string;
   project_id: string | null;
@@ -40,22 +24,6 @@ type Report = {
   photo_refs: string[] | null;
   created_at: string;
   not_implemented: boolean;
-  not_implemented_reason: string | null;
-  responsible_name: string | null;
-  period_start: string | null;
-  period_end: string | null;
-  location: string | null;
-  background: string | null;
-  objectives: string[] | null;
-  activities_done: string[] | null;
-  indicator_results_quantity: IndicatorResult[] | null;
-  indicator_results_quality: IndicatorResult[] | null;
-  satisfaction_percent: number | null;
-  budget_approved: number | null;
-  budget_used: number | null;
-  highlights: string[] | null;
-  problems: string[] | null;
-  recommendations: string[] | null;
   plan_projects: { name: string } | null;
 };
 
@@ -63,93 +31,30 @@ export default function ProjectReportsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [reports, setReports] = useState<Report[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [projectOptions, setProjectOptions] = useState<
-    {
-      id: string;
-      name: string;
-      budget: number;
-      strategyAlignment: string | null;
-      standard: string | null;
-      responsible: string[];
-      objectives: string[];
-      indicatorsQuantity: { indicator: string; target: string }[];
-      indicatorsQuality: { indicator: string; target: string }[];
-      proposalPdfPath: string | null;
-    }[]
-  >([]);
-  const [aiExtractionEnabled, setAiExtractionEnabled] = useState(true);
   const [signedUrls, setSignedUrls] = useState<Map<string, string>>(new Map());
-  const [signedPhotoUrls, setSignedPhotoUrls] = useState<Map<string, string>>(new Map());
 
   const reload = useCallback(async () => {
     const supabase = createClient();
 
-    const [
-      { data: reportsData, error },
-      { data: projects },
-      { data: proposals },
-      { data: aiExtractionEnabledSetting },
-    ] = await Promise.all([
-      supabase
-        .from("proc_project_reports")
-        .select(
-          "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, not_implemented_reason, responsible_name, period_start, period_end, location, background, objectives, activities_done, indicator_results_quantity, indicator_results_quality, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations, plan_projects(name)",
-        )
-        .order("created_at", { ascending: false }),
-      supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
-      supabase
-        .from("plan_project_proposals")
-        .select(
-          "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
-        )
-        .not("project_id", "is", null),
-      supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
-    ]);
+    const { data: reportsData, error } = await supabase
+      .from("proc_project_reports")
+      .select("id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, plan_projects(name)")
+      .order("created_at", { ascending: false });
     if (error) setError(error.message);
 
     const rows = (reportsData as unknown as Report[]) ?? [];
     setReports(rows);
-    setAiExtractionEnabled(aiExtractionEnabledSetting?.value !== "false");
-
-    const proposalByProjectId = new Map((proposals as unknown as Proposal[] ?? []).map((p) => [p.project_id, p]));
-    setProjectOptions(
-      (projects ?? []).map((p) => {
-        const proposal = proposalByProjectId.get(p.id);
-        return {
-          id: p.id,
-          name: p.name,
-          budget: p.budget,
-          strategyAlignment: proposal?.strategy_alignment ?? null,
-          standard: proposal?.standard ?? null,
-          responsible: proposal?.responsible ?? [],
-          objectives: proposal?.objectives ?? [],
-          indicatorsQuantity: proposal?.indicators_quantity ?? [],
-          indicatorsQuality: proposal?.indicators_quality ?? [],
-          proposalPdfPath: proposal?.file_url_pdf ?? null,
-        };
-      }),
-    );
 
     const paths = rows.map((r) => r.file_url).filter((p): p is string => !!p);
-    const allPhotoRefs = rows.flatMap((r) => r.photo_refs ?? []);
-    const [fileUrlsMap, photoUrlsMap] = await Promise.all([
+    const { data: fileUrlsMap } =
       paths.length > 0
-        ? supabase.storage.from("procurement-files").createSignedUrls(paths, 3600)
-        : Promise.resolve({ data: [] }),
-      allPhotoRefs.length > 0
-        ? supabase.storage.from("procurement-files").createSignedUrls(allPhotoRefs, 3600)
-        : Promise.resolve({ data: [] }),
-    ]);
+        ? await supabase.storage.from("procurement-files").createSignedUrls(paths, 3600)
+        : { data: [] };
     const fileMap = new Map<string, string>();
-    fileUrlsMap.data?.forEach((s) => {
+    fileUrlsMap?.forEach((s) => {
       if (s.signedUrl && !s.error) fileMap.set(s.path ?? "", s.signedUrl);
     });
     setSignedUrls(fileMap);
-    const photoMap = new Map<string, string>();
-    photoUrlsMap.data?.forEach((s) => {
-      if (s.signedUrl && !s.error) photoMap.set(s.path ?? "", s.signedUrl);
-    });
-    setSignedPhotoUrls(photoMap);
   }, []);
 
   useEffect(() => {
@@ -165,13 +70,9 @@ export default function ProjectReportsPage() {
         <div>
           <h1 className="page-title">ระบบรายงานโครงการ</h1>
         </div>
-        <ProjectReportModal
-          projects={projectOptions}
-          action={createProjectReport}
-          aiExtractionEnabled={aiExtractionEnabled}
-          extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
-          onChanged={reload}
-        />
+        <Link href="/project-reports/new" className="btn-primary">
+          + รายงานโครงการใหม่
+        </Link>
       </div>
 
       <div className="table-shell">
@@ -222,40 +123,9 @@ export default function ProjectReportsPage() {
                   <td className="text-right">
                     {canManage && (
                       <div className="flex justify-end gap-3">
-                        <ProjectReportModal
-                          projects={projectOptions}
-                          action={updateProjectReport.bind(null, r.id)}
-                          aiExtractionEnabled={aiExtractionEnabled}
-                          extractBackgroundFromProposalFile={extractBackgroundFromProposalFile}
-                          title="แก้ไขรายงานโครงการ"
-                          trigger="แก้ไข"
-                          triggerClassName="text-xs font-medium text-navy-800 hover:underline"
-                          submitLabel="บันทึกการแก้ไข"
-                          onChanged={reload}
-                          initial={{
-                            projectId: r.project_id ?? "",
-                            notImplemented: r.not_implemented,
-                            notImplementedReason: r.not_implemented_reason ?? "",
-                            responsibleName: r.responsible_name ?? "",
-                            periodStart: r.period_start,
-                            periodEnd: r.period_end,
-                            location: r.location,
-                            background: r.background ?? "",
-                            objectives: r.objectives ?? [],
-                            activitiesDone: r.activities_done ?? [],
-                            indicatorResultsQuantity: r.indicator_results_quantity ?? [],
-                            indicatorResultsQuality: r.indicator_results_quality ?? [],
-                            satisfactionPercent: r.satisfaction_percent,
-                            budgetApproved: r.budget_approved,
-                            budgetUsed: r.budget_used,
-                            highlights: r.highlights ?? [],
-                            problems: r.problems ?? [],
-                            recommendations: r.recommendations ?? [],
-                            photos: photoRefs
-                              .map((ref) => ({ ref, url: signedPhotoUrls.get(ref) ?? "" }))
-                              .filter((p) => p.url),
-                          }}
-                        />
+                        <Link href={`/project-reports/${r.id}/edit`} className="text-xs font-medium text-navy-800 hover:underline">
+                          แก้ไข
+                        </Link>
                         <DeleteReportButton
                           id={r.id}
                           fileUrl={r.file_url}

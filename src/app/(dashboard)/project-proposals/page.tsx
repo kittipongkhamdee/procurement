@@ -8,17 +8,15 @@
 // หน้านี้ใช้แค่ Supabase Storage เสมอ (ไม่รองรับ Google Drive) จึงไม่ต้องเช็ค isDriveRef เลย
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { Modal } from "@/components/modal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { CheckIcon, ClipboardCheckIcon, LightbulbIcon, PlusIcon } from "@/components/icons";
-import { ProposalForm } from "./proposal-form";
 import { ProposalsTable } from "./proposals-table";
 import {
   approveProposal,
   cancelEndorsement,
-  createProposal,
   deleteProposal,
   deleteProposalFile,
   endorseProposal,
@@ -201,29 +199,13 @@ export default function ProjectProposalsPage() {
           </p>
         </div>
         {currentYear && !isApproverOnly && (
-          <Modal
-            title="เสนอโครงการใหม่"
-            trigger={
-              <>
-                <PlusIcon className="h-5 w-5" />
-                เสนอโครงการใหม่
-              </>
-            }
-            triggerClassName="btn-gold px-5 py-2.5 text-base shadow-md transition-transform hover:scale-[1.03]"
-            closeOnSubmit
-            wide
+          <Link
+            href="/project-proposals/new"
+            className="btn-gold inline-flex items-center gap-2 px-5 py-2.5 text-base shadow-md transition-transform hover:scale-[1.03]"
           >
-            <ProposalForm
-              action={createProposal}
-              budgetYearId={currentYear.id}
-              adminGroups={adminGroups}
-              budgetSources={budgetSources}
-              teachers={teachers}
-              strategies={strategies}
-              standards={standards}
-              onSuccess={reload}
-            />
-          </Modal>
+            <PlusIcon className="h-5 w-5" />
+            เสนอโครงการใหม่
+          </Link>
         )}
       </div>
 
