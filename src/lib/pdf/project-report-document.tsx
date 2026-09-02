@@ -23,7 +23,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 11,
     fontWeight: "bold",
-    marginTop: 14,
+    marginTop: 10,
     marginBottom: 6,
   },
   subheading: { fontWeight: "bold", marginTop: 4, marginBottom: 2 },
@@ -33,7 +33,10 @@ const styles = StyleSheet.create({
   hr: { borderBottomWidth: 1, borderBottomColor: "#111827", marginVertical: 8 },
   // paddingRight leaves slack against a reproducible @react-pdf/renderer bug where a
   // wrapped line's last 1-2 glyphs get clipped instead of wrapped — see thai-pdf.ts.
-  paragraph: { marginBottom: 4, lineHeight: 1.5, paddingRight: 24 },
+  // marginBottom lives on paragraphBlock (once per paragraph), not here — putting it on
+  // every wrapped line stacked with lineHeight made multi-line paragraphs look double-spaced.
+  paragraphBlock: { marginBottom: 6 },
+  paragraph: { lineHeight: 1.3, paddingRight: 24 },
   bulletRow: { flexDirection: "row", marginBottom: 2, paddingRight: 24 },
   bulletMark: { width: 14 },
   bulletText: { flex: 1, lineHeight: 1.5 },
@@ -102,13 +105,13 @@ const styles = StyleSheet.create({
 
 function Paragraph({ text }: { text: string }) {
   return (
-    <>
+    <View style={styles.paragraphBlock}>
       {wrapText(text).map((line, i) => (
         <Text key={i} style={styles.paragraph}>
           {t(line)}
         </Text>
       ))}
-    </>
+    </View>
   );
 }
 
