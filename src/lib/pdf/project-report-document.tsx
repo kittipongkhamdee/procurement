@@ -19,9 +19,9 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   center: { textAlign: "center" },
-  title: { fontSize: 16, fontWeight: "bold", marginBottom: 2 },
+  title: { fontSize: 14, fontWeight: "bold", marginBottom: 2 },
   subtitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "bold",
     marginTop: 14,
     marginBottom: 6,
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   budgetTable: { marginTop: 4, borderWidth: 1, borderColor: "#111827" },
   budgetRow: { flexDirection: "row" },
   budgetLabel: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "50%",
     borderRightWidth: 1,
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   budgetValue: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "50%",
     textAlign: "right",
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   indicatorHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   indicatorRow: { flexDirection: "row" },
   indicatorCellIndicator: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "50%",
     borderRightWidth: 1,
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   indicatorCellTarget: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "25%",
     borderRightWidth: 1,
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   indicatorCellActual: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "25%",
     borderBottomWidth: 1,
