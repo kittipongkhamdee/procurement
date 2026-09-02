@@ -14,6 +14,7 @@ import { ChevronLeftIcon } from "@/components/icons";
 import { updateFormMeta, replaceQuestions, replaceCriteria, publishForm, closeForm, updateSchedule } from "../../actions";
 import { QuestionListEditor, type QuestionRow } from "../../question-list-editor";
 import { CriteriaEditor, type CriterionRow } from "../../criteria-editor";
+import { QrCodeButton } from "../../qr-code-button";
 
 type FormMeta = {
   id: string;
@@ -313,6 +314,7 @@ export default function EvaluationEditPage() {
                   >
                     คัดลอกลิงก์
                   </button>
+                  {link && <QrCodeButton value={link} filename={`qr-แบบประเมิน-${form.title}.png`} />}
                   <button type="button" onClick={handleToggleStatus} disabled={publishing} className="btn-secondary btn-sm">
                     {form.status === "published" ? "ปิดรับคำตอบ" : "เปิดรับคำตอบอีกครั้ง"}
                   </button>
