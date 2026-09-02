@@ -190,7 +190,11 @@ export function DashboardShell({
                       >
                         <span className="shrink-0">{item.icon}</span>
                         <span className={`flex-1 ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
-                        <span className={`badge-navy shrink-0 !text-[10px] ${collapsed ? "lg:hidden" : ""}`}>ปรับปรุง</span>
+                        <span
+                          className={`shrink-0 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-medium text-slate-100 ${collapsed ? "lg:hidden" : ""}`}
+                        >
+                          ปรับปรุง
+                        </span>
                       </div>
                     );
                   }
