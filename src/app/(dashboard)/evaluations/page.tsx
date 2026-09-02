@@ -144,7 +144,7 @@ export default function EvaluationsPage() {
         <table className="table-base">
           <thead>
             <tr>
-              <th className="whitespace-nowrap text-right">ลำดับที่</th>
+              <th className="w-16 whitespace-nowrap px-3 text-center">ลำดับที่</th>
               <th>ชื่อแบบประเมิน</th>
               <th>โครงการ</th>
               <th>สถานะ</th>
@@ -154,7 +154,7 @@ export default function EvaluationsPage() {
           <tbody>
             {forms.map((f, i) => (
               <tr key={f.id}>
-                <td className="text-right text-slate-500">{i + 1}</td>
+                <td className="px-3 text-center text-slate-500">{i + 1}</td>
                 <td>
                   <Link href={`/evaluations/${f.id}`} className="block max-w-xs whitespace-normal break-words font-medium text-navy-800 hover:underline">
                     {f.title}
