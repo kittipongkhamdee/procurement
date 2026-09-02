@@ -260,3 +260,21 @@ export async function uploadSchoolLogo(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+export async function removeSchoolLogo() {
+  const supabase = await requireAdmin();
+  // path จริงบน storage ไม่รู้นามสกุลไฟล์ล่วงหน้า (อัปโหลดทับ path เดิมได้หลายนามสกุล) จึง list
+  // ไฟล์ทั้งหมดใน bucket (มีแค่โลโก้ไฟล์เดียวเสมอ) แล้วลบทุกไฟล์ที่ชื่อขึ้นต้นด้วย "logo"
+  const { data: files } = await supabase.storage.from("procurement-branding").list();
+  const logoFiles = (files ?? []).filter((f) => f.name.startsWith("logo")).map((f) => f.name);
+  if (logoFiles.length > 0) {
+    await supabase.storage.from("procurement-branding").remove(logoFiles);
+  }
+
+  const { error } = await supabase
+    .from("proc_school_settings")
+    .update({ logo_url: null, updated_at: new Date().toISOString() })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}

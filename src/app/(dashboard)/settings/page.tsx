@@ -31,6 +31,7 @@ import {
   deleteBudgetSource,
   deleteTeacher,
   deleteUserGroup,
+  removeSchoolLogo,
   setAiExtractionEnabled,
   setCurrentBudgetYear,
   setGeminiApiKey,
@@ -213,6 +214,7 @@ export default function SettingsPage() {
               logoUrl={data.schoolLogoUrl}
               setSchoolName={setSchoolName}
               uploadSchoolLogo={uploadSchoolLogo}
+              removeSchoolLogo={removeSchoolLogo}
               onChanged={reload}
             />
           </div>

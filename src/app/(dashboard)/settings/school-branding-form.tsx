@@ -2,27 +2,34 @@
 
 import { useRef, useState } from "react";
 import Image from "next/image";
-import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { resizeLogoFile } from "@/lib/image-resize";
-import type { setSchoolName as setSchoolNameAction, uploadSchoolLogo as uploadSchoolLogoAction } from "./actions";
+import type {
+  removeSchoolLogo as removeSchoolLogoAction,
+  setSchoolName as setSchoolNameAction,
+  uploadSchoolLogo as uploadSchoolLogoAction,
+} from "./actions";
 
 export function SchoolBrandingForm({
   schoolName,
   logoUrl,
   setSchoolName,
   uploadSchoolLogo,
+  removeSchoolLogo,
   onChanged,
 }: {
   schoolName: string;
   logoUrl: string | null;
   setSchoolName: typeof setSchoolNameAction;
   uploadSchoolLogo: typeof uploadSchoolLogoAction;
+  removeSchoolLogo: typeof removeSchoolLogoAction;
   onChanged: () => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(schoolName);
   const [savingName, setSavingName] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [removingLogo, setRemovingLogo] = useState(false);
 
   async function handleSaveName(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,6 +71,21 @@ export function SchoolBrandingForm({
     }
   }
 
+  async function handleRemoveLogo() {
+    const confirmed = await confirmDelete({ title: "ลบโลโก้โรงเรียน?", text: "จะกลับไปแสดงเป็นตัวอักษรย่อแทน" });
+    if (!confirmed) return;
+    setRemovingLogo(true);
+    try {
+      await removeSchoolLogo();
+      await toastSuccess("ลบโลโก้แล้ว");
+      onChanged();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setRemovingLogo(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
       <div className="flex shrink-0 flex-col items-center gap-2">
@@ -88,12 +110,24 @@ export function SchoolBrandingForm({
           className="hidden"
           id="school-logo-input"
         />
-        <label
-          htmlFor="school-logo-input"
-          className={`btn-secondary btn-sm cursor-pointer ${uploadingLogo ? "pointer-events-none opacity-50" : ""}`}
-        >
-          {uploadingLogo ? "กำลังอัปโหลด..." : "อัปโหลดโลโก้"}
-        </label>
+        <div className="flex gap-2">
+          <label
+            htmlFor="school-logo-input"
+            className={`btn-secondary btn-sm cursor-pointer ${uploadingLogo ? "pointer-events-none opacity-50" : ""}`}
+          >
+            {uploadingLogo ? "กำลังอัปโหลด..." : "อัปโหลดโลโก้"}
+          </label>
+          {logoUrl && (
+            <button
+              type="button"
+              onClick={handleRemoveLogo}
+              disabled={removingLogo}
+              className="btn-secondary btn-sm text-red-600 disabled:opacity-50"
+            >
+              {removingLogo ? "กำลังลบ..." : "ลบโลโก้"}
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSaveName} className="flex-1 space-y-3">
