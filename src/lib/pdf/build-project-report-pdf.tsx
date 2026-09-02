@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { Database } from "@/lib/supabase/database.types";
 import { downloadFromStorage } from "@/lib/storage";
+import { computeStats } from "@/app/(dashboard)/evaluations/stats";
+import { interpretScore, type Criterion } from "@/app/(dashboard)/evaluations/interpret";
 import { ProjectReportDocument, type ProjectReportPdfData } from "./project-report-document";
 
 const BUCKET = "procurement-files";
@@ -10,6 +12,42 @@ const BUCKET = "procurement-files";
 function inferImageFormat(ref: string): "png" | "jpg" {
   const ext = ref.split(".").pop()?.toLowerCase();
   return ext === "png" ? "png" : "jpg";
+}
+
+/** คำนวณสดจากคำตอบแบบ Likert ของแบบประเมินออนไลน์ที่ผูกกับโครงการ (ตัวเดียวกับปุ่ม "ดึงจากแบบ
+ * ประเมินออนไลน์" ในฟอร์ม) — ไม่ได้เก็บค่านี้ไว้ในฐานข้อมูล คำนวณใหม่ทุกครั้งที่สร้างรายงาน จึงอาจ
+ * ไม่ตรงกับ satisfaction_percent เป๊ะๆ ถ้าครูแก้ตัวเลขร้อยละเองหลังดึงมาแล้ว */
+async function loadSatisfactionSurveySummary(
+  supabase: SupabaseClient<Database>,
+  projectId: string | null,
+): Promise<ProjectReportPdfData["satisfaction_survey_summary"]> {
+  if (!projectId) return null;
+  const { data: forms } = await supabase
+    .from("eval_forms")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("is_template", false);
+  const formIds = (forms ?? []).map((f) => f.id);
+  if (formIds.length === 0) return null;
+
+  const { data: questions } = await supabase
+    .from("eval_questions")
+    .select("id")
+    .in("form_id", formIds)
+    .eq("question_type", "likert");
+  const questionIds = (questions ?? []).map((q) => q.id);
+  if (questionIds.length === 0) return null;
+
+  const [{ data: answers }, { data: criteriaRows }] = await Promise.all([
+    supabase.from("eval_answers").select("answer_value").in("question_id", questionIds),
+    supabase.from("eval_criteria").select("min_score, max_score, label").in("form_id", formIds),
+  ]);
+  const values = (answers ?? []).map((a) => Number(a.answer_value)).filter((n) => !Number.isNaN(n));
+  if (values.length === 0) return null;
+
+  const { avg, sd } = computeStats(values);
+  const label = interpretScore(avg, (criteriaRows ?? []) as Criterion[]);
+  return { avg, sd, count: values.length, label };
 }
 
 export async function buildProjectReportPdfData(
@@ -28,7 +66,7 @@ export async function buildProjectReportPdfData(
 
   const project = r.plan_projects as unknown as { name: string } | null;
   const photoRefs = ((r.photo_refs as unknown as string[]) ?? []).slice(0, 4);
-  const [photos, proposal] = await Promise.all([
+  const [photos, proposal, satisfactionSurveySummary] = await Promise.all([
     Promise.all(
       photoRefs.map(async (ref) => ({
         data: await downloadFromStorage(supabase, ref, BUCKET),
@@ -43,6 +81,7 @@ export async function buildProjectReportPdfData(
           .maybeSingle()
           .then((res) => res.data)
       : Promise.resolve(null),
+    loadSatisfactionSurveySummary(supabase, r.project_id),
   ]);
 
   const data: ProjectReportPdfData = {
@@ -63,6 +102,7 @@ export async function buildProjectReportPdfData(
     indicator_results_quality:
       (r.indicator_results_quality as unknown as { indicator: string; target: string; actual: string }[]) ?? [],
     satisfaction_percent: r.satisfaction_percent,
+    satisfaction_survey_summary: satisfactionSurveySummary,
     budget_approved: r.budget_approved,
     budget_used: r.budget_used,
     highlights: (r.highlights as unknown as string[]) ?? [],

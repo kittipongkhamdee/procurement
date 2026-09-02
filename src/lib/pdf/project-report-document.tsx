@@ -19,12 +19,12 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   center: { textAlign: "center" },
-  title: { fontSize: 16, fontWeight: "bold", marginBottom: 2 },
+  title: { fontSize: 14, fontWeight: "bold", marginBottom: 2 },
   subtitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "bold",
-    marginTop: 14,
-    marginBottom: 6,
+    marginTop: 6,
+    marginBottom: 4,
   },
   subheading: { fontWeight: "bold", marginTop: 4, marginBottom: 2 },
   row: { flexDirection: "row", marginBottom: 4 },
@@ -33,14 +33,17 @@ const styles = StyleSheet.create({
   hr: { borderBottomWidth: 1, borderBottomColor: "#111827", marginVertical: 8 },
   // paddingRight leaves slack against a reproducible @react-pdf/renderer bug where a
   // wrapped line's last 1-2 glyphs get clipped instead of wrapped — see thai-pdf.ts.
-  paragraph: { marginBottom: 4, lineHeight: 1.5, paddingRight: 24 },
+  // marginBottom lives on paragraphBlock (once per paragraph), not here — putting it on
+  // every wrapped line stacked with lineHeight made multi-line paragraphs look double-spaced.
+  paragraphBlock: { marginBottom: 4 },
+  paragraph: { lineHeight: 1.2, paddingRight: 24 },
   bulletRow: { flexDirection: "row", marginBottom: 2, paddingRight: 24 },
   bulletMark: { width: 14 },
-  bulletText: { flex: 1, lineHeight: 1.5 },
+  bulletText: { flex: 1, lineHeight: 1.2 },
   budgetTable: { marginTop: 4, borderWidth: 1, borderColor: "#111827" },
   budgetRow: { flexDirection: "row" },
   budgetLabel: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "50%",
     borderRightWidth: 1,
@@ -48,7 +51,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   budgetValue: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "50%",
     textAlign: "right",
@@ -57,14 +60,14 @@ const styles = StyleSheet.create({
   },
   indicatorTable: {
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 4,
     borderWidth: 1,
     borderColor: "#111827",
   },
   indicatorHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   indicatorRow: { flexDirection: "row" },
   indicatorCellIndicator: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "50%",
     borderRightWidth: 1,
@@ -72,7 +75,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   indicatorCellTarget: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "25%",
     borderRightWidth: 1,
@@ -80,7 +83,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   indicatorCellActual: {
-    fontSize: 10,
+    fontSize: 11,
     padding: 4,
     width: "25%",
     borderBottomWidth: 1,
@@ -102,13 +105,13 @@ const styles = StyleSheet.create({
 
 function Paragraph({ text }: { text: string }) {
   return (
-    <>
+    <View style={styles.paragraphBlock}>
       {wrapText(text).map((line, i) => (
         <Text key={i} style={styles.paragraph}>
           {t(line)}
         </Text>
       ))}
-    </>
+    </View>
   );
 }
 
@@ -210,6 +213,9 @@ export type ProjectReportPdfData = {
   indicator_results_quantity: IndicatorResult[];
   indicator_results_quality: IndicatorResult[];
   satisfaction_percent: number | null;
+  /** คำนวณสดจากคำตอบแบบ Likert ของแบบประเมินออนไลน์ที่ผูกกับโครงการนี้ (ไม่ได้เก็บไว้ในฐานข้อมูล
+   * จึงอาจไม่ตรงกับ satisfaction_percent เป๊ะๆ ถ้าครูแก้ตัวเลขร้อยละเองหลังดึงมาแล้ว) */
+  satisfaction_survey_summary: { avg: number; sd: number; count: number; label: string | null } | null;
   budget_approved: number | null;
   budget_used: number | null;
   highlights: string[];
@@ -238,7 +244,6 @@ export function ProjectReportDocument({
 
         <View style={styles.hr} />
 
-        <Text style={styles.subtitle}>{t("1. ส่วนหัวรายงาน")}</Text>
         <View style={styles.row}>
           <Text style={styles.label}>{t("ชื่อโครงการ")}</Text>
           <Text style={styles.value}>{t(data.project_name)}</Text>
@@ -285,7 +290,7 @@ export function ProjectReportDocument({
         ) : (
           <>
             <Text style={styles.subtitle}>
-              {t("2. หลักการและวัตถุประสงค์")}
+              {t("1. หลักการและวัตถุประสงค์")}
             </Text>
             {data.background && (
               <Paragraph text={`ความเป็นมา: ${data.background}`} />
@@ -299,7 +304,7 @@ export function ProjectReportDocument({
               </>
             )}
 
-            <Text style={styles.subtitle}>{t("3. ผลการดำเนินงานโครงการ")}</Text>
+            <Text style={styles.subtitle}>{t("2. ผลการดำเนินงานโครงการ")}</Text>
             <BulletSection
               heading="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง"
               items={data.activities_done}
@@ -315,6 +320,11 @@ export function ProjectReportDocument({
             {data.satisfaction_percent != null && (
               <Paragraph
                 text={`ผลการประเมินความพึงพอใจ: ร้อยละ ${data.satisfaction_percent}`}
+              />
+            )}
+            {data.satisfaction_survey_summary && (
+              <Paragraph
+                text={`ข้อมูลจากแบบประเมินออนไลน์: ค่าเฉลี่ย ${data.satisfaction_survey_summary.avg.toFixed(2)}/5.00 (S.D. ${data.satisfaction_survey_summary.sd.toFixed(2)}) จาก ${data.satisfaction_survey_summary.count} คำตอบ${data.satisfaction_survey_summary.label ? ` — ระดับ: ${data.satisfaction_survey_summary.label}` : ""}`}
               />
             )}
             <View style={styles.budgetTable}>
@@ -351,7 +361,7 @@ export function ProjectReportDocument({
             </View>
 
             <Text style={styles.subtitle}>
-              {t("4. สรุปภาพรวมและข้อเสนอแนะ")}
+              {t("3. สรุปภาพรวมและข้อเสนอแนะ")}
             </Text>
             <BulletSection
               heading="จุดเด่น / ประสบความสำเร็จ"
@@ -364,8 +374,11 @@ export function ProjectReportDocument({
             />
 
             {data.photos.length > 0 && (
-              <>
-                <Text style={styles.subtitle}>{t("5. ภาพถ่ายกิจกรรม")}</Text>
+              // wrap={false} กันหัวข้อ "5. ภาพถ่ายกิจกรรม" ถูกทิ้งไว้ท้ายหน้าเดี่ยวๆ (orphan) และกัน
+              // รูปโดนตัดครึ่งข้ามหน้า — รูปสูงสุด 4 รูป (จำกัดตอนอัปโหลด) รวมกับหัวข้อสูงไม่เกินหน้า
+              // เดียวแน่นอน จึงบังคับให้ทั้งบล็อกย้ายไปทั้งก้อนถ้าที่เหลือในหน้าปัจจุบันไม่พอ
+              <View wrap={false}>
+                <Text style={styles.subtitle}>{t("4. ภาพถ่ายกิจกรรม")}</Text>
                 <View style={styles.photoGrid}>
                   {data.photos.map((photo, i) => (
                     <View style={styles.photoCell} key={i}>
@@ -377,7 +390,7 @@ export function ProjectReportDocument({
                     </View>
                   ))}
                 </View>
-              </>
+              </View>
             )}
           </>
         )}

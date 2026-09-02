@@ -144,7 +144,6 @@ export async function renderProjectReportDocxBuffer(data: ProjectReportPdfData):
       spacing: { after: 200 },
       children: [new TextRun({ text: "โรงเรียนตาเบาวิทยา", font: THAI_FONT, size: THAI_FONT_SIZE })],
     }),
-    heading("1. ส่วนหัวรายงาน", THAI_FONT_SIZE_HEADING),
     labelValue("ชื่อโครงการ", data.project_name ?? "-"),
   ];
 
@@ -166,28 +165,36 @@ export async function renderProjectReportDocxBuffer(data: ProjectReportPdfData):
     body.push(heading("ผลการดำเนินงาน", THAI_FONT_SIZE_HEADING), paragraph("ไม่ได้ดำเนินการโครงการนี้"));
     if (data.not_implemented_reason) body.push(paragraph(`เหตุผล: ${data.not_implemented_reason}`));
   } else {
-    body.push(heading("2. หลักการและวัตถุประสงค์", THAI_FONT_SIZE_HEADING));
+    body.push(heading("1. หลักการและวัตถุประสงค์", THAI_FONT_SIZE_HEADING));
     if (data.background) body.push(paragraph(`ความเป็นมา: ${data.background}`));
     if (data.objectives.length > 0) {
       body.push(paragraph("วัตถุประสงค์"), ...bullets(data.objectives));
     }
 
-    body.push(heading("3. ผลการดำเนินงานโครงการ", THAI_FONT_SIZE_HEADING));
+    body.push(heading("2. ผลการดำเนินงานโครงการ", THAI_FONT_SIZE_HEADING));
     body.push(...bulletSection("สรุปการดำเนินงาน/กิจกรรมที่ทำจริง", data.activities_done));
     body.push(...indicatorTable("ตัวชี้วัดเชิงปริมาณ", data.indicator_results_quantity));
     body.push(...indicatorTable("ตัวชี้วัดเชิงคุณภาพ", data.indicator_results_quality));
     if (data.satisfaction_percent != null) {
       body.push(paragraph(`ผลการประเมินความพึงพอใจ: ร้อยละ ${data.satisfaction_percent}`));
     }
+    if (data.satisfaction_survey_summary) {
+      const s = data.satisfaction_survey_summary;
+      body.push(
+        paragraph(
+          `ข้อมูลจากแบบประเมินออนไลน์: ค่าเฉลี่ย ${s.avg.toFixed(2)}/5.00 (S.D. ${s.sd.toFixed(2)}) จาก ${s.count} คำตอบ${s.label ? ` — ระดับ: ${s.label}` : ""}`,
+        ),
+      );
+    }
     body.push(...budgetTable(data.budget_approved, data.budget_used));
 
-    body.push(heading("4. สรุปภาพรวมและข้อเสนอแนะ", THAI_FONT_SIZE_HEADING));
+    body.push(heading("3. สรุปภาพรวมและข้อเสนอแนะ", THAI_FONT_SIZE_HEADING));
     body.push(...bulletSection("จุดเด่น / ประสบความสำเร็จ", data.highlights));
     body.push(...bulletSection("ปัญหาและอุปสรรค", data.problems));
     body.push(...bulletSection("ข้อเสนอแนะในการปรับปรุงครั้งต่อไป", data.recommendations));
 
     if (data.photos.length > 0) {
-      body.push(heading("5. ภาพถ่ายกิจกรรม", THAI_FONT_SIZE_HEADING));
+      body.push(heading("4. ภาพถ่ายกิจกรรม", THAI_FONT_SIZE_HEADING));
       const maxWidth = 400;
       for (const photo of data.photos) {
         // เดารูปแบบจากนามสกุลไฟล์ (ที่ทำไว้ตอนดาวน์โหลดจาก storage) ใช้ไม่ได้เสมอไป — กล้อง
