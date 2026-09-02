@@ -9,6 +9,8 @@ import {
   type ProjectReportPhotoUploadHandle,
   type ExistingPhoto,
 } from "@/components/project-report-photo-upload";
+import { computeStats } from "../evaluations/stats";
+import { interpretScore, type Criterion } from "../evaluations/interpret";
 
 type IndicatorTarget = { indicator: string; target: string };
 type IndicatorResult = { indicator: string; target: string; actual: string };
@@ -267,6 +269,12 @@ export function ProjectReportForm({
     initial?.satisfactionPercent != null ? String(initial.satisfactionPercent) : "",
   );
   const [pullingSatisfaction, setPullingSatisfaction] = useState(false);
+  const [satisfactionSummary, setSatisfactionSummary] = useState<{
+    avg: number;
+    sd: number;
+    count: number;
+    label: string | null;
+  } | null>(null);
   const photoUploadRef = useRef<ProjectReportPhotoUploadHandle>(null);
   const backgroundRef = useRef<HTMLTextAreaElement>(null);
 
@@ -306,6 +314,7 @@ export function ProjectReportForm({
         ? project.indicatorsQuality.map((t) => ({ ...t, actual: "" }))
         : [],
     );
+    setSatisfactionSummary(null);
   }
 
   async function handleExtractBackground() {
@@ -328,6 +337,7 @@ export function ProjectReportForm({
   async function handlePullSatisfaction() {
     if (!selectedProject) return;
     setPullingSatisfaction(true);
+    setSatisfactionSummary(null);
     try {
       const supabase = createClient();
       const { data: forms } = await supabase
@@ -352,10 +362,10 @@ export function ProjectReportForm({
         return;
       }
 
-      const { data: answers } = await supabase
-        .from("eval_answers")
-        .select("answer_value")
-        .in("question_id", questionIds);
+      const [{ data: answers }, { data: criteriaRows }] = await Promise.all([
+        supabase.from("eval_answers").select("answer_value").in("question_id", questionIds),
+        supabase.from("eval_criteria").select("min_score, max_score, label").in("form_id", formIds),
+      ]);
       const values = (answers ?? [])
         .map((a) => Number(a.answer_value))
         .filter((n) => !Number.isNaN(n));
@@ -364,9 +374,15 @@ export function ProjectReportForm({
         return;
       }
 
-      const avg = values.reduce((sum, n) => sum + n, 0) / values.length;
+      // สรุปผลตามหลักวิชาการสำหรับข้อมูล Likert: ค่าเฉลี่ย + S.D. + ระดับแปลผลตามเกณฑ์ (บุญชม
+      // ศรีสะอาด) เป็นตัวสรุปหลัก ส่วนช่อง "ร้อยละ" ที่ระบบเดิมมีอยู่แล้วคำนวณแบบเทียบคะแนนเต็ม
+      // (ค่าเฉลี่ย/5×100 — แบบ ก.) ไม่ใช่ร้อยละของผู้ตอบที่พึงพอใจ (แบบ ข.)
+      const { avg, sd } = computeStats(values);
+      const criteria = (criteriaRows ?? []) as Criterion[];
+      const label = interpretScore(avg, criteria);
       const percent = (avg / 5) * 100;
       setSatisfactionPercent(percent.toFixed(2));
+      setSatisfactionSummary({ avg, sd, count: values.length, label });
       await toastSuccess(`ดึงผลจากแบบประเมินออนไลน์แล้ว (เฉลี่ย ${avg.toFixed(2)}/5 จาก ${values.length} คำตอบ)`);
     } catch (err) {
       await toastError(errorMessage(err));
@@ -419,6 +435,7 @@ export function ProjectReportForm({
         setBudgetApproved("");
         setBudgetUsed("");
         setSatisfactionPercent("");
+        setSatisfactionSummary(null);
         setResponsibleName("");
         setIndicatorResultsQuantity([]);
         setIndicatorResultsQuality([]);
@@ -632,7 +649,10 @@ export function ProjectReportForm({
                     step="0.01"
                     name="satisfaction_percent"
                     value={satisfactionPercent}
-                    onChange={(e) => setSatisfactionPercent(e.target.value)}
+                    onChange={(e) => {
+                      setSatisfactionPercent(e.target.value);
+                      setSatisfactionSummary(null);
+                    }}
                     className="input w-28 shrink-0"
                     placeholder="0.00"
                   />
@@ -647,6 +667,18 @@ export function ProjectReportForm({
                     </button>
                   )}
                 </div>
+                {satisfactionSummary && (
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    ค่าเฉลี่ย {satisfactionSummary.avg.toFixed(2)}/5.00 (S.D.{" "}
+                    {satisfactionSummary.sd.toFixed(2)}) จาก {satisfactionSummary.count} คำตอบ
+                    {satisfactionSummary.label && (
+                      <>
+                        {" "}
+                        — ระดับ: <span className="badge-emerald">{satisfactionSummary.label}</span>
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
