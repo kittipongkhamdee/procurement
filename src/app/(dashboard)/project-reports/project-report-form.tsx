@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import {
   ProjectReportPhotoUpload,
@@ -262,6 +263,10 @@ export function ProjectReportForm({
   const [indicatorResultsQuality, setIndicatorResultsQuality] = useState<
     IndicatorResult[]
   >(initial?.indicatorResultsQuality ?? []);
+  const [satisfactionPercent, setSatisfactionPercent] = useState(
+    initial?.satisfactionPercent != null ? String(initial.satisfactionPercent) : "",
+  );
+  const [pullingSatisfaction, setPullingSatisfaction] = useState(false);
   const photoUploadRef = useRef<ProjectReportPhotoUploadHandle>(null);
   const backgroundRef = useRef<HTMLTextAreaElement>(null);
 
@@ -320,6 +325,56 @@ export function ProjectReportForm({
     }
   }
 
+  async function handlePullSatisfaction() {
+    if (!selectedProject) return;
+    setPullingSatisfaction(true);
+    try {
+      const supabase = createClient();
+      const { data: forms } = await supabase
+        .from("eval_forms")
+        .select("id")
+        .eq("project_id", selectedProject.id)
+        .eq("is_template", false);
+      const formIds = (forms ?? []).map((f) => f.id);
+      if (formIds.length === 0) {
+        await toastError("ไม่พบแบบประเมินออนไลน์ของโครงการนี้");
+        return;
+      }
+
+      const { data: questions } = await supabase
+        .from("eval_questions")
+        .select("id")
+        .in("form_id", formIds)
+        .eq("question_type", "likert");
+      const questionIds = (questions ?? []).map((q) => q.id);
+      if (questionIds.length === 0) {
+        await toastError("แบบประเมินของโครงการนี้ไม่มีคำถามแบบ Likert (1-5) ให้สรุปผล");
+        return;
+      }
+
+      const { data: answers } = await supabase
+        .from("eval_answers")
+        .select("answer_value")
+        .in("question_id", questionIds);
+      const values = (answers ?? [])
+        .map((a) => Number(a.answer_value))
+        .filter((n) => !Number.isNaN(n));
+      if (values.length === 0) {
+        await toastError("ยังไม่มีคำตอบในแบบประเมินของโครงการนี้");
+        return;
+      }
+
+      const avg = values.reduce((sum, n) => sum + n, 0) / values.length;
+      const percent = (avg / 5) * 100;
+      setSatisfactionPercent(percent.toFixed(2));
+      await toastSuccess(`ดึงผลจากแบบประเมินออนไลน์แล้ว (เฉลี่ย ${avg.toFixed(2)}/5 จาก ${values.length} คำตอบ)`);
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setPullingSatisfaction(false);
+    }
+  }
+
   async function handleSubmit(formData: FormData) {
     // flushSync บังคับให้ปุ่มเปลี่ยนเป็น "กำลังบันทึก..." ทันทีก่อนเริ่มงานหนัก (บีบอัด/อัปโหลดรูป)
     // ไม่งั้น React อาจรวม state นี้ไว้กับงานอื่นแล้วหน่วงการวาดหน้าจอ ทำให้ดูเหมือนกดแล้วไม่มีอะไรเกิดขึ้น
@@ -363,6 +418,7 @@ export function ProjectReportForm({
         setRecommendations([""]);
         setBudgetApproved("");
         setBudgetUsed("");
+        setSatisfactionPercent("");
         setResponsibleName("");
         setIndicatorResultsQuantity([]);
         setIndicatorResultsQuality([]);
@@ -567,14 +623,27 @@ export function ProjectReportForm({
                 addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
               />
               <div className="sm:w-56">
-                <label className="label">
-                  ผลการประเมินความพึงพอใจ (ร้อยละ)
-                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="label">
+                    ผลการประเมินความพึงพอใจ (ร้อยละ)
+                  </label>
+                  {selectedProject && (
+                    <button
+                      type="button"
+                      onClick={handlePullSatisfaction}
+                      disabled={pullingSatisfaction}
+                      className="btn-secondary btn-sm shrink-0 whitespace-nowrap disabled:cursor-wait"
+                    >
+                      {pullingSatisfaction ? "กำลังดึง..." : "ดึงจากแบบประเมินออนไลน์"}
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   step="0.01"
                   name="satisfaction_percent"
-                  defaultValue={initial?.satisfactionPercent ?? ""}
+                  value={satisfactionPercent}
+                  onChange={(e) => setSatisfactionPercent(e.target.value)}
                   className="input"
                   placeholder="0.00"
                 />
