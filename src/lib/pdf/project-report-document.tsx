@@ -210,6 +210,9 @@ export type ProjectReportPdfData = {
   indicator_results_quantity: IndicatorResult[];
   indicator_results_quality: IndicatorResult[];
   satisfaction_percent: number | null;
+  /** คำนวณสดจากคำตอบแบบ Likert ของแบบประเมินออนไลน์ที่ผูกกับโครงการนี้ (ไม่ได้เก็บไว้ในฐานข้อมูล
+   * จึงอาจไม่ตรงกับ satisfaction_percent เป๊ะๆ ถ้าครูแก้ตัวเลขร้อยละเองหลังดึงมาแล้ว) */
+  satisfaction_survey_summary: { avg: number; sd: number; count: number; label: string | null } | null;
   budget_approved: number | null;
   budget_used: number | null;
   highlights: string[];
@@ -315,6 +318,11 @@ export function ProjectReportDocument({
             {data.satisfaction_percent != null && (
               <Paragraph
                 text={`ผลการประเมินความพึงพอใจ: ร้อยละ ${data.satisfaction_percent}`}
+              />
+            )}
+            {data.satisfaction_survey_summary && (
+              <Paragraph
+                text={`ข้อมูลจากแบบประเมินออนไลน์: ค่าเฉลี่ย ${data.satisfaction_survey_summary.avg.toFixed(2)}/5.00 (S.D. ${data.satisfaction_survey_summary.sd.toFixed(2)}) จาก ${data.satisfaction_survey_summary.count} คำตอบ${data.satisfaction_survey_summary.label ? ` — ระดับ: ${data.satisfaction_survey_summary.label}` : ""}`}
               />
             )}
             <View style={styles.budgetTable}>

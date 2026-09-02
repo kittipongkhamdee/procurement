@@ -179,6 +179,14 @@ export async function renderProjectReportDocxBuffer(data: ProjectReportPdfData):
     if (data.satisfaction_percent != null) {
       body.push(paragraph(`ผลการประเมินความพึงพอใจ: ร้อยละ ${data.satisfaction_percent}`));
     }
+    if (data.satisfaction_survey_summary) {
+      const s = data.satisfaction_survey_summary;
+      body.push(
+        paragraph(
+          `ข้อมูลจากแบบประเมินออนไลน์: ค่าเฉลี่ย ${s.avg.toFixed(2)}/5.00 (S.D. ${s.sd.toFixed(2)}) จาก ${s.count} คำตอบ${s.label ? ` — ระดับ: ${s.label}` : ""}`,
+        ),
+      );
+    }
     body.push(...budgetTable(data.budget_approved, data.budget_used));
 
     body.push(heading("4. สรุปภาพรวมและข้อเสนอแนะ", THAI_FONT_SIZE_HEADING));
