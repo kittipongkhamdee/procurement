@@ -622,31 +622,31 @@ export function ProjectReportForm({
                 onChange={setIndicatorResultsQuality}
                 addLabel="+ เพิ่มตัวชี้วัดเชิงคุณภาพ"
               />
-              <div className="sm:w-56">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="label">
-                    ผลการประเมินความพึงพอใจ (ร้อยละ)
-                  </label>
+              <div className="sm:max-w-xs">
+                <label className="label">
+                  ผลการประเมินความพึงพอใจ (ร้อยละ)
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="satisfaction_percent"
+                    value={satisfactionPercent}
+                    onChange={(e) => setSatisfactionPercent(e.target.value)}
+                    className="input w-28 shrink-0"
+                    placeholder="0.00"
+                  />
                   {selectedProject && (
                     <button
                       type="button"
                       onClick={handlePullSatisfaction}
                       disabled={pullingSatisfaction}
-                      className="btn-secondary btn-sm shrink-0 whitespace-nowrap disabled:cursor-wait"
+                      className="btn-secondary btn-sm whitespace-nowrap disabled:cursor-wait"
                     >
                       {pullingSatisfaction ? "กำลังดึง..." : "ดึงจากแบบประเมินออนไลน์"}
                     </button>
                   )}
                 </div>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="satisfaction_percent"
-                  value={satisfactionPercent}
-                  onChange={(e) => setSatisfactionPercent(e.target.value)}
-                  className="input"
-                  placeholder="0.00"
-                />
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
