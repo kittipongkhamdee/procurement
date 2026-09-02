@@ -1,4 +1,20 @@
 /**
+ * เดารูปแบบไฟล์จากนามสกุล (ที่ build-project-report-pdf.tsx ทำ) ใช้ไม่ได้ร้อยเปอร์เซ็นต์ — กล้อง
+ * iPhone เก็บเป็น .heic/.HEIC โดยดีฟอลต์ ถ้าเดาว่าเป็น jpg ทั้งที่ไบต์จริงเป็น HEIC จะฝังข้อมูลผิด
+ * ชนิดลง docx (ประกาศเป็น jpg แต่ไบต์ไม่ใช่ jpg จริง) ทำให้ Word เปิดเอกสารได้ปกติแต่รูปในนั้น
+ * แสดงไม่ออก (ไอคอนรูปเสีย) — อ่าน magic bytes จริงของไฟล์แทนเพื่อยืนยันชนิดก่อนฝัง
+ */
+export function sniffImageFormat(buffer: Buffer): "png" | "jpg" | null {
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    return "png";
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "jpg";
+  }
+  return null;
+}
+
+/**
  * อ่านขนาดภาพจริงจาก header ของไฟล์ (ไม่มีไลบรารีสำหรับงานนี้ในโปรเจกต์อยู่แล้ว และรูปมีแค่
  * ไม่กี่รูปต่อรายงาน) เพื่อคำนวณสัดส่วนก่อนฝังลง docx — ป้องกันภาพยืด/บิดเบี้ยวถ้าใส่ขนาดคงที่ตรงๆ
  */

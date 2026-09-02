@@ -13,7 +13,7 @@ import {
 } from "docx";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
 import { insertZwsp, THAI_FONT, THAI_FONT_SIZE, THAI_FONT_SIZE_HEADING, THAI_FONT_SIZE_TITLE } from "./thai-docx";
-import { getImageSize } from "./image-size";
+import { getImageSize, sniffImageFormat } from "./image-size";
 import type { ProjectReportPdfData } from "../pdf/project-report-document";
 
 export { buildProjectReportPdfData as buildProjectReportDocxData } from "../pdf/build-project-report-pdf";
@@ -190,7 +190,15 @@ export async function renderProjectReportDocxBuffer(data: ProjectReportPdfData):
       body.push(heading("5. ภาพถ่ายกิจกรรม", THAI_FONT_SIZE_HEADING));
       const maxWidth = 400;
       for (const photo of data.photos) {
-        const { width, height } = getImageSize(photo.data, photo.format);
+        // เดารูปแบบจากนามสกุลไฟล์ (ที่ทำไว้ตอนดาวน์โหลดจาก storage) ใช้ไม่ได้เสมอไป — กล้อง
+        // iPhone เก็บเป็น .heic โดยดีฟอลต์ ยืนยันชนิดไฟล์จริงจาก magic bytes ก่อนฝังลง docx
+        // ป้องกันรูปแสดงไม่ออก (ไอคอนรูปเสีย) เพราะประกาศชนิดไฟล์ผิดจากไบต์จริง
+        const format = sniffImageFormat(photo.data);
+        if (!format) {
+          body.push(paragraph("(ไม่สามารถแสดงรูปนี้ได้ — ไฟล์เป็นรูปแบบที่ไม่รองรับ เช่น HEIC จากกล้อง iPhone)"));
+          continue;
+        }
+        const { width, height } = getImageSize(photo.data, format);
         const scale = Math.min(1, maxWidth / width);
         body.push(
           new Paragraph({
@@ -198,7 +206,7 @@ export async function renderProjectReportDocxBuffer(data: ProjectReportPdfData):
             spacing: { after: 160 },
             children: [
               new ImageRun({
-                type: photo.format,
+                type: format,
                 data: photo.data,
                 transformation: { width: Math.round(width * scale), height: Math.round(height * scale) },
               }),
