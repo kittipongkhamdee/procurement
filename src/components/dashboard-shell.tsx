@@ -31,6 +31,18 @@ const BOTTOM_TABS = [
   { href: "/project-disbursements", label: "การเงิน", icon: WalletIcon },
 ];
 
+// เมนูที่กำลังตรวจ/แก้ไขอยู่ ยังไม่พร้อมให้ใช้งานจริง — ปิดลิงก์ไว้ก่อนชั่วคราว (ยังเข้าหน้าตรงๆ
+// ผ่าน URL ได้ปกติสำหรับคนที่กำลังพัฒนา/ตรวจสอบอยู่) เอาออกจาก Set นี้เมื่อพร้อมเปิดใช้งานจริง
+const DISABLED_HREFS = new Set([
+  "/approvals",
+  "/purchase-requests",
+  "/vendors",
+  "/contracts",
+  "/deliveries",
+  "/project-disbursements",
+  "/allowance",
+]);
+
 export function DashboardShell({
   baseNavSections,
   adminSection,
@@ -77,7 +89,10 @@ export function DashboardShell({
   );
   const initial = displayName ? displayName.trim().charAt(0) : "?";
 
-  const allItems = useMemo(() => navSections.flatMap((s) => s.items), [navSections]);
+  const allItems = useMemo(
+    () => navSections.flatMap((s) => s.items).filter((i) => !DISABLED_HREFS.has(i.href)),
+    [navSections],
+  );
   const matches = query.trim() ? allItems.filter((i) => i.label.toLowerCase().includes(query.trim().toLowerCase())) : [];
 
   return (
@@ -138,6 +153,21 @@ export function DashboardShell({
               <div className="space-y-0.5">
                 {section.items.map((item) => {
                   const active = pathname === item.href;
+                  if (DISABLED_HREFS.has(item.href)) {
+                    return (
+                      <div
+                        key={item.href}
+                        title={collapsed ? item.label : "อยู่ระหว่างปรับปรุง ยังไม่เปิดใช้งาน"}
+                        className={`flex cursor-not-allowed items-center gap-2.5 rounded-md px-3 py-2 text-sm text-navy-400/60 ${
+                          collapsed ? "lg:justify-center" : ""
+                        }`}
+                      >
+                        <span className="shrink-0">{item.icon}</span>
+                        <span className={`flex-1 ${collapsed ? "lg:hidden" : ""}`}>{item.label}</span>
+                        <span className={`badge-navy shrink-0 !text-[10px] ${collapsed ? "lg:hidden" : ""}`}>ปรับปรุง</span>
+                      </div>
+                    );
+                  }
                   return (
                     <Link
                       key={item.href}
@@ -213,13 +243,15 @@ export function DashboardShell({
 
           <span className="ml-auto hidden shrink-0 text-xs text-slate-400 lg:inline">{dateLabel}</span>
 
-          <Link
-            href="/project-disbursements"
-            aria-label="รายการเบิกจ่ายงบประมาณโครงการ"
-            className="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-800"
-          >
-            <BellIcon className="h-5 w-5" />
-          </Link>
+          {!DISABLED_HREFS.has("/project-disbursements") && (
+            <Link
+              href="/project-disbursements"
+              aria-label="รายการเบิกจ่ายงบประมาณโครงการ"
+              className="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-800"
+            >
+              <BellIcon className="h-5 w-5" />
+            </Link>
+          )}
 
           <div className="relative">
             <button
@@ -276,8 +308,20 @@ export function DashboardShell({
         aria-label="เมนูหลัก (มือถือ)"
       >
         {BOTTOM_TABS.map((tab) => {
-          const active = pathname === tab.href;
           const Icon = tab.icon;
+          if (DISABLED_HREFS.has(tab.href)) {
+            return (
+              <div
+                key={tab.href}
+                title="อยู่ระหว่างปรับปรุง ยังไม่เปิดใช้งาน"
+                className="flex cursor-not-allowed flex-col items-center justify-center gap-0.5 py-2 text-[10.5px] font-medium text-slate-300"
+              >
+                <Icon className="h-5 w-5" />
+                {tab.label}
+              </div>
+            );
+          }
+          const active = pathname === tab.href;
           return (
             <Link
               key={tab.href}
