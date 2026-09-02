@@ -144,6 +144,7 @@ export default function EvaluationsPage() {
         <table className="table-base">
           <thead>
             <tr>
+              <th className="w-12 text-right">ลำดับที่</th>
               <th>ชื่อแบบประเมิน</th>
               <th>โครงการ</th>
               <th>สถานะ</th>
@@ -151,8 +152,9 @@ export default function EvaluationsPage() {
             </tr>
           </thead>
           <tbody>
-            {forms.map((f) => (
+            {forms.map((f, i) => (
               <tr key={f.id}>
+                <td className="text-right text-slate-500">{i + 1}</td>
                 <td>
                   <Link href={`/evaluations/${f.id}`} className="block max-w-xs whitespace-normal break-words font-medium text-navy-800 hover:underline">
                     {f.title}
@@ -185,7 +187,7 @@ export default function EvaluationsPage() {
             ))}
             {forms.length === 0 && (
               <tr>
-                <td colSpan={4} className="table-empty">
+                <td colSpan={5} className="table-empty">
                   ยังไม่มีแบบประเมิน
                 </td>
               </tr>
