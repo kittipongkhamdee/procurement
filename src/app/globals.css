@@ -41,6 +41,16 @@ body {
   color: var(--foreground);
 }
 
+/* เบราว์เซอร์ตัดสีพื้นหลัง/ไล่เฉดออกเองตอนพิมพ์/บันทึก PDF โดยค่าเริ่มต้น (ประหยัดหมึก) — ทำให้
+   กราฟแท่ง/กราฟวงกลมในหน้าผลประเมิน (ระบายสีด้วย CSS background ล้วนๆ ไม่มีเส้นขอบ/ตัวอักษร
+   แทน) หายไปตอนพิมพ์ทั้งที่ตารางข้อมูลข้างๆ ยังอยู่ครบ บังคับให้พิมพ์สีพื้นหลังเสมอ */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
 /* --- ธีม SweetAlert2 ให้เข้ากับระบบ (กรมท่า-ทอง, ฟอนต์เดียวกัน) --- */
 .swal2-popup {
   font-family: var(--font-noto-sans-thai), sans-serif !important;
