@@ -241,7 +241,6 @@ export function ProjectReportDocument({
 
         <View style={styles.hr} />
 
-        <Text style={styles.subtitle}>{t("1. ส่วนหัวรายงาน")}</Text>
         <View style={styles.row}>
           <Text style={styles.label}>{t("ชื่อโครงการ")}</Text>
           <Text style={styles.value}>{t(data.project_name)}</Text>
@@ -288,7 +287,7 @@ export function ProjectReportDocument({
         ) : (
           <>
             <Text style={styles.subtitle}>
-              {t("2. หลักการและวัตถุประสงค์")}
+              {t("1. หลักการและวัตถุประสงค์")}
             </Text>
             {data.background && (
               <Paragraph text={`ความเป็นมา: ${data.background}`} />
@@ -302,7 +301,7 @@ export function ProjectReportDocument({
               </>
             )}
 
-            <Text style={styles.subtitle}>{t("3. ผลการดำเนินงานโครงการ")}</Text>
+            <Text style={styles.subtitle}>{t("2. ผลการดำเนินงานโครงการ")}</Text>
             <BulletSection
               heading="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง"
               items={data.activities_done}
@@ -359,7 +358,7 @@ export function ProjectReportDocument({
             </View>
 
             <Text style={styles.subtitle}>
-              {t("4. สรุปภาพรวมและข้อเสนอแนะ")}
+              {t("3. สรุปภาพรวมและข้อเสนอแนะ")}
             </Text>
             <BulletSection
               heading="จุดเด่น / ประสบความสำเร็จ"
@@ -376,7 +375,7 @@ export function ProjectReportDocument({
               // รูปโดนตัดครึ่งข้ามหน้า — รูปสูงสุด 4 รูป (จำกัดตอนอัปโหลด) รวมกับหัวข้อสูงไม่เกินหน้า
               // เดียวแน่นอน จึงบังคับให้ทั้งบล็อกย้ายไปทั้งก้อนถ้าที่เหลือในหน้าปัจจุบันไม่พอ
               <View wrap={false}>
-                <Text style={styles.subtitle}>{t("5. ภาพถ่ายกิจกรรม")}</Text>
+                <Text style={styles.subtitle}>{t("4. ภาพถ่ายกิจกรรม")}</Text>
                 <View style={styles.photoGrid}>
                   {data.photos.map((photo, i) => (
                     <View style={styles.photoCell} key={i}>
