@@ -173,7 +173,7 @@ export default function ProjectReportsPage() {
               return (
                 <tr key={r.id}>
                   <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
-                  <td className="font-medium text-slate-900">
+                  <td className="max-w-xs whitespace-normal break-words font-medium text-slate-900">
                     {r.plan_projects?.name ?? "-"}
                     {r.not_implemented && <span className="badge-red ml-2">ไม่ได้ดำเนินการ</span>}
                   </td>
