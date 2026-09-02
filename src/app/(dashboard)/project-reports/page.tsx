@@ -25,6 +25,7 @@ type Report = {
   photo_refs: string[] | null;
   created_at: string;
   not_implemented: boolean;
+  responsible_name: string | null;
   plan_projects: { name: string } | null;
 };
 
@@ -39,7 +40,9 @@ export default function ProjectReportsPage() {
 
     const { data: reportsData, error } = await supabase
       .from("proc_project_reports")
-      .select("id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, plan_projects(name)")
+      .select(
+        "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, responsible_name, plan_projects(name)",
+      )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
 
@@ -119,6 +122,7 @@ export default function ProjectReportsPage() {
                   <span className="block font-medium text-slate-900">{r.plan_projects?.name ?? "-"}</span>
                   <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
                     <span>{formatThaiDate(r.created_at)}</span>
+                    {r.responsible_name && <span>ผู้รับผิดชอบ: {r.responsible_name}</span>}
                     {r.not_implemented && <span className="badge-red">ไม่ได้ดำเนินการ</span>}
                   </span>
                   <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -156,6 +160,7 @@ export default function ProjectReportsPage() {
             <tr>
               <th className="w-10 text-center">#</th>
               <th>ชื่อโครงการ</th>
+              <th className="whitespace-nowrap">ผู้รับผิดชอบโครงการ</th>
               <th className="whitespace-nowrap">วันที่รายงาน</th>
               <th></th>
               <th></th>
@@ -172,6 +177,7 @@ export default function ProjectReportsPage() {
                     {r.plan_projects?.name ?? "-"}
                     {r.not_implemented && <span className="badge-red ml-2">ไม่ได้ดำเนินการ</span>}
                   </td>
+                  <td>{r.responsible_name ?? "-"}</td>
                   <td className="whitespace-nowrap">{formatThaiDate(r.created_at)}</td>
                   <td className="text-right">{fileLink(r)}</td>
                   <td className="text-right">
@@ -200,7 +206,7 @@ export default function ProjectReportsPage() {
             })}
             {reports.length === 0 && (
               <tr>
-                <td colSpan={5} className="table-empty">
+                <td colSpan={6} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>
