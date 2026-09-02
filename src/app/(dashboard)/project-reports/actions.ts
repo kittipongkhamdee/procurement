@@ -12,7 +12,9 @@ function str(formData: FormData, key: string) {
 }
 
 function num(formData: FormData, key: string) {
-  const v = String(formData.get(key) ?? "").trim();
+  // ตัดคอมมาคั่นหลักพันทิ้งก่อนแปลงเป็นตัวเลข เผื่อช่องงบประมาณส่งค่าที่จัดรูปแบบมาแล้ว
+  // (เช่น "36,840.00") มาถึง server แทนที่จะเป็นตัวเลขดิบ
+  const v = String(formData.get(key) ?? "").trim().replace(/,/g, "");
   return v === "" ? null : Number(v);
 }
 
