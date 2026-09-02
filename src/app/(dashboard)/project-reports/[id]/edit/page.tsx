@@ -76,7 +76,10 @@ export default function EditProjectReportPage() {
         )
         .eq("id", id)
         .maybeSingle(),
-      supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
+      supabase
+        .from("plan_projects")
+        .select("id, name, budget, plan_activities(budget)")
+        .order("sort_order"),
       supabase
         .from("plan_project_proposals")
         .select(
@@ -90,10 +93,18 @@ export default function EditProjectReportPage() {
     setProjects(
       (projectRows ?? []).map((p) => {
         const proposal = proposalByProjectId.get(p.id);
+        // งบประมาณจริงของโครงการอาจมาจากผลรวมกิจกรรม (plan_activities) แทนคอลัมน์ budget ตรงๆ
+        // ของ plan_projects ถ้ามีการแตกกิจกรรมย่อยไว้ (เหมือนที่หน้า /projects คำนวณ) —
+        // ไม่งั้นช่อง "งบประมาณที่ได้รับอนุมัติ" ในฟอร์มรายงานจะไม่ดึงค่ามาให้อัตโนมัติ
+        const activities = (p.plan_activities as unknown as { budget: number }[]) ?? [];
+        const budget =
+          activities.length > 0
+            ? activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0)
+            : Number(p.budget ?? 0);
         return {
           id: p.id,
           name: p.name,
-          budget: p.budget,
+          budget,
           strategyAlignment: proposal?.strategy_alignment ?? null,
           standard: proposal?.standard ?? null,
           responsible: proposal?.responsible ?? [],
