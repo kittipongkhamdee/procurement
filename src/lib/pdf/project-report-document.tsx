@@ -23,8 +23,8 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 11,
     fontWeight: "bold",
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 6,
+    marginBottom: 4,
   },
   subheading: { fontWeight: "bold", marginTop: 4, marginBottom: 2 },
   row: { flexDirection: "row", marginBottom: 4 },
@@ -35,11 +35,11 @@ const styles = StyleSheet.create({
   // wrapped line's last 1-2 glyphs get clipped instead of wrapped — see thai-pdf.ts.
   // marginBottom lives on paragraphBlock (once per paragraph), not here — putting it on
   // every wrapped line stacked with lineHeight made multi-line paragraphs look double-spaced.
-  paragraphBlock: { marginBottom: 6 },
-  paragraph: { lineHeight: 1.3, paddingRight: 24 },
+  paragraphBlock: { marginBottom: 4 },
+  paragraph: { lineHeight: 1.2, paddingRight: 24 },
   bulletRow: { flexDirection: "row", marginBottom: 2, paddingRight: 24 },
   bulletMark: { width: 14 },
-  bulletText: { flex: 1, lineHeight: 1.5 },
+  bulletText: { flex: 1, lineHeight: 1.2 },
   budgetTable: { marginTop: 4, borderWidth: 1, borderColor: "#111827" },
   budgetRow: { flexDirection: "row" },
   budgetLabel: {
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   },
   indicatorTable: {
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: 4,
     borderWidth: 1,
     borderColor: "#111827",
   },
