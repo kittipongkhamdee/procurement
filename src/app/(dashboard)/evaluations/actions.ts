@@ -164,6 +164,28 @@ export async function closeForm(formId: string) {
   revalidatePath("/evaluations");
 }
 
+// กำหนดช่วงเวลาเปิด/ปิดรับคำตอบ (ไม่บังคับ) — ใช้ควบคู่กับปุ่มเปิด/ปิดรับคำตอบแบบเดิม (status)
+// ไม่ได้แทนที่กัน: ต้อง status = 'published' อยู่ด้วยแบบประเมินถึงจะรับคำตอบได้ ต่อให้อยู่ในช่วงเวลา
+// ที่กำหนดไว้ก็ตาม — ฝั่ง RLS (eval_responses_anon_insert) เช็คทั้งสองเงื่อนไขนี้จริงจัง ไม่ใช่แค่ฝั่ง
+// UI เท่านั้น — รับค่าเป็น ISO string ที่แปลง timezone ท้องถิ่นของผู้ใช้มาแล้วจากฝั่ง client
+// (แปลงในเซิร์ฟเวอร์เองไม่ได้เพราะไม่รู้ timezone ของครูที่กรอก จะได้ค่าผิดถ้าแปลงด้วย Date ฝั่งนี้)
+export async function updateSchedule(formId: string, formData: FormData) {
+  const { supabase } = await requireTeacherOrAdmin();
+
+  const opens_at = String(formData.get("opens_at") ?? "").trim() || null;
+  const closes_at = String(formData.get("closes_at") ?? "").trim() || null;
+  if (opens_at && closes_at && opens_at > closes_at) {
+    throw new Error("เวลาเปิดรับคำตอบต้องมาก่อนเวลาปิดรับคำตอบ");
+  }
+
+  const { error } = await supabase
+    .from("eval_forms")
+    .update({ opens_at, closes_at, updated_at: new Date().toISOString() })
+    .eq("id", formId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/evaluations");
+}
+
 // ลบคำถามเดิมทั้งหมดแล้ว insert ชุดใหม่ทั้งหมดในคำสั่งเดียว — ง่ายกว่า diff ทีละแถวเพราะจำนวน
 // คำถามต่อแบบประเมินไม่มาก (คำตอบที่มีอยู่แล้วจะอ้างอิง question_id เดิมไม่ได้อีกต่อไป แต่ระบบนี้
 // ไม่ผูกคำถามเข้ากับคำตอบแบบที่ต้องแก้ไขคำถามหลังมีคำตอบแล้วบ่อยๆ จึงยอมรับข้อจำกัดนี้ได้)

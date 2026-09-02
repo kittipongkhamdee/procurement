@@ -17,6 +17,7 @@ type Question = {
   category: string | null;
 };
 type Form = { id: string; title: string; description: string | null };
+type Availability = "loading" | "not_found" | "not_yet" | "ended" | "ok";
 
 const NO_CATEGORY = "ความพึงพอใจ";
 
@@ -38,7 +39,8 @@ function groupQuestions(questions: Question[]) {
 }
 
 export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => void }) {
-  const [form, setForm] = useState<Form | null | undefined>(undefined);
+  const [availability, setAvailability] = useState<Availability>("loading");
+  const [form, setForm] = useState<Form | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -49,20 +51,33 @@ export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => v
     const supabase = createClient();
     const { data: formData } = await supabase
       .from("eval_forms")
-      .select("id, title, description")
+      .select("id, title, description, opens_at, closes_at")
       .eq("token", token)
       .eq("status", "published")
       .maybeSingle();
-    setForm(formData ?? null);
 
-    if (formData) {
-      const { data: qData } = await supabase
-        .from("eval_questions")
-        .select("id, sort_order, question_type, question_text, options, required, category")
-        .eq("form_id", formData.id)
-        .order("sort_order");
-      setQuestions((qData ?? []) as Question[]);
+    if (!formData) {
+      setAvailability("not_found");
+      return;
     }
+    const now = new Date();
+    if (formData.opens_at && now < new Date(formData.opens_at)) {
+      setAvailability("not_yet");
+      return;
+    }
+    if (formData.closes_at && now > new Date(formData.closes_at)) {
+      setAvailability("ended");
+      return;
+    }
+    setForm(formData);
+    setAvailability("ok");
+
+    const { data: qData } = await supabase
+      .from("eval_questions")
+      .select("id, sort_order, question_type, question_text, options, required, category")
+      .eq("form_id", formData.id)
+      .order("sort_order");
+    setQuestions((qData ?? []) as Question[]);
   }, [token]);
 
   useEffect(() => {
@@ -108,14 +123,20 @@ export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => v
     }
   }
 
-  if (form === undefined) {
+  if (availability === "loading") {
     return <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>;
   }
 
-  if (form === null) {
+  if (availability !== "ok" || !form) {
+    const message =
+      availability === "not_yet"
+        ? "แบบประเมินนี้ยังไม่ถึงเวลาเปิดรับคำตอบ กรุณากลับมาใหม่ในภายหลัง"
+        : availability === "ended"
+          ? "หมดเวลารับคำตอบของแบบประเมินนี้แล้ว"
+          : "แบบประเมินนี้ไม่พร้อมใช้งาน หรือปิดรับคำตอบแล้ว";
     return (
       <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-sm text-slate-600">แบบประเมินนี้ไม่พร้อมใช้งาน หรือปิดรับคำตอบแล้ว</p>
+        <p className="text-sm text-slate-600">{message}</p>
         {onBack && (
           <button type="button" onClick={onBack} className="mt-4 text-sm text-navy-800 hover:underline">
             ← เลือกโครงการอื่น

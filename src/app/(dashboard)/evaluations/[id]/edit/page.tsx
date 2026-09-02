@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { toastSuccess, toastError, errorMessage } from "@/lib/swal";
 import { ChevronLeftIcon } from "@/components/icons";
-import { updateFormMeta, replaceQuestions, replaceCriteria, publishForm } from "../../actions";
+import { updateFormMeta, replaceQuestions, replaceCriteria, publishForm, closeForm, updateSchedule } from "../../actions";
 import { QuestionListEditor, type QuestionRow } from "../../question-list-editor";
 import { CriteriaEditor, type CriterionRow } from "../../criteria-editor";
 
@@ -24,6 +24,21 @@ type FormMeta = {
   is_template: boolean;
   project_name: string | null;
 };
+
+// แปลง ISO string (UTC จาก DB) เป็นค่าที่ <input type="datetime-local"> ใช้ได้ (แสดงเป็นเวลาท้องถิ่น
+// ของผู้ใช้) และย้อนกลับ — ทำฝั่ง client เท่านั้นเพราะต้องอิง timezone ของเบราว์เซอร์ผู้ใช้จริง
+function isoToLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function localInputToIso(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
 
 type TabKey = "meta" | "questions" | "criteria" | "publish";
 
@@ -43,17 +58,20 @@ export default function EvaluationEditPage() {
   const [description, setDescription] = useState("");
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [criteria, setCriteria] = useState<CriterionRow[]>([]);
+  const [opensAt, setOpensAt] = useState("");
+  const [closesAt, setClosesAt] = useState("");
   const [savingMeta, setSavingMeta] = useState(false);
   const [savingQuestions, setSavingQuestions] = useState(false);
   const [savingCriteria, setSavingCriteria] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
 
     const { data } = await supabase
       .from("eval_forms")
-      .select("id, title, description, status, token, is_template, plan_projects(name)")
+      .select("id, title, description, status, token, is_template, opens_at, closes_at, plan_projects(name)")
       .eq("id", id)
       .maybeSingle();
 
@@ -70,6 +88,8 @@ export default function EvaluationEditPage() {
       setForm(meta);
       setTitle(meta.title);
       setDescription(meta.description ?? "");
+      setOpensAt(isoToLocalInput(data.opens_at));
+      setClosesAt(isoToLocalInput(data.closes_at));
     } else {
       setForm(null);
     }
@@ -162,6 +182,37 @@ export default function EvaluationEditPage() {
     }
   }
 
+  async function handleToggleStatus() {
+    if (!form) return;
+    setPublishing(true);
+    try {
+      if (form.status === "published") await closeForm(id);
+      else await publishForm(id);
+      await toastSuccess(form.status === "published" ? "ปิดรับคำตอบแล้ว" : "เปิดรับคำตอบแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function handleSaveSchedule() {
+    setSavingSchedule(true);
+    try {
+      const fd = new FormData();
+      fd.set("opens_at", localInputToIso(opensAt) ?? "");
+      fd.set("closes_at", localInputToIso(closesAt) ?? "");
+      await updateSchedule(id, fd);
+      await toastSuccess("บันทึกช่วงเวลารับคำตอบแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
+
   if (form === undefined) return <PageLoadingSkeleton />;
   if (form === null) return <p className="p-4 text-sm text-red-600">ไม่พบแบบประเมินนี้</p>;
 
@@ -240,30 +291,70 @@ export default function EvaluationEditPage() {
       )}
 
       {tab === "publish" && !form.is_template && (
-        <div className="card">
-          <div className="card-title">เผยแพร่</div>
-          {form.status === "draft" ? (
-            <button type="button" onClick={handlePublish} disabled={publishing} className="btn-primary">
-              {publishing ? "กำลังเผยแพร่..." : "เผยแพร่แบบประเมิน"}
-            </button>
-          ) : (
-            <div>
-              <p className="mb-2 text-sm text-slate-600">ลิงก์แบบประเมิน (แจกให้นักเรียน/ผู้เกี่ยวข้อง ไม่ต้องล็อกอิน):</p>
-              <div className="flex flex-wrap items-center gap-3">
-                <code className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">{link}</code>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(link);
-                    toastSuccess("คัดลอกลิงก์แล้ว");
-                  }}
-                  className="btn-secondary btn-sm"
-                >
-                  คัดลอกลิงก์
-                </button>
+        <div className="space-y-6">
+          <div className="card">
+            <div className="card-title">เผยแพร่</div>
+            {form.status === "draft" ? (
+              <button type="button" onClick={handlePublish} disabled={publishing} className="btn-primary">
+                {publishing ? "กำลังเผยแพร่..." : "เผยแพร่แบบประเมิน"}
+              </button>
+            ) : (
+              <div>
+                <p className="mb-2 text-sm text-slate-600">ลิงก์แบบประเมิน (แจกให้นักเรียน/ผู้เกี่ยวข้อง ไม่ต้องล็อกอิน):</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <code className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">{link}</code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(link);
+                      toastSuccess("คัดลอกลิงก์แล้ว");
+                    }}
+                    className="btn-secondary btn-sm"
+                  >
+                    คัดลอกลิงก์
+                  </button>
+                  <button type="button" onClick={handleToggleStatus} disabled={publishing} className="btn-secondary btn-sm">
+                    {form.status === "published" ? "ปิดรับคำตอบ" : "เปิดรับคำตอบอีกครั้ง"}
+                  </button>
+                  <span className={form.status === "published" ? "badge-emerald" : "badge-navy"}>
+                    {form.status === "published" ? "กำลังเปิดรับคำตอบ" : "ปิดรับคำตอบแล้ว"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-title">กำหนดช่วงเวลารับคำตอบ (ไม่บังคับ)</div>
+            <p className="mb-3 text-xs text-slate-500">
+              ใช้ควบคู่กับปุ่มด้านบน — ต้องกด &quot;เผยแพร่/เปิดรับคำตอบ&quot; ไว้ด้วยเสมอ ระบบจะรับคำตอบ
+              เฉพาะช่วงเวลาที่กำหนด (เว้นว่างช่องไหนไว้ = ไม่จำกัดด้านนั้น) เหมาะกับตั้งล่วงหน้าให้เปิด/ปิด
+              อัตโนมัติโดยไม่ต้องมากดปุ่มเอง
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">เปิดรับคำตอบตั้งแต่</label>
+                <input
+                  type="datetime-local"
+                  value={opensAt}
+                  onChange={(e) => setOpensAt(e.target.value)}
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">ปิดรับคำตอบเมื่อ</label>
+                <input
+                  type="datetime-local"
+                  value={closesAt}
+                  onChange={(e) => setClosesAt(e.target.value)}
+                  className="input"
+                />
               </div>
             </div>
-          )}
+            <button type="button" onClick={handleSaveSchedule} disabled={savingSchedule} className="btn-primary mt-4">
+              {savingSchedule ? "กำลังบันทึก..." : "บันทึกช่วงเวลา"}
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -376,11 +376,13 @@ export type Database = {
       }
       eval_forms: {
         Row: {
+          closes_at: string | null
           created_at: string
           created_by: string
           description: string | null
           id: string
           is_template: boolean
+          opens_at: string | null
           project_id: string | null
           status: string
           template_source_id: string | null
@@ -389,11 +391,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          closes_at?: string | null
           created_at?: string
           created_by: string
           description?: string | null
           id?: string
           is_template?: boolean
+          opens_at?: string | null
           project_id?: string | null
           status?: string
           template_source_id?: string | null
@@ -402,11 +406,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          closes_at?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
           id?: string
           is_template?: boolean
+          opens_at?: string | null
           project_id?: string | null
           status?: string
           template_source_id?: string | null
@@ -1651,6 +1657,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      proc_school_settings: {
+        Row: {
+          id: boolean
+          logo_url: string | null
+          school_name: string
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          logo_url?: string | null
+          school_name?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          logo_url?: string | null
+          school_name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       proc_user_group_members: {
         Row: {

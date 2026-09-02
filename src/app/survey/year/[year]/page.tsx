@@ -8,14 +8,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { SurveyTaker } from "../../survey-taker";
+import { ChevronRightIcon, ClipboardCheckIcon, FolderIcon } from "@/components/icons";
+import { useSchoolSettings } from "@/lib/school-settings";
 
 type BudgetYear = { id: string; year: number; name: string };
 type FormOption = { token: string; title: string; projectName: string };
 
 export default function SurveyYearLandingPage() {
   const { year } = useParams<{ year: string }>();
+  const { schoolName, logoUrl } = useSchoolSettings();
   const [budgetYear, setBudgetYear] = useState<BudgetYear | null | undefined>(undefined);
   const [forms, setForms] = useState<FormOption[]>([]);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
@@ -32,14 +36,19 @@ export default function SurveyYearLandingPage() {
 
     const { data: formData } = await supabase
       .from("eval_forms")
-      .select("token, title, plan_projects!inner(name, budget_year_id)")
+      .select("token, title, opens_at, closes_at, plan_projects!inner(name, budget_year_id)")
       .eq("status", "published")
       .eq("plan_projects.budget_year_id", yearData.id);
-    const options = (formData ?? []).map((f) => ({
-      token: f.token,
-      title: f.title,
-      projectName: (f.plan_projects as unknown as { name: string }).name,
-    }));
+    const now = new Date();
+    // กรองแบบประเมินที่ยังไม่ถึงเวลาเปิด/หมดเวลารับคำตอบตามที่ตั้งไว้ออกจากรายการให้เลือก —
+    // ไม่ต้องให้ผู้ตอบเลือกแล้วเจอข้อความ "ไม่พร้อมใช้งาน" ที่หน้าถัดไป
+    const options = (formData ?? [])
+      .filter((f) => !(f.opens_at && now < new Date(f.opens_at)) && !(f.closes_at && now > new Date(f.closes_at)))
+      .map((f) => ({
+        token: f.token,
+        title: f.title,
+        projectName: (f.plan_projects as unknown as { name: string }).name,
+      }));
     setForms(options);
     // ถ้ามีแบบประเมินเปิดรับคำตอบอยู่โครงการเดียว ข้ามหน้าเลือกไปทำแบบประเมินได้เลย
     if (options.length === 1) setSelectedToken(options[0].token);
@@ -51,13 +60,17 @@ export default function SurveyYearLandingPage() {
   }, [load]);
 
   if (budgetYear === undefined) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">กำลังโหลด...</div>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-navy-950 to-navy-800 text-sm text-navy-200">
+        กำลังโหลด...
+      </div>
+    );
   }
 
   if (budgetYear === null) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-        <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-navy-950 to-navy-800 px-4">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-xl">
           <p className="text-sm text-slate-600">ไม่พบลิงก์แบบประเมินนี้</p>
         </div>
       </div>
@@ -66,35 +79,67 @@ export default function SurveyYearLandingPage() {
 
   if (selectedToken) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-8">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-navy-950 to-navy-800 px-4 py-8">
         <SurveyTaker token={selectedToken} onBack={forms.length > 1 ? () => setSelectedToken(null) : undefined} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 px-4 py-8">
-      <div className="mx-auto w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="text-lg font-bold text-navy-900">แบบประเมินความพึงพอใจ</h1>
-        <p className="mt-1 text-sm text-slate-500">ปีงบประมาณ {budgetYear.year} — เลือกโครงการที่ต้องการประเมิน</p>
-
-        {forms.length === 0 ? (
-          <p className="mt-6 text-sm text-slate-500">ยังไม่มีแบบประเมินที่เปิดรับคำตอบสำหรับปีงบประมาณนี้</p>
-        ) : (
-          <div className="mt-6 space-y-2">
-            {forms.map((f) => (
-              <button
-                key={f.token}
-                type="button"
-                onClick={() => setSelectedToken(f.token)}
-                className="block w-full rounded-lg border border-slate-200 px-4 py-3 text-left text-sm text-slate-700 transition hover:border-navy-600 hover:bg-navy-50"
-              >
-                <span className="font-medium text-navy-900">{f.projectName}</span>
-                <span className="mt-0.5 block text-xs text-slate-500">{f.title}</span>
-              </button>
-            ))}
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-navy-950 to-navy-800 px-4 py-10">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="bg-gradient-to-br from-navy-800 to-navy-950 px-6 py-8 text-center text-white sm:px-8">
+          <div
+            className={
+              logoUrl
+                ? "mx-auto flex h-14 w-14 items-center justify-center"
+                : "mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold-400 bg-white/10 text-xl font-bold text-gold-400"
+            }
+          >
+            {logoUrl ? (
+              <Image src={logoUrl} alt={schoolName} width={56} height={56} unoptimized className="h-full w-full object-contain" />
+            ) : (
+              schoolName.charAt(0) || "ร"
+            )}
           </div>
-        )}
+          <h1 className="mt-4 text-lg font-bold">แบบประเมินความพึงพอใจ</h1>
+          <p className="mt-1 text-sm text-navy-200">{schoolName}</p>
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-gold-300">
+            ปีงบประมาณ {budgetYear.year}
+          </span>
+        </div>
+
+        <div className="px-6 py-6 sm:px-8">
+          {forms.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <ClipboardCheckIcon className="h-10 w-10 text-slate-300" />
+              <p className="text-sm text-slate-500">ยังไม่มีแบบประเมินที่เปิดรับคำตอบสำหรับปีงบประมาณนี้</p>
+            </div>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-slate-500">เลือกโครงการที่ต้องการประเมินความพึงพอใจ</p>
+              <div className="space-y-2.5">
+                {forms.map((f) => (
+                  <button
+                    key={f.token}
+                    type="button"
+                    onClick={() => setSelectedToken(f.token)}
+                    className="group flex w-full items-center gap-3 rounded-xl border border-slate-200 px-4 py-3.5 text-left transition hover:border-navy-600 hover:bg-navy-50 hover:shadow-sm"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy-800/10 text-navy-700 group-hover:bg-navy-800 group-hover:text-white">
+                      <FolderIcon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium text-navy-900">{f.projectName}</span>
+                      <span className="mt-0.5 block truncate text-xs text-slate-500">{f.title}</span>
+                    </span>
+                    <ChevronRightIcon className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-navy-700" />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

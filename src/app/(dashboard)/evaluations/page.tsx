@@ -9,10 +9,11 @@ import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { toastSuccess } from "@/lib/swal";
+import { toastSuccess, toastError, errorMessage } from "@/lib/swal";
 import { CreateFormModal } from "./create-form-modal";
 import { CreateTemplateModal } from "./create-template-modal";
-import { createForm, createTemplate } from "./actions";
+import { QrCodeButton } from "./qr-code-button";
+import { createForm, createTemplate, publishForm, closeForm } from "./actions";
 
 type Project = { id: string; name: string };
 type Template = { id: string; title: string; description: string | null };
@@ -31,6 +32,8 @@ export default function EvaluationsPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentYear, setCurrentYear] = useState<BudgetYear | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [existingProjectIds, setExistingProjectIds] = useState<string[]>([]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -53,7 +56,7 @@ export default function EvaluationsPage() {
 
     let query = supabase
       .from("eval_forms")
-      .select("id, title, status, plan_projects(name)")
+      .select("id, title, status, project_id, plan_projects(name)")
       .eq("is_template", false)
       .order("created_at", { ascending: false });
     if (!isAdmin) query = query.eq("created_by", user?.userId ?? "");
@@ -66,12 +69,27 @@ export default function EvaluationsPage() {
         project_name: (f.plan_projects as unknown as { name: string } | null)?.name ?? null,
       })),
     );
+    setExistingProjectIds((formData ?? []).map((f) => f.project_id).filter((id): id is string => !!id));
   }, [isAdmin, user?.userId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!authLoading) reload();
   }, [authLoading, reload]);
+
+  async function handleToggleStatus(form: FormRow) {
+    setTogglingId(form.id);
+    try {
+      if (form.status === "published") await closeForm(form.id);
+      else await publishForm(form.id);
+      await toastSuccess(form.status === "published" ? "ปิดรับคำตอบแล้ว" : "เปิดรับคำตอบแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   if (forms === null) return <PageLoadingSkeleton />;
 
@@ -82,7 +100,12 @@ export default function EvaluationsPage() {
           <h1 className="page-title">ประเมินความพึงพอใจ</h1>
           <p className="page-subtitle">สร้างแบบประเมินความพึงพอใจโครงการ แจกลิงก์ให้ผู้ตอบโดยไม่ต้องล็อกอิน</p>
         </div>
-        <CreateFormModal projects={projects} templates={templates} createForm={createForm} />
+        <CreateFormModal
+          projects={projects}
+          templates={templates}
+          existingProjectIds={existingProjectIds}
+          createForm={createForm}
+        />
       </div>
 
       {currentYear && (
@@ -107,6 +130,12 @@ export default function EvaluationsPage() {
             >
               คัดลอกลิงก์
             </button>
+            {typeof window !== "undefined" && (
+              <QrCodeButton
+                value={`${window.location.origin}/survey/year/${currentYear.year}`}
+                filename={`qr-แบบประเมิน-ปีงบ${currentYear.year}.png`}
+              />
+            )}
           </div>
         </div>
       )}
@@ -125,15 +154,27 @@ export default function EvaluationsPage() {
             {forms.map((f) => (
               <tr key={f.id}>
                 <td>
-                  <Link href={`/evaluations/${f.id}`} className="font-medium text-navy-800 hover:underline">
+                  <Link href={`/evaluations/${f.id}`} className="block max-w-xs whitespace-normal break-words font-medium text-navy-800 hover:underline">
                     {f.title}
                   </Link>
                 </td>
-                <td>{f.project_name ?? "-"}</td>
+                <td className="max-w-[10rem] whitespace-normal break-words">{f.project_name ?? "-"}</td>
                 <td>
-                  <span className={f.status === "published" ? "badge-emerald" : "badge-navy"}>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(f)}
+                    disabled={togglingId === f.id}
+                    className={`${f.status === "published" ? "badge-emerald" : "badge-navy"} disabled:cursor-not-allowed disabled:opacity-50`}
+                    title={
+                      f.status === "published"
+                        ? "คลิกเพื่อปิดรับคำตอบ"
+                        : f.status === "draft"
+                          ? "คลิกเพื่อเผยแพร่และเปิดรับคำตอบ"
+                          : "คลิกเพื่อเปิดรับคำตอบอีกครั้ง"
+                    }
+                  >
                     {STATUS_LABELS[f.status] ?? f.status}
-                  </span>
+                  </button>
                 </td>
                 <td className="text-right">
                   <Link href={`/evaluations/${f.id}`} className="text-xs font-medium text-navy-800 hover:underline">
@@ -174,8 +215,8 @@ export default function EvaluationsPage() {
               <tbody>
                 {templates.map((t) => (
                   <tr key={t.id}>
-                    <td>{t.title}</td>
-                    <td className="text-slate-500">{t.description ?? "-"}</td>
+                    <td className="max-w-xs whitespace-normal break-words">{t.title}</td>
+                    <td className="max-w-md whitespace-normal break-words text-slate-500">{t.description ?? "-"}</td>
                     <td className="text-right">
                       <Link href={`/evaluations/${t.id}/edit`} className="text-xs font-medium text-navy-800 hover:underline">
                         แก้ไข
