@@ -135,6 +135,14 @@ export const TrashIcon = base(
   <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13M10 11v6m4-6v6" />,
 );
 
+export const PencilIcon = base(
+  <path strokeLinecap="round" strokeLinejoin="round" d="M15 5.5 18.5 9M4 20l.7-3.9a1 1 0 0 1 .28-.52l10-10a1 1 0 0 1 1.42 0l2.02 2.02a1 1 0 0 1 0 1.42l-10 10a1 1 0 0 1-.52.28L4 20Z" />,
+);
+
+export const PrinterIcon = base(
+  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8.5V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v4.5M7 17.5H5.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H17M7 14h10v6a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-6Z" />,
+);
+
 export const LogOutIcon = base(
   <>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 8V6a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-2" />

@@ -13,6 +13,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { FileTextIcon, PencilIcon, PrinterIcon } from "@/components/icons";
 import { DeleteReportButton } from "./delete-report-button";
 import { deleteProjectReport } from "./actions";
 
@@ -70,8 +71,9 @@ export default function ProjectReportsPage() {
         <a
           href={signedUrls.get(r.file_url)}
           target="_blank"
-          className="text-xs font-medium text-navy-800 hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline"
         >
+          <FileTextIcon className="h-3.5 w-3.5" />
           เปิดไฟล์
         </a>
       ) : (
@@ -82,8 +84,9 @@ export default function ProjectReportsPage() {
       <a
         href={`/project-reports/${r.id}/pdf`}
         target="_blank"
-        className="text-xs font-medium text-navy-800 hover:underline"
+        className="inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline"
       >
+        <PrinterIcon className="h-3.5 w-3.5" />
         ดู/พิมพ์ PDF
       </a>
     );
@@ -122,7 +125,11 @@ export default function ProjectReportsPage() {
                     {fileLink(r)}
                     {canManage && (
                       <>
-                        <Link href={`/project-reports/${r.id}/edit`} className="text-xs font-medium text-navy-800 hover:underline">
+                        <Link
+                          href={`/project-reports/${r.id}/edit`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
                           แก้ไข
                         </Link>
                         <DeleteReportButton
@@ -170,7 +177,11 @@ export default function ProjectReportsPage() {
                   <td className="text-right">
                     {canManage && (
                       <div className="flex justify-end gap-3">
-                        <Link href={`/project-reports/${r.id}/edit`} className="text-xs font-medium text-navy-800 hover:underline">
+                        <Link
+                          href={`/project-reports/${r.id}/edit`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
                           แก้ไข
                         </Link>
                         <DeleteReportButton
