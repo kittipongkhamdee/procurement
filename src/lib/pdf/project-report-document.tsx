@@ -372,7 +372,10 @@ export function ProjectReportDocument({
             />
 
             {data.photos.length > 0 && (
-              <>
+              // wrap={false} กันหัวข้อ "5. ภาพถ่ายกิจกรรม" ถูกทิ้งไว้ท้ายหน้าเดี่ยวๆ (orphan) และกัน
+              // รูปโดนตัดครึ่งข้ามหน้า — รูปสูงสุด 4 รูป (จำกัดตอนอัปโหลด) รวมกับหัวข้อสูงไม่เกินหน้า
+              // เดียวแน่นอน จึงบังคับให้ทั้งบล็อกย้ายไปทั้งก้อนถ้าที่เหลือในหน้าปัจจุบันไม่พอ
+              <View wrap={false}>
                 <Text style={styles.subtitle}>{t("5. ภาพถ่ายกิจกรรม")}</Text>
                 <View style={styles.photoGrid}>
                   {data.photos.map((photo, i) => (
@@ -385,7 +388,7 @@ export function ProjectReportDocument({
                     </View>
                   ))}
                 </View>
-              </>
+              </View>
             )}
           </>
         )}
