@@ -50,7 +50,10 @@ function put(
  * สี่เหลี่ยมขาวจะไปทับตัวอักษรข้างเคียงของเทมเพลตพอดี */
 const INSET = 2;
 
-/** เคลียร์จุดไข่ปลาเดิมในช่วง (x0,x1) แล้วเขียนค่าจริงทับ ในตำแหน่งเดียวกัน (ร่นขอบเข้าด้านละ INSET) */
+/** เคลียร์จุดไข่ปลาเดิมในช่วง (x0,x1) แล้วเขียนค่าจริงทับ ในตำแหน่งเดียวกัน (ร่นขอบเข้าด้านละ INSET)
+ * — แนวซ้าย (ค่าเริ่มต้น) ปิดทับแค่ความกว้างของข้อความจริงเท่านั้น ไม่ทับทั้งช่อง เพื่อให้จุดไข่ปลา
+ * ส่วนที่เหลือ (ที่ไม่มีข้อความไปเขียนทับ) ยังคงมองเห็นได้เหมือนต้นฉบับ ส่วนแนวกลาง/ขวา (ตัวเลข,
+ * ชื่อผู้ลงนาม) ยังคงปิดทับทั้งช่องเหมือนเดิม เพราะเนื้อหาเปลี่ยนความยาวได้และต้องเคลียร์พื้นที่ให้แน่ใจ */
 function fill(
   page: PDFPage,
   font: PDFFont,
@@ -63,8 +66,10 @@ function fill(
 ) {
   const left = x0 + INSET;
   const right = x1 - INSET;
-  whiteout(page, left, right, yBottom, height);
   if (!text) return;
+  const clearRight =
+    opts.align && opts.align !== "left" ? right : Math.min(right, left + font.widthOfTextAtSize(text, FONT_SIZE) + 2);
+  whiteout(page, left, clearRight, yBottom, height);
   put(page, font, text, left, yBottom, { maxWidth: right - left, align: opts.align });
 }
 
