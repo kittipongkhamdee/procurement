@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
-import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, confirmWarning, errorMessage, promptReason, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import {
   deleteApproval,
@@ -22,29 +22,58 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
-function statusBadgeClass(status: string) {
-  if (status === "อนุมัติ") return "badge-emerald";
-  if (status === "ไม่อนุมัติ") return "badge-red";
-  return "badge-amber";
-}
-
-function deputyBadgeClass(decision: string | null) {
-  if (decision === "ควร") return "badge-emerald";
-  if (decision === "ไม่ควร") return "badge-red";
-  return "badge-slate";
-}
-
 type Approval = {
   id: string;
+  doc_number: string | null;
   doc_date: string;
-  subject: string;
+  activity_name: string | null;
   requested_amount: number;
   requested_by_name: string | null;
   approval_pdf_url: string | null;
   status: string;
   deputy_decision: string | null;
+  deputy_decided_by_name: string | null;
+  deputy_decided_at: string | null;
+  deputy_note: string | null;
+  approved_by_name: string | null;
+  approved_at: string | null;
+  approve_note: string | null;
   plan_projects: { name: string } | null;
 };
+
+/** สถานะรวมของบันทึก (ควบรวมความเห็นรองผู้อำนวยการ + สถานะผู้อำนวยการ เป็นค่าเดียว) */
+function mergedStatus(a: Approval): "รอความเห็น" | "รออนุมัติ" | "อนุมัติ" | "ไม่อนุมัติ" {
+  if (a.status === "อนุมัติ") return "อนุมัติ";
+  if (a.status === "ไม่อนุมัติ" || a.deputy_decision === "ไม่ควร") return "ไม่อนุมัติ";
+  if (a.deputy_decision === "ควร") return "รออนุมัติ";
+  return "รอความเห็น";
+}
+
+function mergedStatusBadgeClass(label: string) {
+  if (label === "อนุมัติ") return "badge-emerald";
+  if (label === "ไม่อนุมัติ") return "badge-red";
+  if (label === "รออนุมัติ") return "badge-amber";
+  return "badge-slate";
+}
+
+/** ข้อความรายละเอียดความเห็น/สถานะที่รองผู้อำนวยการ+ผู้อำนวยการบันทึกไว้ ใช้แสดงตอนชี้เมาส์/คลิก */
+function statusDetailText(a: Approval) {
+  const parts: string[] = [];
+  if (a.deputy_decision) {
+    const decisionLabel = a.deputy_decision === "ควร" ? "ควรอนุมัติ" : "ไม่ควรอนุมัติ";
+    parts.push(
+      `รองผู้อำนวยการ: ${decisionLabel} โดย ${a.deputy_decided_by_name ?? "-"} เมื่อ ${a.deputy_decided_at ? formatThaiDate(a.deputy_decided_at) : "-"}` +
+        (a.deputy_note ? `\nเหตุผล: ${a.deputy_note}` : ""),
+    );
+  }
+  if (a.status === "อนุมัติ" || a.status === "ไม่อนุมัติ") {
+    parts.push(
+      `ผู้อำนวยการ: ${a.status} โดย ${a.approved_by_name ?? "-"} เมื่อ ${a.approved_at ? formatThaiDate(a.approved_at) : "-"}` +
+        (a.approve_note ? `\nเหตุผล: ${a.approve_note}` : ""),
+    );
+  }
+  return parts.length > 0 ? parts.join("\n\n") : "ยังไม่มีความเห็น";
+}
 
 export default function ApprovalsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -53,6 +82,7 @@ export default function ApprovalsPage() {
   const [signedPdfUrls, setSignedPdfUrls] = useState<Map<string, string>>(new Map());
   const [canApproveDirector, setCanApproveDirector] = useState(false);
   const [canApproveDeputy, setCanApproveDeputy] = useState(false);
+  const [expandedStatusId, setExpandedStatusId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (authLoading) return;
@@ -60,7 +90,7 @@ export default function ApprovalsPage() {
     const { data, error } = await supabase
       .from("proc_approvals")
       .select(
-        "id, doc_date, subject, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, plan_projects(name)",
+        "id, doc_number, doc_date, activity_name, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, plan_projects(name)",
       )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
@@ -112,13 +142,17 @@ export default function ApprovalsPage() {
   }
 
   async function handleUpdateStatus(id: string, decision: "อนุมัติ" | "ไม่อนุมัติ") {
-    const ok = await confirmWarning({
-      title: decision === "อนุมัติ" ? "อนุมัติรายการนี้?" : "ไม่อนุมัติรายการนี้?",
-      confirmButtonText: decision,
-    });
-    if (!ok) return;
+    let note: string | undefined;
+    if (decision === "ไม่อนุมัติ") {
+      const reason = await promptReason({ title: "เหตุผลที่ไม่อนุมัติ" });
+      if (reason === null) return;
+      note = reason;
+    } else {
+      const ok = await confirmWarning({ title: "อนุมัติรายการนี้?", confirmButtonText: "อนุมัติ" });
+      if (!ok) return;
+    }
     try {
-      await updateApprovalStatus(id, decision);
+      await updateApprovalStatus(id, decision, note);
       await toastSuccess(`บันทึกสถานะ "${decision}" แล้ว`);
       reload();
     } catch (err) {
@@ -131,6 +165,7 @@ export default function ApprovalsPage() {
     if (!ok) return;
     try {
       await resetApprovalStatus(id);
+      await toastSuccess("ย้อนสถานะแล้ว");
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -138,13 +173,17 @@ export default function ApprovalsPage() {
   }
 
   async function handleUpdateDeputyDecision(id: string, decision: "ควร" | "ไม่ควร") {
-    const ok = await confirmWarning({
-      title: decision === "ควร" ? "ความเห็น: ควรอนุญาตและอนุมัติ?" : "ความเห็น: ไม่ควรอนุญาตและอนุมัติ?",
-      confirmButtonText: decision,
-    });
-    if (!ok) return;
+    let note: string | undefined;
+    if (decision === "ไม่ควร") {
+      const reason = await promptReason({ title: "เหตุผลที่ไม่ควรอนุมัติ" });
+      if (reason === null) return;
+      note = reason;
+    } else {
+      const ok = await confirmWarning({ title: "ความเห็น: ควรอนุญาตและอนุมัติ?", confirmButtonText: "ควรอนุมัติ" });
+      if (!ok) return;
+    }
     try {
-      await updateDeputyDecision(id, decision);
+      await updateDeputyDecision(id, decision, note);
       await toastSuccess("บันทึกความเห็นของรองผู้อำนวยการแล้ว");
       reload();
     } catch (err) {
@@ -157,6 +196,7 @@ export default function ApprovalsPage() {
     if (!ok) return;
     try {
       await resetDeputyDecision(id);
+      await toastSuccess("ย้อนความเห็นแล้ว");
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -167,7 +207,7 @@ export default function ApprovalsPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">ประวัติการบันทึกขออนุมัติ</h1>
+          <h1 className="page-title">การบันทึกขออนุมัติ</h1>
         </div>
         <a href="/approvals/new" className="btn-primary">
           + สร้างบันทึกขออนุมัติ
@@ -182,106 +222,121 @@ export default function ApprovalsPage() {
           <table className="table-base">
             <thead>
               <tr>
+                <th>#</th>
+                <th>เลขที่</th>
                 <th>วันที่</th>
-                <th>เรื่อง</th>
                 <th>โครงการ</th>
+                <th>กิจกรรม</th>
                 <th>ผู้รับผิดชอบ</th>
                 <th className="text-right">ขออนุมัติครั้งนี้</th>
-                <th>ความเห็นรองผู้อำนวยการ</th>
-                <th>สถานะผู้อำนวยการ</th>
+                <th>สถานะ</th>
+                <th></th>
                 <th></th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {approvals.map((a) => (
-                <tr key={a.id}>
-                  <td>{formatThaiDate(a.doc_date)}</td>
-                  <td>{a.subject}</td>
-                  <td>{a.plan_projects?.name ?? "-"}</td>
-                  <td className="font-medium text-slate-900">{a.requested_by_name ?? "-"}</td>
-                  <td className="text-right font-semibold text-red-600">{formatBaht(Number(a.requested_amount))}</td>
-                  <td>
-                    <span className={`${deputyBadgeClass(a.deputy_decision)} !text-sm`}>
-                      {a.deputy_decision ?? "รอความเห็น"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`${statusBadgeClass(a.status)} !text-sm`}>{a.status}</span>
-                  </td>
-                  <td className="text-right">
-                    <a
-                      href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
-                      target="_blank"
-                      className="text-sm font-medium text-red-600 hover:underline"
-                    >
-                      PDF
-                    </a>
-                  </td>
-                  <td className="text-right">
-                    <div className="flex flex-wrap items-center justify-end gap-3">
-                      {canApproveDeputy && a.deputy_decision === null && (
-                        <>
+              {approvals.map((a, index) => {
+                const status = mergedStatus(a);
+                const detailText = statusDetailText(a);
+                const expanded = expandedStatusId === a.id;
+                // รองผู้อำนวยการต้องกด "ควรอนุมัติ" ก่อน ผู้อำนวยการจึงจะกดอนุมัติ/ไม่อนุมัติได้
+                const directorCanAct = canApproveDirector && a.status === "รออนุมัติ" && a.deputy_decision === "ควร";
+                return (
+                  <tr key={a.id}>
+                    <td className="text-slate-400">{index + 1}</td>
+                    <td>{a.doc_number ?? "-"}</td>
+                    <td>{formatThaiDate(a.doc_date)}</td>
+                    <td>{a.plan_projects?.name ?? "-"}</td>
+                    <td>{a.activity_name ?? "-"}</td>
+                    <td className="font-medium text-slate-900">{a.requested_by_name ?? "-"}</td>
+                    <td className="text-right font-semibold text-red-600">{formatBaht(Number(a.requested_amount))}</td>
+                    <td>
+                      <button
+                        type="button"
+                        title={detailText}
+                        onClick={() => setExpandedStatusId(expanded ? null : a.id)}
+                        className={`${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
+                      >
+                        {status}
+                      </button>
+                      {expanded && (
+                        <p className="mt-1 max-w-xs whitespace-pre-line text-xs text-slate-500">{detailText}</p>
+                      )}
+                      <div className="mt-1 flex flex-wrap items-center gap-3">
+                        {canApproveDeputy && a.deputy_decision === null && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDeputyDecision(a.id, "ควร")}
+                              className="text-sm font-medium text-emerald-600 hover:underline"
+                            >
+                              ควรอนุมัติ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateDeputyDecision(a.id, "ไม่ควร")}
+                              className="text-sm font-medium text-red-600 hover:underline"
+                            >
+                              ไม่ควรอนุมัติ
+                            </button>
+                          </>
+                        )}
+                        {isAdmin && a.deputy_decision !== null && (
                           <button
                             type="button"
-                            onClick={() => handleUpdateDeputyDecision(a.id, "ควร")}
-                            className="text-sm font-medium text-emerald-600 hover:underline"
+                            onClick={() => handleResetDeputyDecision(a.id)}
+                            className="text-sm font-medium text-slate-500 hover:underline"
                           >
-                            ควรอนุมัติ
+                            ย้อนความเห็น
                           </button>
+                        )}
+                        {directorCanAct && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(a.id, "อนุมัติ")}
+                              className="text-sm font-medium text-emerald-600 hover:underline"
+                            >
+                              อนุมัติ
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(a.id, "ไม่อนุมัติ")}
+                              className="text-sm font-medium text-red-600 hover:underline"
+                            >
+                              ไม่อนุมัติ
+                            </button>
+                          </>
+                        )}
+                        {isAdmin && a.status !== "รออนุมัติ" && (
                           <button
                             type="button"
-                            onClick={() => handleUpdateDeputyDecision(a.id, "ไม่ควร")}
-                            className="text-sm font-medium text-red-600 hover:underline"
+                            onClick={() => handleResetStatus(a.id)}
+                            className="text-sm font-medium text-slate-500 hover:underline"
                           >
-                            ไม่ควรอนุมัติ
+                            ย้อนสถานะ
                           </button>
-                        </>
-                      )}
-                      {isAdmin && a.deputy_decision !== null && (
-                        <button
-                          type="button"
-                          onClick={() => handleResetDeputyDecision(a.id)}
-                          className="text-sm font-medium text-slate-500 hover:underline"
-                        >
-                          ย้อนความเห็น
-                        </button>
-                      )}
-                      {canApproveDirector && a.status === "รออนุมัติ" && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(a.id, "อนุมัติ")}
-                            className="text-sm font-medium text-emerald-600 hover:underline"
-                          >
-                            อนุมัติ
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateStatus(a.id, "ไม่อนุมัติ")}
-                            className="text-sm font-medium text-red-600 hover:underline"
-                          >
-                            ไม่อนุมัติ
-                          </button>
-                        </>
-                      )}
-                      {isAdmin && a.status !== "รออนุมัติ" && (
-                        <button
-                          type="button"
-                          onClick={() => handleResetStatus(a.id)}
-                          className="text-sm font-medium text-slate-500 hover:underline"
-                        >
-                          ย้อนสถานะ
-                        </button>
-                      )}
+                        )}
+                      </div>
+                    </td>
+                    <td className="text-right">
+                      <a
+                        href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
+                        target="_blank"
+                        className="text-sm font-medium text-red-600 hover:underline"
+                      >
+                        PDF
+                      </a>
+                    </td>
+                    <td className="text-right">
                       {a.status === "รออนุมัติ" && (
-                        <a
-                          href={`/approvals/${a.id}/edit`}
-                          className="text-sm font-medium text-navy-700 hover:underline"
-                        >
+                        <a href={`/approvals/${a.id}/edit`} className="text-sm font-medium text-navy-700 hover:underline">
                           แก้ไข
                         </a>
                       )}
+                    </td>
+                    <td className="text-right">
                       <button
                         type="button"
                         onClick={() => handleDelete(a.id)}
@@ -289,13 +344,13 @@ export default function ApprovalsPage() {
                       >
                         ลบ
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
               {approvals.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="table-empty">
+                  <td colSpan={11} className="table-empty">
                     ยังไม่มีข้อมูล
                   </td>
                 </tr>
