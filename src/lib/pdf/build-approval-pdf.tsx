@@ -1,9 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { formatThaiDate } from "@/lib/thai";
-import { renderApprovalHtml } from "@/lib/pdf-html/approval-template";
-import { renderHtmlToPdfBuffer } from "@/lib/pdf-html/render-html-pdf";
-import type { ApprovalPdfData } from "@/lib/pdf-html/approval-types";
+import { renderApprovalPdfBuffer as renderOverlayPdfBuffer } from "@/lib/pdf-overlay/render-approval-pdf";
+import type { ApprovalPdfData } from "@/lib/pdf-overlay/approval-types";
 
 const SIGNER_KEYS = [
   "approval_signer_planning",
@@ -85,6 +84,5 @@ export async function buildApprovalPdfData(
 }
 
 export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
-  const html = renderApprovalHtml(data);
-  return renderHtmlToPdfBuffer(html);
+  return renderOverlayPdfBuffer(data);
 }
