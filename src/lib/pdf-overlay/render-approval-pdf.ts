@@ -148,11 +148,12 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   ];
   data.items.slice(0, itemRowsY.length).forEach((item, i) => {
     const y = itemRowsY[i];
-    if (item.name) put(page2, font, item.name, 93, y, { maxWidth: 198 });
-    if (item.qty != null) put(page2, font, String(item.qty), 296, y, { maxWidth: 62, align: "center" });
-    if (item.unit_price != null) put(page2, font, formatBaht(item.unit_price), 360, y, { maxWidth: 60, align: "right" });
-    if (item.total != null) put(page2, font, formatBaht(item.total), 422, y, { maxWidth: 60, align: "right" });
-    if (item.note) put(page2, font, item.note, 485, y, { maxWidth: 48 });
+    if (item.name) put(page2, font, item.name, 93, y, { maxWidth: 198, yLift: 4.0 });
+    if (item.qty != null) put(page2, font, String(item.qty), 292.2, y, { maxWidth: 58, align: "center", yLift: 4.0 });
+    if (item.unit_price != null)
+      put(page2, font, formatBaht(item.unit_price), 354.4, y, { maxWidth: 57.9, align: "right", yLift: 4.0 });
+    if (item.total != null) put(page2, font, formatBaht(item.total), 416.3, y, { maxWidth: 58, align: "right", yLift: 4.0 });
+    if (item.note) put(page2, font, item.note, 485, y, { maxWidth: 48, yLift: 4.0 });
   });
 
   const bytes = await pdfDoc.save();
