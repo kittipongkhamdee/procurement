@@ -6,22 +6,8 @@ import { formatBaht } from "@/lib/thai";
 import type { ApprovalPdfData } from "./approval-types";
 
 const BLACK = rgb(0, 0, 0);
-const WHITE = rgb(1, 1, 1);
 const PAGE_H = 841.92;
 const FONT_SIZE = 11;
-
-/** ปิดทับพื้นที่เดิมของเทมเพลตด้วยสี่เหลี่ยมขาว ก่อนเขียนค่าจริงทับ — ใช้เฉพาะจุดที่เทมเพลตมีข้อความ
- * จริง (ไม่ใช่จุดไข่ปลา) พิมพ์ทับอยู่แล้ว เช่นชื่อผู้ลงนาม 4 จุด ถ้าไม่ปิดทับก่อนจะเห็นตัวอักษรซ้อนทับ
- * กันจนอ่านไม่ออก */
-function whiteout(page: PDFPage, x0: number, x1: number, yBottom: number, height: number) {
-  page.drawRectangle({
-    x: x0,
-    y: PAGE_H - yBottom - 1,
-    width: x1 - x0,
-    height: height + 2,
-    color: WHITE,
-  });
-}
 
 /** วาดข้อความที่พิกัด (x, yBottom) ด้วยขนาดฟอนต์คงที่ FONT_SIZE เสมอ (ไม่ย่ออัตโนมัติ) — yBottom คือ
  * ขอบล่างของบรรทัดนั้นในเทมเพลตต้นฉบับ (ค่าเดียวกับที่ PyMuPDF รายงานเป็น bbox[3]) แปลงเป็นระบบ
@@ -61,26 +47,6 @@ function fill(
 ) {
   const left = x0 + INSET;
   const right = x1 - INSET;
-  if (!text) return;
-  put(page, font, text, left, yBottom, { maxWidth: right - left, align: opts.align });
-}
-
-/** เหมือน fill() แต่ปิดทับพื้นหลังเต็มความกว้างช่องก่อนเขียนทับ (ไม่โปร่งใส) — ใช้เฉพาะชื่อผู้ลงนาม
- * 4 จุด เพราะตำแหน่งเดิมในเทมเพลตมีชื่อจริงพิมพ์ไว้อยู่แล้ว (ไม่ใช่จุดไข่ปลาว่างเหมือนช่องอื่น) ถ้าเขียน
- * ทับตรงๆ แบบ fill() จะเห็นตัวอักษรซ้อนทับกันจนอ่านไม่ออก */
-function fillOpaque(
-  page: PDFPage,
-  font: PDFFont,
-  text: string,
-  x0: number,
-  x1: number,
-  yBottom: number,
-  height: number,
-  opts: { align?: "left" | "center" | "right" } = {},
-) {
-  const left = x0 + INSET;
-  const right = x1 - INSET;
-  whiteout(page, left, right, yBottom, height);
   if (!text) return;
   put(page, font, text, left, yBottom, { maxWidth: right - left, align: opts.align });
 }
@@ -127,13 +93,13 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   fill(page1, font, data.budget != null ? formatBaht(data.budget) : "", 180, 270, 566.0, 17.4);
   fill(page1, font, formatBaht(data.requested_amount), 164, 270, 587.3, 17.5);
   fill(page1, font, data.remaining != null ? formatBaht(data.remaining) : "", 178, 270, 608.6, 17.4);
-  fillOpaque(page1, font, `(${data.signer_planning ?? "-"})`, 98.7, 212.4, 651.2, 17.4, { align: "center" });
+  // ชื่อผู้ลงนามทั้ง 4 จุด (งานแผนงาน/การเงิน/รองผู้อำนวยการ/ผู้อำนวยการ) เป็นชื่อที่พิมพ์ไว้ในเทมเพลต
+  // ต้นฉบับอยู่แล้วตายตัว — ไม่ต้องเขียนทับ ปล่อยให้เทมเพลตแสดงชื่อเดิมตามที่เป็น
 
   // กล่อง 2: ความเห็นเจ้าหน้าที่การเงิน
   if (data.fund_type === "งบค่าจัดการเรียนการสอน") checkmark(page1, font, 317.2, 565.3);
   if (data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน") checkmark(page1, font, 317.2, 586.5);
   if (data.fund_type === "เงินรายได้สถานศึกษา") checkmark(page1, font, 317.2, 607.9);
-  fillOpaque(page1, font, `(${data.signer_finance ?? "-"})`, 325.2, 478.1, 651.2, 17.4, { align: "center" });
 
   // กล่อง 3: ความเห็นของรองผู้อำนวยการ
   if (data.deputy_decision === "ควร") checkmark(page1, font, 90.7, 714.9);
@@ -141,12 +107,10 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
     checkmark(page1, font, 90.7, 736.2);
     fill(page1, font, data.deputy_note ?? "", 239, 299.7, 736.9, 17.4);
   }
-  fillOpaque(page1, font, `(${data.signer_deputy ?? "-"})`, 98.7, 243.0, 779.5, 17.4, { align: "center" });
 
   // กล่อง 4: ความเห็นของผู้อำนวยการโรงเรียน
   if (data.status === "อนุมัติ") checkmark(page1, font, 317.2, 714.9);
   if (data.status === "ไม่อนุมัติ") checkmark(page1, font, 317.2, 736.2);
-  fillOpaque(page1, font, `(${data.signer_director ?? "-"})`, 325.2, 484.6, 779.5, 17.4, { align: "center" });
   if (data.approved_at) {
     const d = new Date(data.approved_at);
     const THAI_MONTHS = [
