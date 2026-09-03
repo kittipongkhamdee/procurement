@@ -6,23 +6,8 @@ import { formatBaht } from "@/lib/thai";
 import type { ApprovalPdfData } from "./approval-types";
 
 const BLACK = rgb(0, 0, 0);
-const WHITE = rgb(1, 1, 1);
 const PAGE_H = 841.92;
 const FONT_SIZE = 11;
-
-/** ปิดทับพื้นที่จุดไข่ปลา/ข้อความเดิมของเทมเพลตด้วยสี่เหลี่ยมขาว ก่อนเขียนค่าจริงทับ — พิกัดอ้างอิง
- * จากขอบบนของหน้า (แบบเดียวกับ bbox ของ PyMuPDF: x0, y1 คือขอบล่างของบรรทัดนั้น) ไม่ขยายกว้างออก
- * ทางซ้าย/ขวาเกินขอบเขตที่ส่งมา (fill() เป็นคนร่นขอบเขตเข้ามาให้แล้ว) กันไม่ให้ไปทับตัวอักษรข้างเคียง
- * ของเทมเพลต (เช่น วงเล็บปิดท้ายป้ายชื่อ) ที่อยู่ชิดกันมาก — ขยายแค่แนวตั้งเล็กน้อยพอกันขอบตกหล่น */
-function whiteout(page: PDFPage, x0: number, x1: number, yBottom: number, height: number) {
-  page.drawRectangle({
-    x: x0,
-    y: PAGE_H - yBottom - 1,
-    width: x1 - x0,
-    height: height + 2,
-    color: WHITE,
-  });
-}
 
 /** วาดข้อความที่พิกัด (x, yBottom) ด้วยขนาดฟอนต์คงที่ FONT_SIZE เสมอ (ไม่ย่ออัตโนมัติ) — yBottom คือ
  * ขอบล่างของบรรทัดนั้นในเทมเพลตต้นฉบับ (ค่าเดียวกับที่ PyMuPDF รายงานเป็น bbox[3]) แปลงเป็นระบบ
@@ -45,15 +30,11 @@ function put(
   page.drawText(text, { x: drawX, y: PAGE_H - yBottom + 6.5, size: FONT_SIZE, font, color: BLACK });
 }
 
-/** ระยะร่นเข้าจากขอบซ้าย/ขวาที่วัดได้จริง (จุดเริ่ม/จบของจุดไข่ปลาในเทมเพลต) ก่อนปิดทับ+เขียนทับ —
- * จุดไข่ปลาในต้นฉบับมักอยู่ชิดวงเล็บปิด/ป้ายชื่อถัดไปมาก (บางจุดห่างกันแค่ ~0.2pt) ถ้าไม่ร่นเข้า
- * สี่เหลี่ยมขาวจะไปทับตัวอักษรข้างเคียงของเทมเพลตพอดี */
+/** ระยะร่นเข้าจากขอบซ้าย/ขวาของช่อง กันไม่ให้ข้อความไปชิดวงเล็บปิด/ป้ายชื่อข้างเคียงในเทมเพลตมากเกินไป */
 const INSET = 2;
 
-/** เคลียร์จุดไข่ปลาเดิมในช่วง (x0,x1) แล้วเขียนค่าจริงทับ ในตำแหน่งเดียวกัน (ร่นขอบเข้าด้านละ INSET)
- * — แนวซ้าย (ค่าเริ่มต้น) ปิดทับแค่ความกว้างของข้อความจริงเท่านั้น ไม่ทับทั้งช่อง เพื่อให้จุดไข่ปลา
- * ส่วนที่เหลือ (ที่ไม่มีข้อความไปเขียนทับ) ยังคงมองเห็นได้เหมือนต้นฉบับ ส่วนแนวกลาง/ขวา (ตัวเลข,
- * ชื่อผู้ลงนาม) ยังคงปิดทับทั้งช่องเหมือนเดิม เพราะเนื้อหาเปลี่ยนความยาวได้และต้องเคลียร์พื้นที่ให้แน่ใจ */
+/** เขียนค่าจริงทับตำแหน่งจุดไข่ปลาเดิมในเทมเพลตตรงๆ โดยไม่ปิดทับพื้นหลังก่อน (พื้นหลังโปร่งใส) —
+ * ให้จุดไข่ปลาเดิมยังมองทะลุเห็นใต้ตัวอักษรที่เขียนทับได้ตามที่ผู้ใช้ต้องการ */
 function fill(
   page: PDFPage,
   font: PDFFont,
@@ -61,15 +42,12 @@ function fill(
   x0: number,
   x1: number,
   yBottom: number,
-  height: number,
+  _height: number,
   opts: { align?: "left" | "center" | "right" } = {},
 ) {
   const left = x0 + INSET;
   const right = x1 - INSET;
   if (!text) return;
-  const clearRight =
-    opts.align && opts.align !== "left" ? right : Math.min(right, left + font.widthOfTextAtSize(text, FONT_SIZE) + 2);
-  whiteout(page, left, clearRight, yBottom, height);
   put(page, font, text, left, yBottom, { maxWidth: right - left, align: opts.align });
 }
 
