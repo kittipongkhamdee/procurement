@@ -271,6 +271,14 @@ export default function ApprovalsPage() {
                           ย้อนสถานะ
                         </button>
                       )}
+                      {a.status === "รออนุมัติ" && (
+                        <a
+                          href={`/approvals/${a.id}/edit`}
+                          className="text-sm font-medium text-navy-700 hover:underline"
+                        >
+                          แก้ไข
+                        </a>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleDelete(a.id)}

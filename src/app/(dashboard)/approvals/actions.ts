@@ -147,6 +147,81 @@ export async function createApproval(formData: FormData) {
   redirect("/approvals");
 }
 
+export async function updateApproval(id: string, formData: FormData) {
+  const supabase = await createClient();
+
+  const requestedAmount = Number(formData.get("requested_amount") ?? 0);
+
+  const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
+  let summaryItems: SummaryItemInput[] = [];
+  try {
+    summaryItems = JSON.parse(summaryItemsRaw);
+  } catch {
+    summaryItems = [];
+  }
+
+  const { error } = await supabase
+    .from("proc_approvals")
+    .update({
+      doc_number: String(formData.get("doc_number") ?? "").trim() || null,
+      doc_date: String(formData.get("doc_date") ?? ""),
+      subject: String(formData.get("subject") ?? ""),
+      addressed_to: String(formData.get("addressed_to") ?? ""),
+      department: String(formData.get("department") ?? "").trim() || null,
+      activity_name: String(formData.get("activity_name") ?? "").trim() || null,
+      plan_date_text: String(formData.get("plan_date_text") ?? "").trim() || null,
+      project_id: String(formData.get("project_id") ?? "") || null,
+      fund_type: String(formData.get("fund_type") ?? "") || null,
+      budget: formData.get("budget") ? Number(formData.get("budget")) : null,
+      requested_amount: requestedAmount,
+      remaining: formData.get("remaining") ? Number(formData.get("remaining")) : null,
+      summary_items: summaryItems
+        .filter((s) => s.label.trim() !== "")
+        .map((s) => ({ label: s.label, amount: s.amount ? Number(s.amount) : null, note: s.note || null })),
+      requested_by_name: String(formData.get("requested_by_name") ?? "") || null,
+      requested_by_position: String(formData.get("requested_by_position") ?? "") || null,
+      group_name: String(formData.get("group_name") ?? "").trim() || null,
+      budget_year_text: String(formData.get("budget_year_text") ?? "").trim() || null,
+    })
+    .eq("id", id)
+    .eq("status", "รออนุมัติ");
+
+  if (error) throw new Error(error.message);
+
+  const itemsRaw = String(formData.get("items_json") ?? "[]");
+  let items: ItemInput[] = [];
+  try {
+    items = JSON.parse(itemsRaw);
+  } catch {
+    items = [];
+  }
+
+  const { error: deleteItemsError } = await supabase.from("proc_approval_items").delete().eq("approval_id", id);
+  if (deleteItemsError) throw new Error(deleteItemsError.message);
+
+  const rowsToInsert = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.name.trim() !== "")
+    .map(({ item, index }) => ({
+      approval_id: id,
+      seq: index + 1,
+      name: item.name,
+      qty: item.qty ? Number(item.qty) : null,
+      unit_price: item.unitPrice ? Number(item.unitPrice) : null,
+      note: item.note || null,
+    }));
+
+  if (rowsToInsert.length > 0) {
+    const { error: itemsError } = await supabase.from("proc_approval_items").insert(rowsToInsert);
+    if (itemsError) throw new Error(itemsError.message);
+  }
+
+  await generatePdf(supabase, id);
+
+  revalidatePath("/approvals");
+  redirect("/approvals");
+}
+
 export async function deleteApproval(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("proc_approvals").delete().eq("id", id);

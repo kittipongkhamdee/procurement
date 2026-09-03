@@ -23,17 +23,59 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
+export type ApprovalFormInitial = {
+  doc_number: string | null;
+  doc_date: string;
+  subject: string;
+  addressed_to: string;
+  department: string | null;
+  activity_name: string | null;
+  project_id: string | null;
+  plan_date_text: string | null;
+  group_name: string | null;
+  budget_year_text: string | null;
+  requested_by_name: string | null;
+  requested_by_position: string | null;
+  fund_type: string | null;
+  summary_items: { label: string; amount: number | null; note: string | null }[];
+  items: { name: string | null; qty: number | null; unit_price: number | null; note: string | null }[];
+};
+
+function initialSummaryRows(initial?: ApprovalFormInitial): SummaryRow[] {
+  if (!initial) return emptySummaryRows();
+  return SUMMARY_LABELS.map((label, i) => {
+    const row = initial.summary_items[i];
+    return { label, amount: row?.amount != null ? String(row.amount) : "", note: row?.note ?? "" };
+  });
+}
+
+function initialItemRows(initial?: ApprovalFormInitial): ItemRow[] {
+  if (!initial) return emptyItemRows();
+  const rows = initial.items.map((item) => ({
+    name: item.name ?? "",
+    qty: item.qty != null ? String(item.qty) : "",
+    unitPrice: item.unit_price != null ? String(item.unit_price) : "",
+    note: item.note ?? "",
+  }));
+  while (rows.length < ITEM_ROW_COUNT) rows.push({ name: "", qty: "", unitPrice: "", note: "" });
+  return rows;
+}
+
 export function ApprovalForm({
   action,
   projects,
+  initial,
+  submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
   action: (formData: FormData) => void | Promise<void>;
   projects: ProjectOption[];
+  initial?: ApprovalFormInitial;
+  submitLabel?: string;
 }) {
-  const [projectId, setProjectId] = useState("");
-  const [fundType, setFundType] = useState("");
-  const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(emptySummaryRows());
-  const [itemRows, setItemRows] = useState<ItemRow[]>(emptyItemRows());
+  const [projectId, setProjectId] = useState(initial?.project_id ?? "");
+  const [fundType, setFundType] = useState(initial?.fund_type ?? "");
+  const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial));
+  const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial));
 
   const selected = useMemo(() => projects.find((p) => p.id === projectId) ?? null, [projects, projectId]);
 
@@ -64,24 +106,39 @@ export function ApprovalForm({
       <section className="card">
         <h2 className="card-title">ข้อมูลทั่วไป</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <input name="doc_number" placeholder="เลขที่หนังสือ (ที่ งป/...)" className="input" />
-          <input type="date" name="doc_date" required className="input" />
+          <input
+            name="doc_number"
+            defaultValue={initial?.doc_number ?? ""}
+            placeholder="เลขที่หนังสือ (ที่ งป/...)"
+            className="input"
+          />
+          <input type="date" name="doc_date" defaultValue={initial?.doc_date ?? ""} required className="input" />
           <div />
           <input
             name="subject"
-            defaultValue="ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ"
+            defaultValue={initial?.subject ?? "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ"}
             required
             className="input sm:col-span-3"
           />
           <input
             name="addressed_to"
-            defaultValue="ผู้อำนวยการโรงเรียนตาเบาวิทยา"
+            defaultValue={initial?.addressed_to ?? "ผู้อำนวยการโรงเรียนตาเบาวิทยา"}
             required
             className="input sm:col-span-3"
           />
 
-          <input name="department" placeholder="ฝ่าย/กลุ่ม/สาระฯ/งาน" className="input" />
-          <input name="activity_name" placeholder="ชื่อกิจกรรม" className="input sm:col-span-2" />
+          <input
+            name="department"
+            defaultValue={initial?.department ?? ""}
+            placeholder="ฝ่าย/กลุ่ม/สาระฯ/งาน"
+            className="input"
+          />
+          <input
+            name="activity_name"
+            defaultValue={initial?.activity_name ?? ""}
+            placeholder="ชื่อกิจกรรม"
+            className="input sm:col-span-2"
+          />
 
           <select
             name="project_id"
@@ -100,17 +157,39 @@ export function ApprovalForm({
             ))}
           </select>
 
-          <input name="plan_date_text" placeholder="จะดำเนินการวันที่" className="input sm:col-span-3" />
+          <input
+            name="plan_date_text"
+            defaultValue={initial?.plan_date_text ?? ""}
+            placeholder="จะดำเนินการวันที่"
+            className="input sm:col-span-3"
+          />
 
-          <input name="group_name" placeholder="กลุ่มงาน (สำหรับหน้ารายการวัสดุอุปกรณ์)" className="input" />
+          <input
+            name="group_name"
+            defaultValue={initial?.group_name ?? ""}
+            placeholder="กลุ่มงาน (สำหรับหน้ารายการวัสดุอุปกรณ์)"
+            className="input"
+          />
           <input
             name="budget_year_text"
+            defaultValue={initial?.budget_year_text ?? ""}
             placeholder="ปีการศึกษา (สำหรับหน้ารายการวัสดุอุปกรณ์)"
             className="input"
           />
 
-          <input name="requested_by_name" placeholder="ผู้รับผิดชอบโครงการ" required className="input" />
-          <input name="requested_by_position" placeholder="ตำแหน่ง" className="input" />
+          <input
+            name="requested_by_name"
+            defaultValue={initial?.requested_by_name ?? ""}
+            placeholder="ผู้รับผิดชอบโครงการ"
+            required
+            className="input"
+          />
+          <input
+            name="requested_by_position"
+            defaultValue={initial?.requested_by_position ?? ""}
+            placeholder="ตำแหน่ง"
+            className="input"
+          />
         </div>
       </section>
 
@@ -246,7 +325,7 @@ export function ApprovalForm({
           ยกเลิก
         </a>
         <button type="submit" className="btn-primary px-6">
-          บันทึกและสร้างเอกสาร
+          {submitLabel}
         </button>
       </div>
     </form>
