@@ -1,8 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { renderToBuffer } from "@react-pdf/renderer";
 import type { Database } from "@/lib/supabase/database.types";
 import { formatThaiDate } from "@/lib/thai";
-import { ApprovalDocument, type ApprovalPdfData } from "./approval-document";
+import { renderApprovalHtml } from "@/lib/pdf-html/approval-template";
+import { renderHtmlToPdfBuffer } from "@/lib/pdf-html/render-html-pdf";
+import type { ApprovalPdfData } from "@/lib/pdf-html/approval-types";
 
 const SIGNER_KEYS = [
   "approval_signer_planning",
@@ -28,7 +29,7 @@ export async function buildApprovalPdfData(
   const [{ data: items }, { data: signerSettings }, { data: schoolSettings }] = await Promise.all([
     supabase.from("proc_approval_items").select("seq, name, qty, unit_price, total, note").eq("approval_id", id).order("seq"),
     supabase.from("proc_app_settings").select("key, value").in("key", SIGNER_KEYS),
-    supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle(),
+    supabase.from("proc_school_settings").select("school_name, logo_url").eq("id", true).maybeSingle(),
   ]);
 
   const signerByKey = new Map((signerSettings ?? []).map((s) => [s.key, s.value]));
@@ -66,6 +67,7 @@ export async function buildApprovalPdfData(
     signer_director: signerByKey.get("approval_signer_director") ?? null,
 
     school_name: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
+    school_logo_url: schoolSettings?.logo_url ?? null,
 
     group_name: approval.group_name,
     budget_year_text: approval.budget_year_text,
@@ -83,5 +85,6 @@ export async function buildApprovalPdfData(
 }
 
 export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
-  return renderToBuffer(<ApprovalDocument data={data} />);
+  const html = renderApprovalHtml(data);
+  return renderHtmlToPdfBuffer(html);
 }
