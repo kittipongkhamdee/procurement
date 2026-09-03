@@ -18,7 +18,7 @@ function put(
   text: string,
   x: number,
   yBottom: number,
-  opts: { maxWidth?: number; align?: "left" | "center" | "right" } = {},
+  opts: { maxWidth?: number; align?: "left" | "center" | "right"; yLift?: number } = {},
 ) {
   if (!text) return;
   let drawX = x;
@@ -27,7 +27,7 @@ function put(
   } else if (opts.align === "right" && opts.maxWidth) {
     drawX = x + opts.maxWidth - font.widthOfTextAtSize(text, FONT_SIZE);
   }
-  page.drawText(text, { x: drawX, y: PAGE_H - yBottom + 6.5, size: FONT_SIZE, font, color: BLACK });
+  page.drawText(text, { x: drawX, y: PAGE_H - yBottom + (opts.yLift ?? 6.5), size: FONT_SIZE, font, color: BLACK });
 }
 
 /** ระยะร่นเข้าจากขอบซ้าย/ขวาของช่อง กันไม่ให้ข้อความไปชิดวงเล็บปิด/ป้ายชื่อข้างเคียงในเทมเพลตมากเกินไป */
@@ -78,19 +78,21 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
 
   fill(page1, font, data.requested_by_name ?? "", 330, 454, 325.6, 17.4, { align: "center" });
 
-  // ตารางรายการเงิน 5 แถว + รวมทั้งสิ้น (ช่องว่างอยู่แล้ว ไม่ต้องปิดทับ)
+  // ตารางรายการเงิน 5 แถว + รวมทั้งสิ้น (ช่องว่างอยู่แล้ว ไม่ต้องปิดทับ) — ใช้ yLift ต่ำกว่าปกติ (4.5pt
+  // แทน 6.5pt) เพราะช่องนี้เป็นตารางที่มีเส้นขอบจริง ไม่ใช่จุดไข่ปลา ตัวเลขจึงควรอยู่กึ่งกลางแถวมากกว่า
   const summaryRowsY = [370.8, 392.6, 414.4, 436.2, 458.0];
   data.summary_items.slice(0, 5).forEach((row, i) => {
-    if (row.amount) put(page1, font, formatBaht(row.amount), 384, summaryRowsY[i], { maxWidth: 50, align: "right" });
-    if (row.note) put(page1, font, row.note, 476, summaryRowsY[i], { maxWidth: 40 });
+    if (row.amount)
+      put(page1, font, formatBaht(row.amount), 384, summaryRowsY[i], { maxWidth: 50, align: "right", yLift: 4.5 });
+    if (row.note) put(page1, font, row.note, 476, summaryRowsY[i], { maxWidth: 40, yLift: 4.5 });
   });
   const summaryTotal = data.summary_items.reduce((sum, i) => sum + (i.amount ?? 0), 0);
-  put(page1, boldFont, formatBaht(summaryTotal), 384, 479.9, { maxWidth: 50, align: "right" });
+  put(page1, boldFont, formatBaht(summaryTotal), 384, 479.9, { maxWidth: 44, align: "right", yLift: 4.5 });
 
   // กล่อง 1: ความเห็นงานแผนงาน
-  fill(page1, font, data.budget != null ? formatBaht(data.budget) : "", 172, 270, 566.0, 17.4);
-  fill(page1, font, formatBaht(data.requested_amount), 156, 270, 587.3, 17.5);
-  fill(page1, font, data.remaining != null ? formatBaht(data.remaining) : "", 170, 270, 608.6, 17.4);
+  fill(page1, font, data.budget != null ? formatBaht(data.budget) : "", 180, 270, 566.0, 17.4);
+  fill(page1, font, formatBaht(data.requested_amount), 164, 270, 587.3, 17.5);
+  fill(page1, font, data.remaining != null ? formatBaht(data.remaining) : "", 178, 270, 608.6, 17.4);
   fill(page1, font, `(${data.signer_planning ?? "-"})`, 90.7, 204.4, 651.2, 17.4, { align: "center" });
 
   // กล่อง 2: ความเห็นเจ้าหน้าที่การเงิน
