@@ -1112,6 +1112,21 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_approval_doc_seq: {
+        Row: {
+          fiscal_year: number
+          last_seq: number
+        }
+        Insert: {
+          fiscal_year: number
+          last_seq?: number
+        }
+        Update: {
+          fiscal_year?: number
+          last_seq?: number
+        }
+        Relationships: []
+      }
       proc_approval_items: {
         Row: {
           approval_id: string
@@ -1883,6 +1898,10 @@ export type Database = {
         Returns: Database["public"]["Enums"]["proc_user_role"]
       }
       proc_is_staff: { Args: never; Returns: boolean }
+      proc_next_approval_doc_seq: {
+        Args: { p_fiscal_year: number }
+        Returns: number
+      }
     }
     Enums: {
       asset_condition: "usable" | "damaged" | "disposal"
