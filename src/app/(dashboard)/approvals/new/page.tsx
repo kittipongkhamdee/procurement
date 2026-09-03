@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ChevronLeftIcon } from "@/components/icons";
 import { createApproval } from "../actions";
 import { ApprovalForm } from "../approval-form";
 
@@ -33,6 +35,13 @@ export default async function NewApprovalPage() {
 
   return (
     <div>
+      <Link
+        href="/approvals"
+        className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800"
+      >
+        <ChevronLeftIcon className="h-4 w-4" />
+        กลับไปประวัติการบันทึกขออนุมัติ
+      </Link>
       <div className="page-header">
         <div>
           <h1 className="page-title">สร้างบันทึกข้อความขออนุมัติ</h1>
