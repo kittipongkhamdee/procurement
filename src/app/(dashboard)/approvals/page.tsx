@@ -43,18 +43,28 @@ type Approval = {
 };
 
 /** สถานะรวมของบันทึก (ควบรวมความเห็นรองผู้อำนวยการ + สถานะผู้อำนวยการ เป็นค่าเดียว) */
-function mergedStatus(a: Approval): "รอความเห็น" | "รออนุมัติ" | "อนุมัติ" | "ไม่อนุมัติ" {
+function mergedStatus(a: Approval): "รอความเห็น" | "รออนุมัติ" | "อนุมัติ" | "ไม่ควรอนุมัติ" | "ไม่อนุมัติ" {
   if (a.status === "อนุมัติ") return "อนุมัติ";
-  if (a.status === "ไม่อนุมัติ" || a.deputy_decision === "ไม่ควร") return "ไม่อนุมัติ";
+  if (a.status === "ไม่อนุมัติ") return "ไม่อนุมัติ";
+  if (a.deputy_decision === "ไม่ควร") return "ไม่ควรอนุมัติ";
   if (a.deputy_decision === "ควร") return "รออนุมัติ";
   return "รอความเห็น";
 }
 
 function mergedStatusBadgeClass(label: string) {
   if (label === "อนุมัติ") return "badge-emerald";
-  if (label === "ไม่อนุมัติ") return "badge-red";
+  if (label === "ไม่อนุมัติ" || label === "ไม่ควรอนุมัติ") return "badge-red";
   if (label === "รออนุมัติ") return "badge-amber";
   return "badge-slate";
+}
+
+/** แก้ไข/ลบได้เมื่อยังไม่ผ่านการเห็นชอบของรองผู้อำนวยการ (deputy_decision !== "ควร") และยังไม่อนุมัติ
+ * — ถ้ารองผู้อำนวยการเห็นชอบแล้ว (รอผู้อำนวยการ) หรือผู้อำนวยการอนุมัติแล้ว แก้ไขไม่ได้ ส่วนกรณี
+ * "ไม่ควรอนุมัติ"/"ไม่อนุมัติ" ยังแก้ไขได้ (แก้แล้วบันทึกจะย้อนสถานะเป็น "รอความเห็น" ใหม่) */
+function isEditableState(a: Approval) {
+  if (a.status === "อนุมัติ") return false;
+  if (a.status === "ไม่อนุมัติ") return true;
+  return a.deputy_decision !== "ควร";
 }
 
 /** ข้อความรายละเอียดความเห็น/สถานะที่รองผู้อำนวยการ+ผู้อำนวยการบันทึกไว้ ใช้แสดงตอนชี้เมาส์/คลิก */
@@ -244,7 +254,8 @@ export default function ApprovalsPage() {
                 // รองผู้อำนวยการต้องกด "ควรอนุมัติ" ก่อน ผู้อำนวยการจึงจะกดอนุมัติ/ไม่อนุมัติได้
                 const directorCanAct = canApproveDirector && a.status === "รออนุมัติ" && a.deputy_decision === "ควร";
                 // แก้ไข/ลบได้เฉพาะเจ้าของบันทึกเองหรือแอดมิน (ครูคนอื่นเห็นรายการได้แต่แก้ไข/ลบไม่ได้)
-                const canEditOrDelete = isAdmin || (!!user && a.created_by === user.userId);
+                const isOwnerOrAdmin = isAdmin || (!!user && a.created_by === user.userId);
+                const editableState = isEditableState(a);
                 return (
                   <tr key={a.id}>
                     <td className="text-slate-400">{index + 1}</td>
@@ -333,14 +344,17 @@ export default function ApprovalsPage() {
                       </a>
                     </td>
                     <td className="text-right">
-                      {a.status === "รออนุมัติ" && canEditOrDelete && (
-                        <a href={`/approvals/${a.id}/edit`} className="text-sm font-medium text-navy-700 hover:underline">
-                          แก้ไข
-                        </a>
-                      )}
+                      {isOwnerOrAdmin &&
+                        (editableState ? (
+                          <a href={`/approvals/${a.id}/edit`} className="text-sm font-medium text-navy-700 hover:underline">
+                            แก้ไข
+                          </a>
+                        ) : (
+                          <span className="text-xs text-slate-400">แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)</span>
+                        ))}
                     </td>
                     <td className="text-right">
-                      {canEditOrDelete && (
+                      {isOwnerOrAdmin && editableState && (
                         <button
                           type="button"
                           onClick={() => handleDelete(a.id)}

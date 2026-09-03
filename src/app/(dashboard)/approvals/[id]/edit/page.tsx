@@ -21,7 +21,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     supabase
       .from("proc_approvals")
       .select(
-        "id, doc_number, doc_date, subject, addressed_to, department, activity_name, project_id, plan_date_text, group_name, budget_year_text, requested_by_name, requested_by_position, fund_type, summary_items, status",
+        "id, doc_number, doc_date, subject, addressed_to, department, activity_name, project_id, plan_date_text, group_name, budget_year_text, requested_by_name, requested_by_position, fund_type, summary_items, status, deputy_decision",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -34,7 +34,10 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   ]);
 
   if (!approval) notFound();
-  if (approval.status !== "รออนุมัติ") notFound();
+  // แก้ไขไม่ได้ถ้ารองผู้อำนวยการเห็นชอบแล้ว (รอผู้อำนวยการ) หรือผู้อำนวยการอนุมัติแล้ว — ถ้าเป็น
+  // "ไม่ควรอนุมัติ"/"ไม่อนุมัติ" ยังแก้ไขได้ (ตรงกับเงื่อนไขใน actions.ts:updateApproval)
+  const editable = approval.status === "ไม่อนุมัติ" || (approval.status === "รออนุมัติ" && approval.deputy_decision !== "ควร");
+  if (!editable) notFound();
 
   const budgetByProject = new Map<string, number>();
   (activities ?? []).forEach((a) => {
