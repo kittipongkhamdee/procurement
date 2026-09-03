@@ -57,12 +57,13 @@ function checkmark(page: PDFPage, font: PDFFont, x0: number, yBottom: number) {
 
 export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
   const templateBytes = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf-overlay/approval-template.pdf"));
-  const sarabunRegular = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf/fonts/Sarabun-Regular.ttf"));
+  const sarabunLight = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf/fonts/Sarabun-Light.ttf"));
   const sarabunBold = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf/fonts/Sarabun-Bold.ttf"));
 
   const pdfDoc = await PDFDocument.load(templateBytes);
   pdfDoc.registerFontkit(fontkit);
-  const font = await pdfDoc.embedFont(sarabunRegular, { subset: true });
+  // ใช้ Sarabun Light (ไม่ใช่ Regular) ให้ตัวหนังสือที่เขียนทับดูบางลงกว่าเดิมตามที่ผู้ใช้ขอ
+  const font = await pdfDoc.embedFont(sarabunLight, { subset: true });
   const boldFont = await pdfDoc.embedFont(sarabunBold, { subset: true });
 
   const [page1, page2] = pdfDoc.getPages();
