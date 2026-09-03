@@ -1,8 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatThaiDate } from "@/lib/thai";
 
 type ProjectOption = { id: string; name: string; budget: number; approvedSoFar: number };
+type ActivityOption = { id: string; project_id: string; name: string | null };
+type AdminGroupOption = { id: string; name: string };
+type TeacherOption = { id: string; name: string; is_active: boolean };
 const ITEM_ROW_COUNT = 15;
 type ItemRow = { name: string; qty: string; unitPrice: string; note: string };
 
@@ -64,11 +68,17 @@ function initialItemRows(initial?: ApprovalFormInitial): ItemRow[] {
 export function ApprovalForm({
   action,
   projects,
+  activities,
+  adminGroups,
+  teachers,
   initial,
   submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
   action: (formData: FormData) => void | Promise<void>;
   projects: ProjectOption[];
+  activities: ActivityOption[];
+  adminGroups: AdminGroupOption[];
+  teachers: TeacherOption[];
   initial?: ApprovalFormInitial;
   submitLabel?: string;
 }) {
@@ -76,8 +86,26 @@ export function ApprovalForm({
   const [fundType, setFundType] = useState(initial?.fund_type ?? "");
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial));
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial));
+  const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
+  const [planDateISO, setPlanDateISO] = useState("");
 
   const selected = useMemo(() => projects.find((p) => p.id === projectId) ?? null, [projects, projectId]);
+  const activityOptions = useMemo(() => activities.filter((a) => a.project_id === projectId), [activities, projectId]);
+
+  // เปลี่ยนโครงการแล้วให้เลือกกิจกรรมใหม่ (กิจกรรมเดิมอาจไม่ได้อยู่ในโครงการนี้) — ยกเว้นตอนโหลดครั้งแรก
+  const isFirstProjectRender = useRef(true);
+  useEffect(() => {
+    if (isFirstProjectRender.current) {
+      isFirstProjectRender.current = false;
+      return;
+    }
+    setActivityName("");
+  }, [projectId]);
+
+  const visibleTeachers = useMemo(
+    () => teachers.filter((t) => t.is_active || t.name === initial?.requested_by_name),
+    [teachers, initial?.requested_by_name],
+  );
 
   const requestedAmount = summaryRows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
   const remaining = selected ? selected.budget - selected.approvedSoFar - requestedAmount : 0;
@@ -98,6 +126,8 @@ export function ApprovalForm({
     formData.set("requested_amount", String(requestedAmount));
     formData.set("remaining", String(remaining));
     formData.set("fund_type", fundType);
+    formData.set("activity_name", activityName);
+    formData.set("plan_date_text", planDateISO ? formatThaiDate(planDateISO) : (initial?.plan_date_text ?? ""));
     return action(formData);
   }
 
@@ -127,18 +157,29 @@ export function ApprovalForm({
             className="input sm:col-span-3"
           />
 
-          <input
-            name="department"
-            defaultValue={initial?.department ?? ""}
-            placeholder="ฝ่าย/กลุ่ม/สาระฯ/งาน"
-            className="input"
-          />
-          <input
-            name="activity_name"
-            defaultValue={initial?.activity_name ?? ""}
-            placeholder="ชื่อกิจกรรม"
+          <select name="department" defaultValue={initial?.department ?? ""} className="input">
+            <option value="">-- ฝ่าย/กลุ่ม/สาระฯ/งาน --</option>
+            {adminGroups.map((g) => (
+              <option key={g.id} value={g.name}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={activityName}
+            onChange={(e) => setActivityName(e.target.value)}
+            disabled={!projectId}
             className="input sm:col-span-2"
-          />
+          >
+            <option value="">
+              {projectId ? "-- เลือกชื่อกิจกรรม --" : "-- เลือกโครงการก่อน --"}
+            </option>
+            {activityOptions.map((a) => (
+              <option key={a.id} value={a.name ?? ""}>
+                {a.name}
+              </option>
+            ))}
+          </select>
 
           <select
             name="project_id"
@@ -157,12 +198,21 @@ export function ApprovalForm({
             ))}
           </select>
 
-          <input
-            name="plan_date_text"
-            defaultValue={initial?.plan_date_text ?? ""}
-            placeholder="จะดำเนินการวันที่"
-            className="input sm:col-span-3"
-          />
+          <div className="sm:col-span-3">
+            <input
+              type="date"
+              value={planDateISO}
+              onChange={(e) => setPlanDateISO(e.target.value)}
+              className="input w-full"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              {planDateISO
+                ? `จะบันทึกเป็น: ${formatThaiDate(planDateISO)}`
+                : initial?.plan_date_text
+                  ? `ปัจจุบัน: ${initial.plan_date_text} (เลือกวันที่ใหม่เพื่อเปลี่ยน)`
+                  : "จะดำเนินการวันที่"}
+            </p>
+          </div>
 
           <input
             name="group_name"
@@ -177,13 +227,21 @@ export function ApprovalForm({
             className="input"
           />
 
-          <input
+          <select
             name="requested_by_name"
             defaultValue={initial?.requested_by_name ?? ""}
-            placeholder="ผู้รับผิดชอบโครงการ"
             required
             className="input"
-          />
+          >
+            <option value="" disabled>
+              -- ผู้รับผิดชอบโครงการ --
+            </option>
+            {visibleTeachers.map((t) => (
+              <option key={t.id} value={t.name}>
+                {t.name}
+              </option>
+            ))}
+          </select>
           <input
             name="requested_by_position"
             defaultValue={initial?.requested_by_position ?? ""}

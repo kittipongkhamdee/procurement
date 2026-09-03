@@ -9,20 +9,29 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: approval }, { data: items }, { data: projects }, { data: activities }, { data: approvals }] =
-    await Promise.all([
-      supabase
-        .from("proc_approvals")
-        .select(
-          "id, doc_number, doc_date, subject, addressed_to, department, activity_name, project_id, plan_date_text, group_name, budget_year_text, requested_by_name, requested_by_position, fund_type, summary_items, status",
-        )
-        .eq("id", id)
-        .maybeSingle(),
-      supabase.from("proc_approval_items").select("name, qty, unit_price, note").eq("approval_id", id).order("seq"),
-      supabase.from("plan_projects").select("id, name").order("sort_order"),
-      supabase.from("plan_activities").select("project_id, budget"),
-      supabase.from("proc_approvals").select("id, project_id, requested_amount").eq("status", "อนุมัติ"),
-    ]);
+  const [
+    { data: approval },
+    { data: items },
+    { data: projects },
+    { data: activities },
+    { data: approvals },
+    { data: adminGroups },
+    { data: teachers },
+  ] = await Promise.all([
+    supabase
+      .from("proc_approvals")
+      .select(
+        "id, doc_number, doc_date, subject, addressed_to, department, activity_name, project_id, plan_date_text, group_name, budget_year_text, requested_by_name, requested_by_position, fund_type, summary_items, status",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase.from("proc_approval_items").select("name, qty, unit_price, note").eq("approval_id", id).order("seq"),
+    supabase.from("plan_projects").select("id, name").order("sort_order"),
+    supabase.from("plan_activities").select("id, project_id, name, budget"),
+    supabase.from("proc_approvals").select("id, project_id, requested_amount").eq("status", "อนุมัติ"),
+    supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
+    supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+  ]);
 
   if (!approval) notFound();
   if (approval.status !== "รออนุมัติ") notFound();
@@ -82,6 +91,9 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
       <ApprovalForm
         action={updateApproval.bind(null, id)}
         projects={projectOptions}
+        activities={(activities ?? []).map((a) => ({ id: a.id, project_id: a.project_id, name: a.name }))}
+        adminGroups={adminGroups ?? []}
+        teachers={teachers ?? []}
         initial={initial}
         submitLabel="บันทึกการแก้ไข"
       />
