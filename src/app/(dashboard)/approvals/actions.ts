@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { buildApprovalPdfData, renderApprovalPdfBuffer } from "@/lib/pdf/build-approval-pdf";
@@ -172,7 +171,6 @@ export async function createApproval(formData: FormData) {
   await generatePdf(supabase, approval.id);
 
   revalidatePath("/approvals");
-  redirect("/approvals");
 }
 
 export async function updateApproval(id: string, formData: FormData) {
@@ -247,7 +245,6 @@ export async function updateApproval(id: string, formData: FormData) {
   await generatePdf(supabase, id);
 
   revalidatePath("/approvals");
-  redirect("/approvals");
 }
 
 export async function deleteApproval(id: string) {

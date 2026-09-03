@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
-import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import {
   deleteApproval,
@@ -100,8 +100,11 @@ export default function ApprovalsPage() {
   }, [reload]);
 
   async function handleDelete(id: string) {
+    const ok = await confirmDelete({ title: "ลบบันทึกขออนุมัตินี้?", text: "ไม่สามารถย้อนกลับได้" });
+    if (!ok) return;
     try {
       await deleteApproval(id);
+      await toastSuccess("ลบบันทึกแล้ว");
       reload();
     } catch (err) {
       await toastError(errorMessage(err));

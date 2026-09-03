@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatThaiDate } from "@/lib/thai";
+import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
 type ProjectOption = { id: string; name: string; budget: number; approvedSoFar: number };
 type ActivityOption = { id: string; project_id: string; name: string | null };
@@ -81,11 +83,13 @@ export function ApprovalForm({
   initial?: ApprovalFormInitial;
   submitLabel?: string;
 }) {
+  const router = useRouter();
   const [projectId, setProjectId] = useState(initial?.project_id ?? "");
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial));
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
   const [planDateISO, setPlanDateISO] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const selected = useMemo(() => projects.find((p) => p.id === projectId) ?? null, [projects, projectId]);
   const activityOptions = useMemo(() => activities.filter((a) => a.project_id === projectId), [activities, projectId]);
@@ -117,7 +121,9 @@ export function ApprovalForm({
     setItemRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
-  function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     formData.set("summary_items_json", JSON.stringify(summaryRows));
     formData.set("items_json", JSON.stringify(itemRows));
     formData.set("budget", selected ? String(selected.budget) : "");
@@ -130,11 +136,24 @@ export function ApprovalForm({
     formData.set("group_name", initial?.group_name ?? "");
     formData.set("budget_year_text", initial?.budget_year_text ?? "");
     if (initial) formData.set("doc_number", initial.doc_number ?? "");
-    return action(formData);
+
+    const ok = await confirmWarning({ title: initial ? "ยืนยันบันทึกการแก้ไข?" : "ยืนยันบันทึกข้อมูล?" });
+    if (!ok) return;
+
+    setSubmitting(true);
+    try {
+      await action(formData);
+      await toastSuccess(initial ? "บันทึกการแก้ไขแล้ว" : "บันทึกข้อมูลแล้ว");
+      router.push("/approvals");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <form action={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <section className="card">
         <h2 className="card-title">ข้อมูลทั่วไป</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -358,8 +377,8 @@ export function ApprovalForm({
         <a href="/approvals" className="btn-secondary">
           ยกเลิก
         </a>
-        <button type="submit" className="btn-primary px-6">
-          {submitLabel}
+        <button type="submit" disabled={submitting} className="btn-primary px-6">
+          {submitting ? "กำลังบันทึก..." : submitLabel}
         </button>
       </div>
     </form>
