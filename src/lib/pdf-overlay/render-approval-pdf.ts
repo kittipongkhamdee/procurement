@@ -68,6 +68,9 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   const [page1, page2] = pdfDoc.getPages();
 
   // ---------- หน้า 1 ----------
+  // บรรทัด "เรื่อง" — เขียนชื่อโครงการทับคำว่า "โครงการ" ท้ายข้อความเดิมของเทมเพลต (ผู้ใช้แจ้งว่า
+  // จะไปลบคำว่า "โครงการ" ออกจากเทมเพลตเองภายหลัง จึงเขียนทับตำแหน่งนั้นได้เลยตอนนี้)
+  fill(page1, font, data.project_name ?? "", 274.4, 537, 147.4, 17.5);
   fill(page1, font, data.doc_number ?? "", 127, 286, 120.9, 17.5);
   fill(page1, font, data.doc_date, 320, 534, 120.9, 17.5);
   fill(page1, font, data.department ?? "", 245, 428, 191.8, 17.5);
