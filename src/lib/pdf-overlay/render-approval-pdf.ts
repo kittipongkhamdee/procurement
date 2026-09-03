@@ -74,20 +74,20 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   fill(page1, font, data.activity_name ?? "", 138, 538, 213.1, 17.5);
   fill(page1, font, data.project_name ?? "", 160, 537, 234.4, 17.5);
   fill(page1, font, data.plan_date_text ?? "", 160, 261, 255.6, 17.4);
-  fill(page1, font, formatBaht(data.requested_amount), 451, 519, 255.6, 17.4, { align: "right" });
+  fill(page1, font, formatBaht(data.requested_amount), 451, 503, 255.6, 17.4, { align: "right" });
 
   fill(page1, font, data.requested_by_name ?? "", 330, 454, 325.6, 17.4, { align: "center" });
 
-  // ตารางรายการเงิน 5 แถว + รวมทั้งสิ้น (ช่องว่างอยู่แล้ว ไม่ต้องปิดทับ) — ใช้ yLift ต่ำกว่าปกติ (4.5pt
+  // ตารางรายการเงิน 5 แถว + รวมทั้งสิ้น (ช่องว่างอยู่แล้ว ไม่ต้องปิดทับ) — ใช้ yLift ต่ำกว่าปกติ (4.0pt
   // แทน 6.5pt) เพราะช่องนี้เป็นตารางที่มีเส้นขอบจริง ไม่ใช่จุดไข่ปลา ตัวเลขจึงควรอยู่กึ่งกลางแถวมากกว่า
   const summaryRowsY = [370.8, 392.6, 414.4, 436.2, 458.0];
   data.summary_items.slice(0, 5).forEach((row, i) => {
     if (row.amount)
-      put(page1, font, formatBaht(row.amount), 384, summaryRowsY[i], { maxWidth: 50, align: "right", yLift: 4.5 });
-    if (row.note) put(page1, font, row.note, 476, summaryRowsY[i], { maxWidth: 40, yLift: 4.5 });
+      put(page1, font, formatBaht(row.amount), 384, summaryRowsY[i], { maxWidth: 50, align: "right", yLift: 4.0 });
+    if (row.note) put(page1, font, row.note, 476, summaryRowsY[i], { maxWidth: 40, yLift: 4.0 });
   });
   const summaryTotal = data.summary_items.reduce((sum, i) => sum + (i.amount ?? 0), 0);
-  put(page1, boldFont, formatBaht(summaryTotal), 384, 479.9, { maxWidth: 44, align: "right", yLift: 4.5 });
+  put(page1, boldFont, formatBaht(summaryTotal), 384, 479.9, { maxWidth: 44, align: "right", yLift: 4.0 });
 
   // กล่อง 1: ความเห็นงานแผนงาน
   fill(page1, font, data.budget != null ? formatBaht(data.budget) : "", 180, 270, 566.0, 17.4);
