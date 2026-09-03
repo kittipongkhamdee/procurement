@@ -68,28 +68,40 @@ export default function EditProjectReportPage() {
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: reportRow }, { data: projectRows }, { data: proposals }, { data: aiSetting }] = await Promise.all([
-      supabase
-        .from("proc_project_reports")
-        .select(
-          "id, project_id, uploaded_by, photo_refs, not_implemented, not_implemented_reason, responsible_name, period_start, period_end, location, background, objectives, activities_done, indicator_results_quantity, indicator_results_quality, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations",
-        )
-        .eq("id", id)
-        .maybeSingle(),
-      supabase
-        .from("plan_projects")
-        .select("id, name, budget, plan_activities(budget)")
-        .order("sort_order"),
-      supabase
-        .from("plan_project_proposals")
-        .select(
-          "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
-        )
-        .not("project_id", "is", null),
-      supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
-    ]);
+    const [{ data: reportRow }, { data: projectRows }, { data: proposals }, { data: aiSetting }, { data: approvals }] =
+      await Promise.all([
+        supabase
+          .from("proc_project_reports")
+          .select(
+            "id, project_id, uploaded_by, photo_refs, not_implemented, not_implemented_reason, responsible_name, period_start, period_end, location, background, objectives, activities_done, indicator_results_quantity, indicator_results_quality, satisfaction_percent, budget_approved, budget_used, highlights, problems, recommendations",
+          )
+          .eq("id", id)
+          .maybeSingle(),
+        supabase
+          .from("plan_projects")
+          .select("id, name, budget, plan_activities(budget)")
+          .order("sort_order"),
+        supabase
+          .from("plan_project_proposals")
+          .select(
+            "project_id, strategy_alignment, standard, responsible, objectives, indicators_quantity, indicators_quality, file_url_pdf",
+          )
+          .not("project_id", "is", null),
+        supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
+        supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
+      ]);
     setAiExtractionEnabled(aiSetting?.value !== "false");
     const proposalByProjectId = new Map((proposals as unknown as Proposal[] ?? []).map((p) => [p.project_id, p]));
+    // ผลรวมงบที่อนุมัติจริงจากบันทึกขออนุมัติ (สถานะ "อนุมัติ") ต่อโครงการ — ใช้เติมช่อง
+    // "งบประมาณที่ใช้ไปจริง" ในฟอร์มรายงานให้อัตโนมัติตอนเลือกโครงการ
+    const approvedUsedByProjectId = new Map<string, number>();
+    for (const a of approvals ?? []) {
+      if (!a.project_id) continue;
+      approvedUsedByProjectId.set(
+        a.project_id,
+        (approvedUsedByProjectId.get(a.project_id) ?? 0) + Number(a.requested_amount ?? 0),
+      );
+    }
     setProjects(
       (projectRows ?? []).map((p) => {
         const proposal = proposalByProjectId.get(p.id);
@@ -105,6 +117,7 @@ export default function EditProjectReportPage() {
           id: p.id,
           name: p.name,
           budget,
+          budgetUsedApproved: approvedUsedByProjectId.get(p.id) ?? null,
           strategyAlignment: proposal?.strategy_alignment ?? null,
           standard: proposal?.standard ?? null,
           responsible: proposal?.responsible ?? [],

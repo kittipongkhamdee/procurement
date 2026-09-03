@@ -7,6 +7,47 @@ import { buildApprovalPdfData, renderApprovalPdfBuffer } from "@/lib/pdf/build-a
 
 const PDF_BUCKET = "procurement-documents";
 
+async function requireUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+  return { supabase, user };
+}
+
+async function requireAdmin() {
+  const { supabase, user } = await requireUser();
+  const { data: profile } = await supabase
+    .from("proc_profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profile?.role !== "admin") throw new Error("เฉพาะผู้ดูแลระบบเท่านั้น");
+  return supabase;
+}
+
+/** อนุญาตให้ผู้ดูแลระบบ หรือผู้ที่มีสถานะผู้ใช้งานตามชื่อที่ระบุ (เช่น "ผู้อำนวยการ") ทำรายการได้ —
+ * แพทเทิร์นเดียวกับ requireAdminOrGroup ใน project-proposals/actions.ts */
+async function requireAdminOrGroup(groupName: string) {
+  const { supabase, user } = await requireUser();
+  const { data: profile } = await supabase
+    .from("proc_profiles")
+    .select("role, full_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profile?.role === "admin") return { supabase, signerName: profile.full_name ?? user.email ?? "" };
+
+  const { data: membership } = await supabase
+    .from("proc_user_group_members")
+    .select("group_id, proc_user_groups!inner(name)")
+    .eq("user_id", user.id)
+    .eq("proc_user_groups.name", groupName)
+    .maybeSingle();
+  if (!membership) throw new Error(`เฉพาะผู้ดูแลระบบหรือผู้มีสถานะ "${groupName}" เท่านั้น`);
+  return { supabase, signerName: profile?.full_name ?? user.email ?? "" };
+}
+
 type ItemInput = { name: string; qty: string; unit: string; unitPrice: string };
 
 export async function createApproval(formData: FormData) {
@@ -89,6 +130,33 @@ export async function createApproval(formData: FormData) {
 export async function deleteApproval(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("proc_approvals").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/approvals");
+}
+
+export async function updateApprovalStatus(id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) {
+  const { supabase, signerName } = await requireAdminOrGroup("ผู้อำนวยการ");
+  const { error } = await supabase
+    .from("proc_approvals")
+    .update({
+      status: decision,
+      approved_by_name: signerName.trim() || null,
+      approved_at: new Date().toISOString(),
+      approve_note: note?.trim() || null,
+    })
+    .eq("id", id)
+    .eq("status", "รออนุมัติ");
+  if (error) throw new Error(error.message);
+  revalidatePath("/approvals");
+}
+
+/** ย้อนสถานะกลับเป็น "รออนุมัติ" เผื่อกดอนุมัติ/ไม่อนุมัติผิด */
+export async function resetApprovalStatus(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("proc_approvals")
+    .update({ status: "รออนุมัติ", approved_by_name: null, approved_at: null, approve_note: null })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/approvals");
 }

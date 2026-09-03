@@ -19,6 +19,8 @@ export type Project = {
   id: string;
   name: string;
   budget: number | null;
+  /** ผลรวม requested_amount จากบันทึกขออนุมัติ (เมนู "บันทึกขออนุมัติ") ที่สถานะ "อนุมัติ" ของโครงการนี้ */
+  budgetUsedApproved: number | null;
   strategyAlignment: string | null;
   standard: string | null;
   responsible: string[];
@@ -311,6 +313,7 @@ export function ProjectReportForm({
     setProjectId(id);
     const project = projects.find((p) => p.id === id);
     if (project?.budget != null) setBudgetApproved(String(project.budget));
+    if (project?.budgetUsedApproved != null) setBudgetUsed(String(project.budgetUsedApproved));
     if (project?.responsible && project.responsible.length > 0)
       setResponsibleName(project.responsible.join(", "));
     setObjectives(
