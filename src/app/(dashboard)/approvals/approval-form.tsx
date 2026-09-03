@@ -165,21 +165,6 @@ export function ApprovalForm({
               </option>
             ))}
           </select>
-          <select
-            value={activityName}
-            onChange={(e) => setActivityName(e.target.value)}
-            disabled={!projectId}
-            className="input sm:col-span-2"
-          >
-            <option value="">
-              {projectId ? "-- เลือกชื่อกิจกรรม --" : "-- เลือกโครงการก่อน --"}
-            </option>
-            {activityOptions.map((a) => (
-              <option key={a.id} value={a.name ?? ""}>
-                {a.name}
-              </option>
-            ))}
-          </select>
 
           <select
             name="project_id"
@@ -194,6 +179,22 @@ export function ApprovalForm({
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={activityName}
+            onChange={(e) => setActivityName(e.target.value)}
+            disabled={!projectId}
+            className="input sm:col-span-3"
+          >
+            <option value="">
+              {projectId ? "-- เลือกชื่อกิจกรรม --" : "-- เลือกโครงการก่อน --"}
+            </option>
+            {activityOptions.map((a) => (
+              <option key={a.id} value={a.name ?? ""}>
+                {a.name}
               </option>
             ))}
           </select>
