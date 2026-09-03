@@ -24,6 +24,7 @@ function formatBaht(n: number) {
 
 type Approval = {
   id: string;
+  created_by: string | null;
   doc_number: string | null;
   doc_date: string;
   activity_name: string | null;
@@ -90,7 +91,7 @@ export default function ApprovalsPage() {
     const { data, error } = await supabase
       .from("proc_approvals")
       .select(
-        "id, doc_number, doc_date, activity_name, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, plan_projects(name)",
+        "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, plan_projects(name)",
       )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
@@ -242,6 +243,8 @@ export default function ApprovalsPage() {
                 const expanded = expandedStatusId === a.id;
                 // รองผู้อำนวยการต้องกด "ควรอนุมัติ" ก่อน ผู้อำนวยการจึงจะกดอนุมัติ/ไม่อนุมัติได้
                 const directorCanAct = canApproveDirector && a.status === "รออนุมัติ" && a.deputy_decision === "ควร";
+                // แก้ไข/ลบได้เฉพาะเจ้าของบันทึกเองหรือแอดมิน (ครูคนอื่นเห็นรายการได้แต่แก้ไข/ลบไม่ได้)
+                const canEditOrDelete = isAdmin || (!!user && a.created_by === user.userId);
                 return (
                   <tr key={a.id}>
                     <td className="text-slate-400">{index + 1}</td>
@@ -330,20 +333,22 @@ export default function ApprovalsPage() {
                       </a>
                     </td>
                     <td className="text-right">
-                      {a.status === "รออนุมัติ" && (
+                      {a.status === "รออนุมัติ" && canEditOrDelete && (
                         <a href={`/approvals/${a.id}/edit`} className="text-sm font-medium text-navy-700 hover:underline">
                           แก้ไข
                         </a>
                       )}
                     </td>
                     <td className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(a.id)}
-                        className="text-sm font-medium text-red-600 hover:underline"
-                      >
-                        ลบ
-                      </button>
+                      {canEditOrDelete && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(a.id)}
+                          className="text-sm font-medium text-red-600 hover:underline"
+                        >
+                          ลบ
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
