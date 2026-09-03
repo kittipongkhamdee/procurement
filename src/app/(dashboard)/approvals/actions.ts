@@ -48,7 +48,28 @@ async function requireAdminOrGroup(groupName: string) {
   return { supabase, signerName: profile?.full_name ?? user.email ?? "" };
 }
 
-type ItemInput = { name: string; qty: string; unit: string; unitPrice: string };
+type ItemInput = { name: string; qty: string; unitPrice: string; note: string };
+type SummaryItemInput = { label: string; amount: string; note: string };
+
+async function generatePdf(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string) {
+  // best-effort: บันทึกหลักถูกบันทึกไปแล้ว การสร้าง PDF ล่วงหน้าล้มเหลวไม่ควรทำให้ทั้งการบันทึกล้มเหลวตาม
+  // (หน้า [id]/pdf ยังพิมพ์สดได้เสมอ)
+  try {
+    const pdfResult = await buildApprovalPdfData(supabase, approvalId);
+    if (pdfResult) {
+      const buffer = await renderApprovalPdfBuffer(pdfResult.data);
+      const path = `approvals/${approvalId}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from(PDF_BUCKET)
+        .upload(path, buffer, { contentType: "application/pdf", upsert: true });
+      if (!uploadError) {
+        await supabase.from("proc_approvals").update({ approval_pdf_url: path }).eq("id", approvalId);
+      }
+    }
+  } catch {
+    // ignored — see comment above
+  }
+}
 
 export async function createApproval(formData: FormData) {
   const supabase = await createClient();
@@ -58,21 +79,36 @@ export async function createApproval(formData: FormData) {
 
   const requestedAmount = Number(formData.get("requested_amount") ?? 0);
 
+  const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
+  let summaryItems: SummaryItemInput[] = [];
+  try {
+    summaryItems = JSON.parse(summaryItemsRaw);
+  } catch {
+    summaryItems = [];
+  }
+
   const { data: approval, error } = await supabase
     .from("proc_approvals")
     .insert({
+      doc_number: String(formData.get("doc_number") ?? "").trim() || null,
       doc_date: String(formData.get("doc_date") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       addressed_to: String(formData.get("addressed_to") ?? ""),
+      department: String(formData.get("department") ?? "").trim() || null,
+      activity_name: String(formData.get("activity_name") ?? "").trim() || null,
+      plan_date_text: String(formData.get("plan_date_text") ?? "").trim() || null,
       project_id: String(formData.get("project_id") ?? "") || null,
       fund_type: String(formData.get("fund_type") ?? "") || null,
       budget: formData.get("budget") ? Number(formData.get("budget")) : null,
-      paid: formData.get("paid") ? Number(formData.get("paid")) : null,
       requested_amount: requestedAmount,
       remaining: formData.get("remaining") ? Number(formData.get("remaining")) : null,
-      detail_text: String(formData.get("detail_text") ?? "") || null,
+      summary_items: summaryItems
+        .filter((s) => s.label.trim() !== "")
+        .map((s) => ({ label: s.label, amount: s.amount ? Number(s.amount) : null, note: s.note || null })),
       requested_by_name: String(formData.get("requested_by_name") ?? "") || null,
       requested_by_position: String(formData.get("requested_by_position") ?? "") || null,
+      group_name: String(formData.get("group_name") ?? "").trim() || null,
+      budget_year_text: String(formData.get("budget_year_text") ?? "").trim() || null,
       created_by: user?.id ?? null,
     })
     .select("id")
@@ -96,8 +132,8 @@ export async function createApproval(formData: FormData) {
       seq: index + 1,
       name: item.name,
       qty: item.qty ? Number(item.qty) : null,
-      unit: item.unit || null,
       unit_price: item.unitPrice ? Number(item.unitPrice) : null,
+      note: item.note || null,
     }));
 
   if (rowsToInsert.length > 0) {
@@ -105,23 +141,7 @@ export async function createApproval(formData: FormData) {
     if (itemsError) throw new Error(itemsError.message);
   }
 
-  // Best-effort: the approval and its items are already saved above, so a PDF failure
-  // here shouldn't fail the whole save — the [id]/pdf route can still render it live.
-  try {
-    const pdfResult = await buildApprovalPdfData(supabase, approval.id);
-    if (pdfResult) {
-      const buffer = await renderApprovalPdfBuffer(pdfResult.data);
-      const path = `approvals/${approval.id}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from(PDF_BUCKET)
-        .upload(path, buffer, { contentType: "application/pdf", upsert: true });
-      if (!uploadError) {
-        await supabase.from("proc_approvals").update({ approval_pdf_url: path }).eq("id", approval.id);
-      }
-    }
-  } catch {
-    // ignored — see comment above
-  }
+  await generatePdf(supabase, approval.id);
 
   revalidatePath("/approvals");
   redirect("/approvals");
@@ -147,6 +167,7 @@ export async function updateApprovalStatus(id: string, decision: "อนุม�
     .eq("id", id)
     .eq("status", "รออนุมัติ");
   if (error) throw new Error(error.message);
+  await generatePdf(supabase, id);
   revalidatePath("/approvals");
 }
 
@@ -158,5 +179,35 @@ export async function resetApprovalStatus(id: string) {
     .update({ status: "รออนุมัติ", approved_by_name: null, approved_at: null, approve_note: null })
     .eq("id", id);
   if (error) throw new Error(error.message);
+  await generatePdf(supabase, id);
+  revalidatePath("/approvals");
+}
+
+export async function updateDeputyDecision(id: string, decision: "ควร" | "ไม่ควร", note?: string) {
+  const { supabase, signerName } = await requireAdminOrGroup("รองผู้อำนวยการ");
+  const { error } = await supabase
+    .from("proc_approvals")
+    .update({
+      deputy_decision: decision,
+      deputy_decided_by_name: signerName.trim() || null,
+      deputy_decided_at: new Date().toISOString(),
+      deputy_note: decision === "ไม่ควร" ? note?.trim() || null : null,
+    })
+    .eq("id", id)
+    .is("deputy_decision", null);
+  if (error) throw new Error(error.message);
+  await generatePdf(supabase, id);
+  revalidatePath("/approvals");
+}
+
+/** ย้อนความเห็นของรองผู้อำนวยการกลับเป็นค่าว่าง เผื่อกดผิด */
+export async function resetDeputyDecision(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("proc_approvals")
+    .update({ deputy_decision: null, deputy_decided_by_name: null, deputy_decided_at: null, deputy_note: null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  await generatePdf(supabase, id);
   revalidatePath("/approvals");
 }

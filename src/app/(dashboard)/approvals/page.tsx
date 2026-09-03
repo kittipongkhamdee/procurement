@@ -10,7 +10,13 @@ import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { deleteApproval, resetApprovalStatus, updateApprovalStatus } from "./actions";
+import {
+  deleteApproval,
+  resetApprovalStatus,
+  resetDeputyDecision,
+  updateApprovalStatus,
+  updateDeputyDecision,
+} from "./actions";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -22,6 +28,12 @@ function statusBadgeClass(status: string) {
   return "badge-amber";
 }
 
+function deputyBadgeClass(decision: string | null) {
+  if (decision === "ควร") return "badge-emerald";
+  if (decision === "ไม่ควร") return "badge-red";
+  return "badge-slate";
+}
+
 type Approval = {
   id: string;
   doc_date: string;
@@ -30,6 +42,7 @@ type Approval = {
   requested_by_name: string | null;
   approval_pdf_url: string | null;
   status: string;
+  deputy_decision: string | null;
   plan_projects: { name: string } | null;
 };
 
@@ -38,7 +51,8 @@ export default function ApprovalsPage() {
   const [approvals, setApprovals] = useState<Approval[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signedPdfUrls, setSignedPdfUrls] = useState<Map<string, string>>(new Map());
-  const [canApprove, setCanApprove] = useState(false);
+  const [canApproveDirector, setCanApproveDirector] = useState(false);
+  const [canApproveDeputy, setCanApproveDeputy] = useState(false);
 
   const reload = useCallback(async () => {
     if (authLoading) return;
@@ -46,7 +60,7 @@ export default function ApprovalsPage() {
     const { data, error } = await supabase
       .from("proc_approvals")
       .select(
-        "id, doc_date, subject, requested_amount, requested_by_name, approval_pdf_url, status, plan_projects(name)",
+        "id, doc_date, subject, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, plan_projects(name)",
       )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
@@ -65,19 +79,19 @@ export default function ApprovalsPage() {
       setSignedPdfUrls(new Map());
     }
 
-    // สิทธิ์เปลี่ยนสถานะ "อนุมัติ"/"ไม่อนุมัติ": แอดมิน หรือผู้มีสถานะผู้ใช้งาน "ผู้อำนวยการ"
-    // (แพทเทิร์นเดียวกับ canApprove ในหน้าเสนอโครงการ)
-    let myCanApprove = isAdmin;
+    // สิทธิ์เปลี่ยนความเห็น/สถานะ: แอดมิน หรือผู้มีสถานะผู้ใช้งานตรงกับระดับนั้นๆ
+    let myGroupNames: string[] = [];
     if (!isAdmin && user) {
       const { data: myGroups } = await supabase
         .from("proc_user_group_members")
         .select("proc_user_groups(name)")
         .eq("user_id", user.userId);
-      myCanApprove = (myGroups ?? []).some(
-        (g) => (g.proc_user_groups as unknown as { name: string } | null)?.name === "ผู้อำนวยการ",
-      );
+      myGroupNames = (myGroups ?? [])
+        .map((g) => (g.proc_user_groups as unknown as { name: string } | null)?.name)
+        .filter((n): n is string => !!n);
     }
-    setCanApprove(myCanApprove);
+    setCanApproveDirector(isAdmin || myGroupNames.includes("ผู้อำนวยการ"));
+    setCanApproveDeputy(isAdmin || myGroupNames.includes("รองผู้อำนวยการ"));
   }, [authLoading, isAdmin, user]);
 
   useEffect(() => {
@@ -120,6 +134,32 @@ export default function ApprovalsPage() {
     }
   }
 
+  async function handleUpdateDeputyDecision(id: string, decision: "ควร" | "ไม่ควร") {
+    const ok = await confirmWarning({
+      title: decision === "ควร" ? "ความเห็น: ควรอนุญาตและอนุมัติ?" : "ความเห็น: ไม่ควรอนุญาตและอนุมัติ?",
+      confirmButtonText: decision,
+    });
+    if (!ok) return;
+    try {
+      await updateDeputyDecision(id, decision);
+      await toastSuccess("บันทึกความเห็นของรองผู้อำนวยการแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleResetDeputyDecision(id: string) {
+    const ok = await confirmWarning({ title: "ย้อนความเห็นของรองผู้อำนวยการกลับเป็นค่าว่าง?" });
+    if (!ok) return;
+    try {
+      await resetDeputyDecision(id);
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -142,9 +182,10 @@ export default function ApprovalsPage() {
                 <th>วันที่</th>
                 <th>เรื่อง</th>
                 <th>โครงการ</th>
-                <th>ผู้ขออนุมัติ</th>
+                <th>ผู้รับผิดชอบ</th>
                 <th className="text-right">ขออนุมัติครั้งนี้</th>
-                <th>สถานะ</th>
+                <th>ความเห็นรองผู้อำนวยการ</th>
+                <th>สถานะผู้อำนวยการ</th>
                 <th></th>
                 <th></th>
               </tr>
@@ -158,6 +199,11 @@ export default function ApprovalsPage() {
                   <td className="font-medium text-slate-900">{a.requested_by_name ?? "-"}</td>
                   <td className="text-right font-semibold text-red-600">{formatBaht(Number(a.requested_amount))}</td>
                   <td>
+                    <span className={`${deputyBadgeClass(a.deputy_decision)} !text-sm`}>
+                      {a.deputy_decision ?? "รอความเห็น"}
+                    </span>
+                  </td>
+                  <td>
                     <span className={`${statusBadgeClass(a.status)} !text-sm`}>{a.status}</span>
                   </td>
                   <td className="text-right">
@@ -170,8 +216,35 @@ export default function ApprovalsPage() {
                     </a>
                   </td>
                   <td className="text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      {canApprove && a.status === "รออนุมัติ" && (
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      {canApproveDeputy && a.deputy_decision === null && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateDeputyDecision(a.id, "ควร")}
+                            className="text-sm font-medium text-emerald-600 hover:underline"
+                          >
+                            ควรอนุมัติ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateDeputyDecision(a.id, "ไม่ควร")}
+                            className="text-sm font-medium text-red-600 hover:underline"
+                          >
+                            ไม่ควรอนุมัติ
+                          </button>
+                        </>
+                      )}
+                      {isAdmin && a.deputy_decision !== null && (
+                        <button
+                          type="button"
+                          onClick={() => handleResetDeputyDecision(a.id)}
+                          className="text-sm font-medium text-slate-500 hover:underline"
+                        >
+                          ย้อนความเห็น
+                        </button>
+                      )}
+                      {canApproveDirector && a.status === "รออนุมัติ" && (
                         <>
                           <button
                             type="button"
@@ -211,7 +284,7 @@ export default function ApprovalsPage() {
               ))}
               {approvals.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="table-empty">
+                  <td colSpan={9} className="table-empty">
                     ยังไม่มีข้อมูล
                   </td>
                 </tr>

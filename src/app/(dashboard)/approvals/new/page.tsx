@@ -7,10 +7,10 @@ import { ApprovalForm } from "../approval-form";
 export default async function NewApprovalPage() {
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: activities }, { data: disbursements }] = await Promise.all([
+  const [{ data: projects }, { data: activities }, { data: approvals }] = await Promise.all([
     supabase.from("plan_projects").select("id, name").order("sort_order"),
     supabase.from("plan_activities").select("project_id, budget"),
-    supabase.from("proc_project_disbursements").select("project_id, amount, status"),
+    supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
   ]);
 
   const budgetByProject = new Map<string, number>();
@@ -18,19 +18,19 @@ export default async function NewApprovalPage() {
     budgetByProject.set(a.project_id, (budgetByProject.get(a.project_id) ?? 0) + Number(a.budget));
   });
 
-  const paidByProject = new Map<string, number>();
-  (disbursements ?? [])
-    .filter((d) => d.status === "paid" && d.project_id)
-    .forEach((d) => {
-      const pid = d.project_id as string;
-      paidByProject.set(pid, (paidByProject.get(pid) ?? 0) + Number(d.amount));
-    });
+  // เงินที่อนุมัติไปแล้วก่อนหน้าของแต่ละโครงการ — ใช้คำนวณ "เงินโครงการเหลือ" ในช่องความเห็นงานแผนงาน
+  // (แพทเทิร์นเดียวกับที่หน้ารายงานโครงการใช้ดึงงบใช้จริงมาอัตโนมัติ)
+  const approvedByProject = new Map<string, number>();
+  (approvals ?? []).forEach((a) => {
+    if (!a.project_id) return;
+    approvedByProject.set(a.project_id, (approvedByProject.get(a.project_id) ?? 0) + Number(a.requested_amount));
+  });
 
   const projectOptions = (projects ?? []).map((p) => ({
     id: p.id,
     name: p.name,
     budget: budgetByProject.get(p.id) ?? 0,
-    paid: paidByProject.get(p.id) ?? 0,
+    approvedSoFar: approvedByProject.get(p.id) ?? 0,
   }));
 
   return (
