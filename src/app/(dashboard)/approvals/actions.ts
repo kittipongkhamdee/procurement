@@ -59,15 +59,21 @@ function thaiFiscalYear(isoDate: string): number {
   return gregorianFiscalYear + 543;
 }
 
-/** เลขที่หนังสือถัดไปของปีงบประมาณนั้น รูปแบบ "<ลำดับ>/<ปีงบประมาณ>" — อิงจากตัวนับแยก
- * (proc_approval_doc_seq ผ่านฟังก์ชัน proc_next_approval_doc_seq) ที่เก็บเลขล่าสุดที่เคยออกไปแล้ว
- * ไม่มีวันลดค่าย้อนกลับ แม้บันทึกที่ใช้เลขนั้นจะถูกลบออกไปแล้วก็ตาม (ต่างจากการหาค่า max จากแถวที่
- * เหลืออยู่ในตาราง ซึ่งจะทำให้เลขถูกใช้ซ้ำได้หลังลบ) */
+/** เลขที่หนังสือถัดไปของปีงบประมาณนั้น รูปแบบ "<ลำดับ>/<ปีงบประมาณ>" — นับจากจำนวนเลขสูงสุดที่ยัง
+ * มีอยู่จริงในตาราง proc_approvals ของปีงบประมาณนั้นแล้ว +1 (ถ้าลบบันทึกที่มีเลขสูงสุดออก เลขถัดไป
+ * จะย้อนกลับมาใช้เลขนั้นซ้ำได้ตามที่ผู้ใช้ต้องการ) */
 async function nextDocNumber(supabase: Awaited<ReturnType<typeof createClient>>, docDate: string) {
   const fiscalYear = thaiFiscalYear(docDate);
-  const { data, error } = await supabase.rpc("proc_next_approval_doc_seq", { p_fiscal_year: fiscalYear });
-  if (error) throw new Error(error.message);
-  return `${data}/${fiscalYear}`;
+  const suffix = `/${fiscalYear}`;
+  const { data } = await supabase.from("proc_approvals").select("doc_number").ilike("doc_number", `%${suffix}`);
+
+  let maxSeq = 0;
+  (data ?? []).forEach((row) => {
+    const n = parseInt(String(row.doc_number ?? "").split("/")[0], 10);
+    if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
+  });
+
+  return `${maxSeq + 1}${suffix}`;
 }
 
 async function generatePdf(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string) {
