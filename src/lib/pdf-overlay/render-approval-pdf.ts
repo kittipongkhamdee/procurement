@@ -42,7 +42,7 @@ function put(
   } else if (opts.align === "right" && opts.maxWidth) {
     drawX = x + opts.maxWidth - font.widthOfTextAtSize(text, FONT_SIZE);
   }
-  page.drawText(text, { x: drawX, y: PAGE_H - yBottom + 2.5, size: FONT_SIZE, font, color: BLACK });
+  page.drawText(text, { x: drawX, y: PAGE_H - yBottom + 4.5, size: FONT_SIZE, font, color: BLACK });
 }
 
 /** ระยะร่นเข้าจากขอบซ้าย/ขวาที่วัดได้จริง (จุดเริ่ม/จบของจุดไข่ปลาในเทมเพลต) ก่อนปิดทับ+เขียนทับ —
