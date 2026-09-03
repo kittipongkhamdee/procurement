@@ -19,6 +19,8 @@ export type Project = {
   id: string;
   name: string;
   budget: number | null;
+  /** ผลรวม requested_amount จากบันทึกขออนุมัติ (เมนู "บันทึกขออนุมัติ") ที่สถานะ "อนุมัติ" ของโครงการนี้ */
+  budgetUsedApproved: number | null;
   strategyAlignment: string | null;
   standard: string | null;
   responsible: string[];
@@ -30,6 +32,13 @@ export type Project = {
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
+}
+
+/** ตัวเลขดิบ (ไม่มีคอมมา) -> ข้อความมีคอมมาคั่นหลักพันและทศนิยม 2 ตำแหน่งสำหรับโชว์ตอนไม่ได้โฟกัสช่อง */
+function formatMoneyDisplay(raw: string) {
+  if (raw.trim() === "") return raw;
+  const n = Number(raw);
+  return Number.isNaN(n) ? raw : formatBaht(n);
 }
 
 function emptyIndicatorResult(): IndicatorResult {
@@ -256,6 +265,11 @@ export function ProjectReportForm({
   const [budgetUsed, setBudgetUsed] = useState(
     initial?.budgetUsed != null ? String(initial.budgetUsed) : "",
   );
+  // จำว่าช่องไหนกำลังโฟกัสอยู่ เพื่อโชว์ตัวเลขดิบตอนพิมพ์ (แก้ไขง่าย) แต่จัดรูปแบบมีคอมมา/ทศนิยม
+  // สองตำแหน่งตอนไม่ได้โฟกัส (เช่นหลังดึงงบจากโครงการอัตโนมัติ) — ตัวเลขจริงที่ใช้คำนวณ/ส่งฟอร์ม
+  // ยังเป็น budgetApproved/budgetUsed แบบไม่มีคอมมาเหมือนเดิม
+  const [budgetApprovedFocused, setBudgetApprovedFocused] = useState(false);
+  const [budgetUsedFocused, setBudgetUsedFocused] = useState(false);
   const [responsibleName, setResponsibleName] = useState(
     initial?.responsibleName ?? "",
   );
@@ -299,6 +313,7 @@ export function ProjectReportForm({
     setProjectId(id);
     const project = projects.find((p) => p.id === id);
     if (project?.budget != null) setBudgetApproved(String(project.budget));
+    if (project?.budgetUsedApproved != null) setBudgetUsed(String(project.budgetUsedApproved));
     if (project?.responsible && project.responsible.length > 0)
       setResponsibleName(project.responsible.join(", "));
     setObjectives(
@@ -684,11 +699,13 @@ export function ProjectReportForm({
                 <div>
                   <label className="label">งบประมาณที่ได้รับอนุมัติ</label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     name="budget_approved"
-                    value={budgetApproved}
-                    onChange={(e) => setBudgetApproved(e.target.value)}
+                    value={budgetApprovedFocused ? budgetApproved : formatMoneyDisplay(budgetApproved)}
+                    onFocus={() => setBudgetApprovedFocused(true)}
+                    onBlur={() => setBudgetApprovedFocused(false)}
+                    onChange={(e) => setBudgetApproved(e.target.value.replace(/,/g, ""))}
                     className="input"
                     placeholder="0.00"
                   />
@@ -696,11 +713,13 @@ export function ProjectReportForm({
                 <div>
                   <label className="label">งบประมาณที่ใช้ไปจริง</label>
                   <input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     name="budget_used"
-                    value={budgetUsed}
-                    onChange={(e) => setBudgetUsed(e.target.value)}
+                    value={budgetUsedFocused ? budgetUsed : formatMoneyDisplay(budgetUsed)}
+                    onFocus={() => setBudgetUsedFocused(true)}
+                    onBlur={() => setBudgetUsedFocused(false)}
+                    onChange={(e) => setBudgetUsed(e.target.value.replace(/,/g, ""))}
                     className="input"
                     placeholder="0.00"
                   />

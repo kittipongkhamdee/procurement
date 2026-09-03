@@ -31,8 +31,11 @@ export default function NewProjectReportPage() {
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: projectRows }, { data: proposals }, { data: aiSetting }] = await Promise.all([
-      supabase.from("plan_projects").select("id, name, budget").order("sort_order"),
+    const [{ data: projectRows }, { data: proposals }, { data: aiSetting }, { data: approvals }] = await Promise.all([
+      supabase
+        .from("plan_projects")
+        .select("id, name, budget, plan_activities(budget)")
+        .order("sort_order"),
       supabase
         .from("plan_project_proposals")
         .select(
@@ -40,16 +43,36 @@ export default function NewProjectReportPage() {
         )
         .not("project_id", "is", null),
       supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
+      supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
     ]);
     setAiExtractionEnabled(aiSetting?.value !== "false");
     const proposalByProjectId = new Map((proposals as unknown as Proposal[] ?? []).map((p) => [p.project_id, p]));
+    // ผลรวมงบที่อนุมัติจริงจากบันทึกขออนุมัติ (สถานะ "อนุมัติ") ต่อโครงการ — ใช้เติมช่อง
+    // "งบประมาณที่ใช้ไปจริง" ในฟอร์มรายงานให้อัตโนมัติตอนเลือกโครงการ
+    const approvedUsedByProjectId = new Map<string, number>();
+    for (const a of approvals ?? []) {
+      if (!a.project_id) continue;
+      approvedUsedByProjectId.set(
+        a.project_id,
+        (approvedUsedByProjectId.get(a.project_id) ?? 0) + Number(a.requested_amount ?? 0),
+      );
+    }
     setProjects(
       (projectRows ?? []).map((p) => {
         const proposal = proposalByProjectId.get(p.id);
+        // งบประมาณจริงของโครงการอาจมาจากผลรวมกิจกรรม (plan_activities) แทนคอลัมน์ budget ตรงๆ
+        // ของ plan_projects ถ้ามีการแตกกิจกรรมย่อยไว้ (เหมือนที่หน้า /projects คำนวณ) —
+        // ไม่งั้นช่อง "งบประมาณที่ได้รับอนุมัติ" ในฟอร์มรายงานจะไม่ดึงค่ามาให้อัตโนมัติ
+        const activities = (p.plan_activities as unknown as { budget: number }[]) ?? [];
+        const budget =
+          activities.length > 0
+            ? activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0)
+            : Number(p.budget ?? 0);
         return {
           id: p.id,
           name: p.name,
-          budget: p.budget,
+          budget,
+          budgetUsedApproved: approvedUsedByProjectId.get(p.id) ?? null,
           strategyAlignment: proposal?.strategy_alignment ?? null,
           standard: proposal?.standard ?? null,
           responsible: proposal?.responsible ?? [],
