@@ -11,7 +11,6 @@ const ITEM_ROW_COUNT = 15;
 type ItemRow = { name: string; qty: string; unitPrice: string; note: string };
 
 const SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
-const FUND_TYPE_OPTIONS = ["งบค่าจัดการเรียนการสอน", "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน", "เงินรายได้สถานศึกษา"];
 
 type SummaryRow = { label: string; amount: string; note: string };
 
@@ -83,7 +82,6 @@ export function ApprovalForm({
   submitLabel?: string;
 }) {
   const [projectId, setProjectId] = useState(initial?.project_id ?? "");
-  const [fundType, setFundType] = useState(initial?.fund_type ?? "");
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial));
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
@@ -125,9 +123,12 @@ export function ApprovalForm({
     formData.set("budget", selected ? String(selected.budget) : "");
     formData.set("requested_amount", String(requestedAmount));
     formData.set("remaining", String(remaining));
-    formData.set("fund_type", fundType);
+    formData.set("fund_type", initial?.fund_type ?? "");
     formData.set("activity_name", activityName);
     formData.set("plan_date_text", planDateISO ? formatThaiDate(planDateISO) : (initial?.plan_date_text ?? ""));
+    formData.set("requested_by_position", initial?.requested_by_position ?? "");
+    formData.set("group_name", initial?.group_name ?? "");
+    formData.set("budget_year_text", initial?.budget_year_text ?? "");
     return action(formData);
   }
 
@@ -215,24 +216,11 @@ export function ApprovalForm({
             </p>
           </div>
 
-          <input
-            name="group_name"
-            defaultValue={initial?.group_name ?? ""}
-            placeholder="กลุ่มงาน (สำหรับหน้ารายการวัสดุอุปกรณ์)"
-            className="input"
-          />
-          <input
-            name="budget_year_text"
-            defaultValue={initial?.budget_year_text ?? ""}
-            placeholder="ปีการศึกษา (สำหรับหน้ารายการวัสดุอุปกรณ์)"
-            className="input"
-          />
-
           <select
             name="requested_by_name"
             defaultValue={initial?.requested_by_name ?? ""}
             required
-            className="input"
+            className="input sm:col-span-3"
           >
             <option value="" disabled>
               -- ผู้รับผิดชอบโครงการ --
@@ -243,12 +231,6 @@ export function ApprovalForm({
               </option>
             ))}
           </select>
-          <input
-            name="requested_by_position"
-            defaultValue={initial?.requested_by_position ?? ""}
-            placeholder="ตำแหน่ง"
-            className="input"
-          />
         </div>
       </section>
 
@@ -311,23 +293,6 @@ export function ApprovalForm({
             placeholder="เงินโครงการเหลือ"
             className="input bg-slate-50 text-right font-bold text-emerald-700"
           />
-        </div>
-
-        <div className="mt-4">
-          <label className="label">ความเห็นเจ้าหน้าที่การเงิน — งบประมาณที่ใช้</label>
-          <div className="flex flex-wrap gap-4">
-            {FUND_TYPE_OPTIONS.map((opt) => (
-              <label key={opt} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="fund_type_choice"
-                  checked={fundType === opt}
-                  onChange={() => setFundType(opt)}
-                />
-                {opt}
-              </label>
-            ))}
-          </div>
         </div>
       </section>
 
