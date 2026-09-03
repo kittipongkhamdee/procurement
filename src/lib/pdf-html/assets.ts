@@ -25,3 +25,14 @@ export function getSarabunFontFaceCss(): string {
   `;
   return cachedFontFaceCss;
 }
+
+let cachedGarudaEmblemDataUri: string | null = null;
+
+/** ตราครุฑที่หัวเอกสารบันทึกข้อความ — ดึงมาจากไฟล์ต้นฉบับที่โรงเรียนใช้จริงโดยตรง (ผู้ใช้อัปโหลดมา)
+ * ฝังเป็น base64 เหมือนฟอนต์ ไม่พึ่งอินเทอร์เน็ตตอนพิมพ์ */
+export function getGarudaEmblemDataUri(): string {
+  if (cachedGarudaEmblemDataUri) return cachedGarudaEmblemDataUri;
+  const png = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf-html/assets/garuda-emblem.png")).toString("base64");
+  cachedGarudaEmblemDataUri = `data:image/png;base64,${png}`;
+  return cachedGarudaEmblemDataUri;
+}

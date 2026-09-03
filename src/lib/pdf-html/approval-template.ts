@@ -1,5 +1,5 @@
 import { formatBaht } from "@/lib/thai";
-import { getSarabunFontFaceCss } from "./fonts";
+import { getGarudaEmblemDataUri, getSarabunFontFaceCss } from "./assets";
 import type { ApprovalPdfData } from "./approval-types";
 
 function esc(value: string | number | null | undefined): string {
@@ -76,36 +76,40 @@ export function renderApprovalHtml(data: ApprovalPdfData): string {
     font-family: "Sarabun", sans-serif;
     font-size: 15px;
     color: #111827;
-    line-height: 1.5;
+    line-height: 1.4;
   }
   .page {
     width: 210mm;
     min-height: 297mm;
-    padding: 20mm 20mm 15mm 25mm;
+    padding: 15mm 20mm 12mm 22mm;
   }
   .page + .page { page-break-before: always; }
 
   .center { text-align: center; }
-  .logo { display: block; margin: 0 auto 4px; height: 20mm; object-fit: contain; }
-  .title { font-size: 20px; font-weight: bold; margin: 0 0 10px; }
 
-  .header-line { display: flex; margin-bottom: 3px; }
+  .letterhead { position: relative; min-height: 19mm; margin-bottom: 4px; }
+  .emblem { position: absolute; left: 0; top: 0; height: 18mm; }
+  .school-logo { position: absolute; right: 0; top: 0; height: 15mm; object-fit: contain; }
+  .title-wrap { text-align: center; padding-top: 6mm; }
+  .title { font-size: 20px; font-weight: bold; margin: 0; }
+
+  .header-line { display: flex; margin-bottom: 2px; }
   .header-line .label { font-weight: bold; white-space: nowrap; margin-right: 4px; }
   .header-line .fill { flex: 1; }
   .header-line .gap { margin-left: 28px; }
 
-  hr { border: none; border-top: 1px solid #111827; margin: 8px 0 10px; }
+  hr { border: none; border-top: 1px solid #111827; margin: 6px 0 8px; }
 
-  p.body-line { margin: 0 0 6px; }
+  p.body-line { margin: 0 0 4px; }
   p.body-line.indent { text-indent: 2em; }
 
-  .sign-block { text-align: center; margin: 12px 0 10px; }
+  .sign-block { text-align: center; margin: 8px 0 8px; }
   .sign-block .line { margin-bottom: 2px; }
 
-  table.doc-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 14px; }
+  table.doc-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 14px; }
   table.doc-table th, table.doc-table td {
     border: 1px solid #111827;
-    padding: 3px 6px;
+    padding: 2px 6px;
     vertical-align: top;
   }
   table.doc-table th { text-align: center; font-weight: bold; }
@@ -117,29 +121,30 @@ export function renderApprovalHtml(data: ApprovalPdfData): string {
   table.doc-table .col-note { width: 22%; }
   table.doc-table tr.total-row td { font-weight: bold; }
 
-  table.box-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.box-grid { width: 100%; border-collapse: collapse; table-layout: fixed; page-break-inside: avoid; break-inside: avoid; }
+  table.box-grid tr { page-break-inside: avoid; break-inside: avoid; }
   table.box-grid td.box {
     border: 1px solid #111827;
     width: 50%;
-    padding: 8px 10px;
+    padding: 6px 8px;
     vertical-align: top;
-    font-size: 14px;
+    font-size: 13px;
   }
-  .box-title { font-weight: bold; text-decoration: underline; margin: 0 0 6px; }
-  .box-line { margin: 0 0 3px; }
+  .box-title { font-weight: bold; text-decoration: underline; margin: 0 0 4px; }
+  .box-line { margin: 0 0 2px; }
   .checkbox {
     display: inline-flex;
-    width: 12px;
-    height: 12px;
+    width: 11px;
+    height: 11px;
     border: 1px solid #111827;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: bold;
     margin-right: 5px;
     vertical-align: -1px;
   }
-  .box-sign { text-align: center; margin-top: 14px; }
+  .box-sign { text-align: center; margin-top: 8px; }
   .box-sign .line { margin-bottom: 2px; }
 
   .page2-line { margin: 0 0 4px; }
@@ -149,8 +154,11 @@ export function renderApprovalHtml(data: ApprovalPdfData): string {
 </head>
 <body>
   <div class="page">
-    ${data.school_logo_url ? `<img class="logo" src="${esc(data.school_logo_url)}" />` : ""}
-    <div class="center"><div class="title">บันทึกข้อความ</div></div>
+    <div class="letterhead">
+      <img class="emblem" src="${getGarudaEmblemDataUri()}" />
+      ${data.school_logo_url ? `<img class="school-logo" src="${esc(data.school_logo_url)}" />` : ""}
+      <div class="title-wrap"><div class="title">บันทึกข้อความ</div></div>
+    </div>
 
     <div class="header-line"><span class="label">ส่วนราชการ</span><span class="fill">${esc(
       `${data.school_name} อำเภอปราสาท จังหวัดสุรินทร์`,
