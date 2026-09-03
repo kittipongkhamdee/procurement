@@ -129,6 +129,7 @@ export function ApprovalForm({
     formData.set("requested_by_position", initial?.requested_by_position ?? "");
     formData.set("group_name", initial?.group_name ?? "");
     formData.set("budget_year_text", initial?.budget_year_text ?? "");
+    if (initial) formData.set("doc_number", initial.doc_number ?? "");
     return action(formData);
   }
 
@@ -137,12 +138,17 @@ export function ApprovalForm({
       <section className="card">
         <h2 className="card-title">ข้อมูลทั่วไป</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <input
-            name="doc_number"
-            defaultValue={initial?.doc_number ?? ""}
-            placeholder="เลขที่หนังสือ (ที่ งป/...)"
-            className="input"
-          />
+          {initial ? (
+            <div>
+              <label className="label">เลขที่หนังสือ</label>
+              <input readOnly value={initial.doc_number ?? ""} className="input w-full bg-slate-50" />
+            </div>
+          ) : (
+            <div>
+              <label className="label">เลขที่หนังสือ</label>
+              <input readOnly value="รันอัตโนมัติเมื่อบันทึก" className="input w-full bg-slate-50 text-slate-400" />
+            </div>
+          )}
           <div>
             <label className="label">วันที่บันทึกข้อความ</label>
             <input type="date" name="doc_date" defaultValue={initial?.doc_date ?? ""} required className="input w-full" />
@@ -211,13 +217,13 @@ export function ApprovalForm({
               onChange={(e) => setPlanDateISO(e.target.value)}
               className="input w-full"
             />
-            <p className="mt-1 text-xs text-slate-500">
-              {planDateISO
-                ? `จะบันทึกเป็น: ${formatThaiDate(planDateISO)}`
-                : initial?.plan_date_text
-                  ? `ปัจจุบัน: ${initial.plan_date_text} (เลือกวันที่ใหม่เพื่อเปลี่ยน)`
-                  : "จะดำเนินการวันที่"}
-            </p>
+            {(planDateISO || initial?.plan_date_text) && (
+              <p className="mt-1 text-xs text-slate-500">
+                {planDateISO
+                  ? `จะบันทึกเป็น: ${formatThaiDate(planDateISO)}`
+                  : `ปัจจุบัน: ${initial?.plan_date_text} (เลือกวันที่ใหม่เพื่อเปลี่ยน)`}
+              </p>
+            )}
           </div>
 
           <select

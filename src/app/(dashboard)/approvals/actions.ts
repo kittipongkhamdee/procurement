@@ -51,6 +51,30 @@ async function requireAdminOrGroup(groupName: string) {
 type ItemInput = { name: string; qty: string; unitPrice: string; note: string };
 type SummaryItemInput = { label: string; amount: string; note: string };
 
+/** ปีงบประมาณไทย: ต.ค. - ก.ย. นับชื่อปีตาม พ.ศ. ของปีที่ปีงบประมาณสิ้นสุด (เช่น ต.ค. 2569 - ก.ย. 2570 คือ
+ * ปีงบประมาณ 2570) */
+function thaiFiscalYear(isoDate: string): number {
+  const [year, month] = isoDate.slice(0, 10).split("-").map(Number);
+  const gregorianFiscalYear = month >= 10 ? year + 1 : year;
+  return gregorianFiscalYear + 543;
+}
+
+/** เลขที่หนังสือถัดไปของปีงบประมาณนั้น รูปแบบ "<ลำดับ>/<ปีงบประมาณ>" — อิงจากเลขสูงสุดที่เคยออกในปีนั้น
+ * (ไม่ใช่การนับจำนวนแถว) เพื่อให้เลขไม่ซ้ำ/ไม่ข้ามแม้มีการลบบันทึกออกไปแล้ว */
+async function nextDocNumber(supabase: Awaited<ReturnType<typeof createClient>>, docDate: string) {
+  const fiscalYear = thaiFiscalYear(docDate);
+  const suffix = `/${fiscalYear}`;
+  const { data } = await supabase.from("proc_approvals").select("doc_number").ilike("doc_number", `%${suffix}`);
+
+  let maxSeq = 0;
+  (data ?? []).forEach((row) => {
+    const n = parseInt(String(row.doc_number ?? "").split("/")[0], 10);
+    if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
+  });
+
+  return `${maxSeq + 1}${suffix}`;
+}
+
 async function generatePdf(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string) {
   // best-effort: บันทึกหลักถูกบันทึกไปแล้ว การสร้าง PDF ล่วงหน้าล้มเหลวไม่ควรทำให้ทั้งการบันทึกล้มเหลวตาม
   // (หน้า [id]/pdf ยังพิมพ์สดได้เสมอ)
@@ -87,11 +111,14 @@ export async function createApproval(formData: FormData) {
     summaryItems = [];
   }
 
+  const docDate = String(formData.get("doc_date") ?? "");
+  const docNumber = docDate ? await nextDocNumber(supabase, docDate) : null;
+
   const { data: approval, error } = await supabase
     .from("proc_approvals")
     .insert({
-      doc_number: String(formData.get("doc_number") ?? "").trim() || null,
-      doc_date: String(formData.get("doc_date") ?? ""),
+      doc_number: docNumber,
+      doc_date: docDate,
       subject: String(formData.get("subject") ?? ""),
       addressed_to: String(formData.get("addressed_to") ?? ""),
       department: String(formData.get("department") ?? "").trim() || null,
