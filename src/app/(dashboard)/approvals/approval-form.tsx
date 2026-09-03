@@ -143,7 +143,10 @@ export function ApprovalForm({
             placeholder="เลขที่หนังสือ (ที่ งป/...)"
             className="input"
           />
-          <input type="date" name="doc_date" defaultValue={initial?.doc_date ?? ""} required className="input" />
+          <div>
+            <label className="label">วันที่บันทึกข้อความ</label>
+            <input type="date" name="doc_date" defaultValue={initial?.doc_date ?? ""} required className="input w-full" />
+          </div>
           <div />
           <input
             name="subject"
@@ -201,6 +204,7 @@ export function ApprovalForm({
           </select>
 
           <div className="sm:col-span-3">
+            <label className="label">จะดำเนินการวันที่</label>
             <input
               type="date"
               value={planDateISO}
