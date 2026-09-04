@@ -221,12 +221,13 @@ function checkmark(page: PDFPage, x0: number, yBottom: number) {
   const boxWidth = 14.2;
   const boxHeight = 17.0;
   const boxBottom = PAGE_H - yBottom;
-  const inset = 2.6;
-  const p1 = { x: x0 + inset, y: boxBottom + boxHeight * 0.42 };
-  const p2 = { x: x0 + boxWidth * 0.42, y: boxBottom + inset * 0.6 };
-  const p3 = { x: x0 + boxWidth - inset * 0.6, y: boxBottom + boxHeight - inset * 0.4 };
-  page.drawLine({ start: p1, end: p2, thickness: 1.4, color: BLACK });
-  page.drawLine({ start: p2, end: p3, thickness: 1.4, color: BLACK });
+  // เว้นระยะขอบเข้ามามากขึ้นกว่าเดิม (จาก inset 2.6 เป็นระยะแยกแนวนอน/แนวตั้ง) และลดความหนาเส้นลง
+  // ให้เครื่องหมายถูกดูเล็กพอดีกล่อง ไม่ใหญ่เทอะทะเหมือนก่อน ตามที่ผู้ใช้ขอ
+  const p1 = { x: x0 + 4.2, y: boxBottom + boxHeight * 0.48 };
+  const p2 = { x: x0 + boxWidth * 0.42, y: boxBottom + 4.3 };
+  const p3 = { x: x0 + boxWidth - 3.6, y: boxBottom + boxHeight - 5.0 };
+  page.drawLine({ start: p1, end: p2, thickness: 1.1, color: BLACK });
+  page.drawLine({ start: p2, end: p3, thickness: 1.1, color: BLACK });
 }
 
 export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
