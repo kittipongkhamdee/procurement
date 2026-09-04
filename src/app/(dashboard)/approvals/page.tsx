@@ -40,6 +40,7 @@ type Approval = {
   approved_by_name: string | null;
   approved_at: string | null;
   approve_note: string | null;
+  summary_items: { label: string; amount: number | null; note: string | null }[] | null;
   plan_projects: { name: string } | null;
 };
 
@@ -143,11 +144,37 @@ function ApprovalStatusCell({
             <dt className="text-slate-400">ผู้รับผิดชอบ</dt>
             <dd>{approval.requested_by_name ?? "-"}</dd>
           </div>
-          <div>
-            <dt className="text-slate-400">ขออนุมัติครั้งนี้</dt>
-            <dd className="font-semibold text-red-600">{formatBaht(Number(approval.requested_amount))} บาท</dd>
-          </div>
         </dl>
+
+        <div className="overflow-hidden rounded-md border border-slate-200">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+              <tr>
+                <th className="w-10 px-2 py-2">ที่</th>
+                <th className="px-2 py-2 text-left">รายการ</th>
+                <th className="w-28 px-2 py-2 text-right">จำนวนเงิน</th>
+                <th className="px-2 py-2 text-left">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(approval.summary_items ?? []).map((row, i) => (
+                <tr key={i}>
+                  <td className="px-2 py-1 text-center text-slate-400">{i + 1}</td>
+                  <td className="px-2 py-1 text-slate-700">{row.label}</td>
+                  <td className="px-2 py-1 text-right">{row.amount != null ? formatBaht(row.amount) : ""}</td>
+                  <td className="px-2 py-1 text-slate-500">{row.note ?? ""}</td>
+                </tr>
+              ))}
+              <tr className="bg-slate-50 font-semibold">
+                <td colSpan={2} className="px-2 py-2 text-right">
+                  รวมทั้งสิ้น
+                </td>
+                <td className="px-2 py-2 text-right text-red-600">{formatBaht(Number(approval.requested_amount))}</td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         {approval.deputy_decision !== null && (
           <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -279,7 +306,7 @@ export default function ApprovalsPage() {
     const { data, error } = await supabase
       .from("proc_approvals")
       .select(
-        "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, plan_projects(name)",
+        "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
       )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
