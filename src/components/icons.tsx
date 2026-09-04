@@ -71,6 +71,13 @@ export const CoinsIcon = base(
   </>,
 );
 
+export const PieChartIcon = base(
+  <>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.5v8.5h8.5a8.5 8.5 0 1 1-8.5-8.5Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 3.8A8.5 8.5 0 0 1 20.2 9.5H14.5V3.8Z" />
+  </>,
+);
+
 export const ArchiveIcon = base(
   <>
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 5.5h17v3.5h-17z" />

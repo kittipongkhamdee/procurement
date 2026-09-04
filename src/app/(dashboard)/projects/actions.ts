@@ -71,16 +71,25 @@ export async function updateProject(projectId: string, formData: FormData) {
   const budget_year_id = String(formData.get("budget_year_id") ?? "");
   const admin_group_id = String(formData.get("admin_group_id") ?? "");
   const budget_source_id = String(formData.get("budget_source_id") ?? "") || null;
-  const budget = Number(formData.get("project_budget") ?? 0);
 
   if (!name || !budget_year_id || !admin_group_id) return;
 
   const { error } = await supabase
     .from("plan_projects")
-    .update({ name, budget_year_id, admin_group_id, budget_source_id, budget })
+    .update({ name, budget_year_id, admin_group_id, budget_source_id })
     .eq("id", projectId);
   if (error) throw new Error(error.message);
   revalidatePath("/projects");
+}
+
+// แก้ไขเฉพาะงบประมาณโครงการโดยตรง (ใช้เมื่อโครงการไม่มีกิจกรรมย่อย) — แยกออกมาจาก updateProject
+// เพื่อให้หน้า "การจัดสรรเงิน" เรียกได้โดยไม่ต้องส่งข้อมูลฟิลด์อื่นของโครงการมาด้วย
+export async function updateProjectBudget(projectId: string, budget: number) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_projects").update({ budget }).eq("id", projectId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/projects");
+  revalidatePath("/fund-allocation");
 }
 
 export async function deleteProject(projectId: string) {

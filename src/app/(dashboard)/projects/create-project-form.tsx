@@ -35,7 +35,6 @@ export function CreateProjectForm({
   onSuccess?: () => void;
 }) {
   const [hasActivities, setHasActivities] = useState(true);
-  const [projectBudget, setProjectBudget] = useState("");
   const [rows, setRows] = useState<ActivityRow[]>([emptyRow()]);
 
   function updateRow(index: number, patch: Partial<ActivityRow>) {
@@ -177,18 +176,9 @@ export function CreateProjectForm({
             </button>
           </>
         ) : (
-          <div>
-            <label className="label">งบประมาณโครงการ</label>
-            <input
-              type="number"
-              step="0.01"
-              name="project_budget"
-              value={projectBudget}
-              onChange={(e) => setProjectBudget(e.target.value)}
-              className="input"
-              placeholder="0.00"
-            />
-          </div>
+          <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+            กำหนดงบประมาณโครงการได้ที่เมนู &quot;การจัดสรรเงิน&quot; หลังบันทึกโครงการนี้แล้ว
+          </p>
         )}
       </div>
 
