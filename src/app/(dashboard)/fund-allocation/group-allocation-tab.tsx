@@ -205,6 +205,31 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
           )}
         </table>
       </div>
+
+      {(() => {
+        const diff = groupTotal - projectTotal;
+        const isMatch = Math.abs(diff) < 0.005;
+        return (
+          <div
+            className={`mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl border px-4 py-3 text-sm ${
+              isMatch ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"
+            }`}
+          >
+            <span className="text-slate-600">
+              รวมจัดสรรงบประมาณตามกลุ่มบริหารงาน:{" "}
+              <span className="font-semibold text-navy-800">{formatBaht(groupTotal)}</span>
+            </span>
+            <span className="text-slate-600">
+              รวมงบประมาณจัดทำโครงการ: <span className="font-semibold text-navy-800">{formatBaht(projectTotal)}</span>
+            </span>
+            <span className={`font-semibold ${isMatch ? "text-emerald-700" : "text-red-700"}`}>
+              {isMatch
+                ? "ยอดเงินเท่ากัน — ถูกต้อง"
+                : `ยอดเงินไม่เท่ากัน — ต่างกัน ${formatBaht(Math.abs(diff))} บาท (${diff > 0 ? "จัดสรรเกินงบประมาณ" : "จัดสรรไม่ครบ"})`}
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
