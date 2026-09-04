@@ -8,39 +8,10 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError } from "@/lib/swal";
 import { upsertRevenueRate, upsertStudentCount } from "./actions";
-
-type GradeKey = "lower_secondary" | "upper_secondary" | "m1" | "m2" | "m3" | "m4" | "m5" | "m6";
-type ItemKey = "teaching" | "student_activity" | "topup" | "equipment" | "uniform" | "textbook";
-
-const GRADE_LABELS: Record<GradeKey, string> = {
-  lower_secondary: "มัธยมศึกษาตอนต้น",
-  upper_secondary: "มัธยมศึกษาตอนปลาย",
-  m1: "มัธยมศึกษาปีที่ 1",
-  m2: "มัธยมศึกษาปีที่ 2",
-  m3: "มัธยมศึกษาปีที่ 3",
-  m4: "มัธยมศึกษาปีที่ 4",
-  m5: "มัธยมศึกษาปีที่ 5",
-  m6: "มัธยมศึกษาปีที่ 6",
-};
-
-const MAIN_GRADES: GradeKey[] = ["lower_secondary", "upper_secondary"];
-const TEXTBOOK_GRADES: GradeKey[] = ["m1", "m2", "m3", "m4", "m5", "m6"];
-
-const ITEM_DEFS: { key: ItemKey; label: string; grades: GradeKey[] | "all" }[] = [
-  { key: "teaching", label: "ค่าจัดการเรียนการสอน", grades: MAIN_GRADES },
-  { key: "student_activity", label: "ค่ากิจกรรมพัฒนาผู้เรียน", grades: MAIN_GRADES },
-  { key: "topup", label: "Topup นร.น้อยกว่า 300 คน", grades: "all" },
-  { key: "equipment", label: "ค่าอุปกรณ์การเรียน", grades: MAIN_GRADES },
-  { key: "uniform", label: "ค่าเครื่องแบบนักเรียน", grades: MAIN_GRADES },
-  { key: "textbook", label: "ค่าหนังสือเรียน", grades: TEXTBOOK_GRADES },
-];
+import { computeItemTotal, GRADE_LABELS, ITEM_DEFS, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
-}
-
-function rateKey(item: ItemKey, grade: GradeKey) {
-  return `${item}:${grade}`;
 }
 
 export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
@@ -111,17 +82,10 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
 
   if (loading) return <p className="p-4 text-sm text-slate-400">กำลังโหลด...</p>;
 
-  const grandTotal = ITEM_DEFS.reduce((sum, item) => {
-    const grades = item.grades === "all" ? (["all"] as const) : item.grades;
-    return (
-      sum +
-      grades.reduce((s, g) => {
-        const count = g === "all" ? getCount("lower_secondary") + getCount("upper_secondary") : getCount(g);
-        const rate = rates[rateKey(item.key, g as GradeKey)] ?? 0;
-        return s + count * rate;
-      }, 0)
-    );
-  }, 0);
+  const grandTotal = ITEM_DEFS.reduce(
+    (sum, item) => sum + computeItemTotal(item.grades, item.key, counts, rates),
+    0,
+  );
 
   return (
     <div>
@@ -164,11 +128,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
           <tbody>
             {ITEM_DEFS.map((item) => {
               const grades = item.grades === "all" ? (["all"] as const) : item.grades;
-              const itemTotal = grades.reduce((s, g) => {
-                const count = g === "all" ? getCount("lower_secondary") + getCount("upper_secondary") : getCount(g);
-                const rate = rates[rateKey(item.key, g as GradeKey)] ?? 0;
-                return s + count * rate;
-              }, 0);
+              const itemTotal = computeItemTotal(item.grades, item.key, counts, rates);
               return (
                 <Fragment key={item.key}>
                   {grades.map((g, i) => {

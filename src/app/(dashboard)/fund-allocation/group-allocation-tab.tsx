@@ -1,11 +1,13 @@
 "use client";
 
-// แท็บ "จัดสรรเงิน" — กรอกจำนวนเงินที่จัดสรรให้แต่ละกลุ่มบริหารงานเอง (ไม่คำนวณ pool อัตโนมัติ)
+// แท็บ "จัดสรรเงิน" — สรุปยอดรวมแต่ละรายการจากแท็บ "รายรับ" + งบประมาณจัดทำโครงการ (ก่อนเข้าสู่
+// ส่วนกรอกจำนวนเงินให้แต่ละกลุ่มบริหารงานเอง)
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError } from "@/lib/swal";
 import { upsertGroupAllocation } from "./actions";
+import { computeItemTotal, ITEM_DEFS, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 type Group = { id: string; name: string };
 
@@ -15,19 +17,36 @@ function formatBaht(n: number) {
 
 export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId: string; adminGroups: Group[] }) {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
+  const [rates, setRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data } = await supabase
-      .from("plan_group_allocations")
-      .select("admin_group_id, allocated_amount")
-      .eq("budget_year_id", budgetYearId);
-    const next: Record<string, number> = {};
-    for (const row of data ?? []) next[row.admin_group_id] = Number(row.allocated_amount);
-    setAmounts(next);
+    const [{ data: allocData }, { data: countsData }, { data: ratesData }] = await Promise.all([
+      supabase.from("plan_group_allocations").select("admin_group_id, allocated_amount").eq("budget_year_id", budgetYearId),
+      supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
+      supabase
+        .from("plan_revenue_rates")
+        .select("item_key, grade_key, rate_per_student")
+        .eq("budget_year_id", budgetYearId),
+    ]);
+
+    const nextAmounts: Record<string, number> = {};
+    for (const row of allocData ?? []) nextAmounts[row.admin_group_id] = Number(row.allocated_amount);
+    setAmounts(nextAmounts);
+
+    const nextCounts: Partial<Record<GradeKey, number>> = {};
+    for (const row of countsData ?? []) nextCounts[row.grade_key as GradeKey] = Number(row.student_count);
+    setCounts(nextCounts);
+
+    const nextRates: Record<string, number> = {};
+    for (const row of ratesData ?? [])
+      nextRates[rateKey(row.item_key as ItemKey, row.grade_key as GradeKey)] = Number(row.rate_per_student);
+    setRates(nextRates);
+
     setLoading(false);
   }, [budgetYearId]);
 
@@ -52,13 +71,84 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
 
   if (loading) return <p className="p-4 text-sm text-slate-400">กำลังโหลด...</p>;
 
-  const total = adminGroups.reduce((sum, g) => sum + (amounts[g.id] ?? 0), 0);
+  const itemTotals = ITEM_DEFS.map((item) => ({
+    key: item.key,
+    label: item.label,
+    total: computeItemTotal(item.grades, item.key, counts, rates),
+  }));
+  const itemTotalByKey = Object.fromEntries(itemTotals.map((i) => [i.key, i.total])) as Record<ItemKey, number>;
+
+  const projectRows = [
+    {
+      label: "ค่าจัดการเรียนการสอน + Topup นร.น้อยกว่า 300 คน",
+      amount: itemTotalByKey.teaching + itemTotalByKey.topup,
+    },
+    { label: "ค่ากิจกรรมพัฒนาผู้เรียน", amount: itemTotalByKey.student_activity },
+  ];
+  const projectTotal = projectRows.reduce((sum, r) => sum + r.amount, 0);
+
+  const groupTotal = adminGroups.reduce((sum, g) => sum + (amounts[g.id] ?? 0), 0);
 
   return (
     <div>
+      <div className="card-title mb-2 text-base font-bold text-navy-800">สรุปรวมรายรับแต่ละรายการ</div>
+      <div className="table-shell mb-6">
+        <table className="table-base">
+          <thead>
+            <tr>
+              <th className="w-14 text-center">ลำดับ</th>
+              <th>รายการ</th>
+              <th className="whitespace-nowrap text-right">จำนวนเงิน (บาท)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {itemTotals.map((item, i) => (
+              <tr key={item.key}>
+                <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
+                <td className="font-medium text-slate-900">{item.label}</td>
+                <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(item.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card-title mb-2 text-base font-bold text-navy-800">งบประมาณจัดทำโครงการ</div>
+      <div className="table-shell mb-6">
+        <table className="table-base">
+          <thead>
+            <tr>
+              <th className="w-14 text-center">ลำดับ</th>
+              <th>รายการ</th>
+              <th className="whitespace-nowrap text-right">จำนวนเงิน (บาท)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {projectRows.map((r, i) => (
+              <tr key={r.label}>
+                <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
+                <td className="font-medium text-slate-900">{r.label}</td>
+                <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={2} className="text-right font-bold text-slate-700">
+                รวม
+              </td>
+              <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
+                {formatBaht(projectTotal)} บาท
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div className="card-title mb-2 text-base font-bold text-navy-800">จัดสรรงบประมาณตามกลุ่มบริหารงาน</div>
       <p className="mb-4 text-sm text-slate-500">
-        กรอกจำนวนเงินงบประมาณที่จัดสรรให้แต่ละกลุ่มบริหารงานสำหรับปีงบประมาณนี้ — เทียบได้กับยอดรวมจากแท็บ
-        &quot;รายรับ&quot;
+        กรอกจำนวนเงินงบประมาณที่จัดสรรให้แต่ละกลุ่มบริหารงานสำหรับปีงบประมาณนี้ — เทียบได้กับยอดรวม
+        &quot;งบประมาณจัดทำโครงการ&quot; ด้านบน
       </p>
       <div className="table-shell">
         <table className="table-base">
@@ -97,7 +187,7 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
               <tr>
                 <td className="text-right font-bold text-slate-700">รวมทั้งสิ้น</td>
                 <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
-                  {formatBaht(total)}
+                  {formatBaht(groupTotal)}
                 </td>
               </tr>
             </tfoot>
