@@ -69,8 +69,8 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   const [page1, page2] = pdfDoc.getPages();
 
   // ---------- หน้า 1 ----------
-  // บรรทัด "เรื่อง" — เขียนชื่อโครงการทับคำว่า "โครงการ" ท้ายข้อความเดิมของเทมเพลต (ผู้ใช้แจ้งว่า
-  // จะไปลบคำว่า "โครงการ" ออกจากเทมเพลตเองภายหลัง จึงเขียนทับตำแหน่งนั้นได้เลยตอนนี้)
+  // บรรทัด "เรื่อง" — ผู้ใช้ลบคำว่า "โครงการ" ออกจากเทมเพลตแล้ว ชื่อโครงการเขียนทับต่อท้าย
+  // "...อนุมัติใช้เงิน" ตำแหน่งจุดเริ่มจุดไข่ปลาหลังลบคำนั้นบังเอิญตรงกับตำแหน่งเดิมพอดี (วัดซ้ำแล้ว)
   fill(page1, font, data.project_name ?? "", 274.4, 537, 147.4, 17.5);
   fill(page1, font, data.doc_number ?? "", 127, 286, 120.9, 17.5);
   fill(page1, font, data.doc_date, 320, 534, 120.9, 17.5);
@@ -80,7 +80,7 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   fill(page1, font, data.plan_date_text ?? "", 160, 261, 255.6, 17.4);
   fill(page1, font, formatBaht(data.requested_amount), 451, 503, 255.6, 17.4, { align: "right" });
 
-  fill(page1, font, data.requested_by_name ?? "", 330, 454, 325.6, 17.4, { align: "center" });
+  fill(page1, font, data.requested_by_name ?? "", 296, 465, 325.6, 17.4, { align: "center" });
 
   // ตารางรายการเงิน 5 แถว + รวมทั้งสิ้น (ช่องว่างอยู่แล้ว ไม่ต้องปิดทับ) — ใช้ yLift ต่ำกว่าปกติ (4.0pt
   // แทน 6.5pt) เพราะช่องนี้เป็นตารางที่มีเส้นขอบจริง ไม่ใช่จุดไข่ปลา ตัวเลขจึงควรอยู่กึ่งกลางแถวมากกว่า
@@ -138,24 +138,24 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   }
 
   // ---------- หน้า 2: รายการวัสดุ อุปกรณ์ ----------
-  fill(page2, font, data.project_name ?? "", 255, 522, 53.3, 17.5);
-  fill(page2, font, data.activity_name ?? "", 142, 520, 74.7, 17.5);
-  fill(page2, font, data.department ?? "", 156, 288, 95.9, 17.4);
-  fill(page2, font, data.group_name ?? "", 327, 440, 95.9, 17.4);
-  fill(page2, font, data.budget_year_text ?? "", 493, 530, 95.9, 17.4);
+  // ผู้ใช้ลบบรรทัด "กลุ่มสาระ/งาน...กลุ่มงาน...ปีการศึกษา..." ออกจากเทมเพลตแล้ว (ไม่ได้ใช้ค่า
+  // department/group_name/budget_year_text บนหน้านี้อีกต่อไป) ทำให้อีก 2 บรรทัดด้านบนเลื่อนลง
+  fill(page2, font, data.project_name ?? "", 255, 522, 74.7, 17.5);
+  fill(page2, font, data.activity_name ?? "", 142, 520, 95.9, 17.5);
 
+  // ตารางรายการวัสดุอุปกรณ์ขยับคอลัมน์ใหม่ตามเทมเพลตที่แก้ไข (แถวคงตำแหน่งเดิมทุกแถว)
   const itemRowsY = [
     182.2, 203.9, 225.8, 247.5, 269.4, 291.2, 312.9, 334.8, 356.6, 378.3, 400.2, 422.0, 443.7, 465.6, 487.3, 509.1,
     531.0, 552.7, 574.5, 596.4, 618.1, 640.0, 661.7, 683.5, 705.4, 727.1, 748.9, 770.8, 792.5,
   ];
   data.items.slice(0, itemRowsY.length).forEach((item, i) => {
     const y = itemRowsY[i];
-    if (item.name) put(page2, font, item.name, 93, y, { maxWidth: 198, yLift: 4.0 });
-    if (item.qty != null) put(page2, font, String(item.qty), 292.2, y, { maxWidth: 58, align: "center", yLift: 4.0 });
+    if (item.name) put(page2, font, item.name, 93, y, { maxWidth: 205, yLift: 4.0 });
+    if (item.qty != null) put(page2, font, String(item.qty), 299.5, y, { maxWidth: 46, align: "center", yLift: 4.0 });
     if (item.unit_price != null)
-      put(page2, font, formatBaht(item.unit_price), 354.4, y, { maxWidth: 57.9, align: "right", yLift: 4.0 });
-    if (item.total != null) put(page2, font, formatBaht(item.total), 416.3, y, { maxWidth: 58, align: "right", yLift: 4.0 });
-    if (item.note) put(page2, font, item.note, 485, y, { maxWidth: 48, yLift: 4.0 });
+      put(page2, font, formatBaht(item.unit_price), 349.4, y, { maxWidth: 68.7, align: "right", yLift: 4.0 });
+    if (item.total != null) put(page2, font, formatBaht(item.total), 422.1, y, { maxWidth: 66.8, align: "right", yLift: 4.0 });
+    if (item.note) put(page2, font, item.note, 499.6, y, { maxWidth: 48, yLift: 4.0 });
   });
 
   const bytes = await pdfDoc.save();
