@@ -477,14 +477,11 @@ export default function ApprovalsPage() {
                       </a>
                     </td>
                     <td className="text-right">
-                      {isOwnerOrAdmin &&
-                        (editableState ? (
-                          <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
-                            แก้ไข
-                          </a>
-                        ) : (
-                          <span className="text-xs text-slate-400">แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)</span>
-                        ))}
+                      {isOwnerOrAdmin && editableState && (
+                        <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
+                          แก้ไข
+                        </a>
+                      )}
                     </td>
                     <td className="text-right">
                       {isOwnerOrAdmin && editableState && (
