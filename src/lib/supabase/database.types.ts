@@ -670,6 +670,48 @@ export type Database = {
           },
         ]
       }
+      plan_group_allocations: {
+        Row: {
+          admin_group_id: string
+          allocated_amount: number
+          budget_year_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_group_id: string
+          allocated_amount?: number
+          budget_year_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_group_id?: string
+          allocated_amount?: number
+          budget_year_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_group_allocations_admin_group_id_fkey"
+            columns: ["admin_group_id"]
+            isOneToOne: false
+            referencedRelation: "plan_admin_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_group_allocations_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_official_rates: {
         Row: {
           id: string
@@ -960,6 +1002,44 @@ export type Database = {
           },
         ]
       }
+      plan_revenue_rates: {
+        Row: {
+          budget_year_id: string
+          created_at: string
+          grade_key: string
+          id: string
+          item_key: string
+          rate_per_student: number
+          updated_at: string
+        }
+        Insert: {
+          budget_year_id: string
+          created_at?: string
+          grade_key: string
+          id?: string
+          item_key: string
+          rate_per_student?: number
+          updated_at?: string
+        }
+        Update: {
+          budget_year_id?: string
+          created_at?: string
+          grade_key?: string
+          id?: string
+          item_key?: string
+          rate_per_student?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_revenue_rates_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_revenue_types: {
         Row: {
           id: string
@@ -1028,6 +1108,41 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      plan_student_counts: {
+        Row: {
+          budget_year_id: string
+          created_at: string
+          grade_key: string
+          id: string
+          student_count: number
+          updated_at: string
+        }
+        Insert: {
+          budget_year_id: string
+          created_at?: string
+          grade_key: string
+          id?: string
+          student_count?: number
+          updated_at?: string
+        }
+        Update: {
+          budget_year_id?: string
+          created_at?: string
+          grade_key?: string
+          id?: string
+          student_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_student_counts_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_teachers: {
         Row: {
