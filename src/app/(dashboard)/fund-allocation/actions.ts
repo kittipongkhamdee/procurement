@@ -58,26 +58,53 @@ export async function upsertGroupAllocation(budgetYearId: string, adminGroupId: 
   revalidatePath("/fund-allocation");
 }
 
-// สร้างโครงการแบบง่าย (ไม่มีกิจกรรมย่อย) ให้แท็บ "จัดโครงการ" กดเพิ่มแถวได้ทันทีแล้วแก้ไขทีหลัง
-export async function createSimpleProject(budgetYearId: string, adminGroupId: string, budgetSourceId: string | null) {
+// คัดลอกโครงการจากปีงบประมาณเดิม (plan_projects + plan_activities) มาเป็น "ข้อเสนอโครงการ" ใหม่
+// (plan_project_proposals สถานะเริ่มต้น "รอเห็นชอบ" ตาม default ของตาราง) สำหรับปีงบประมาณใหม่ที่เลือก
+// ไว้ในหน้านี้ — เป็นจุดเริ่มต้นให้ไปเข้ากระบวนการเห็นชอบ/อนุมัติต่อที่เมนู "เสนอโครงการ" ตามปกติ
+// ไม่เขียนลง plan_projects ตรงๆ
+export async function copyProjectsToProposals(targetBudgetYearId: string, projectIds: string[]) {
   const supabase = await requireAdmin();
-  const { error } = await supabase
-    .from("plan_projects")
-    .insert({ name: "โครงการใหม่", budget_year_id: budgetYearId, admin_group_id: adminGroupId, budget_source_id: budgetSourceId, budget: 0 });
-  if (error) throw new Error(error.message);
-  revalidatePath("/fund-allocation");
-  revalidatePath("/projects");
-}
+  if (projectIds.length === 0) return;
 
-// แก้ไขชื่อ/กลุ่มบริหาร/แหล่งงบประมาณของโครงการแบบอินไลน์ (แยกจาก updateProject ใน projects/actions.ts
-// เพราะที่นี่ไม่มีฟอร์มกิจกรรมย่อยมาด้วย)
-export async function updateProjectFields(
-  projectId: string,
-  fields: { name?: string; admin_group_id?: string; budget_source_id?: string | null },
-) {
-  const supabase = await requireAdmin();
-  const { error } = await supabase.from("plan_projects").update(fields).eq("id", projectId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from("proc_profiles")
+    .select("full_name")
+    .eq("user_id", user?.id ?? "")
+    .maybeSingle();
+
+  const { data: projects, error: fetchError } = await supabase
+    .from("plan_projects")
+    .select("id, name, admin_group_id, budget_source_id, budget, plan_activities(name, budget, responsible)")
+    .in("id", projectIds);
+  if (fetchError) throw new Error(fetchError.message);
+  if (!projects || projects.length === 0) return;
+
+  const rows = projects.map((p) => {
+    const activities =
+      (p.plan_activities as unknown as { name: string; budget: number; responsible: string[] }[]) ?? [];
+    const budgetAmount =
+      activities.length > 0 ? activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0) : Number(p.budget ?? 0);
+    return {
+      created_by: user?.id ?? null,
+      proposer_name: profile?.full_name ?? null,
+      budget_year_id: targetBudgetYearId,
+      admin_group_id: p.admin_group_id,
+      name: p.name,
+      budget_source_id: p.budget_source_id,
+      budget_amount: budgetAmount,
+      activities: activities.map((a) => ({
+        name: a.name,
+        budget: Number(a.budget ?? 0),
+        responsible: a.responsible ?? [],
+      })),
+    };
+  });
+
+  const { error } = await supabase.from("plan_project_proposals").insert(rows);
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
-  revalidatePath("/projects");
+  revalidatePath("/project-proposals");
 }

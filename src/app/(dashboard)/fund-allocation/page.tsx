@@ -112,6 +112,7 @@ export default function FundAllocationPage() {
             {tab === "project" && (
               <ProjectAllocationTab
                 budgetYearId={budgetYearId}
+                budgetYears={budgetYears}
                 adminGroups={adminGroups}
                 budgetSources={budgetSources}
               />
