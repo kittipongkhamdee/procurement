@@ -467,7 +467,7 @@ export default function ApprovalsPage() {
                       <a
                         href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
                         target="_blank"
-                        className="text-sm font-medium text-red-600 hover:underline"
+                        className="btn-secondary btn-sm"
                       >
                         PDF
                       </a>
@@ -475,7 +475,7 @@ export default function ApprovalsPage() {
                     <td className="text-right">
                       {isOwnerOrAdmin &&
                         (editableState ? (
-                          <a href={`/approvals/${a.id}/edit`} className="text-sm font-medium text-navy-700 hover:underline">
+                          <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
                             แก้ไข
                           </a>
                         ) : (
@@ -484,11 +484,7 @@ export default function ApprovalsPage() {
                     </td>
                     <td className="text-right">
                       {isOwnerOrAdmin && editableState && (
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(a.id)}
-                          className="text-sm font-medium text-red-600 hover:underline"
-                        >
+                        <button type="button" onClick={() => handleDelete(a.id)} className="btn-danger btn-sm">
                           ลบ
                         </button>
                       )}
