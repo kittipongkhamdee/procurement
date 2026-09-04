@@ -446,8 +446,12 @@ export default function ApprovalsPage() {
                     <td className="text-slate-400">{index + 1}</td>
                     <td>{a.doc_number ?? "-"}</td>
                     <td>{formatThaiDate(a.doc_date)}</td>
-                    <td>{a.plan_projects?.name ?? "-"}</td>
-                    <td>{a.activity_name ?? "-"}</td>
+                    <td>
+                      <div className="max-w-[220px] whitespace-normal break-words">{a.plan_projects?.name ?? "-"}</div>
+                    </td>
+                    <td>
+                      <div className="max-w-[220px] whitespace-normal break-words">{a.activity_name ?? "-"}</div>
+                    </td>
                     <td className="font-medium text-slate-900">{a.requested_by_name ?? "-"}</td>
                     <td className="text-right font-semibold text-red-600">{formatBaht(Number(a.requested_amount))}</td>
                     <td>

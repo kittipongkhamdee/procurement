@@ -264,7 +264,8 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   ]);
 
   fillAutoShrink(page1, font, data.plan_date_text ?? "", 328.51, 429.94, 262.8);
-  fillAutoShrink(page1, font, formatBaht(data.requested_amount), 166.4, 253.5, 284.1, { align: "right" });
+  // ขยับจำนวนเงินไปทางซ้าย (เว้นระยะห่างจาก "บาท" มากขึ้น) ตามที่ผู้ใช้ขอ
+  fillAutoShrink(page1, font, formatBaht(data.requested_amount), 166.4, 233.5, 284.1, { align: "right" });
 
   fillAutoShrink(page1, font, data.requested_by_name ?? "", 295.87, 465.7, 354.1, { align: "center" });
 
