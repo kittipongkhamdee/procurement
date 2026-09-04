@@ -51,6 +51,24 @@ export async function confirmWarning(opts: { title: string; text?: string; confi
   return result.isConfirmed;
 }
 
+/** ถามเหตุผล (ข้อความบังคับกรอก) พร้อมยืนยัน/ยกเลิก — คืนค่าเหตุผลที่กรอกถ้ายืนยัน, null ถ้ายกเลิก */
+export async function promptReason(opts: { title: string; inputLabel?: string }) {
+  const swal = await loadSwal();
+  const result = await swal.fire({
+    title: opts.title,
+    input: "textarea",
+    inputLabel: opts.inputLabel ?? "เหตุผล",
+    inputPlaceholder: "ระบุเหตุผล...",
+    showCancelButton: true,
+    confirmButtonText: "บันทึก",
+    cancelButtonText: "ยกเลิก",
+    focusCancel: true,
+    inputValidator: (value: string) => (value?.trim() ? undefined : "กรุณาระบุเหตุผล"),
+  });
+  if (!result.isConfirmed) return null;
+  return String(result.value ?? "").trim();
+}
+
 export async function toastSuccess(title: string) {
   const swal = await loadSwal();
   await swal.fire({

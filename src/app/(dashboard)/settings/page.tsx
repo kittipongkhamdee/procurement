@@ -19,6 +19,7 @@ import { GeminiKeyForm } from "./gemini-key-form";
 import { AiExtractionToggle } from "./ai-extraction-toggle";
 import { StorageProviderToggle } from "./storage-provider-toggle";
 import { SchoolBrandingForm } from "./school-branding-form";
+import { ApprovalSignersForm } from "./approval-signers-form";
 import { CloseIcon } from "@/components/icons";
 import {
   createAdminGroup,
@@ -30,6 +31,7 @@ import {
   deleteUserGroup,
   removeSchoolLogo,
   setAiExtractionEnabled,
+  setApprovalSigner,
   setCurrentBudgetYear,
   setGeminiApiKey,
   setGeminiModel,
@@ -61,6 +63,7 @@ type SettingsData = {
   storageProvider: "supabase" | "google_drive";
   schoolName: string;
   schoolLogoUrl: string | null;
+  approvalSigners: Record<string, string | null>;
 };
 
 export default function SettingsPage() {
@@ -81,6 +84,7 @@ export default function SettingsPage() {
       { data: aiExtractionEnabledSetting },
       { data: storageProviderSetting },
       { data: schoolSettings },
+      { data: approvalSignerRows },
     ] = await Promise.all([
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
       supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
@@ -93,6 +97,15 @@ export default function SettingsPage() {
       supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
       supabase.from("proc_school_settings").select("school_name, logo_url").eq("id", true).maybeSingle(),
+      supabase
+        .from("proc_app_settings")
+        .select("key, value")
+        .in("key", [
+          "approval_signer_planning",
+          "approval_signer_finance",
+          "approval_signer_deputy",
+          "approval_signer_director",
+        ]),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -115,6 +128,7 @@ export default function SettingsPage() {
       storageProvider: storageProviderSetting?.value === "google_drive" ? "google_drive" : "supabase",
       schoolName: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
       schoolLogoUrl: schoolSettings?.logo_url ?? null,
+      approvalSigners: Object.fromEntries((approvalSignerRows ?? []).map((r) => [r.key, r.value])),
     });
   }, []);
 
@@ -338,6 +352,17 @@ export default function SettingsPage() {
               </div>
               <AiExtractionToggle enabled={data.aiExtractionEnabled} setAiExtractionEnabled={setAiExtractionEnabled} />
             </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">ชื่อผู้ลงนามในบันทึกขออนุมัติ</div>
+            <p className="mb-3 text-sm text-slate-500">
+              ชื่อทั้ง 4 ระดับนี้จะพิมพ์ลงเอกสาร &quot;บันทึกข้อความขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ&quot;
+              (เมนู &quot;บันทึกขออนุมัติ&quot;) เสมอ ไม่ว่าใครจะเป็นผู้กดอนุมัติจริงในระบบ แก้ไขได้เมื่อเปลี่ยนตัวผู้ดำรงตำแหน่ง
+            </p>
+            <ApprovalSignersForm signers={data.approvalSigners} setApprovalSigner={setApprovalSigner} />
           </div>
         </div>
 

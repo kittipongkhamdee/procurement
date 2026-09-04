@@ -1117,6 +1117,7 @@ export type Database = {
           approval_id: string
           id: string
           name: string | null
+          note: string | null
           qty: number | null
           seq: number
           total: number | null
@@ -1127,6 +1128,7 @@ export type Database = {
           approval_id: string
           id?: string
           name?: string | null
+          note?: string | null
           qty?: number | null
           seq: number
           total?: number | null
@@ -1137,6 +1139,7 @@ export type Database = {
           approval_id?: string
           id?: string
           name?: string | null
+          note?: string | null
           qty?: number | null
           seq?: number
           total?: number | null
@@ -1155,20 +1158,30 @@ export type Database = {
       }
       proc_approvals: {
         Row: {
+          activity_name: string | null
           addressed_to: string
           approval_pdf_url: string | null
           approve_note: string | null
           approved_at: string | null
           approved_by_name: string | null
           budget: number | null
+          budget_year_text: string | null
           created_at: string
           created_by: string | null
+          department: string | null
+          deputy_decided_at: string | null
+          deputy_decided_by_name: string | null
+          deputy_decision: string | null
+          deputy_note: string | null
           detail_text: string | null
           doc_date: string
+          doc_number: string | null
           fund_type: string | null
+          group_name: string | null
           id: string
           item_list_pdf_url: string | null
           paid: number | null
+          plan_date_text: string | null
           project_id: string | null
           remaining: number | null
           requested_amount: number
@@ -1176,23 +1189,34 @@ export type Database = {
           requested_by_position: string | null
           status: string
           subject: string
+          summary_items: Json
           updated_at: string
         }
         Insert: {
+          activity_name?: string | null
           addressed_to: string
           approval_pdf_url?: string | null
           approve_note?: string | null
           approved_at?: string | null
           approved_by_name?: string | null
           budget?: number | null
+          budget_year_text?: string | null
           created_at?: string
           created_by?: string | null
+          department?: string | null
+          deputy_decided_at?: string | null
+          deputy_decided_by_name?: string | null
+          deputy_decision?: string | null
+          deputy_note?: string | null
           detail_text?: string | null
           doc_date: string
+          doc_number?: string | null
           fund_type?: string | null
+          group_name?: string | null
           id?: string
           item_list_pdf_url?: string | null
           paid?: number | null
+          plan_date_text?: string | null
           project_id?: string | null
           remaining?: number | null
           requested_amount?: number
@@ -1200,23 +1224,34 @@ export type Database = {
           requested_by_position?: string | null
           status?: string
           subject: string
+          summary_items?: Json
           updated_at?: string
         }
         Update: {
+          activity_name?: string | null
           addressed_to?: string
           approval_pdf_url?: string | null
           approve_note?: string | null
           approved_at?: string | null
           approved_by_name?: string | null
           budget?: number | null
+          budget_year_text?: string | null
           created_at?: string
           created_by?: string | null
+          department?: string | null
+          deputy_decided_at?: string | null
+          deputy_decided_by_name?: string | null
+          deputy_decision?: string | null
+          deputy_note?: string | null
           detail_text?: string | null
           doc_date?: string
+          doc_number?: string | null
           fund_type?: string | null
+          group_name?: string | null
           id?: string
           item_list_pdf_url?: string | null
           paid?: number | null
+          plan_date_text?: string | null
           project_id?: string | null
           remaining?: number | null
           requested_amount?: number
@@ -1224,6 +1259,7 @@ export type Database = {
           requested_by_position?: string | null
           status?: string
           subject?: string
+          summary_items?: Json
           updated_at?: string
         }
         Relationships: [
