@@ -34,9 +34,9 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   ]);
 
   if (!approval) notFound();
-  // แก้ไขไม่ได้ถ้ารองผู้อำนวยการเห็นชอบแล้ว (รอผู้อำนวยการ) หรือผู้อำนวยการอนุมัติแล้ว — ถ้าเป็น
-  // "ไม่ควรอนุมัติ"/"ไม่อนุมัติ" ยังแก้ไขได้ (ตรงกับเงื่อนไขใน actions.ts:updateApproval)
-  const editable = approval.status === "ไม่อนุมัติ" || (approval.status === "รออนุมัติ" && approval.deputy_decision !== "ควร");
+  // แก้ไขไม่ได้ถ้ารองผู้อำนวยการเสนอความเห็นแล้ว (ไม่ว่าเห็นควรหรือไม่) หรือผู้อำนวยการอนุมัติแล้ว —
+  // ถ้าผู้อำนวยการ "ไม่อนุมัติ" ยังแก้ไขได้ (ตรงกับเงื่อนไขใน actions.ts:updateApproval)
+  const editable = approval.status === "ไม่อนุมัติ" || (approval.status === "รออนุมัติ" && approval.deputy_decision === null);
   if (!editable) notFound();
 
   const budgetByProject = new Map<string, number>();

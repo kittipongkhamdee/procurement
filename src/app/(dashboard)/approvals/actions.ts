@@ -176,15 +176,16 @@ export async function createApproval(formData: FormData) {
 export async function updateApproval(id: string, formData: FormData) {
   const supabase = await createClient();
 
-  // แก้ไขไม่ได้ถ้ารองผู้อำนวยการเห็นชอบแล้ว (รอผู้อำนวยการ) หรือผู้อำนวยการอนุมัติแล้ว — ถ้าเป็น
-  // "ไม่ควรอนุมัติ"/"ไม่อนุมัติ" ยังแก้ไขได้ (แก้แล้วจะย้อนสถานะเป็น "รอความเห็น" ใหม่ด้านล่าง)
+  // แก้ไขไม่ได้ถ้ารองผู้อำนวยการเสนอความเห็นแล้ว (ไม่ว่าเห็นควรหรือไม่ — ทั้งสองกรณีเลื่อนสถานะเป็น
+  // "รออนุมัติ" ส่งต่อให้ผู้อำนวยการแล้ว) หรือผู้อำนวยการอนุมัติแล้ว — ถ้าผู้อำนวยการ "ไม่อนุมัติ"
+  // ยังแก้ไขได้ (แก้แล้วจะย้อนสถานะเป็น "รอเสนอ" ใหม่ด้านล่าง)
   const { data: current } = await supabase
     .from("proc_approvals")
     .select("status, deputy_decision")
     .eq("id", id)
     .maybeSingle();
   if (!current) throw new Error("ไม่พบบันทึกนี้");
-  const editable = current.status === "ไม่อนุมัติ" || (current.status === "รออนุมัติ" && current.deputy_decision !== "ควร");
+  const editable = current.status === "ไม่อนุมัติ" || (current.status === "รออนุมัติ" && current.deputy_decision === null);
   if (!editable) throw new Error("รายการนี้มีผู้เห็นชอบแล้ว ไม่สามารถแก้ไขได้");
 
   const requestedAmount = Number(formData.get("requested_amount") ?? 0);
@@ -219,8 +220,8 @@ export async function updateApproval(id: string, formData: FormData) {
       requested_by_position: String(formData.get("requested_by_position") ?? "") || null,
       group_name: String(formData.get("group_name") ?? "").trim() || null,
       budget_year_text: String(formData.get("budget_year_text") ?? "").trim() || null,
-      // แก้ไขบันทึกแล้วย้อนสถานะเป็น "รอความเห็น" ใหม่เสมอ (ล้างความเห็น/การอนุมัติเดิมทิ้ง เผื่อ
-      // เป็นการแก้ไขหลังถูก "ไม่ควรอนุมัติ"/"ไม่อนุมัติ" มา)
+      // แก้ไขบันทึกแล้วย้อนสถานะเป็น "รอเสนอ" ใหม่เสมอ (ล้างความเห็น/การอนุมัติเดิมทิ้ง เผื่อเป็นการ
+      // แก้ไขหลังผู้อำนวยการ "ไม่อนุมัติ" มา)
       status: "รออนุมัติ",
       deputy_decision: null,
       deputy_decided_by_name: null,

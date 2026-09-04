@@ -4,12 +4,13 @@
 // ฯลฯ — ดู /root/.claude/plans) หน้า /approvals/new (ฟอร์มสร้างใหม่) และ /approvals/[id]/pdf
 // (พิมพ์ PDF) ยังคงเป็น Server Component เดิม ไม่แตะ — ใช้งานไม่บ่อยเท่าหน้ารายการนี้
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
-import { confirmDelete, confirmWarning, errorMessage, promptReason, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { Modal, type ModalHandle } from "@/components/modal";
 import {
   deleteApproval,
   resetApprovalStatus,
@@ -42,48 +43,226 @@ type Approval = {
   plan_projects: { name: string } | null;
 };
 
-/** สถานะรวมของบันทึก (ควบรวมความเห็นรองผู้อำนวยการ + สถานะผู้อำนวยการ เป็นค่าเดียว) */
-function mergedStatus(a: Approval): "รอความเห็น" | "รออนุมัติ" | "อนุมัติ" | "ไม่ควรอนุมัติ" | "ไม่อนุมัติ" {
+/** สถานะรวมของบันทึก — รองผู้อำนวยการเสนอความเห็นแล้ว (ไม่ว่าเห็นควรหรือไม่) จะเลื่อนสถานะเป็น
+ * "รออนุมัติ" เสมอ (ส่งต่อให้ผู้อำนวยการตัดสินใจ ความเห็นของรองผู้อำนวยการเป็นข้อมูลประกอบเท่านั้น) */
+function mergedStatus(a: Approval): "รอเสนอ" | "รออนุมัติ" | "อนุมัติ" | "ไม่อนุมัติ" {
   if (a.status === "อนุมัติ") return "อนุมัติ";
   if (a.status === "ไม่อนุมัติ") return "ไม่อนุมัติ";
-  if (a.deputy_decision === "ไม่ควร") return "ไม่ควรอนุมัติ";
-  if (a.deputy_decision === "ควร") return "รออนุมัติ";
-  return "รอความเห็น";
+  if (a.deputy_decision !== null) return "รออนุมัติ";
+  return "รอเสนอ";
 }
 
 function mergedStatusBadgeClass(label: string) {
   if (label === "อนุมัติ") return "badge-emerald";
-  if (label === "ไม่อนุมัติ" || label === "ไม่ควรอนุมัติ") return "badge-red";
+  if (label === "ไม่อนุมัติ") return "badge-red";
   if (label === "รออนุมัติ") return "badge-amber";
   return "badge-slate";
 }
 
-/** แก้ไข/ลบได้เมื่อยังไม่ผ่านการเห็นชอบของรองผู้อำนวยการ (deputy_decision !== "ควร") และยังไม่อนุมัติ
- * — ถ้ารองผู้อำนวยการเห็นชอบแล้ว (รอผู้อำนวยการ) หรือผู้อำนวยการอนุมัติแล้ว แก้ไขไม่ได้ ส่วนกรณี
- * "ไม่ควรอนุมัติ"/"ไม่อนุมัติ" ยังแก้ไขได้ (แก้แล้วบันทึกจะย้อนสถานะเป็น "รอความเห็น" ใหม่) */
+/** แก้ไข/ลบได้จนกว่ารองผู้อำนวยการจะเสนอความเห็น (ไม่ว่าเห็นควรหรือไม่) หรือผู้อำนวยการอนุมัติแล้ว
+ * — ถ้าผู้อำนวยการ "ไม่อนุมัติ" ยังแก้ไขได้ (แก้แล้วบันทึกจะย้อนสถานะเป็น "รอเสนอ" ใหม่) */
 function isEditableState(a: Approval) {
   if (a.status === "อนุมัติ") return false;
   if (a.status === "ไม่อนุมัติ") return true;
-  return a.deputy_decision !== "ควร";
+  return a.deputy_decision === null;
 }
 
-/** ข้อความรายละเอียดความเห็น/สถานะที่รองผู้อำนวยการ+ผู้อำนวยการบันทึกไว้ ใช้แสดงตอนชี้เมาส์/คลิก */
-function statusDetailText(a: Approval) {
-  const parts: string[] = [];
-  if (a.deputy_decision) {
-    const decisionLabel = a.deputy_decision === "ควร" ? "ควรอนุมัติ" : "ไม่ควรอนุมัติ";
-    parts.push(
-      `รองผู้อำนวยการ: ${decisionLabel} โดย ${a.deputy_decided_by_name ?? "-"} เมื่อ ${a.deputy_decided_at ? formatThaiDate(a.deputy_decided_at) : "-"}` +
-        (a.deputy_note ? `\nเหตุผล: ${a.deputy_note}` : ""),
-    );
+type DecisionMode = "deputy" | "director" | "view";
+
+/** ป้ายสถานะ + popup รายละเอียด/พิจารณาอนุมัติ — เนื้อหาและปุ่มในนั้นเปลี่ยนตามบทบาทผู้ใช้กับ
+ * สถานะปัจจุบันของรายการ (mode คำนวณจากผู้เรียกใช้) */
+function ApprovalStatusCell({
+  approval,
+  mode,
+  isAdmin,
+  onSubmitDeputy,
+  onSubmitDirector,
+  onResetDeputy,
+  onResetStatus,
+}: {
+  approval: Approval;
+  mode: DecisionMode;
+  isAdmin: boolean;
+  onSubmitDeputy: (id: string, decision: "ควร" | "ไม่ควร", note?: string) => Promise<void>;
+  onSubmitDirector: (id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) => Promise<void>;
+  onResetDeputy: (id: string) => void;
+  onResetStatus: (id: string) => void;
+}) {
+  const modalRef = useRef<ModalHandle>(null);
+  const [choice, setChoice] = useState<"ควร" | "ไม่ควร" | "อนุมัติ" | "ไม่อนุมัติ" | null>(null);
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const status = mergedStatus(approval);
+  const needsNote = choice === "ไม่ควร" || choice === "ไม่อนุมัติ";
+
+  async function handleSave() {
+    if (!choice) return;
+    const trimmed = note.trim();
+    if (needsNote && !trimmed) return;
+    setSubmitting(true);
+    try {
+      if (mode === "deputy") await onSubmitDeputy(approval.id, choice as "ควร" | "ไม่ควร", needsNote ? trimmed : undefined);
+      else if (mode === "director")
+        await onSubmitDirector(approval.id, choice as "อนุมัติ" | "ไม่อนุมัติ", needsNote ? trimmed : undefined);
+      setChoice(null);
+      setNote("");
+      modalRef.current?.close();
+    } catch {
+      // toast ผิดพลาดขึ้นแล้วจากฝั่งเรียก — เปิด popup ค้างไว้ให้แก้ไข/ลองใหม่ได้
+    } finally {
+      setSubmitting(false);
+    }
   }
-  if (a.status === "อนุมัติ" || a.status === "ไม่อนุมัติ") {
-    parts.push(
-      `ผู้อำนวยการ: ${a.status} โดย ${a.approved_by_name ?? "-"} เมื่อ ${a.approved_at ? formatThaiDate(a.approved_at) : "-"}` +
-        (a.approve_note ? `\nเหตุผล: ${a.approve_note}` : ""),
-    );
-  }
-  return parts.length > 0 ? parts.join("\n\n") : "ยังไม่มีความเห็น";
+
+  return (
+    <Modal
+      ref={modalRef}
+      trigger={status}
+      triggerClassName={`${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
+      title={mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
+    >
+      <div className="space-y-4">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <div>
+            <dt className="text-slate-400">เลขที่</dt>
+            <dd>{approval.doc_number ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400">วันที่</dt>
+            <dd>{formatThaiDate(approval.doc_date)}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400">โครงการ</dt>
+            <dd>{approval.plan_projects?.name ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400">กิจกรรม</dt>
+            <dd>{approval.activity_name ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400">ผู้รับผิดชอบ</dt>
+            <dd>{approval.requested_by_name ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400">ขออนุมัติครั้งนี้</dt>
+            <dd className="font-semibold text-red-600">{formatBaht(Number(approval.requested_amount))} บาท</dd>
+          </div>
+        </dl>
+
+        {approval.deputy_decision !== null && (
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+            <p className="font-medium text-navy-900">
+              ความเห็นรองผู้อำนวยการ: {approval.deputy_decision === "ควร" ? "เห็นควรอนุมัติ" : "ไม่เห็นควรอนุมัติ"}
+            </p>
+            <p className="text-slate-500">
+              โดย {approval.deputy_decided_by_name ?? "-"} เมื่อ{" "}
+              {approval.deputy_decided_at ? formatThaiDate(approval.deputy_decided_at) : "-"}
+            </p>
+            {approval.deputy_note && <p className="mt-1 whitespace-pre-line">ความคิดเห็น: {approval.deputy_note}</p>}
+          </div>
+        )}
+
+        {(approval.status === "อนุมัติ" || approval.status === "ไม่อนุมัติ") && (
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+            <p className="font-medium text-navy-900">ผู้อำนวยการ: {approval.status}</p>
+            <p className="text-slate-500">
+              โดย {approval.approved_by_name ?? "-"} เมื่อ {approval.approved_at ? formatThaiDate(approval.approved_at) : "-"}
+            </p>
+            {approval.approve_note && <p className="mt-1 whitespace-pre-line">ความคิดเห็น: {approval.approve_note}</p>}
+          </div>
+        )}
+
+        {mode === "view" && approval.deputy_decision === null && approval.status === "รออนุมัติ" && (
+          <p className="text-sm text-slate-400">ยังไม่มีความเห็น</p>
+        )}
+
+        {(mode === "deputy" || mode === "director") && (
+          <div className="space-y-3 border-t border-slate-100 pt-4">
+            <div className="flex gap-2">
+              {mode === "deputy" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setChoice("ควร")}
+                    className={choice === "ควร" ? "btn-primary" : "btn-secondary"}
+                  >
+                    เห็นควรอนุมัติ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChoice("ไม่ควร")}
+                    className={choice === "ไม่ควร" ? "btn-primary" : "btn-secondary"}
+                  >
+                    ไม่เห็นควรอนุมัติ
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setChoice("อนุมัติ")}
+                    className={choice === "อนุมัติ" ? "btn-primary" : "btn-secondary"}
+                  >
+                    อนุมัติ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChoice("ไม่อนุมัติ")}
+                    className={choice === "ไม่อนุมัติ" ? "btn-primary" : "btn-secondary"}
+                  >
+                    ไม่อนุมัติ
+                  </button>
+                </>
+              )}
+            </div>
+            {needsNote && (
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                required
+                placeholder="กรอกความคิดเห็น (บังคับ)"
+                rows={3}
+                className="input w-full"
+              />
+            )}
+            {choice && (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={submitting || (needsNote && !note.trim())}
+                className="btn-primary w-full"
+              >
+                {submitting ? "กำลังบันทึก..." : mode === "deputy" ? "บันทึก (เสนอผู้อำนวยการ)" : "บันทึก"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {mode === "view" && isAdmin && (approval.deputy_decision !== null || approval.status !== "รออนุมัติ") && (
+          <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
+            {approval.deputy_decision !== null && (
+              <button
+                type="button"
+                onClick={() => onResetDeputy(approval.id)}
+                className="text-sm font-medium text-slate-500 hover:underline"
+              >
+                ย้อนความเห็นรองผู้อำนวยการ
+              </button>
+            )}
+            {approval.status !== "รออนุมัติ" && (
+              <button
+                type="button"
+                onClick={() => onResetStatus(approval.id)}
+                className="text-sm font-medium text-slate-500 hover:underline"
+              >
+                ย้อนสถานะผู้อำนวยการ
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
 }
 
 export default function ApprovalsPage() {
@@ -93,7 +272,6 @@ export default function ApprovalsPage() {
   const [signedPdfUrls, setSignedPdfUrls] = useState<Map<string, string>>(new Map());
   const [canApproveDirector, setCanApproveDirector] = useState(false);
   const [canApproveDeputy, setCanApproveDeputy] = useState(false);
-  const [expandedStatusId, setExpandedStatusId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     if (authLoading) return;
@@ -152,22 +330,14 @@ export default function ApprovalsPage() {
     }
   }
 
-  async function handleUpdateStatus(id: string, decision: "อนุมัติ" | "ไม่อนุมัติ") {
-    let note: string | undefined;
-    if (decision === "ไม่อนุมัติ") {
-      const reason = await promptReason({ title: "เหตุผลที่ไม่อนุมัติ" });
-      if (reason === null) return;
-      note = reason;
-    } else {
-      const ok = await confirmWarning({ title: "อนุมัติรายการนี้?", confirmButtonText: "อนุมัติ" });
-      if (!ok) return;
-    }
+  async function submitDirectorDecision(id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) {
     try {
       await updateApprovalStatus(id, decision, note);
       await toastSuccess(`บันทึกสถานะ "${decision}" แล้ว`);
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
+      throw err;
     }
   }
 
@@ -183,22 +353,14 @@ export default function ApprovalsPage() {
     }
   }
 
-  async function handleUpdateDeputyDecision(id: string, decision: "ควร" | "ไม่ควร") {
-    let note: string | undefined;
-    if (decision === "ไม่ควร") {
-      const reason = await promptReason({ title: "เหตุผลที่ไม่ควรอนุมัติ" });
-      if (reason === null) return;
-      note = reason;
-    } else {
-      const ok = await confirmWarning({ title: "ความเห็น: ควรอนุญาตและอนุมัติ?", confirmButtonText: "ควรอนุมัติ" });
-      if (!ok) return;
-    }
+  async function submitDeputyDecision(id: string, decision: "ควร" | "ไม่ควร", note?: string) {
     try {
       await updateDeputyDecision(id, decision, note);
       await toastSuccess("บันทึกความเห็นของรองผู้อำนวยการแล้ว");
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
+      throw err;
     }
   }
 
@@ -249,10 +411,9 @@ export default function ApprovalsPage() {
             <tbody>
               {approvals.map((a, index) => {
                 const status = mergedStatus(a);
-                const detailText = statusDetailText(a);
-                const expanded = expandedStatusId === a.id;
-                // รองผู้อำนวยการต้องกด "ควรอนุมัติ" ก่อน ผู้อำนวยการจึงจะกดอนุมัติ/ไม่อนุมัติได้
-                const directorCanAct = canApproveDirector && a.status === "รออนุมัติ" && a.deputy_decision === "ควร";
+                let mode: DecisionMode = "view";
+                if (canApproveDeputy && status === "รอเสนอ") mode = "deputy";
+                else if (canApproveDirector && status === "รออนุมัติ") mode = "director";
                 // แก้ไข/ลบได้เฉพาะเจ้าของบันทึกเองหรือแอดมิน (ครูคนอื่นเห็นรายการได้แต่แก้ไข/ลบไม่ได้)
                 const isOwnerOrAdmin = isAdmin || (!!user && a.created_by === user.userId);
                 const editableState = isEditableState(a);
@@ -266,73 +427,15 @@ export default function ApprovalsPage() {
                     <td className="font-medium text-slate-900">{a.requested_by_name ?? "-"}</td>
                     <td className="text-right font-semibold text-red-600">{formatBaht(Number(a.requested_amount))}</td>
                     <td>
-                      <button
-                        type="button"
-                        title={detailText}
-                        onClick={() => setExpandedStatusId(expanded ? null : a.id)}
-                        className={`${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
-                      >
-                        {status}
-                      </button>
-                      {expanded && (
-                        <p className="mt-1 max-w-xs whitespace-pre-line text-xs text-slate-500">{detailText}</p>
-                      )}
-                      <div className="mt-1 flex flex-wrap items-center gap-3">
-                        {canApproveDeputy && a.deputy_decision === null && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateDeputyDecision(a.id, "ควร")}
-                              className="text-sm font-medium text-emerald-600 hover:underline"
-                            >
-                              ควรอนุมัติ
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateDeputyDecision(a.id, "ไม่ควร")}
-                              className="text-sm font-medium text-red-600 hover:underline"
-                            >
-                              ไม่ควรอนุมัติ
-                            </button>
-                          </>
-                        )}
-                        {isAdmin && a.deputy_decision !== null && (
-                          <button
-                            type="button"
-                            onClick={() => handleResetDeputyDecision(a.id)}
-                            className="text-sm font-medium text-slate-500 hover:underline"
-                          >
-                            ย้อนความเห็น
-                          </button>
-                        )}
-                        {directorCanAct && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(a.id, "อนุมัติ")}
-                              className="text-sm font-medium text-emerald-600 hover:underline"
-                            >
-                              อนุมัติ
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateStatus(a.id, "ไม่อนุมัติ")}
-                              className="text-sm font-medium text-red-600 hover:underline"
-                            >
-                              ไม่อนุมัติ
-                            </button>
-                          </>
-                        )}
-                        {isAdmin && a.status !== "รออนุมัติ" && (
-                          <button
-                            type="button"
-                            onClick={() => handleResetStatus(a.id)}
-                            className="text-sm font-medium text-slate-500 hover:underline"
-                          >
-                            ย้อนสถานะ
-                          </button>
-                        )}
-                      </div>
+                      <ApprovalStatusCell
+                        approval={a}
+                        mode={mode}
+                        isAdmin={isAdmin}
+                        onSubmitDeputy={submitDeputyDecision}
+                        onSubmitDirector={submitDirectorDecision}
+                        onResetDeputy={handleResetDeputyDecision}
+                        onResetStatus={handleResetStatus}
+                      />
                     </td>
                     <td className="text-right">
                       <a
