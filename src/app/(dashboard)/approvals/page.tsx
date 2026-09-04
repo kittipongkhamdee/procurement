@@ -273,21 +273,13 @@ function ApprovalStatusCell({
         ((isAdmin || canApproveDirector) && approval.status !== "รออนุมัติ") ? (
           <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
             {(isAdmin || canApproveDeputy) && approval.deputy_decision !== null && (
-              <button
-                type="button"
-                onClick={() => onResetDeputy(approval.id)}
-                className="text-sm font-medium text-slate-500 hover:underline"
-              >
-                ย้อนความเห็นรองผู้อำนวยการ
+              <button type="button" onClick={() => onResetDeputy(approval.id)} className="btn-danger btn-sm">
+                ↺ ย้อนความเห็นรองผู้อำนวยการ
               </button>
             )}
             {(isAdmin || canApproveDirector) && approval.status !== "รออนุมัติ" && (
-              <button
-                type="button"
-                onClick={() => onResetStatus(approval.id)}
-                className="text-sm font-medium text-slate-500 hover:underline"
-              >
-                ย้อนสถานะผู้อำนวยการ
+              <button type="button" onClick={() => onResetStatus(approval.id)} className="btn-danger btn-sm">
+                ↺ ย้อนสถานะผู้อำนวยการ
               </button>
             )}
           </div>
