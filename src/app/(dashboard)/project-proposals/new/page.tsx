@@ -16,6 +16,7 @@ import { createProposal } from "../actions";
 
 type Option = { id: string; name: string };
 type Teacher = { id: string; name: string; is_active: boolean };
+type DraftProject = { id: string; name: string; adminGroupId: string | null; budgetSourceId: string | null; budget: number };
 
 export default function NewProjectProposalPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function NewProjectProposalPage() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [strategies, setStrategies] = useState<Option[]>([]);
   const [standards, setStandards] = useState<Option[]>([]);
+  const [draftProjects, setDraftProjects] = useState<DraftProject[]>([]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -38,12 +40,31 @@ export default function NewProjectProposalPage() {
         supabase.from("plan_strategies").select("id, name").eq("is_active", true).order("sort_order").order("name"),
         supabase.from("plan_standards").select("id, name").eq("is_active", true).order("sort_order").order("name"),
       ]);
-    setCurrentYear(budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null);
+    const year = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
+    setCurrentYear(year);
     setAdminGroups(adminGroupsData ?? []);
     setBudgetSources(budgetSourcesData ?? []);
     setTeachers(teachersData ?? []);
     setStrategies(strategiesData ?? []);
     setStandards(standardsData ?? []);
+
+    if (year) {
+      const { data: draftsData } = await supabase
+        .from("plan_draft_projects")
+        .select("id, name, admin_group_id, budget_source_id, budget")
+        .eq("budget_year_id", year.id)
+        .order("sort_order")
+        .order("created_at");
+      setDraftProjects(
+        (draftsData ?? []).map((d) => ({
+          id: d.id,
+          name: d.name,
+          adminGroupId: d.admin_group_id,
+          budgetSourceId: d.budget_source_id,
+          budget: Number(d.budget ?? 0),
+        })),
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -80,6 +101,7 @@ export default function NewProjectProposalPage() {
             teachers={teachers}
             strategies={strategies}
             standards={standards}
+            draftProjects={draftProjects}
             onSuccess={() => router.push("/project-proposals")}
           />
         </div>

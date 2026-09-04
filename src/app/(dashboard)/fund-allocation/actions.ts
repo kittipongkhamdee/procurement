@@ -58,53 +58,63 @@ export async function upsertGroupAllocation(budgetYearId: string, adminGroupId: 
   revalidatePath("/fund-allocation");
 }
 
-// คัดลอกโครงการจากปีงบประมาณเดิม (plan_projects + plan_activities) มาเป็น "ข้อเสนอโครงการ" ใหม่
-// (plan_project_proposals สถานะเริ่มต้น "รอเห็นชอบ" ตาม default ของตาราง) สำหรับปีงบประมาณใหม่ที่เลือก
-// ไว้ในหน้านี้ — เป็นจุดเริ่มต้นให้ไปเข้ากระบวนการเห็นชอบ/อนุมัติต่อที่เมนู "เสนอโครงการ" ตามปกติ
-// ไม่เขียนลง plan_projects ตรงๆ
-export async function copyProjectsToProposals(targetBudgetYearId: string, projectIds: string[]) {
+// คัดลอกโครงการจากปีงบประมาณเดิม (plan_projects + plan_activities) มาเป็น "ร่างโครงการ"
+// (plan_draft_projects) สำหรับปีงบประมาณใหม่ที่เลือกไว้ในหน้านี้ — ยังไม่ใช่โครงการจริงและไม่ใช่
+// ข้อเสนอโครงการ เป็นแค่ข้อมูลตั้งต้นให้ admin แก้ไข/เพิ่ม/ลบ ชื่อ/กลุ่มบริหาร/แหล่งงบ/งบประมาณ
+// ก่อนที่ครูจะไปเลือกใช้ตอนสร้างข้อเสนอโครงการจริงที่เมนู "เสนอโครงการ" ต่อไป
+export async function copyProjectsToDraft(targetBudgetYearId: string, projectIds: string[]) {
   const supabase = await requireAdmin();
   if (projectIds.length === 0) return;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("proc_profiles")
-    .select("full_name")
-    .eq("user_id", user?.id ?? "")
-    .maybeSingle();
-
   const { data: projects, error: fetchError } = await supabase
     .from("plan_projects")
-    .select("id, name, admin_group_id, budget_source_id, budget, plan_activities(name, budget, responsible)")
+    .select("id, name, admin_group_id, budget_source_id, budget, plan_activities(budget)")
     .in("id", projectIds);
   if (fetchError) throw new Error(fetchError.message);
   if (!projects || projects.length === 0) return;
 
   const rows = projects.map((p) => {
-    const activities =
-      (p.plan_activities as unknown as { name: string; budget: number; responsible: string[] }[]) ?? [];
-    const budgetAmount =
+    const activities = (p.plan_activities as unknown as { budget: number }[]) ?? [];
+    const budget =
       activities.length > 0 ? activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0) : Number(p.budget ?? 0);
     return {
-      created_by: user?.id ?? null,
-      proposer_name: profile?.full_name ?? null,
       budget_year_id: targetBudgetYearId,
-      admin_group_id: p.admin_group_id,
       name: p.name,
+      admin_group_id: p.admin_group_id,
       budget_source_id: p.budget_source_id,
-      budget_amount: budgetAmount,
-      activities: activities.map((a) => ({
-        name: a.name,
-        budget: Number(a.budget ?? 0),
-        responsible: a.responsible ?? [],
-      })),
+      budget,
     };
   });
 
-  const { error } = await supabase.from("plan_project_proposals").insert(rows);
+  const { error } = await supabase.from("plan_draft_projects").insert(rows);
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
-  revalidatePath("/project-proposals");
+}
+
+// เพิ่มร่างโครงการเปล่าให้แก้ไขต่อได้ทันที
+export async function createDraftProject(budgetYearId: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("plan_draft_projects")
+    .insert({ budget_year_id: budgetYearId, name: "โครงการใหม่" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
+}
+
+// แก้ไขร่างโครงการแบบอินไลน์ (ชื่อ/กลุ่มบริหาร/แหล่งงบ/งบประมาณ) — ส่งเฉพาะฟิลด์ที่เปลี่ยน
+export async function updateDraftProject(
+  id: string,
+  fields: { name?: string; admin_group_id?: string | null; budget_source_id?: string | null; budget?: number },
+) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_draft_projects").update(fields).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
+}
+
+export async function deleteDraftProject(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_draft_projects").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
 }

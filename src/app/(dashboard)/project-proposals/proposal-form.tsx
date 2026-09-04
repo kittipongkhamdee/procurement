@@ -11,6 +11,13 @@ type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
 type Teacher = Pick<Tables<"plan_teachers">, "id" | "name" | "is_active">;
 type Strategy = Pick<Tables<"plan_strategies">, "id" | "name">;
 type Standard = Pick<Tables<"plan_standards">, "id" | "name">;
+type DraftProject = {
+  id: string;
+  name: string;
+  adminGroupId: string | null;
+  budgetSourceId: string | null;
+  budget: number;
+};
 
 type ActivityRow = {
   name: string;
@@ -188,6 +195,7 @@ export function ProposalForm({
   teachers,
   strategies,
   standards,
+  draftProjects = [],
   initial,
   submitLabel = "ส่งข้อเสนอโครงการ",
   successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
@@ -200,12 +208,16 @@ export function ProposalForm({
   teachers: Teacher[];
   strategies: Strategy[];
   standards: Standard[];
+  draftProjects?: DraftProject[];
   initial?: ProposalFormInitial;
   submitLabel?: string;
   successMessage?: string;
   onSuccess?: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
+  const [adminGroupId, setAdminGroupId] = useState(initial?.adminGroupId ?? "");
+  const [budgetSourceId, setBudgetSourceId] = useState(initial?.budgetSourceId ?? "");
+  const [selectedDraftId, setSelectedDraftId] = useState("");
   const [strategyAlignment, setStrategyAlignment] = useState(initial?.strategyAlignment ?? "");
   const [standard, setStandard] = useState(initial?.standard ?? "");
   const [responsible, setResponsible] = useState<string[]>(initial?.responsible ?? []);
@@ -245,6 +257,18 @@ export function ProposalForm({
       case "indicators_quality":
         return indicatorsQualityRef;
     }
+  }
+
+  function handleDraftSelect(draftId: string) {
+    setSelectedDraftId(draftId);
+    if (!draftId) return;
+    const draft = draftProjects.find((d) => d.id === draftId);
+    if (!draft) return;
+    setName(draft.name);
+    setAdminGroupId(draft.adminGroupId ?? "");
+    setBudgetSourceId(draft.budgetSourceId ?? "");
+    setHasActivities(false);
+    setProjectBudget(String(draft.budget));
   }
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
@@ -332,6 +356,26 @@ export function ProposalForm({
               </div>
             </div>
           </div>
+          {draftProjects.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <label className="label">ใช้ข้อมูลจากร่างโครงการที่เตรียมไว้ (ถ้ามี)</label>
+              <select
+                value={selectedDraftId}
+                onChange={(e) => handleDraftSelect(e.target.value)}
+                className="input"
+              >
+                <option value="">— ไม่ใช้ พิมพ์เอง —</option>
+                {draftProjects.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                เลือกแล้วจะเติมชื่อโครงการ กลุ่มงาน แหล่งเงินงบประมาณ และงบประมาณให้อัตโนมัติ แก้ไขต่อได้ตามต้องการ
+              </p>
+            </div>
+          )}
           <div>
             <label className="label">ชื่อโครงการ</label>
             <input
@@ -384,7 +428,13 @@ export function ProposalForm({
           </div>
           <div>
             <label className="label">กลุ่มงานที่รับผิดชอบ</label>
-            <select name="admin_group_id" required defaultValue={initial?.adminGroupId ?? ""} className="input">
+            <select
+              name="admin_group_id"
+              required
+              value={adminGroupId}
+              onChange={(e) => setAdminGroupId(e.target.value)}
+              className="input"
+            >
               <option value="" disabled>
                 เลือกกลุ่มบริหาร..
               </option>
@@ -420,7 +470,13 @@ export function ProposalForm({
         <div className="card-title">ขั้นตอนการดำเนินงาน และงบประมาณ</div>
         <div className="mb-3 w-full sm:w-56">
           <label className="label">แหล่งเงินงบประมาณ</label>
-          <select name="budget_source_id" required defaultValue={initial?.budgetSourceId ?? ""} className="input">
+          <select
+            name="budget_source_id"
+            required
+            value={budgetSourceId}
+            onChange={(e) => setBudgetSourceId(e.target.value)}
+            className="input"
+          >
             <option value="" disabled>
               เลือกแหล่งเงินงบประมาณ..
             </option>

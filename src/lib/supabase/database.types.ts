@@ -670,6 +670,64 @@ export type Database = {
           },
         ]
       }
+      plan_draft_projects: {
+        Row: {
+          admin_group_id: string | null
+          budget: number
+          budget_source_id: string | null
+          budget_year_id: string
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          admin_group_id?: string | null
+          budget?: number
+          budget_source_id?: string | null
+          budget_year_id: string
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          admin_group_id?: string | null
+          budget?: number
+          budget_source_id?: string | null
+          budget_year_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_draft_projects_admin_group_id_fkey"
+            columns: ["admin_group_id"]
+            isOneToOne: false
+            referencedRelation: "plan_admin_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_draft_projects_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_draft_projects_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_group_allocations: {
         Row: {
           admin_group_id: string
