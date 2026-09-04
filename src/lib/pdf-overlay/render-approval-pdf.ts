@@ -130,9 +130,9 @@ function putAutoShrink(
 type WrapSlot = { x0: number; x1: number; yBottom: number };
 
 /** หาความยาวคำนำหน้า (prefix) สูงสุดของ text ที่กว้างไม่เกิน maxWidth ที่ขนาดฟอนต์ size ด้วย binary
- * search ระดับตัวอักษร (รองรับภาษาไทยที่มักไม่มีช่องว่างคั่นคำ ต่างจากการตัดแค่ที่ช่องว่างซึ่งจะปล่อยให้
- * คำเดียวที่ยาวเกินกรอบไหลออกนอกช่องทั้งดุ้นได้) แล้วค่อยขยับกลับไปตัดที่ช่องว่างล่าสุดถ้ามี เพื่อไม่ให้
- * ตัดกลางคำภาษาอังกฤษที่มีช่องว่างอยู่แล้วโดยไม่จำเป็น — คืนทั้งส่วนที่ใช้ (line) และส่วนที่เหลือ (rest)
+ * search ระดับตัวอักษร — ใช้เป็นทางเลือกสุดท้ายเท่านั้น (เมื่อ "คำ" เดียวจาก Intl.Segmenter ยาวเกินทั้ง
+ * ช่องเอง ซึ่งเกิดยากมาก) ไม่ใช่วิธีหลักในการตัดคำอีกต่อไป เพราะตัดกลางคำภาษาไทยจะผิดหลักการเขียน
+ * (เช่น "สัมฤทธิ์" ถูกตัดเป็น "สัมฤท"+"ธิ์" ซึ่งผิด) — คืนทั้งส่วนที่ใช้ (line) และส่วนที่เหลือ (rest)
  * เสมอ ไม่มีการทิ้งข้อความ */
 function splitPrefix(font: PDFFont, text: string, maxWidth: number, size: number): { line: string; rest: string } {
   if (font.widthOfTextAtSize(text, size) <= maxWidth) return { line: text, rest: "" };
@@ -144,15 +144,24 @@ function splitPrefix(font: PDFFont, text: string, maxWidth: number, size: number
     else hi = mid - 1;
   }
   const cut = Math.max(lo, 1);
-  const spaceIdx = text.lastIndexOf(" ", cut);
-  const breakAt = spaceIdx > 0 ? spaceIdx : cut;
-  return { line: text.slice(0, breakAt).trimEnd(), rest: text.slice(breakAt).trimStart() };
+  return { line: text.slice(0, cut), rest: text.slice(cut) };
+}
+
+/** แบ่ง text เป็น "คำ" ตามหลักภาษาด้วย Intl.Segmenter (granularity: "word") — สำหรับภาษาไทย Node.js/
+ * V8 มีตัวตัดคำแบบพจนานุกรม (dictionary-based) ในตัวอยู่แล้วผ่าน ICU ทำให้ได้ขอบเขตคำที่ถูกต้องจริง
+ * (ต่างจากการตัดที่ช่องว่างเฉยๆ ซึ่งภาษาไทยไม่มีช่องว่างคั่นคำ จะได้ "คำ" เดียวยาวทั้งประโยค) ช่องว่าง/
+ * เครื่องหมายวรรคตอนก็แยกเป็น segment ของตัวเองด้วย ทำให้ต่อกลับเป็นข้อความเดิมได้พอดีเมื่อ join("") */
+function segmentWords(text: string): string[] {
+  const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+  return [...segmenter.segment(text)].map((s) => s.segment);
 }
 
 /** ตัดข้อความขึ้นบรรทัดใหม่ข้ามหลายช่อง (slots) ที่กำหนดไว้ล่วงหน้าในเทมเพลต (แต่ละช่องมีตำแหน่ง/ความกว้าง
- * ของตัวเอง) — แต่ละช่องที่ไม่ใช่ช่องสุดท้ายรับประกันว่าจะไม่กว้างเกิน maxWidth ของตัวเองเสมอ (ตัดระดับ
- * ตัวอักษรถ้าจำเป็น ไม่ใช่แค่ตัดที่ช่องว่าง) กันไม่ให้ข้อความไหลออกนอกช่อง/หลุดขอบกระดาษไปเงียบๆ ส่วนช่อง
- * สุดท้ายจะใส่ข้อความที่เหลือทั้งหมดเสมอ (ไม่ทิ้งข้อมูล) โดยย่อขนาดฟอนต์ก่อน แล้วตัดท้ายด้วย "…" ถ้ายังไม่พอ */
+ * ของตัวเอง) โดยตัดที่ขอบเขต "คำ" จริง (ผ่าน segmentWords) ไม่ใช่แค่ตัดที่ช่องว่างหรือตัดกลางตัวอักษร —
+ * แต่ละช่องที่ไม่ใช่ช่องสุดท้ายรับประกันว่าจะไม่กว้างเกิน maxWidth ของตัวเองเสมอ (คำเดียวที่ยาวเกินทั้งช่อง
+ * เอง ซึ่งเกิดยากมาก จะตัดระดับตัวอักษรเป็นทางเลือกสุดท้ายเฉพาะคำนั้นคำเดียว) กันไม่ให้ข้อความไหลออกนอก
+ * ช่อง/หลุดขอบกระดาษไปเงียบๆ ส่วนช่องสุดท้ายจะใส่ข้อความที่เหลือทั้งหมดเสมอ (ไม่ทิ้งข้อมูล) โดยย่อขนาด
+ * ฟอนต์ก่อน แล้วตัดท้ายด้วย "…" ถ้ายังไม่พอ */
 function fillWrap(
   page: PDFPage,
   font: PDFFont,
@@ -162,24 +171,39 @@ function fillWrap(
 ) {
   if (!text) return;
   const minSize = opts.minSize ?? MIN_SHRINK_SIZE;
-  let remaining = text.trim();
+  let segments = segmentWords(text.trim());
 
   slots.forEach((slot, i) => {
-    if (!remaining) return;
+    if (segments.length === 0) return;
     const isLast = i === slots.length - 1;
     const maxWidth = slot.x1 - slot.x0 - 2 * INSET;
     let size = FONT_SIZE;
     let line: string;
 
     if (isLast) {
-      const fitted = fitText(font, remaining, maxWidth, minSize);
+      const fitted = fitText(font, segments.join(""), maxWidth, minSize);
       line = fitted.text;
       size = fitted.size;
-      remaining = "";
+      segments = [];
     } else {
-      const { line: l, rest } = splitPrefix(font, remaining, maxWidth, size);
-      line = l;
-      remaining = rest;
+      let built = "";
+      while (segments.length > 0) {
+        const candidate = built + segments[0];
+        if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+          built = candidate;
+          segments.shift();
+          continue;
+        }
+        if (built === "") {
+          // คำเดียวยาวเกินทั้งช่องเอง (พบยากมาก) — ตัดระดับตัวอักษรเฉพาะคำนี้เป็นทางเลือกสุดท้าย
+          const { line: l, rest } = splitPrefix(font, segments[0], maxWidth, size);
+          built = l;
+          if (rest) segments[0] = rest;
+          else segments.shift();
+        }
+        break;
+      }
+      line = built.trim();
     }
 
     const width = font.widthOfTextAtSize(line, size);
