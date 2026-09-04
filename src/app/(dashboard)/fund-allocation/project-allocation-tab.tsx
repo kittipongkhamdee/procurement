@@ -10,7 +10,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import { ChevronRightIcon } from "@/components/icons";
 import { copyProjectsToDraft, createDraftProject, deleteDraftProject, updateDraftProject } from "./actions";
 
 type Option = { id: string; name: string };
@@ -40,26 +39,11 @@ function formatBaht(n: number) {
 
 const ALL = "__all__";
 
-function SectionHeader({
-  title,
-  open,
-  onToggle,
-}: {
-  title: string;
-  open: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center gap-2 text-left"
-    >
-      <ChevronRightIcon className={`h-4 w-4 flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
-      <span className="card-title text-base font-bold text-navy-800">{title}</span>
-    </button>
-  );
-}
+const SUB_TABS = [
+  { key: "copy", label: "คัดลอกโครงการเดิม" },
+  { key: "draft", label: "ร่างโครงการปีงบประมาณนี้" },
+] as const;
+type SubTabKey = (typeof SUB_TABS)[number]["key"];
 
 export function ProjectAllocationTab({
   budgetYearId,
@@ -91,8 +75,7 @@ export function ProjectAllocationTab({
   const [draftAdminGroupId, setDraftAdminGroupId] = useState<string>(ALL);
   const [draftBudgetSourceId, setDraftBudgetSourceId] = useState<string>(ALL);
 
-  const [sourceSectionOpen, setSourceSectionOpen] = useState(false);
-  const [draftSectionOpen, setDraftSectionOpen] = useState(false);
+  const [subTab, setSubTab] = useState<SubTabKey>("copy");
 
   useEffect(() => {
     if (sourceYearId || otherYears.length === 0 || !targetYear) return;
@@ -325,13 +308,25 @@ export function ProjectAllocationTab({
 
   return (
     <div>
-      <SectionHeader
-        title="คัดลอกโครงการจากปีงบประมาณเดิม"
-        open={sourceSectionOpen}
-        onToggle={() => setSourceSectionOpen((v) => !v)}
-      />
-      {sourceSectionOpen && (
-        <div className="mt-2">
+      <div className="flex gap-1 border-b border-slate-200">
+        {SUB_TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setSubTab(t.key)}
+            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              subTab === t.key
+                ? "border-navy-800 text-navy-800"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {subTab === "copy" && (
+        <div className="mt-4">
           <p className="mb-3 text-sm text-slate-500">เลือกโครงการจากปีงบประมาณเดิมเพื่อนำมาเป็นร่างตั้งต้นในปีนี้ (แก้ไขได้ทุกอย่างในตารางด้านล่างหลังคัดลอก)</p>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -433,18 +428,15 @@ export function ProjectAllocationTab({
         </div>
       )}
 
-      <div className="mt-8 border-t border-slate-200 pt-6">
-        <SectionHeader
-          title={`ร่างโครงการปีงบประมาณนี้ ${targetYear ? `(${targetYear.year})` : ""}`}
-          open={draftSectionOpen}
-          onToggle={() => setDraftSectionOpen((v) => !v)}
-        />
-        {draftSectionOpen && (
-          <div className="mt-2">
-            <p className="mb-3 text-sm text-slate-500">
-              แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู
-              &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
-            </p>
+      {subTab === "draft" && (
+        <div className="mt-4">
+          <div className="card-title mb-2 text-base font-bold text-navy-800">
+            ร่างโครงการปีงบประมาณนี้ {targetYear ? `(${targetYear.year})` : ""}
+          </div>
+          <p className="mb-3 text-sm text-slate-500">
+            แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู
+            &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
+          </p>
 
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -575,10 +567,9 @@ export function ProjectAllocationTab({
                   )}
                 </tbody>
               </table>
-            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
