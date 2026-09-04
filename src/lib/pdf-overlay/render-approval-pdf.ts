@@ -51,6 +51,34 @@ function fill(
   put(page, font, text, left, yBottom, { maxWidth: right - left, align: opts.align });
 }
 
+/** เหมือน fill() แต่ถ้าข้อความยาวเกินกรอบ (x0-x1) ในขนาดฟอนต์ปกติ จะลดขนาดฟอนต์ลงทีละน้อยจนกว่า
+ * จะพอดีในบรรทัดเดียว (ไม่ต่ำกว่า minSize) แทนที่จะปล่อยให้ข้อความไหลล้นออกนอกกรอบ — ใช้กับช่องที่
+ * เป็นกรอบบรรทัดเดียวตายตัวในเทมเพลตซึ่งขึ้นบรรทัดใหม่ไม่ได้ (เช่นบรรทัด "เรื่อง") */
+function fillAutoShrink(
+  page: PDFPage,
+  font: PDFFont,
+  text: string,
+  x0: number,
+  x1: number,
+  yBottom: number,
+  opts: { align?: "left" | "center" | "right"; minSize?: number } = {},
+) {
+  if (!text) return;
+  const left = x0 + INSET;
+  const right = x1 - INSET;
+  const maxWidth = right - left;
+  const minSize = opts.minSize ?? 8;
+  let size = FONT_SIZE;
+  while (size > minSize && font.widthOfTextAtSize(text, size) > maxWidth) {
+    size -= 0.25;
+  }
+  const width = font.widthOfTextAtSize(text, size);
+  let drawX = left;
+  if (opts.align === "center") drawX = left + (maxWidth - width) / 2;
+  else if (opts.align === "right") drawX = left + maxWidth - width;
+  page.drawText(text, { x: drawX, y: PAGE_H - yBottom + 6.5, size, font, color: BLACK });
+}
+
 function checkmark(page: PDFPage, font: PDFFont, x0: number, yBottom: number) {
   put(page, font, "X", x0, yBottom, { maxWidth: 14, align: "center" });
 }
@@ -71,7 +99,7 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   // ---------- หน้า 1 ----------
   // บรรทัด "เรื่อง" — ผู้ใช้ลบคำว่า "โครงการ" ออกจากเทมเพลตแล้ว ชื่อโครงการเขียนทับต่อท้าย
   // "...อนุมัติใช้เงิน" ตำแหน่งจุดเริ่มจุดไข่ปลาหลังลบคำนั้นบังเอิญตรงกับตำแหน่งเดิมพอดี (วัดซ้ำแล้ว)
-  fill(page1, font, data.project_name ?? "", 274.4, 537, 147.4, 17.5);
+  fillAutoShrink(page1, font, data.project_name ?? "", 274.4, 537, 147.4);
   fill(page1, font, data.doc_number ?? "", 127, 286, 120.9, 17.5);
   fill(page1, font, data.doc_date, 320, 534, 120.9, 17.5);
   fill(page1, font, data.department ?? "", 245, 428, 191.8, 17.5);
