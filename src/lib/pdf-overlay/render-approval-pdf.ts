@@ -268,10 +268,11 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   const summaryTotal = data.summary_items.reduce((sum, i) => sum + (i.amount ?? 0), 0);
   put(page1, boldFont, formatBaht(summaryTotal), 384, 506.6, { maxWidth: 44, align: "right", yLift: 4.0 });
 
-  // กล่อง 1: ความเห็นงานแผนงาน
-  fillAutoShrink(page1, font, data.budget != null ? formatBaht(data.budget) : "", 172.89, 271.56, 583.5);
-  fillAutoShrink(page1, font, formatBaht(data.requested_amount), 157.2, 271.44, 604.8);
-  fillAutoShrink(page1, font, data.remaining != null ? formatBaht(data.remaining) : "", 170.86, 272.18, 626.1);
+  // กล่อง 1: ความเห็นงานแผนงาน — ขยับจุดเริ่มตัวเลขไปทางขวา 15pt จากตำแหน่งจุดไข่ปลาเดิมตามที่ผู้ใช้ขอ
+  // (ให้มีระยะห่างจากป้ายชื่อซ้ายมือมากขึ้น) ยังจบที่ตำแหน่งเดิมก่อน "บาท" เท่ากัน
+  fillAutoShrink(page1, font, data.budget != null ? formatBaht(data.budget) : "", 187.89, 271.56, 583.5);
+  fillAutoShrink(page1, font, formatBaht(data.requested_amount), 172.2, 271.44, 604.8);
+  fillAutoShrink(page1, font, data.remaining != null ? formatBaht(data.remaining) : "", 185.86, 272.18, 626.1);
   // ชื่อผู้ลงนามทั้ง 4 จุด (งานแผนงาน/การเงิน/รองผู้อำนวยการ/ผู้อำนวยการ) เป็นชื่อที่พิมพ์ไว้ในเทมเพลต
   // ต้นฉบับอยู่แล้วตายตัว — ไม่ต้องเขียนทับ ปล่อยให้เทมเพลตแสดงชื่อเดิมตามที่เป็น
 
