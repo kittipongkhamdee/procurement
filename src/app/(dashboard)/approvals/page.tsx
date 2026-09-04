@@ -477,11 +477,21 @@ export default function ApprovalsPage() {
                       </a>
                     </td>
                     <td className="text-right">
-                      {isOwnerOrAdmin && editableState && (
-                        <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
-                          แก้ไข
-                        </a>
-                      )}
+                      {isOwnerOrAdmin &&
+                        (editableState ? (
+                          <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
+                            แก้ไข
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            title="แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)"
+                            onClick={() => toastError("แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)")}
+                            className="btn-secondary btn-sm cursor-not-allowed opacity-50"
+                          >
+                            แก้ไข
+                          </button>
+                        ))}
                     </td>
                     <td className="text-right">
                       {isOwnerOrAdmin && editableState && (
