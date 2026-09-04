@@ -57,3 +57,27 @@ export async function upsertGroupAllocation(budgetYearId: string, adminGroupId: 
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
 }
+
+// สร้างโครงการแบบง่าย (ไม่มีกิจกรรมย่อย) ให้แท็บ "จัดโครงการ" กดเพิ่มแถวได้ทันทีแล้วแก้ไขทีหลัง
+export async function createSimpleProject(budgetYearId: string, adminGroupId: string, budgetSourceId: string | null) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("plan_projects")
+    .insert({ name: "โครงการใหม่", budget_year_id: budgetYearId, admin_group_id: adminGroupId, budget_source_id: budgetSourceId, budget: 0 });
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
+  revalidatePath("/projects");
+}
+
+// แก้ไขชื่อ/กลุ่มบริหาร/แหล่งงบประมาณของโครงการแบบอินไลน์ (แยกจาก updateProject ใน projects/actions.ts
+// เพราะที่นี่ไม่มีฟอร์มกิจกรรมย่อยมาด้วย)
+export async function updateProjectFields(
+  projectId: string,
+  fields: { name?: string; admin_group_id?: string; budget_source_id?: string | null },
+) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_projects").update(fields).eq("id", projectId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
+  revalidatePath("/projects");
+}
