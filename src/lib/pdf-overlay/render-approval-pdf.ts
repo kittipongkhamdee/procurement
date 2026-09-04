@@ -8,6 +8,7 @@ import type { ApprovalPdfData } from "./approval-types";
 const BLACK = rgb(0, 0, 0);
 const PAGE_H = 841.92;
 const FONT_SIZE = 10.5;
+const MIN_SHRINK_SIZE = 8;
 
 /** วาดข้อความที่พิกัด (x, yBottom) ด้วยขนาดฟอนต์คงที่ FONT_SIZE เสมอ (ไม่ย่ออัตโนมัติ) — yBottom คือ
  * ขอบล่างของบรรทัดนั้นในเทมเพลตต้นฉบับ (ค่าเดียวกับที่ PyMuPDF รายงานเป็น bbox[3]) แปลงเป็นระบบ
@@ -51,9 +52,43 @@ function fill(
   put(page, font, text, left, yBottom, { maxWidth: right - left, align: opts.align });
 }
 
+/** หาขนาดฟอนต์ที่ใหญ่สุด (ไม่เกิน FONT_SIZE, ไม่ต่ำกว่า minSize) ที่ทำให้ข้อความกว้างไม่เกิน maxWidth
+ * ในบรรทัดเดียว — ใช้ร่วมกันระหว่าง fillAutoShrink/putAutoShrink */
+function shrinkToFit(font: PDFFont, text: string, maxWidth: number, minSize: number): number {
+  let size = FONT_SIZE;
+  while (size > minSize && font.widthOfTextAtSize(text, size) > maxWidth) {
+    size -= 0.25;
+  }
+  return size;
+}
+
+/** ตัดข้อความท้ายออกทีละตัวจนกว่าจะพอดี maxWidth ที่ขนาดฟอนต์ที่กำหนด แล้วต่อ "…" ปิดท้าย — ใช้เป็น
+ * ทางออกสุดท้ายเมื่อย่อฟอนต์ถึง minSize แล้วยังไม่พอ กันไม่ให้ข้อความยาวมากๆ (เช่นเหตุผลไม่อนุมัติ)
+ * ไหลล้นไปทับคอลัมน์/ข้อความข้างเคียง */
+function truncateToFit(font: PDFFont, text: string, maxWidth: number, size: number): string {
+  const ellipsis = "…";
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (font.widthOfTextAtSize(text.slice(0, mid) + ellipsis, size) <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return text.slice(0, lo) + ellipsis;
+}
+
+/** ย่อฟอนต์ให้พอดีก่อน ถ้าย่อถึง minSize แล้วยังไม่พอ ค่อยตัดข้อความท้ายทิ้งเป็นทางเลือกสุดท้าย —
+ * รับประกันว่าข้อความที่วาดจะไม่กว้างเกิน maxWidth เสมอไม่ว่าข้อความต้นทางจะยาวแค่ไหน */
+function fitText(font: PDFFont, text: string, maxWidth: number, minSize: number): { text: string; size: number } {
+  const size = shrinkToFit(font, text, maxWidth, minSize);
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return { text, size };
+  return { text: truncateToFit(font, text, maxWidth, size), size };
+}
+
 /** เหมือน fill() แต่ถ้าข้อความยาวเกินกรอบ (x0-x1) ในขนาดฟอนต์ปกติ จะลดขนาดฟอนต์ลงทีละน้อยจนกว่า
  * จะพอดีในบรรทัดเดียว (ไม่ต่ำกว่า minSize) แทนที่จะปล่อยให้ข้อความไหลล้นออกนอกกรอบ — ใช้กับช่องที่
- * เป็นกรอบบรรทัดเดียวตายตัวในเทมเพลตซึ่งขึ้นบรรทัดใหม่ไม่ได้ (เช่นบรรทัด "เรื่อง") */
+ * เป็นกรอบบรรทัดเดียวตายตัวในเทมเพลตซึ่งขึ้นบรรทัดใหม่ไม่ได้ */
 function fillAutoShrink(
   page: PDFPage,
   font: PDFFont,
@@ -67,16 +102,76 @@ function fillAutoShrink(
   const left = x0 + INSET;
   const right = x1 - INSET;
   const maxWidth = right - left;
-  const minSize = opts.minSize ?? 8;
-  let size = FONT_SIZE;
-  while (size > minSize && font.widthOfTextAtSize(text, size) > maxWidth) {
-    size -= 0.25;
-  }
-  const width = font.widthOfTextAtSize(text, size);
+  const { text: fitted, size } = fitText(font, text, maxWidth, opts.minSize ?? MIN_SHRINK_SIZE);
+  const width = font.widthOfTextAtSize(fitted, size);
   let drawX = left;
   if (opts.align === "center") drawX = left + (maxWidth - width) / 2;
   else if (opts.align === "right") drawX = left + maxWidth - width;
-  page.drawText(text, { x: drawX, y: PAGE_H - yBottom + 6.5, size, font, color: BLACK });
+  page.drawText(fitted, { x: drawX, y: PAGE_H - yBottom + 6.5, size, font, color: BLACK });
+}
+
+/** เหมือน putAutoShrink สำหรับช่องในตาราง (ไม่มี INSET ปรับเข้า อ้างอิง x ตรงๆ แบบ put()) — ใช้กับช่อง
+ * ที่จัดชิดซ้ายในตารางซึ่ง put() เดิมไม่ได้บังคับความกว้างไว้เลย (เพราะ put() จำกัด maxWidth เฉพาะตอน
+ * จัดกึ่งกลาง/ชิดขวาเท่านั้น) ทำให้ข้อความยาวไหลล้นออกนอกคอลัมน์ได้ */
+function putAutoShrink(
+  page: PDFPage,
+  font: PDFFont,
+  text: string,
+  x: number,
+  maxWidth: number,
+  yBottom: number,
+  opts: { yLift?: number; minSize?: number } = {},
+) {
+  if (!text) return;
+  const { text: fitted, size } = fitText(font, text, maxWidth, opts.minSize ?? MIN_SHRINK_SIZE);
+  page.drawText(fitted, { x, y: PAGE_H - yBottom + (opts.yLift ?? 6.5), size, font, color: BLACK });
+}
+
+type WrapSlot = { x0: number; x1: number; yBottom: number };
+
+/** ตัดคำขึ้นบรรทัดใหม่ข้ามหลายช่อง (slots) ที่กำหนดไว้ล่วงหน้าในเทมเพลต (แต่ละช่องมีตำแหน่ง/ความกว้าง
+ * ของตัวเอง) แบ่งคำ (เว้นวรรค) ให้พอดีแต่ละบรรทัดไปเรื่อยๆ จนหมดช่อง — ช่องสุดท้ายจะใส่คำที่เหลือทั้งหมด
+ * เสมอ (ไม่ทิ้งข้อมูล) โดยย่อขนาดฟอนต์ลงถ้าจำเป็นเพื่อให้พอดี ใช้กับช่องที่เทมเพลตเว้นบรรทัดสำรองไว้ให้
+ * ขึ้นบรรทัดใหม่ได้จริง (ต่างจาก fillAutoShrink ที่ใช้กับช่องบรรทัดเดียวตายตัว) */
+function fillWrap(
+  page: PDFPage,
+  font: PDFFont,
+  text: string,
+  slots: WrapSlot[],
+  opts: { align?: "left" | "center" | "right"; minSize?: number } = {},
+) {
+  if (!text) return;
+  const minSize = opts.minSize ?? MIN_SHRINK_SIZE;
+  let remainingWords = text.split(/\s+/).filter(Boolean);
+
+  slots.forEach((slot, i) => {
+    if (remainingWords.length === 0) return;
+    const isLast = i === slots.length - 1;
+    const maxWidth = slot.x1 - slot.x0 - 2 * INSET;
+    let size = FONT_SIZE;
+    let line: string;
+
+    if (isLast) {
+      const fitted = fitText(font, remainingWords.join(" "), maxWidth, minSize);
+      line = fitted.text;
+      size = fitted.size;
+      remainingWords = [];
+    } else {
+      const picked: string[] = [];
+      while (remainingWords.length > 0) {
+        const candidate = [...picked, remainingWords[0]].join(" ");
+        if (picked.length > 0 && font.widthOfTextAtSize(candidate, size) > maxWidth) break;
+        picked.push(remainingWords.shift()!);
+      }
+      line = picked.join(" ");
+    }
+
+    const width = font.widthOfTextAtSize(line, size);
+    let drawX = slot.x0 + INSET;
+    if (opts.align === "center") drawX = slot.x0 + INSET + (maxWidth - width) / 2;
+    else if (opts.align === "right") drawX = slot.x0 + INSET + maxWidth - width;
+    page.drawText(line, { x: drawX, y: PAGE_H - slot.yBottom + 6.5, size, font, color: BLACK });
+  });
 }
 
 function checkmark(page: PDFPage, font: PDFFont, x0: number, yBottom: number) {
@@ -97,52 +192,65 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   const [page1, page2] = pdfDoc.getPages();
 
   // ---------- หน้า 1 ----------
-  // บรรทัด "เรื่อง" — ผู้ใช้ลบคำว่า "โครงการ" ออกจากเทมเพลตแล้ว ชื่อโครงการเขียนทับต่อท้าย
-  // "...อนุมัติใช้เงิน" ตำแหน่งจุดเริ่มจุดไข่ปลาหลังลบคำนั้นบังเอิญตรงกับตำแหน่งเดิมพอดี (วัดซ้ำแล้ว)
-  fillAutoShrink(page1, font, data.project_name ?? "", 274.4, 537, 147.4);
-  fill(page1, font, data.doc_number ?? "", 127, 286, 120.9, 17.5);
-  fill(page1, font, data.doc_date, 320, 534, 120.9, 17.5);
-  fill(page1, font, data.department ?? "", 245, 428, 191.8, 17.5);
-  fill(page1, font, data.activity_name ?? "", 138, 538, 213.1, 17.5);
-  fill(page1, font, data.project_name ?? "", 160, 537, 234.4, 17.5);
-  fill(page1, font, data.plan_date_text ?? "", 160, 261, 255.6, 17.4);
-  fill(page1, font, formatBaht(data.requested_amount), 451, 503, 255.6, 17.4, { align: "right" });
+  fillAutoShrink(page1, font, data.doc_number ?? "", 127.7, 283, 107.7);
+  fillAutoShrink(page1, font, data.doc_date, 317.95, 534.36, 107.7);
 
-  fill(page1, font, data.requested_by_name ?? "", 296, 465, 325.6, 17.4, { align: "center" });
+  // บรรทัด "เรื่อง" — ผู้ใช้แก้เทมเพลตเพิ่มบรรทัดสำรองว่างด้านล่างไว้ให้ขึ้นบรรทัดใหม่ได้แล้ว (เดิมมีปัญหา
+  // ชื่อโครงการยาวไหลล้นออกนอกกรอบบรรทัดเดียว) จึงตัดคำขึ้นบรรทัดที่ 2 แทนการย่อขนาดฟอนต์อย่างเดียว
+  fillWrap(page1, font, data.project_name ?? "", [
+    { x0: 274.4, x1: 536.4, yBottom: 134.4 },
+    { x0: 113.4, x1: 598.2, yBottom: 156.4 },
+  ]);
+
+  fillAutoShrink(page1, font, data.department ?? "", 245.21, 433.78, 198.9);
+  fillAutoShrink(page1, font, data.activity_name ?? "", 138.26, 538.2, 220.3);
+
+  // บรรทัด "ตามโครงการ/งาน" — เทมเพลตใหม่เว้นบรรทัดสำรองไว้เช่นกัน (บรรทัดที่ 2 แคบกว่าเพราะมีข้อความ
+  // "จะดำเนินการวันที่...และขออนุมัติงบประมาณ" พิมพ์ต่อท้ายอยู่ในบรรทัดเดียวกัน)
+  fillWrap(page1, font, data.project_name ?? "", [
+    { x0: 159.83, x1: 536.98, yBottom: 241.5 },
+    { x0: 85.1, x1: 246, yBottom: 262.8 },
+  ]);
+
+  fillAutoShrink(page1, font, data.plan_date_text ?? "", 328.51, 429.94, 262.8);
+  fillAutoShrink(page1, font, formatBaht(data.requested_amount), 166.4, 253.5, 284.1, { align: "right" });
+
+  fillAutoShrink(page1, font, data.requested_by_name ?? "", 295.87, 465.7, 354.1, { align: "center" });
 
   // ตารางรายการเงิน 5 แถว + รวมทั้งสิ้น (ช่องว่างอยู่แล้ว ไม่ต้องปิดทับ) — ใช้ yLift ต่ำกว่าปกติ (4.0pt
   // แทน 6.5pt) เพราะช่องนี้เป็นตารางที่มีเส้นขอบจริง ไม่ใช่จุดไข่ปลา ตัวเลขจึงควรอยู่กึ่งกลางแถวมากกว่า
-  const summaryRowsY = [370.8, 392.6, 414.4, 436.2, 458.0];
+  const summaryRowsY = [397.6, 419.5, 441.2, 463.1, 484.9];
   data.summary_items.slice(0, 5).forEach((row, i) => {
     if (row.amount)
       put(page1, font, formatBaht(row.amount), 384, summaryRowsY[i], { maxWidth: 50, align: "right", yLift: 4.0 });
-    if (row.note) put(page1, font, row.note, 476, summaryRowsY[i], { maxWidth: 40, yLift: 4.0 });
+    if (row.note) putAutoShrink(page1, font, row.note, 476, 40, summaryRowsY[i], { yLift: 4.0 });
   });
   const summaryTotal = data.summary_items.reduce((sum, i) => sum + (i.amount ?? 0), 0);
-  put(page1, boldFont, formatBaht(summaryTotal), 384, 479.9, { maxWidth: 44, align: "right", yLift: 4.0 });
+  put(page1, boldFont, formatBaht(summaryTotal), 384, 506.6, { maxWidth: 44, align: "right", yLift: 4.0 });
 
   // กล่อง 1: ความเห็นงานแผนงาน
-  fill(page1, font, data.budget != null ? formatBaht(data.budget) : "", 180, 270, 566.0, 17.4);
-  fill(page1, font, formatBaht(data.requested_amount), 164, 270, 587.3, 17.5);
-  fill(page1, font, data.remaining != null ? formatBaht(data.remaining) : "", 178, 270, 608.6, 17.4);
+  fillAutoShrink(page1, font, data.budget != null ? formatBaht(data.budget) : "", 172.89, 271.56, 583.5);
+  fillAutoShrink(page1, font, formatBaht(data.requested_amount), 157.2, 271.44, 604.8);
+  fillAutoShrink(page1, font, data.remaining != null ? formatBaht(data.remaining) : "", 170.86, 272.18, 626.1);
   // ชื่อผู้ลงนามทั้ง 4 จุด (งานแผนงาน/การเงิน/รองผู้อำนวยการ/ผู้อำนวยการ) เป็นชื่อที่พิมพ์ไว้ในเทมเพลต
   // ต้นฉบับอยู่แล้วตายตัว — ไม่ต้องเขียนทับ ปล่อยให้เทมเพลตแสดงชื่อเดิมตามที่เป็น
 
   // กล่อง 2: ความเห็นเจ้าหน้าที่การเงิน
-  if (data.fund_type === "งบค่าจัดการเรียนการสอน") checkmark(page1, font, 317.2, 565.3);
-  if (data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน") checkmark(page1, font, 317.2, 586.5);
-  if (data.fund_type === "เงินรายได้สถานศึกษา") checkmark(page1, font, 317.2, 607.9);
+  if (data.fund_type === "งบค่าจัดการเรียนการสอน") checkmark(page1, font, 317.23, 583.5);
+  if (data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน") checkmark(page1, font, 317.23, 604.8);
+  if (data.fund_type === "เงินรายได้สถานศึกษา") checkmark(page1, font, 317.23, 626.1);
 
   // กล่อง 3: ความเห็นของรองผู้อำนวยการ
-  if (data.deputy_decision === "ควร") checkmark(page1, font, 90.7, 714.9);
+  if (data.deputy_decision === "ควร") checkmark(page1, font, 90.74, 733.1);
   if (data.deputy_decision === "ไม่ควร") {
-    checkmark(page1, font, 90.7, 736.2);
-    fill(page1, font, data.deputy_note ?? "", 239, 299.7, 736.9, 17.4);
+    checkmark(page1, font, 90.74, 754.4);
+    fillAutoShrink(page1, font, data.deputy_note ?? "", 237.77, 310, 754.4);
   }
 
-  // กล่อง 4: ความเห็นของผู้อำนวยการโรงเรียน
-  if (data.status === "อนุมัติ") checkmark(page1, font, 317.2, 714.9);
-  if (data.status === "ไม่อนุมัติ") checkmark(page1, font, 317.2, 736.2);
+  // กล่อง 4: ความเห็นของผู้อำนวยการโรงเรียน — เทมเพลตใหม่วางเช็คบ็อกซ์ "อนุมัติ"/"ไม่อนุมัติ" ไว้
+  // บรรทัดเดียวกัน (คนละตำแหน่ง x) ต่างจากเทมเพลตเดิมที่แยกกันคนละบรรทัด
+  if (data.status === "อนุมัติ") checkmark(page1, font, 317.23, 733.1);
+  if (data.status === "ไม่อนุมัติ") checkmark(page1, font, 388.3, 733.1);
   if (data.approved_at) {
     const d = new Date(data.approved_at);
     const THAI_MONTHS = [
@@ -160,30 +268,30 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
       "พฤศจิกายน",
       "ธันวาคม",
     ];
-    fill(page1, font, String(d.getDate()), 338, 365, 822.0, 17.4);
-    fill(page1, font, THAI_MONTHS[d.getMonth() + 1], 390, 479, 822.0, 17.4);
-    fill(page1, font, String(d.getFullYear() + 543), 500, 522.7, 822.0, 17.4);
+    fill(page1, font, String(d.getDate()), 336.19, 365.83, 818.3, 17.4);
+    fill(page1, font, THAI_MONTHS[d.getMonth() + 1], 388.3, 479.86, 818.3, 17.4);
+    fill(page1, font, String(d.getFullYear() + 543), 495.96, 522.84, 818.3, 17.4);
   }
 
   // ---------- หน้า 2: รายการวัสดุ อุปกรณ์ ----------
-  // ผู้ใช้ลบบรรทัด "กลุ่มสาระ/งาน...กลุ่มงาน...ปีการศึกษา..." ออกจากเทมเพลตแล้ว (ไม่ได้ใช้ค่า
-  // department/group_name/budget_year_text บนหน้านี้อีกต่อไป) ทำให้อีก 2 บรรทัดด้านบนเลื่อนลง
-  fill(page2, font, data.project_name ?? "", 255, 522, 74.7, 17.5);
-  fill(page2, font, data.activity_name ?? "", 142, 520, 95.9, 17.5);
+  fillAutoShrink(page2, font, data.project_name ?? "", 179.93, 537.84, 60.5);
+  fillAutoShrink(page2, font, data.activity_name ?? "", 125.19, 538.2, 81.75);
 
-  // ตารางรายการวัสดุอุปกรณ์ขยับคอลัมน์ใหม่ตามเทมเพลตที่แก้ไข (แถวคงตำแหน่งเดิมทุกแถว)
+  // ตารางรายการวัสดุอุปกรณ์ — คอลัมน์ (x) เหมือนเทมเพลตเดิมทุกจุด มีแค่แถว (y) ที่เลื่อนขึ้นทั้งตาราง
+  // ~14.15pt เท่ากันทุกแถว เพราะหัวกระดาษด้านบนเตี้ยลง (วัดตำแหน่งเส้นขอบตารางจริงเทียบเก่า-ใหม่แล้ว)
   const itemRowsY = [
-    182.2, 203.9, 225.8, 247.5, 269.4, 291.2, 312.9, 334.8, 356.6, 378.3, 400.2, 422.0, 443.7, 465.6, 487.3, 509.1,
-    531.0, 552.7, 574.5, 596.4, 618.1, 640.0, 661.7, 683.5, 705.4, 727.1, 748.9, 770.8, 792.5,
+    168.05, 189.75, 211.65, 233.35, 255.25, 277.05, 298.75, 320.65, 342.45, 364.15, 386.05, 407.85, 429.55, 451.45,
+    473.15, 494.95, 516.85, 538.55, 560.35, 582.25, 603.95, 625.85, 647.55, 669.35, 691.25, 712.95, 734.75, 756.65,
+    778.35,
   ];
   data.items.slice(0, itemRowsY.length).forEach((item, i) => {
     const y = itemRowsY[i];
-    if (item.name) put(page2, font, item.name, 93, y, { maxWidth: 205, yLift: 4.0 });
+    if (item.name) putAutoShrink(page2, font, item.name, 93, 205, y, { yLift: 4.0 });
     if (item.qty != null) put(page2, font, String(item.qty), 299.5, y, { maxWidth: 46, align: "center", yLift: 4.0 });
     if (item.unit_price != null)
       put(page2, font, formatBaht(item.unit_price), 349.4, y, { maxWidth: 68.7, align: "right", yLift: 4.0 });
     if (item.total != null) put(page2, font, formatBaht(item.total), 422.1, y, { maxWidth: 66.8, align: "right", yLift: 4.0 });
-    if (item.note) put(page2, font, item.note, 499.6, y, { maxWidth: 48, yLift: 4.0 });
+    if (item.note) putAutoShrink(page2, font, item.note, 499.6, 48, y, { yLift: 4.0 });
   });
 
   const bytes = await pdfDoc.save();
