@@ -19,7 +19,9 @@ type BudgetYear = { id: string; year: number; is_open: boolean };
 type SourceProjectRow = {
   id: string;
   name: string;
+  adminGroupId: string | null;
   adminGroup: string;
+  budgetSourceId: string | null;
   budgetSource: string;
   budget: number;
 };
@@ -68,6 +70,8 @@ export function ProjectAllocationTab({
   const [sourceRows, setSourceRows] = useState<SourceProjectRow[] | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [copying, setCopying] = useState(false);
+  const [sourceAdminGroupId, setSourceAdminGroupId] = useState<string>(ALL);
+  const [sourceBudgetSourceId, setSourceBudgetSourceId] = useState<string>(ALL);
 
   const [draftRows, setDraftRows] = useState<DraftRow[] | null>(null);
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
@@ -95,7 +99,9 @@ export function ProjectAllocationTab({
     const supabase = createClient();
     const { data: projects } = await supabase
       .from("plan_projects")
-      .select("id, name, budget, plan_admin_groups(name), plan_budget_sources(name), plan_activities(budget)")
+      .select(
+        "id, name, budget, admin_group_id, budget_source_id, plan_admin_groups(name), plan_budget_sources(name), plan_activities(budget)",
+      )
       .eq("budget_year_id", srcYearId)
       .order("sort_order");
 
@@ -107,7 +113,9 @@ export function ProjectAllocationTab({
         return {
           id: p.id,
           name: p.name,
+          adminGroupId: p.admin_group_id,
           adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
+          budgetSourceId: p.budget_source_id,
           budgetSource: (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? "-",
           budget,
         };
@@ -200,6 +208,15 @@ export function ProjectAllocationTab({
     };
   }, [budgetYearId, adminGroupId]);
 
+  const filteredSourceRows = useMemo(() => {
+    if (!sourceRows) return [];
+    return sourceRows.filter((r) => {
+      if (sourceAdminGroupId !== ALL && r.adminGroupId !== sourceAdminGroupId) return false;
+      if (sourceBudgetSourceId !== ALL && r.budgetSourceId !== sourceBudgetSourceId) return false;
+      return true;
+    });
+  }, [sourceRows, sourceAdminGroupId, sourceBudgetSourceId]);
+
   const filteredCurrentRows = useMemo(() => {
     if (!currentRows) return [];
     return currentRows.filter((r) => {
@@ -224,7 +241,7 @@ export function ProjectAllocationTab({
   }
 
   function toggleSelectAll() {
-    const rows = sourceRows ?? [];
+    const rows = filteredSourceRows;
     setSelectedIds((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.id))));
   }
 
@@ -361,16 +378,40 @@ export function ProjectAllocationTab({
       <div className="card-title mb-2 text-base font-bold text-navy-800">คัดลอกโครงการจากปีงบประมาณเดิม</div>
       <p className="mb-3 text-sm text-slate-500">เลือกโครงการจากปีงบประมาณเดิมเพื่อนำมาเป็นร่างตั้งต้นในปีนี้ (แก้ไขได้ทุกอย่างในตารางด้านล่างหลังคัดลอก)</p>
 
-      <div className="max-w-xs">
-        <label className="label">ปีงบประมาณต้นทาง</label>
-        <select value={sourceYearId} onChange={(e) => setSourceYearId(e.target.value)} className="input">
-          {otherYears.length === 0 && <option value="">ไม่มีปีงบประมาณอื่น</option>}
-          {otherYears.map((y) => (
-            <option key={y.id} value={y.id}>
-              {y.year}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div>
+          <label className="label">ปีงบประมาณต้นทาง</label>
+          <select value={sourceYearId} onChange={(e) => setSourceYearId(e.target.value)} className="input">
+            {otherYears.length === 0 && <option value="">ไม่มีปีงบประมาณอื่น</option>}
+            {otherYears.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.year}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">กลุ่มบริหารงาน</label>
+          <select value={sourceAdminGroupId} onChange={(e) => setSourceAdminGroupId(e.target.value)} className="input">
+            <option value={ALL}>ทั้งหมด</option>
+            {adminGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">แหล่งงบประมาณ</label>
+          <select value={sourceBudgetSourceId} onChange={(e) => setSourceBudgetSourceId(e.target.value)} className="input">
+            <option value={ALL}>ทั้งหมด</option>
+            {budgetSources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="table-shell mt-3">
@@ -380,9 +421,9 @@ export function ProjectAllocationTab({
               <th className="w-10 text-center">
                 <input
                   type="checkbox"
-                  checked={(sourceRows ?? []).length > 0 && selectedIds.size === (sourceRows ?? []).length}
+                  checked={filteredSourceRows.length > 0 && selectedIds.size === filteredSourceRows.length}
                   onChange={toggleSelectAll}
-                  disabled={(sourceRows ?? []).length === 0}
+                  disabled={filteredSourceRows.length === 0}
                 />
               </th>
               <th>โครงการ</th>
@@ -392,7 +433,7 @@ export function ProjectAllocationTab({
             </tr>
           </thead>
           <tbody>
-            {(sourceRows ?? []).map((r) => (
+            {filteredSourceRows.map((r) => (
               <tr key={r.id}>
                 <td className="text-center">
                   <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
@@ -405,7 +446,7 @@ export function ProjectAllocationTab({
                 <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budget)}</td>
               </tr>
             ))}
-            {sourceRows !== null && sourceRows.length === 0 && (
+            {sourceRows !== null && filteredSourceRows.length === 0 && (
               <tr>
                 <td colSpan={5} className="table-empty">
                   ไม่พบโครงการในปีงบประมาณต้นทางที่เลือก
