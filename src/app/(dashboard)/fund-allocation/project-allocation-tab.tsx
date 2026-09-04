@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { ChevronRightIcon } from "@/components/icons";
 import { copyProjectsToDraft, createDraftProject, deleteDraftProject, updateDraftProject } from "./actions";
 
 type Option = { id: string; name: string };
@@ -38,6 +39,27 @@ function formatBaht(n: number) {
 }
 
 const ALL = "__all__";
+
+function SectionHeader({
+  title,
+  open,
+  onToggle,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full items-center gap-2 text-left"
+    >
+      <ChevronRightIcon className={`h-4 w-4 flex-shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+      <span className="card-title text-base font-bold text-navy-800">{title}</span>
+    </button>
+  );
+}
 
 export function ProjectAllocationTab({
   budgetYearId,
@@ -68,6 +90,9 @@ export function ProjectAllocationTab({
 
   const [draftAdminGroupId, setDraftAdminGroupId] = useState<string>(ALL);
   const [draftBudgetSourceId, setDraftBudgetSourceId] = useState<string>(ALL);
+
+  const [sourceSectionOpen, setSourceSectionOpen] = useState(false);
+  const [draftSectionOpen, setDraftSectionOpen] = useState(false);
 
   useEffect(() => {
     if (sourceYearId || otherYears.length === 0 || !targetYear) return;
@@ -300,124 +325,30 @@ export function ProjectAllocationTab({
 
   return (
     <div>
-      <div className="card-title mb-2 text-base font-bold text-navy-800">คัดลอกโครงการจากปีงบประมาณเดิม</div>
-      <p className="mb-3 text-sm text-slate-500">เลือกโครงการจากปีงบประมาณเดิมเพื่อนำมาเป็นร่างตั้งต้นในปีนี้ (แก้ไขได้ทุกอย่างในตารางด้านล่างหลังคัดลอก)</p>
+      <SectionHeader
+        title="คัดลอกโครงการจากปีงบประมาณเดิม"
+        open={sourceSectionOpen}
+        onToggle={() => setSourceSectionOpen((v) => !v)}
+      />
+      {sourceSectionOpen && (
+        <div className="mt-2">
+          <p className="mb-3 text-sm text-slate-500">เลือกโครงการจากปีงบประมาณเดิมเพื่อนำมาเป็นร่างตั้งต้นในปีนี้ (แก้ไขได้ทุกอย่างในตารางด้านล่างหลังคัดลอก)</p>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div>
-          <label className="label">ปีงบประมาณต้นทาง</label>
-          <select value={sourceYearId} onChange={(e) => setSourceYearId(e.target.value)} className="input">
-            {otherYears.length === 0 && <option value="">ไม่มีปีงบประมาณอื่น</option>}
-            {otherYears.map((y) => (
-              <option key={y.id} value={y.id}>
-                {y.year}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">กลุ่มบริหารงาน</label>
-          <select value={sourceAdminGroupId} onChange={(e) => setSourceAdminGroupId(e.target.value)} className="input">
-            <option value={ALL}>ทั้งหมด</option>
-            {adminGroups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">แหล่งงบประมาณ</label>
-          <select value={sourceBudgetSourceId} onChange={(e) => setSourceBudgetSourceId(e.target.value)} className="input">
-            <option value={ALL}>ทั้งหมด</option>
-            {budgetSources.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="table-shell mt-3">
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th className="w-10 text-center">
-                <input
-                  type="checkbox"
-                  checked={filteredSourceRows.length > 0 && selectedIds.size === filteredSourceRows.length}
-                  onChange={toggleSelectAll}
-                  disabled={filteredSourceRows.length === 0}
-                />
-              </th>
-              <th>โครงการ</th>
-              <th className="whitespace-nowrap">กลุ่มบริหาร</th>
-              <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
-              <th className="whitespace-nowrap text-right">งบประมาณ</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSourceRows.map((r) => (
-              <tr key={r.id}>
-                <td className="text-center">
-                  <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
-                </td>
-                <td className="min-w-[10rem] max-w-[18rem]">
-                  <span className="break-words font-medium text-slate-900">{r.name}</span>
-                </td>
-                <td className="whitespace-nowrap">{r.adminGroup}</td>
-                <td className="whitespace-nowrap">{r.budgetSource}</td>
-                <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budget)}</td>
-              </tr>
-            ))}
-            {sourceRows !== null && filteredSourceRows.length === 0 && (
-              <tr>
-                <td colSpan={5} className="table-empty">
-                  ไม่พบโครงการในปีงบประมาณต้นทางที่เลือก
-                </td>
-              </tr>
-            )}
-            {sourceRows === null && (
-              <tr>
-                <td colSpan={5} className="table-empty">
-                  กำลังโหลด...
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          onClick={handleCopy}
-          disabled={selectedIds.size === 0 || copying}
-          className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {copying ? "กำลังคัดลอก..." : `คัดลอกที่เลือก (${selectedIds.size}) เป็นร่างโครงการ`}
-        </button>
-      </div>
-
-      <div className="mt-8 border-t border-slate-200 pt-6">
-        <div className="card-title mb-2 text-base font-bold text-navy-800">
-          ร่างโครงการปีงบประมาณนี้ {targetYear ? `(${targetYear.year})` : ""}
-        </div>
-        <p className="mb-3 text-sm text-slate-500">
-          แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู
-          &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
-        </p>
-
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="label">ปีงบประมาณต้นทาง</label>
+              <select value={sourceYearId} onChange={(e) => setSourceYearId(e.target.value)} className="input">
+                {otherYears.length === 0 && <option value="">ไม่มีปีงบประมาณอื่น</option>}
+                {otherYears.map((y) => (
+                  <option key={y.id} value={y.id}>
+                    {y.year}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="label">กลุ่มบริหารงาน</label>
-              <select
-                value={draftAdminGroupId}
-                onChange={(e) => setDraftAdminGroupId(e.target.value)}
-                className="input"
-              >
+              <select value={sourceAdminGroupId} onChange={(e) => setSourceAdminGroupId(e.target.value)} className="input">
                 <option value={ALL}>ทั้งหมด</option>
                 {adminGroups.map((g) => (
                   <option key={g.id} value={g.id}>
@@ -428,11 +359,7 @@ export function ProjectAllocationTab({
             </div>
             <div>
               <label className="label">แหล่งงบประมาณ</label>
-              <select
-                value={draftBudgetSourceId}
-                onChange={(e) => setDraftBudgetSourceId(e.target.value)}
-                className="input"
-              >
+              <select value={sourceBudgetSourceId} onChange={(e) => setSourceBudgetSourceId(e.target.value)} className="input">
                 <option value={ALL}>ทั้งหมด</option>
                 {budgetSources.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -442,103 +369,215 @@ export function ProjectAllocationTab({
               </select>
             </div>
           </div>
-          <button type="button" onClick={handleAddDraft} disabled={adding} className="btn-primary btn-sm">
-            {adding ? "กำลังเพิ่ม..." : "+ เพิ่มร่างโครงการ"}
-          </button>
-        </div>
 
-        <div className="table-shell mt-2">
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th>โครงการ</th>
-                <th className="whitespace-nowrap">กลุ่มบริหาร</th>
-                <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
-                <th className="whitespace-nowrap text-right">งบประมาณ</th>
-                <th className="w-16"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDraftRows.map((r) => {
-                const isSaving = savingId === r.id;
-                return (
+          <div className="table-shell mt-3">
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th className="w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={filteredSourceRows.length > 0 && selectedIds.size === filteredSourceRows.length}
+                      onChange={toggleSelectAll}
+                      disabled={filteredSourceRows.length === 0}
+                    />
+                  </th>
+                  <th>โครงการ</th>
+                  <th className="whitespace-nowrap">กลุ่มบริหาร</th>
+                  <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
+                  <th className="whitespace-nowrap text-right">งบประมาณ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSourceRows.map((r) => (
                   <tr key={r.id}>
+                    <td className="text-center">
+                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
+                    </td>
                     <td className="min-w-[10rem] max-w-[18rem]">
-                      <input
-                        type="text"
-                        value={nameDrafts[r.id] ?? r.name}
-                        onChange={(e) => setNameDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                        onBlur={() => handleNameBlur(r)}
-                        disabled={isSaving}
-                        className="input w-full font-medium text-slate-900 disabled:bg-slate-100"
-                      />
+                      <span className="break-words font-medium text-slate-900">{r.name}</span>
                     </td>
-                    <td className="whitespace-nowrap">
-                      <select
-                        value={r.adminGroupId ?? ""}
-                        onChange={(e) => handleGroupChange(r, e.target.value)}
-                        disabled={isSaving}
-                        className="input disabled:bg-slate-100"
-                      >
-                        <option value="">ไม่ระบุ</option>
-                        {adminGroups.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="whitespace-nowrap">
-                      <select
-                        value={r.budgetSourceId ?? ""}
-                        onChange={(e) => handleSourceChange(r, e.target.value)}
-                        disabled={isSaving}
-                        className="input disabled:bg-slate-100"
-                      >
-                        <option value="">ไม่ระบุ</option>
-                        {budgetSources.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="whitespace-nowrap text-right">
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={budgetDrafts[r.id] ?? r.budget}
-                        onChange={(e) => setBudgetDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                        onBlur={() => handleBudgetBlur(r)}
-                        disabled={isSaving}
-                        className="input w-36 text-right disabled:bg-slate-100"
-                      />
-                    </td>
-                    <td className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDraft(r)}
-                        disabled={isSaving}
-                        className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        ลบ
-                      </button>
+                    <td className="whitespace-nowrap">{r.adminGroup}</td>
+                    <td className="whitespace-nowrap">{r.budgetSource}</td>
+                    <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budget)}</td>
+                  </tr>
+                ))}
+                {sourceRows !== null && filteredSourceRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="table-empty">
+                      ไม่พบโครงการในปีงบประมาณต้นทางที่เลือก
                     </td>
                   </tr>
-                );
-              })}
-              {draftRows !== null && filteredDraftRows.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="table-empty">
-                    {draftRows.length === 0
-                      ? "ยังไม่มีร่างโครงการ — คัดลอกจากปีเดิมด้านบน หรือกด \"+ เพิ่มร่างโครงการ\""
-                      : "ไม่พบร่างโครงการตามตัวกรองที่เลือก"}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+                {sourceRows === null && (
+                  <tr>
+                    <td colSpan={5} className="table-empty">
+                      กำลังโหลด...
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={selectedIds.size === 0 || copying}
+              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {copying ? "กำลังคัดลอก..." : `คัดลอกที่เลือก (${selectedIds.size}) เป็นร่างโครงการ`}
+            </button>
+          </div>
         </div>
+      )}
+
+      <div className="mt-8 border-t border-slate-200 pt-6">
+        <SectionHeader
+          title={`ร่างโครงการปีงบประมาณนี้ ${targetYear ? `(${targetYear.year})` : ""}`}
+          open={draftSectionOpen}
+          onToggle={() => setDraftSectionOpen((v) => !v)}
+        />
+        {draftSectionOpen && (
+          <div className="mt-2">
+            <p className="mb-3 text-sm text-slate-500">
+              แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู
+              &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
+            </p>
+
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">กลุ่มบริหารงาน</label>
+                  <select
+                    value={draftAdminGroupId}
+                    onChange={(e) => setDraftAdminGroupId(e.target.value)}
+                    className="input"
+                  >
+                    <option value={ALL}>ทั้งหมด</option>
+                    {adminGroups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">แหล่งงบประมาณ</label>
+                  <select
+                    value={draftBudgetSourceId}
+                    onChange={(e) => setDraftBudgetSourceId(e.target.value)}
+                    className="input"
+                  >
+                    <option value={ALL}>ทั้งหมด</option>
+                    {budgetSources.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button type="button" onClick={handleAddDraft} disabled={adding} className="btn-primary btn-sm">
+                {adding ? "กำลังเพิ่ม..." : "+ เพิ่มร่างโครงการ"}
+              </button>
+            </div>
+
+            <div className="table-shell mt-2">
+              <table className="table-base">
+                <thead>
+                  <tr>
+                    <th>โครงการ</th>
+                    <th className="whitespace-nowrap">กลุ่มบริหาร</th>
+                    <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
+                    <th className="whitespace-nowrap text-right">งบประมาณ</th>
+                    <th className="w-16"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDraftRows.map((r) => {
+                    const isSaving = savingId === r.id;
+                    return (
+                      <tr key={r.id}>
+                        <td className="min-w-[10rem] max-w-[18rem]">
+                          <input
+                            type="text"
+                            value={nameDrafts[r.id] ?? r.name}
+                            onChange={(e) => setNameDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                            onBlur={() => handleNameBlur(r)}
+                            disabled={isSaving}
+                            className="input w-full font-medium text-slate-900 disabled:bg-slate-100"
+                          />
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <select
+                            value={r.adminGroupId ?? ""}
+                            onChange={(e) => handleGroupChange(r, e.target.value)}
+                            disabled={isSaving}
+                            className="input disabled:bg-slate-100"
+                          >
+                            <option value="">ไม่ระบุ</option>
+                            {adminGroups.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <select
+                            value={r.budgetSourceId ?? ""}
+                            onChange={(e) => handleSourceChange(r, e.target.value)}
+                            disabled={isSaving}
+                            className="input disabled:bg-slate-100"
+                          >
+                            <option value="">ไม่ระบุ</option>
+                            {budgetSources.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="whitespace-nowrap text-right">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={budgetDrafts[r.id] ?? r.budget}
+                            onChange={(e) => setBudgetDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                            onBlur={() => handleBudgetBlur(r)}
+                            disabled={isSaving}
+                            className="input w-36 text-right disabled:bg-slate-100"
+                          />
+                        </td>
+                        <td className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDraft(r)}
+                            disabled={isSaving}
+                            className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            ลบ
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {draftRows !== null && filteredDraftRows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="table-empty">
+                        {draftRows.length === 0
+                          ? "ยังไม่มีร่างโครงการ — คัดลอกจากปีเดิมด้านบน หรือกด \"+ เพิ่มร่างโครงการ\""
+                          : "ไม่พบร่างโครงการตามตัวกรองที่เลือก"}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
