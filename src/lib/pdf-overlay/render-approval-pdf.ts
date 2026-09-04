@@ -214,8 +214,19 @@ function fillWrap(
   });
 }
 
-function checkmark(page: PDFPage, font: PDFFont, x0: number, yBottom: number) {
-  put(page, font, "X", x0, yBottom, { maxWidth: 14, align: "center" });
+/** วาดเครื่องหมายถูก (✓) ด้วยเส้นเวกเตอร์ 2 เส้นแทนตัวอักษร "X" เดิม — ใช้เส้นวาดตรงๆ แทนตัวอักษรจากฟอนต์
+ * เพื่อไม่ต้องพึ่งว่าฟอนต์ Sarabun มีสัญลักษณ์ถูกให้ใช้หรือไม่ ขนาด/ตำแหน่งอ้างอิงจากกล่องเช็คบ็อกซ์จริง
+ * ในเทมเพลต (กว้าง ~14.2pt สูง ~17pt) วัดด้วย PyMuPDF: x0 คือขอบซ้ายกล่อง, yBottom คือขอบล่างกล่อง */
+function checkmark(page: PDFPage, x0: number, yBottom: number) {
+  const boxWidth = 14.2;
+  const boxHeight = 17.0;
+  const boxBottom = PAGE_H - yBottom;
+  const inset = 2.6;
+  const p1 = { x: x0 + inset, y: boxBottom + boxHeight * 0.42 };
+  const p2 = { x: x0 + boxWidth * 0.42, y: boxBottom + inset * 0.6 };
+  const p3 = { x: x0 + boxWidth - inset * 0.6, y: boxBottom + boxHeight - inset * 0.4 };
+  page.drawLine({ start: p1, end: p2, thickness: 1.4, color: BLACK });
+  page.drawLine({ start: p2, end: p3, thickness: 1.4, color: BLACK });
 }
 
 export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
@@ -277,19 +288,19 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   // ต้นฉบับอยู่แล้วตายตัว — ไม่ต้องเขียนทับ ปล่อยให้เทมเพลตแสดงชื่อเดิมตามที่เป็น
 
   // กล่อง 2: ความเห็นเจ้าหน้าที่การเงิน
-  if (data.fund_type === "งบค่าจัดการเรียนการสอน") checkmark(page1, font, 317.23, 583.5);
-  if (data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน") checkmark(page1, font, 317.23, 604.8);
-  if (data.fund_type === "เงินรายได้สถานศึกษา") checkmark(page1, font, 317.23, 626.1);
+  if (data.fund_type === "งบค่าจัดการเรียนการสอน") checkmark(page1, 317.23, 583.5);
+  if (data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน") checkmark(page1, 317.23, 604.8);
+  if (data.fund_type === "เงินรายได้สถานศึกษา") checkmark(page1, 317.23, 626.1);
 
   // กล่อง 3: ความเห็นของรองผู้อำนวยการ — เหตุผล "ไม่ควรอนุมัติ" ไม่ต้องเขียนลง PDF ตามที่ผู้ใช้ขอ
   // (ยังบันทึก/แสดงในเว็บตามปกติ แค่ไม่พิมพ์ทับเทมเพลต)
-  if (data.deputy_decision === "ควร") checkmark(page1, font, 90.74, 733.1);
-  if (data.deputy_decision === "ไม่ควร") checkmark(page1, font, 90.74, 754.4);
+  if (data.deputy_decision === "ควร") checkmark(page1, 90.74, 733.1);
+  if (data.deputy_decision === "ไม่ควร") checkmark(page1, 90.74, 754.4);
 
   // กล่อง 4: ความเห็นของผู้อำนวยการโรงเรียน — เทมเพลตใหม่วางเช็คบ็อกซ์ "อนุมัติ"/"ไม่อนุมัติ" ไว้
   // บรรทัดเดียวกัน (คนละตำแหน่ง x) ต่างจากเทมเพลตเดิมที่แยกกันคนละบรรทัด
-  if (data.status === "อนุมัติ") checkmark(page1, font, 317.23, 733.1);
-  if (data.status === "ไม่อนุมัติ") checkmark(page1, font, 388.3, 733.1);
+  if (data.status === "อนุมัติ") checkmark(page1, 317.23, 733.1);
+  if (data.status === "ไม่อนุมัติ") checkmark(page1, 388.3, 733.1);
   if (data.approved_at) {
     const d = new Date(data.approved_at);
     const THAI_MONTHS = [

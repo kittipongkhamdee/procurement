@@ -11,6 +11,14 @@ const SIGNER_KEYS = [
   "approval_signer_director",
 ] as const;
 
+// แผนที่ชื่อแหล่งงบประมาณของโครงการ (plan_budget_sources.name) ไปยังค่า fund_type ที่ใช้เลือกช่องกาเครื่องหมาย
+// ถูกใน PDF บันทึกขออนุมัติ — ให้ระบบเลือกอัตโนมัติตามโครงการแทนการให้ผู้ใช้เลือกเอง
+const FUND_TYPE_BY_BUDGET_SOURCE: Record<string, string> = {
+  ค่าจัดการเรียนการสอน: "งบค่าจัดการเรียนการสอน",
+  ค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน: "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน",
+  เงินรายได้สถานศึกษา: "เงินรายได้สถานศึกษา",
+};
+
 export async function buildApprovalPdfData(
   supabase: SupabaseClient<Database>,
   id: string,
@@ -18,21 +26,26 @@ export async function buildApprovalPdfData(
   const { data: approval, error } = await supabase
     .from("proc_approvals")
     .select(
-      "doc_number, doc_date, subject, addressed_to, department, activity_name, plan_date_text, fund_type, budget, requested_amount, remaining, summary_items, requested_by_name, requested_by_position, deputy_decision, deputy_note, status, approve_note, approved_at, group_name, budget_year_text, plan_projects(name)",
+      "doc_number, doc_date, subject, addressed_to, department, activity_name, plan_date_text, budget, requested_amount, remaining, summary_items, requested_by_name, requested_by_position, deputy_decision, deputy_note, status, approve_note, approved_at, group_name, budget_year_text, plan_projects(name, budget_source_id)",
     )
     .eq("id", id)
     .maybeSingle();
 
   if (error || !approval) return null;
 
-  const [{ data: items }, { data: signerSettings }, { data: schoolSettings }] = await Promise.all([
+  const project = approval.plan_projects as unknown as { name: string; budget_source_id: string | null } | null;
+
+  const [{ data: items }, { data: signerSettings }, { data: schoolSettings }, { data: budgetSource }] = await Promise.all([
     supabase.from("proc_approval_items").select("seq, name, qty, unit_price, total, note").eq("approval_id", id).order("seq"),
     supabase.from("proc_app_settings").select("key, value").in("key", SIGNER_KEYS),
     supabase.from("proc_school_settings").select("school_name, logo_url").eq("id", true).maybeSingle(),
+    project?.budget_source_id
+      ? supabase.from("plan_budget_sources").select("name").eq("id", project.budget_source_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const signerByKey = new Map((signerSettings ?? []).map((s) => [s.key, s.value]));
-  const project = approval.plan_projects as unknown as { name: string } | null;
+  const fundType = budgetSource?.name ? (FUND_TYPE_BY_BUDGET_SOURCE[budgetSource.name] ?? null) : null;
 
   const data: ApprovalPdfData = {
     doc_number: approval.doc_number,
@@ -51,7 +64,7 @@ export async function buildApprovalPdfData(
     budget: approval.budget != null ? Number(approval.budget) : null,
     remaining: approval.remaining != null ? Number(approval.remaining) : null,
 
-    fund_type: approval.fund_type,
+    fund_type: fundType,
 
     deputy_decision: approval.deputy_decision as "ควร" | "ไม่ควร" | null,
     deputy_note: approval.deputy_note,
