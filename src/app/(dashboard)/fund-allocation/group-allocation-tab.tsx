@@ -77,6 +77,7 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
     total: computeItemTotal(item.grades, item.key, counts, rates),
   }));
   const itemTotalByKey = Object.fromEntries(itemTotals.map((i) => [i.key, i.total])) as Record<ItemKey, number>;
+  const revenueGrandTotal = itemTotals.reduce((sum, item) => sum + item.total, 0);
 
   const projectRows = [
     {
@@ -110,6 +111,16 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={2} className="text-right font-bold text-slate-700">
+                รวมประมาณการรายรับทั้งสิ้น
+              </td>
+              <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
+                {formatBaht(revenueGrandTotal)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
