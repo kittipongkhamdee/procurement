@@ -76,6 +76,8 @@ function ApprovalStatusCell({
   approval,
   mode,
   isAdmin,
+  canApproveDeputy,
+  canApproveDirector,
   onSubmitDeputy,
   onSubmitDirector,
   onResetDeputy,
@@ -84,6 +86,8 @@ function ApprovalStatusCell({
   approval: Approval;
   mode: DecisionMode;
   isAdmin: boolean;
+  canApproveDeputy: boolean;
+  canApproveDirector: boolean;
   onSubmitDeputy: (id: string, decision: "ควร" | "ไม่ควร", note?: string) => Promise<void>;
   onSubmitDirector: (id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) => Promise<void>;
   onResetDeputy: (id: string) => void;
@@ -265,9 +269,10 @@ function ApprovalStatusCell({
           </div>
         )}
 
-        {mode === "view" && isAdmin && (approval.deputy_decision !== null || approval.status !== "รออนุมัติ") && (
+        {((isAdmin || canApproveDeputy) && approval.deputy_decision !== null) ||
+        ((isAdmin || canApproveDirector) && approval.status !== "รออนุมัติ") ? (
           <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
-            {approval.deputy_decision !== null && (
+            {(isAdmin || canApproveDeputy) && approval.deputy_decision !== null && (
               <button
                 type="button"
                 onClick={() => onResetDeputy(approval.id)}
@@ -276,7 +281,7 @@ function ApprovalStatusCell({
                 ย้อนความเห็นรองผู้อำนวยการ
               </button>
             )}
-            {approval.status !== "รออนุมัติ" && (
+            {(isAdmin || canApproveDirector) && approval.status !== "รออนุมัติ" && (
               <button
                 type="button"
                 onClick={() => onResetStatus(approval.id)}
@@ -286,7 +291,7 @@ function ApprovalStatusCell({
               </button>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </Modal>
   );
@@ -458,6 +463,8 @@ export default function ApprovalsPage() {
                         approval={a}
                         mode={mode}
                         isAdmin={isAdmin}
+                        canApproveDeputy={canApproveDeputy}
+                        canApproveDirector={canApproveDirector}
                         onSubmitDeputy={submitDeputyDecision}
                         onSubmitDirector={submitDirectorDecision}
                         onResetDeputy={handleResetDeputyDecision}

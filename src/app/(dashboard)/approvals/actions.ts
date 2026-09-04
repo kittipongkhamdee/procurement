@@ -15,17 +15,6 @@ async function requireUser() {
   return { supabase, user };
 }
 
-async function requireAdmin() {
-  const { supabase, user } = await requireUser();
-  const { data: profile } = await supabase
-    .from("proc_profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (profile?.role !== "admin") throw new Error("เฉพาะผู้ดูแลระบบเท่านั้น");
-  return supabase;
-}
-
 /** อนุญาตให้ผู้ดูแลระบบ หรือผู้ที่มีสถานะผู้ใช้งานตามชื่อที่ระบุ (เช่น "ผู้อำนวยการ") ทำรายการได้ —
  * แพทเทิร์นเดียวกับ requireAdminOrGroup ใน project-proposals/actions.ts */
 async function requireAdminOrGroup(groupName: string) {
@@ -292,9 +281,9 @@ export async function updateApprovalStatus(id: string, decision: "อนุม�
   revalidatePath("/approvals");
 }
 
-/** ย้อนสถานะกลับเป็น "รออนุมัติ" เผื่อกดอนุมัติ/ไม่อนุมัติผิด */
+/** ย้อนสถานะกลับเป็น "รออนุมัติ" เผื่อกดอนุมัติ/ไม่อนุมัติผิด — แอดมินหรือผู้อำนวยการเองย้อนได้ */
 export async function resetApprovalStatus(id: string) {
-  const supabase = await requireAdmin();
+  const { supabase } = await requireAdminOrGroup("ผู้อำนวยการ");
   const { error } = await supabase
     .from("proc_approvals")
     .update({ status: "รออนุมัติ", approved_by_name: null, approved_at: null, approve_note: null })
@@ -321,9 +310,9 @@ export async function updateDeputyDecision(id: string, decision: "ควร" | "
   revalidatePath("/approvals");
 }
 
-/** ย้อนความเห็นของรองผู้อำนวยการกลับเป็นค่าว่าง เผื่อกดผิด */
+/** ย้อนความเห็นของรองผู้อำนวยการกลับเป็นค่าว่าง เผื่อกดผิด — แอดมินหรือรองผู้อำนวยการเองย้อนได้ */
 export async function resetDeputyDecision(id: string) {
-  const supabase = await requireAdmin();
+  const { supabase } = await requireAdminOrGroup("รองผู้อำนวยการ");
   const { error } = await supabase
     .from("proc_approvals")
     .update({ deputy_decision: null, deputy_decided_by_name: null, deputy_decided_at: null, deputy_note: null })
