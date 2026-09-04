@@ -7,7 +7,7 @@ import type { ApprovalPdfData } from "./approval-types";
 
 const BLACK = rgb(0, 0, 0);
 const PAGE_H = 841.92;
-const FONT_SIZE = 11;
+const FONT_SIZE = 10.5;
 
 /** วาดข้อความที่พิกัด (x, yBottom) ด้วยขนาดฟอนต์คงที่ FONT_SIZE เสมอ (ไม่ย่ออัตโนมัติ) — yBottom คือ
  * ขอบล่างของบรรทัดนั้นในเทมเพลตต้นฉบับ (ค่าเดียวกับที่ PyMuPDF รายงานเป็น bbox[3]) แปลงเป็นระบบ
