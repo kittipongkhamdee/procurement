@@ -129,10 +129,30 @@ function putAutoShrink(
 
 type WrapSlot = { x0: number; x1: number; yBottom: number };
 
-/** ตัดคำขึ้นบรรทัดใหม่ข้ามหลายช่อง (slots) ที่กำหนดไว้ล่วงหน้าในเทมเพลต (แต่ละช่องมีตำแหน่ง/ความกว้าง
- * ของตัวเอง) แบ่งคำ (เว้นวรรค) ให้พอดีแต่ละบรรทัดไปเรื่อยๆ จนหมดช่อง — ช่องสุดท้ายจะใส่คำที่เหลือทั้งหมด
- * เสมอ (ไม่ทิ้งข้อมูล) โดยย่อขนาดฟอนต์ลงถ้าจำเป็นเพื่อให้พอดี ใช้กับช่องที่เทมเพลตเว้นบรรทัดสำรองไว้ให้
- * ขึ้นบรรทัดใหม่ได้จริง (ต่างจาก fillAutoShrink ที่ใช้กับช่องบรรทัดเดียวตายตัว) */
+/** หาความยาวคำนำหน้า (prefix) สูงสุดของ text ที่กว้างไม่เกิน maxWidth ที่ขนาดฟอนต์ size ด้วย binary
+ * search ระดับตัวอักษร (รองรับภาษาไทยที่มักไม่มีช่องว่างคั่นคำ ต่างจากการตัดแค่ที่ช่องว่างซึ่งจะปล่อยให้
+ * คำเดียวที่ยาวเกินกรอบไหลออกนอกช่องทั้งดุ้นได้) แล้วค่อยขยับกลับไปตัดที่ช่องว่างล่าสุดถ้ามี เพื่อไม่ให้
+ * ตัดกลางคำภาษาอังกฤษที่มีช่องว่างอยู่แล้วโดยไม่จำเป็น — คืนทั้งส่วนที่ใช้ (line) และส่วนที่เหลือ (rest)
+ * เสมอ ไม่มีการทิ้งข้อความ */
+function splitPrefix(font: PDFFont, text: string, maxWidth: number, size: number): { line: string; rest: string } {
+  if (font.widthOfTextAtSize(text, size) <= maxWidth) return { line: text, rest: "" };
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (font.widthOfTextAtSize(text.slice(0, mid), size) <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  const cut = Math.max(lo, 1);
+  const spaceIdx = text.lastIndexOf(" ", cut);
+  const breakAt = spaceIdx > 0 ? spaceIdx : cut;
+  return { line: text.slice(0, breakAt).trimEnd(), rest: text.slice(breakAt).trimStart() };
+}
+
+/** ตัดข้อความขึ้นบรรทัดใหม่ข้ามหลายช่อง (slots) ที่กำหนดไว้ล่วงหน้าในเทมเพลต (แต่ละช่องมีตำแหน่ง/ความกว้าง
+ * ของตัวเอง) — แต่ละช่องที่ไม่ใช่ช่องสุดท้ายรับประกันว่าจะไม่กว้างเกิน maxWidth ของตัวเองเสมอ (ตัดระดับ
+ * ตัวอักษรถ้าจำเป็น ไม่ใช่แค่ตัดที่ช่องว่าง) กันไม่ให้ข้อความไหลออกนอกช่อง/หลุดขอบกระดาษไปเงียบๆ ส่วนช่อง
+ * สุดท้ายจะใส่ข้อความที่เหลือทั้งหมดเสมอ (ไม่ทิ้งข้อมูล) โดยย่อขนาดฟอนต์ก่อน แล้วตัดท้ายด้วย "…" ถ้ายังไม่พอ */
 function fillWrap(
   page: PDFPage,
   font: PDFFont,
@@ -142,28 +162,24 @@ function fillWrap(
 ) {
   if (!text) return;
   const minSize = opts.minSize ?? MIN_SHRINK_SIZE;
-  let remainingWords = text.split(/\s+/).filter(Boolean);
+  let remaining = text.trim();
 
   slots.forEach((slot, i) => {
-    if (remainingWords.length === 0) return;
+    if (!remaining) return;
     const isLast = i === slots.length - 1;
     const maxWidth = slot.x1 - slot.x0 - 2 * INSET;
     let size = FONT_SIZE;
     let line: string;
 
     if (isLast) {
-      const fitted = fitText(font, remainingWords.join(" "), maxWidth, minSize);
+      const fitted = fitText(font, remaining, maxWidth, minSize);
       line = fitted.text;
       size = fitted.size;
-      remainingWords = [];
+      remaining = "";
     } else {
-      const picked: string[] = [];
-      while (remainingWords.length > 0) {
-        const candidate = [...picked, remainingWords[0]].join(" ");
-        if (picked.length > 0 && font.widthOfTextAtSize(candidate, size) > maxWidth) break;
-        picked.push(remainingWords.shift()!);
-      }
-      line = picked.join(" ");
+      const { line: l, rest } = splitPrefix(font, remaining, maxWidth, size);
+      line = l;
+      remaining = rest;
     }
 
     const width = font.widthOfTextAtSize(line, size);
