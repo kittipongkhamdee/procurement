@@ -240,12 +240,10 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   if (data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน") checkmark(page1, font, 317.23, 604.8);
   if (data.fund_type === "เงินรายได้สถานศึกษา") checkmark(page1, font, 317.23, 626.1);
 
-  // กล่อง 3: ความเห็นของรองผู้อำนวยการ
+  // กล่อง 3: ความเห็นของรองผู้อำนวยการ — เหตุผล "ไม่ควรอนุมัติ" ไม่ต้องเขียนลง PDF ตามที่ผู้ใช้ขอ
+  // (ยังบันทึก/แสดงในเว็บตามปกติ แค่ไม่พิมพ์ทับเทมเพลต)
   if (data.deputy_decision === "ควร") checkmark(page1, font, 90.74, 733.1);
-  if (data.deputy_decision === "ไม่ควร") {
-    checkmark(page1, font, 90.74, 754.4);
-    fillAutoShrink(page1, font, data.deputy_note ?? "", 237.77, 310, 754.4);
-  }
+  if (data.deputy_decision === "ไม่ควร") checkmark(page1, font, 90.74, 754.4);
 
   // กล่อง 4: ความเห็นของผู้อำนวยการโรงเรียน — เทมเพลตใหม่วางเช็คบ็อกซ์ "อนุมัติ"/"ไม่อนุมัติ" ไว้
   // บรรทัดเดียวกัน (คนละตำแหน่ง x) ต่างจากเทมเพลตเดิมที่แยกกันคนละบรรทัด
