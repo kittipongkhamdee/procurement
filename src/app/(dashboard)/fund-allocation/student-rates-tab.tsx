@@ -152,6 +152,9 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
         <span>
           รวมมัธยมศึกษาตอนปลาย (ม.4-6): <span className="font-semibold text-navy-800">{upperTotal}</span> คน
         </span>
+        <span>
+          รวมนักเรียนทั้งหมด: <span className="font-semibold text-navy-800">{lowerTotal + upperTotal}</span> คน
+        </span>
       </div>
 
       <div className="mt-8 border-t border-slate-200 pt-6">
