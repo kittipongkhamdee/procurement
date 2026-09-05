@@ -19,6 +19,7 @@ import {
   MenuIcon,
   SearchIcon,
   ShoppingCartIcon,
+  UserIcon,
   WalletIcon,
 } from "@/components/icons";
 
@@ -57,7 +58,7 @@ export function DashboardShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin, roleLabel, displayName, loading, pendingApproval } = useAuth();
+  const { isAdmin, roleLabel, displayName, avatarUrl, loading, pendingApproval } = useAuth();
   const { schoolName, logoUrl } = useSchoolSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -289,11 +290,17 @@ export function DashboardShell({
               className="flex items-center gap-2 rounded-md py-1 pl-1.5 pr-2 hover:bg-slate-100"
             >
               <span
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-navy-950 ${
+                className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-bold text-navy-950 ${
                   loading ? "animate-pulse bg-slate-200" : "bg-gold-500"
                 }`}
               >
-                {loading ? "" : initial}
+                {loading ? (
+                  ""
+                ) : avatarUrl ? (
+                  <Image src={avatarUrl} alt={displayName} width={32} height={32} unoptimized className="h-full w-full object-cover" />
+                ) : (
+                  initial
+                )}
               </span>
               <span className="hidden text-left sm:block">
                 {loading ? (
@@ -314,6 +321,14 @@ export function DashboardShell({
                     <p className="truncate text-sm font-medium text-slate-800">{displayName}</p>
                     {roleLabel && <p className="truncate text-xs text-slate-400">{roleLabel}</p>}
                   </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex w-full items-center gap-2 border-b border-slate-100 px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <UserIcon className="h-4 w-4" />
+                    โปรไฟล์ของฉัน
+                  </Link>
                   <form action={logoutAction}>
                     <button
                       type="submit"

@@ -27,7 +27,7 @@ export default async function SignupPage({
               schoolName.charAt(0) || "ร"
             )}
           </div>
-          <h1 className="text-lg font-bold text-slate-900">สมัครสมาชิก</h1>
+          <h1 className="text-lg font-bold text-slate-900">ลงทะเบียน</h1>
           <p className="text-sm text-slate-500">
             ระบบบริหารงานงบประมาณ {schoolName}
           </p>
@@ -57,7 +57,7 @@ export default async function SignupPage({
             <input id="password" name="password" type="password" required minLength={6} className="input" />
           </div>
           <button type="submit" className="btn-primary w-full">
-            สมัครสมาชิก
+            ลงทะเบียน
           </button>
         </form>
 

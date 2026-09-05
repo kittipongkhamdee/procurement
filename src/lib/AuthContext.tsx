@@ -30,8 +30,10 @@ type AuthContextValue = {
   isAdmin: boolean;
   roleLabel: string;
   displayName: string;
+  avatarUrl: string | null;
   loading: boolean;
   pendingApproval: boolean;
+  refresh: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -68,6 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // เรียกใหม่ได้ตอนข้อมูลโปรไฟล์เปลี่ยน (เช่น อัปโหลด/ลบรูปประจำตัวที่หน้าโปรไฟล์) เพื่อให้แถบเมนู
+  // ที่ mount ครั้งเดียวตอนเข้าโซน dashboard แสดงค่าใหม่ทันทีโดยไม่ต้องรีเฟรชหน้าเว็บ
+  async function refresh() {
+    const result = await getCurrentUser();
+    setUser(result);
+  }
+
   useEffect(() => {
     // โหลดเสร็จแล้วแต่ไม่มี user (ไม่มี session/session หมดอายุ) — ไม่มี middleware มา gate ให้
     // อีกต่อไป ต้อง redirect เอง (ใช้ replace ไม่ใช่ push กันปุ่มย้อนกลับพากลับมาหน้านี้ได้อีก)
@@ -86,8 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         roleLabel,
         displayName: user?.displayName ?? "",
+        avatarUrl: user?.avatarUrl ?? null,
         loading: user === undefined,
         pendingApproval,
+        refresh,
       }}
     >
       {children}
