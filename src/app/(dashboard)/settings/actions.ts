@@ -261,24 +261,6 @@ export async function uploadSchoolLogo(formData: FormData) {
   revalidatePath("/settings");
 }
 
-type ApprovalSignerKey =
-  | "approval_signer_planning"
-  | "approval_signer_finance"
-  | "approval_signer_deputy"
-  | "approval_signer_director";
-
-// ชื่อผู้ลงนามทั้ง 4 ระดับในเอกสาร "บันทึกข้อความขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ"
-// (/approvals) เป็นชื่อตายตัวที่พิมพ์ลงเอกสารเสมอ ไม่ผูกกับบัญชีผู้ใช้ที่กดอนุมัติจริง เพื่อให้ตรงกับ
-// แบบฟอร์มทางการที่มีชื่อผู้ดำรงตำแหน่งพิมพ์ไว้แล้ว — แก้ได้ที่นี่เมื่อเปลี่ยนตัวผู้ดำรงตำแหน่ง
-export async function setApprovalSigner(key: ApprovalSignerKey, formData: FormData) {
-  const supabase = await requireAdmin();
-  const value = String(formData.get(key) ?? "").trim();
-  const { error } = await supabase
-    .from("proc_app_settings")
-    .upsert({ key, value: value || null, updated_at: new Date().toISOString() });
-  if (error) throw new Error(error.message);
-  revalidatePath("/settings");
-}
 
 export async function removeSchoolLogo() {
   const supabase = await requireAdmin();

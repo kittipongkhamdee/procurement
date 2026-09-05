@@ -61,10 +61,7 @@ export default async function SignupPage({
           </button>
         </form>
 
-        <p className="mt-4 text-center text-xs text-slate-500">
-          บัญชีใหม่จะได้สิทธิ์ระดับ &ldquo;ครู&rdquo; ก่อน — ให้แอดมินปรับสิทธิ์ที่หน้าจัดการผู้ใช้
-        </p>
-        <p className="mt-2 text-center text-sm">
+        <p className="mt-4 text-center text-sm">
           <a href="/login" className="text-navy-800 hover:underline">
             มีบัญชีแล้ว? เข้าสู่ระบบ
           </a>
