@@ -290,6 +290,8 @@ export function ProposalForm({
     [activities],
   );
 
+  const activityBudgetDiff = lockedDraft ? totalBudget - lockedDraft.budget : 0;
+
   function validate(formData: FormData): Partial<Record<FieldKey, boolean>> {
     const errors: Partial<Record<FieldKey, boolean>> = {};
     if (!String(formData.get("file_url_word") ?? "").trim()) errors.file_url_word = true;
@@ -309,6 +311,15 @@ export function ProposalForm({
     formData.set("objectives_json", JSON.stringify(objectives.filter((o) => o.trim() !== "")));
     formData.set("indicators_quantity_json", JSON.stringify(indicatorsQuantity.filter((r) => r.indicator.trim() !== "")));
     formData.set("indicators_quality_json", JSON.stringify(indicatorsQuality.filter((r) => r.indicator.trim() !== "")));
+
+    if (lockedDraft && hasActivities && Math.abs(activityBudgetDiff) >= 0.01) {
+      await toastError(
+        activityBudgetDiff > 0
+          ? `งบประมาณกิจกรรมย่อยรวมเกินจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(activityBudgetDiff)} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`
+          : `งบประมาณกิจกรรมย่อยรวมยังขาดจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(Math.abs(activityBudgetDiff))} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`,
+      );
+      return;
+    }
 
     const errors = validate(formData);
     if (Object.keys(errors).length > 0) {
@@ -575,11 +586,22 @@ export function ProposalForm({
                   {formatBaht(lockedDraft ? lockedDraft.budget : totalBudget)} บาท
                 </span>
               </div>
+              {lockedDraft && Math.abs(activityBudgetDiff) >= 0.01 && (
+                <div className="flex flex-wrap items-center justify-end gap-2 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <span>
+                    งบประมาณกิจกรรมย่อยรวม {formatBaht(totalBudget)} บาท —{" "}
+                    {activityBudgetDiff > 0
+                      ? `เกินจากร่างโครงการ ${formatBaht(activityBudgetDiff)} บาท`
+                      : `ยังขาดอีก ${formatBaht(Math.abs(activityBudgetDiff))} บาท`}
+                  </span>
+                </div>
+              )}
             </div>
             {lockedDraft && (
               <>
                 <p className="mb-2 text-xs text-slate-500">
-                  งบประมาณกิจกรรมย่อยกรอกเองได้ตามจริง แต่ยอดรวมงบประมาณทั้งสิ้นจะยึดตามที่กำหนดไว้ในร่างโครงการ
+                  งบประมาณกิจกรรมย่อยกรอกเองได้ตามจริง แต่ยอดรวมงบประมาณทั้งสิ้นจะยึดตามที่กำหนดไว้ในร่างโครงการ —
+                  ยอดรวมกิจกรรมย่อยต้องตรงกับยอดนี้พอดี จึงจะบันทึกได้
                 </p>
                 <input type="hidden" name="locked_budget_amount" value={lockedDraft.budget} />
               </>
