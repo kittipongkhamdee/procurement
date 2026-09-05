@@ -10,15 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { DashboardLoadingSkeleton } from "@/components/loading-skeleton";
-import {
-  ClipboardCheckIcon,
-  FileSignatureIcon,
-  FolderIcon,
-  ShoppingCartIcon,
-  StoreIcon,
-  TruckIcon,
-  WalletIcon,
-} from "@/components/icons";
+import { ClipboardCheckIcon, FolderIcon, ShoppingCartIcon, StoreIcon } from "@/components/icons";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -158,32 +150,15 @@ export default function DashboardPage() {
       accent: "#a3791a",
       icon: ShoppingCartIcon,
     },
-    { label: "สัญญาจ้าง", value: data.contractCount, suffix: "สัญญา", accent: "#1b4177", icon: FileSignatureIcon },
-    { label: "โครงการทั้งหมด", value: data.projectCount, suffix: "โครงการ", accent: "#a3791a", icon: FolderIcon },
   ];
 
   const secondaryCards = [
-    { label: "บันทึกส่งมอบงาน", value: data.deliveryCount, suffix: "รายการ", accent: "#7C3AED", icon: TruckIcon },
     {
       label: "บันทึกขออนุมัติ",
       value: data.approvalCount,
       suffix: "ฉบับ",
       accent: "#0EA5E9",
       icon: ClipboardCheckIcon,
-    },
-    {
-      label: "เบิกจ่ายรอดำเนินการ",
-      value: data.pendingDisbursementCount,
-      suffix: "รายการ",
-      accent: "#D97706",
-      icon: WalletIcon,
-    },
-    {
-      label: "เบิกจ่ายแล้ว",
-      value: data.paidDisbursementCount,
-      suffix: "รายการ",
-      accent: "#16A34A",
-      icon: WalletIcon,
     },
   ];
 
