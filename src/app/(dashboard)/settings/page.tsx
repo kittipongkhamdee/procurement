@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { AdminGroupManager } from "./admin-group-manager";
+import { TeacherManager } from "./teacher-manager";
 import { UserGroupManager } from "./user-group-manager";
 import { UserGroupSelect } from "./user-group-select";
 import { BudgetSourceToggle } from "./budget-source-toggle";
@@ -24,9 +25,11 @@ import {
   createAdminGroup,
   createBudgetSource,
   createBudgetYear,
+  createTeacher,
   createUserGroup,
   deleteAdminGroup,
   deleteBudgetSource,
+  deleteTeacher,
   deleteUserGroup,
   removeSchoolLogo,
   setAiExtractionEnabled,
@@ -38,8 +41,10 @@ import {
   setUserGroups,
   toggleAdminGroupActive,
   toggleBudgetSourceActive,
+  toggleTeacherActive,
   toggleUserGroupActive,
   updateAdminGroupName,
+  updateTeacherName,
   updateUserGroupName,
   uploadSchoolLogo,
 } from "./actions";
@@ -52,6 +57,7 @@ type SettingsData = {
   budgetYears: BudgetYear[];
   budgetSources: Item[];
   adminGroups: Item[];
+  teachers: Item[];
   userGroups: Item[];
   users: AppUser[];
   groupIdsByUser: Map<string, string[]>;
@@ -73,6 +79,7 @@ export default function SettingsPage() {
       { data: budgetYears },
       { data: budgetSources },
       { data: adminGroups },
+      { data: teachers },
       { data: userGroups },
       { data: users },
       { data: groupMembers },
@@ -85,6 +92,7 @@ export default function SettingsPage() {
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
       supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("plan_admin_groups").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("proc_user_groups").select("id, name, is_active").order("sort_order").order("name"),
       supabase.rpc("proc_admin_list_users"),
       supabase.from("proc_user_group_members").select("user_id, group_id"),
@@ -106,6 +114,7 @@ export default function SettingsPage() {
       budgetYears: budgetYears ?? [],
       budgetSources: budgetSources ?? [],
       adminGroups: adminGroups ?? [],
+      teachers: teachers ?? [],
       userGroups: userGroups ?? [],
       users: (users as unknown as AppUser[]) ?? [],
       groupIdsByUser,
@@ -358,6 +367,15 @@ export default function SettingsPage() {
           updateAdminGroupName={updateAdminGroupName}
           toggleAdminGroupActive={toggleAdminGroupActive}
           deleteAdminGroup={deleteAdminGroup}
+          onChanged={reload}
+        />
+
+        <TeacherManager
+          teachers={data.teachers}
+          createTeacher={createTeacher}
+          updateTeacherName={updateTeacherName}
+          toggleTeacherActive={toggleTeacherActive}
+          deleteTeacher={deleteTeacher}
           onChanged={reload}
         />
 
