@@ -372,6 +372,7 @@ export default function SettingsPage() {
 
         <TeacherManager
           teachers={data.teachers}
+          registeredUsers={data.users}
           createTeacher={createTeacher}
           updateTeacherName={updateTeacherName}
           toggleTeacherActive={toggleTeacherActive}

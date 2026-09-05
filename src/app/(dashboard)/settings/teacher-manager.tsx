@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ToggleSwitch } from "@/components/toggle-switch";
 import { CloseIcon } from "@/components/icons";
@@ -11,9 +12,11 @@ import type {
 } from "./actions";
 
 type Teacher = { id: string; name: string; is_active: boolean };
+type RegisteredUser = { user_id: string; full_name: string };
 
 export function TeacherManager({
   teachers,
+  registeredUsers,
   createTeacher,
   updateTeacherName,
   toggleTeacherActive,
@@ -21,12 +24,54 @@ export function TeacherManager({
   onChanged,
 }: {
   teachers: Teacher[];
+  registeredUsers: RegisteredUser[];
   createTeacher: typeof createTeacherAction;
   updateTeacherName: typeof updateTeacherNameAction;
   toggleTeacherActive: typeof toggleTeacherActiveAction;
   deleteTeacher: typeof deleteTeacherAction;
   onChanged?: () => void;
 }) {
+  const [importingId, setImportingId] = useState<string | null>(null);
+  const [importingAll, setImportingAll] = useState(false);
+
+  // เทียบชื่อแบบ trim + lowercase กันกรณีเว้นวรรค/ตัวพิมพ์ต่างกันเล็กน้อย ไม่ให้เข้าใจผิดว่ายังไม่ได้นำเข้า
+  const missingUsers = useMemo(() => {
+    const existingNames = new Set(teachers.map((t) => t.name.trim().toLowerCase()));
+    return registeredUsers.filter(
+      (u) => u.full_name.trim() && !existingNames.has(u.full_name.trim().toLowerCase()),
+    );
+  }, [teachers, registeredUsers]);
+
+  async function importUser(user: RegisteredUser) {
+    setImportingId(user.user_id);
+    try {
+      const formData = new FormData();
+      formData.set("name", user.full_name.trim());
+      await createTeacher(formData);
+      onChanged?.();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setImportingId(null);
+    }
+  }
+
+  async function handleImportAll() {
+    setImportingAll(true);
+    try {
+      for (const user of missingUsers) {
+        const formData = new FormData();
+        formData.set("name", user.full_name.trim());
+        await createTeacher(formData);
+      }
+      await toastSuccess(`นำเข้ารายชื่อครู ${missingUsers.length} คนเรียบร้อยแล้ว`);
+      onChanged?.();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setImportingAll(false);
+    }
+  }
   async function handleRenameBlur(id: string, currentName: string, e: React.FocusEvent<HTMLInputElement>) {
     const name = e.target.value.trim();
     if (!name || name === currentName) {
@@ -128,12 +173,45 @@ export function TeacherManager({
           </tbody>
         </table>
       </div>
-      <form onSubmit={handleCreate} className="flex gap-3">
+      <form onSubmit={handleCreate} className="mb-4 flex gap-3">
         <input name="name" placeholder="ชื่อ-นามสกุลครู" required className="input" />
         <button type="submit" className="btn-primary shrink-0">
           เพิ่ม
         </button>
       </form>
+
+      {missingUsers.length > 0 && (
+        <div className="border-t border-slate-100 pt-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-slate-500">
+              นำเข้าชื่อจากผู้ใช้ที่ลงทะเบียนแล้วในระบบ ({missingUsers.length} คนยังไม่อยู่ในรายชื่อครู)
+            </p>
+            <button
+              type="button"
+              onClick={handleImportAll}
+              disabled={importingAll}
+              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {importingAll ? "กำลังนำเข้า..." : "นำเข้าทั้งหมด"}
+            </button>
+          </div>
+          <div className="divide-y divide-slate-100 rounded-md border border-slate-200">
+            {missingUsers.map((u) => (
+              <div key={u.user_id} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="text-sm text-slate-700">{u.full_name}</span>
+                <button
+                  type="button"
+                  onClick={() => importUser(u)}
+                  disabled={importingId === u.user_id || importingAll}
+                  className="btn-secondary btn-sm shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {importingId === u.user_id ? "กำลังนำเข้า..." : "นำเข้า"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
