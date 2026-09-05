@@ -4,11 +4,13 @@
 // 1) จำนวนนักเรียน — กรอกแยกเป็นรายชั้น ม.1-ม.6 (ระบบรวม ม.1-3/ม.4-6 เป็นมัธยมต้น/ปลายให้อัตโนมัติ)
 // 2) งบรายหัว — อัตราเงินอุดหนุนต่อคนต่อปีของแต่ละรายการ ปรับไม่บ่อย จึงมีปุ่มแก้ไข/บันทึกแยกจากการ
 //    บันทึกอัตโนมัติแบบจำนวนนักเรียน
+// 3) รายได้สถานศึกษา — จำนวนเงินรายได้ของสถานศึกษาเอง (ไม่ได้มาจากเงินอุดหนุนรายหัว) กรอกเป็นยอดเดียว
+//    ต่อปีงบประมาณ ปรับไม่บ่อยเช่นกัน จึงใช้ปุ่มแก้ไข/บันทึกแบบเดียวกับงบรายหัว
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import { upsertRevenueRate, upsertStudentCount } from "./actions";
+import { upsertRevenueRate, upsertSchoolIncome, upsertStudentCount } from "./actions";
 import { GRADE_LABELS, ITEM_DEFS, TEXTBOOK_GRADES, gradeCount, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 function formatBaht(n: number) {
@@ -26,17 +28,23 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
   const [ratesEditing, setRatesEditing] = useState(false);
   const [savingRates, setSavingRates] = useState(false);
 
+  const [schoolIncome, setSchoolIncome] = useState(0);
+  const [schoolIncomeDraft, setSchoolIncomeDraft] = useState<string | null>(null);
+  const [schoolIncomeEditing, setSchoolIncomeEditing] = useState(false);
+  const [savingSchoolIncome, setSavingSchoolIncome] = useState(false);
+
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const [{ data: countsData }, { data: ratesData }] = await Promise.all([
+    const [{ data: countsData }, { data: ratesData }, { data: incomeData }] = await Promise.all([
       supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
       supabase
         .from("plan_revenue_rates")
         .select("item_key, grade_key, rate_per_student")
         .eq("budget_year_id", budgetYearId),
+      supabase.from("plan_school_income").select("amount").eq("budget_year_id", budgetYearId).maybeSingle(),
     ]);
 
     const nextCounts: Partial<Record<GradeKey, number>> = {};
@@ -47,6 +55,8 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
     for (const row of ratesData ?? [])
       nextRates[rateKey(row.item_key as ItemKey, row.grade_key as GradeKey)] = Number(row.rate_per_student);
     setRates(nextRates);
+
+    setSchoolIncome(Number(incomeData?.amount ?? 0));
 
     setLoading(false);
   }, [budgetYearId]);
@@ -114,6 +124,37 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
       await toastError(errorMessage(err));
     } finally {
       setSavingRates(false);
+    }
+  }
+
+  function handleCancelSchoolIncome() {
+    setSchoolIncomeDraft(null);
+    setSchoolIncomeEditing(false);
+  }
+
+  async function handleSaveSchoolIncome() {
+    const raw = schoolIncomeDraft;
+    if (raw === null || raw.trim() === "" || Number(raw) === schoolIncome) {
+      setSchoolIncomeDraft(null);
+      setSchoolIncomeEditing(false);
+      return;
+    }
+    const num = Number(raw);
+    if (Number.isNaN(num) || num < 0) {
+      await toastError("กรุณากรอกจำนวนเงินให้ถูกต้อง");
+      return;
+    }
+    setSavingSchoolIncome(true);
+    try {
+      await upsertSchoolIncome(budgetYearId, num);
+      setSchoolIncome(num);
+      setSchoolIncomeDraft(null);
+      setSchoolIncomeEditing(false);
+      await toastSuccess("บันทึกรายได้สถานศึกษาเรียบร้อยแล้ว");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSavingSchoolIncome(false);
     }
   }
 
@@ -265,6 +306,54 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
               })}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="mt-8 border-t border-slate-200 pt-6">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="card-title text-base font-bold text-navy-800">รายได้สถานศึกษา</div>
+          {!schoolIncomeEditing ? (
+            <button type="button" onClick={() => setSchoolIncomeEditing(true)} className="btn-secondary btn-sm">
+              แก้ไข
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCancelSchoolIncome}
+                disabled={savingSchoolIncome}
+                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSchoolIncome}
+                disabled={savingSchoolIncome}
+                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {savingSchoolIncome ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
+            </div>
+          )}
+        </div>
+        <p className="mb-3 text-sm text-slate-500">
+          จำนวนเงินรายได้ของสถานศึกษาเอง (นอกเหนือจากเงินอุดหนุนรายหัว) — เนื่องจากปรับไม่บ่อย ต้องกด
+          &quot;แก้ไข&quot; ก่อนจึงจะเปลี่ยนค่าได้
+        </p>
+        <div className="max-w-xs">
+          <label className="label">จำนวนเงิน (บาท/ปี)</label>
+          {schoolIncomeEditing ? (
+            <input
+              type="number"
+              step="0.01"
+              value={schoolIncomeDraft ?? schoolIncome}
+              onChange={(e) => setSchoolIncomeDraft(e.target.value)}
+              className="input"
+            />
+          ) : (
+            <div className="input bg-slate-100 text-slate-700">{formatBaht(schoolIncome)}</div>
+          )}
         </div>
       </div>
     </div>

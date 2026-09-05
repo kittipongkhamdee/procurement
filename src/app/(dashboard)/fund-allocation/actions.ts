@@ -46,6 +46,15 @@ export async function upsertRevenueRate(
   revalidatePath("/fund-allocation");
 }
 
+export async function upsertSchoolIncome(budgetYearId: string, amount: number) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("plan_school_income")
+    .upsert({ budget_year_id: budgetYearId, amount }, { onConflict: "budget_year_id" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
+}
+
 export async function upsertGroupAllocation(budgetYearId: string, adminGroupId: string, allocatedAmount: number) {
   const supabase = await requireAdmin();
   const { error } = await supabase

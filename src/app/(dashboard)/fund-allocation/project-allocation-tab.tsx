@@ -14,12 +14,17 @@ import { copyProjectsToDraft, createDraftProject, deleteDraftProject, updateDraf
 import { computeAllItemTotals, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 // ชื่อแหล่งงบประมาณ (plan_budget_sources.name) ที่มีที่มาจากเงินอุดหนุนรายหัว (คำนวณได้จากแท็บ
-// "รายรับ") -> รายการรายรับที่นับรวมเป็น "งบประมาณที่จัดสรร" ของแหล่งนั้น ส่วนแหล่งงบประมาณอื่น
-// (เช่น เงินรายได้สถานศึกษา) ไม่มีสูตรคำนวณอัตโนมัติ ถือว่ายังไม่จัดสรร (0) จนกว่าจะมีการระบุเพิ่มเติม
+// "รายรับ") -> รายการรายรับที่นับรวมเป็น "งบประมาณที่จัดสรร" ของแหล่งนั้น ส่วน "เงินรายได้สถานศึกษา"
+// ใช้ยอดจาก plan_school_income แทน (ดู SCHOOL_INCOME_SOURCE_NAME) แหล่งงบอื่นนอกเหนือจากนี้ยังไม่มี
+// สูตรคำนวณอัตโนมัติ ถือว่ายังไม่จัดสรร (0)
 const BUDGET_SOURCE_REVENUE_ITEMS: Record<string, ItemKey[]> = {
   ค่าจัดการเรียนการสอน: ["teaching", "topup"],
   ค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน: ["student_activity"],
 };
+
+// แหล่งงบประมาณที่ไม่ได้มาจากเงินอุดหนุนรายหัว — ใช้ยอด "รายได้สถานศึกษา" ที่กรอกไว้ที่แท็บ
+// "นักเรียนและรายหัว" (plan_school_income) แทน
+const SCHOOL_INCOME_SOURCE_NAME = "เงินรายได้สถานศึกษา";
 
 type Option = { id: string; name: string };
 type BudgetYear = { id: string; year: number; is_open: boolean };
@@ -87,6 +92,7 @@ export function ProjectAllocationTab({
   const [groupAllocations, setGroupAllocations] = useState<Record<string, number>>({});
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
+  const [schoolIncome, setSchoolIncome] = useState(0);
 
   const [subTab, setSubTab] = useState<SubTabKey>("copy");
 
@@ -161,13 +167,14 @@ export function ProjectAllocationTab({
 
   const loadSummaryData = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: allocData }, { data: countsData }, { data: ratesData }] = await Promise.all([
+    const [{ data: allocData }, { data: countsData }, { data: ratesData }, { data: incomeData }] = await Promise.all([
       supabase.from("plan_group_allocations").select("admin_group_id, allocated_amount").eq("budget_year_id", budgetYearId),
       supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
       supabase
         .from("plan_revenue_rates")
         .select("item_key, grade_key, rate_per_student")
         .eq("budget_year_id", budgetYearId),
+      supabase.from("plan_school_income").select("amount").eq("budget_year_id", budgetYearId).maybeSingle(),
     ]);
 
     const nextAllocations: Record<string, number> = {};
@@ -182,6 +189,8 @@ export function ProjectAllocationTab({
     for (const row of ratesData ?? [])
       nextRates[rateKey(row.item_key as ItemKey, row.grade_key as GradeKey)] = Number(row.rate_per_student);
     setRates(nextRates);
+
+    setSchoolIncome(Number(incomeData?.amount ?? 0));
   }, [budgetYearId]);
 
   useEffect(() => {
@@ -198,11 +207,16 @@ export function ProjectAllocationTab({
     const rows = draftRows ?? [];
     return budgetSources.map((s) => {
       const items = BUDGET_SOURCE_REVENUE_ITEMS[s.name];
-      const allocated = items ? items.reduce((sum, k) => sum + (itemTotalByKey[k] ?? 0), 0) : 0;
+      const allocated =
+        s.name === SCHOOL_INCOME_SOURCE_NAME
+          ? schoolIncome
+          : items
+            ? items.reduce((sum, k) => sum + (itemTotalByKey[k] ?? 0), 0)
+            : 0;
       const draftTotal = rows.filter((r) => r.budgetSourceId === s.id).reduce((sum, r) => sum + r.budget, 0);
       return { id: s.id, label: s.name, allocated, draftTotal, diff: allocated - draftTotal };
     });
-  }, [budgetSources, draftRows, itemTotalByKey]);
+  }, [budgetSources, draftRows, itemTotalByKey, schoolIncome]);
 
   const groupSummaryRows = useMemo(() => {
     const rows = draftRows ?? [];
