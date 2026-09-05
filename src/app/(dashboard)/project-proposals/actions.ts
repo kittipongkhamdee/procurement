@@ -169,7 +169,11 @@ export async function createProposal(formData: FormData) {
         ...a,
         budget: Number(a.budget) || 0,
       })) as unknown as ActivityRow[];
-    budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+    const lockedBudgetAmount = formData.get("locked_budget_amount");
+    budgetAmount =
+      lockedBudgetAmount !== null
+        ? Number(lockedBudgetAmount) || 0
+        : activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
   } else {
     budgetAmount = Number(formData.get("project_budget") ?? 0) || 0;
   }
@@ -249,7 +253,11 @@ export async function updateProposal(id: string, formData: FormData) {
         ...a,
         budget: Number(a.budget) || 0,
       })) as unknown as ActivityRow[];
-    budgetAmount = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+    const lockedBudgetAmount = formData.get("locked_budget_amount");
+    budgetAmount =
+      lockedBudgetAmount !== null
+        ? Number(lockedBudgetAmount) || 0
+        : activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
   } else {
     budgetAmount = Number(formData.get("project_budget") ?? 0) || 0;
   }

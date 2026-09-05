@@ -218,17 +218,11 @@ export function ProjectEditModal({
           </div>
 
           {activities.length === 0 && (
-            <div>
-              <label className="label">งบประมาณโครงการ (ใช้เมื่อไม่มีกิจกรรมย่อย)</label>
-              <input
-                type="number"
-                step="0.01"
-                name="project_budget"
-                defaultValue={projectBudget}
-                className="input"
-                placeholder="0.00"
-              />
-            </div>
+            <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+              งบประมาณโครงการปัจจุบัน{" "}
+              <span className="font-semibold text-navy-800">{projectBudget.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>{" "}
+              บาท — แก้ไขได้ที่เมนู &quot;การจัดสรรเงิน&quot;
+            </p>
           )}
         </div>
       </form>

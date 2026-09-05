@@ -11,6 +11,13 @@ type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
 type Teacher = Pick<Tables<"plan_teachers">, "id" | "name" | "is_active">;
 type Strategy = Pick<Tables<"plan_strategies">, "id" | "name">;
 type Standard = Pick<Tables<"plan_standards">, "id" | "name">;
+type DraftProject = {
+  id: string;
+  name: string;
+  adminGroupId: string | null;
+  budgetSourceId: string | null;
+  budget: number;
+};
 
 type ActivityRow = {
   name: string;
@@ -188,6 +195,7 @@ export function ProposalForm({
   teachers,
   strategies,
   standards,
+  draftProjects = [],
   initial,
   submitLabel = "ส่งข้อเสนอโครงการ",
   successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
@@ -200,12 +208,16 @@ export function ProposalForm({
   teachers: Teacher[];
   strategies: Strategy[];
   standards: Standard[];
+  draftProjects?: DraftProject[];
   initial?: ProposalFormInitial;
   submitLabel?: string;
   successMessage?: string;
   onSuccess?: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
+  const [adminGroupId, setAdminGroupId] = useState(initial?.adminGroupId ?? "");
+  const [budgetSourceId, setBudgetSourceId] = useState(initial?.budgetSourceId ?? "");
+  const [selectedDraftId, setSelectedDraftId] = useState("");
   const [strategyAlignment, setStrategyAlignment] = useState(initial?.strategyAlignment ?? "");
   const [standard, setStandard] = useState(initial?.standard ?? "");
   const [responsible, setResponsible] = useState<string[]>(initial?.responsible ?? []);
@@ -247,6 +259,20 @@ export function ProposalForm({
     }
   }
 
+  const lockedDraft = draftProjects.find((d) => d.id === selectedDraftId) ?? null;
+
+  function handleDraftSelect(draftId: string) {
+    setSelectedDraftId(draftId);
+    if (!draftId) return;
+    const draft = draftProjects.find((d) => d.id === draftId);
+    if (!draft) return;
+    setName(draft.name);
+    setAdminGroupId(draft.adminGroupId ?? "");
+    setBudgetSourceId(draft.budgetSourceId ?? "");
+    setHasActivities(false);
+    setProjectBudget(String(draft.budget));
+  }
+
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
@@ -263,6 +289,8 @@ export function ProposalForm({
     () => activities.reduce((sum, a) => sum + (parseFloat(a.budget) || 0), 0),
     [activities],
   );
+
+  const activityBudgetDiff = lockedDraft ? totalBudget - lockedDraft.budget : 0;
 
   function validate(formData: FormData): Partial<Record<FieldKey, boolean>> {
     const errors: Partial<Record<FieldKey, boolean>> = {};
@@ -283,6 +311,15 @@ export function ProposalForm({
     formData.set("objectives_json", JSON.stringify(objectives.filter((o) => o.trim() !== "")));
     formData.set("indicators_quantity_json", JSON.stringify(indicatorsQuantity.filter((r) => r.indicator.trim() !== "")));
     formData.set("indicators_quality_json", JSON.stringify(indicatorsQuality.filter((r) => r.indicator.trim() !== "")));
+
+    if (lockedDraft && hasActivities && Math.abs(activityBudgetDiff) >= 0.01) {
+      await toastError(
+        activityBudgetDiff > 0
+          ? `งบประมาณกิจกรรมย่อยรวมเกินจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(activityBudgetDiff)} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`
+          : `งบประมาณกิจกรรมย่อยรวมยังขาดจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(Math.abs(activityBudgetDiff))} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`,
+      );
+      return;
+    }
 
     const errors = validate(formData);
     if (Object.keys(errors).length > 0) {
@@ -332,6 +369,26 @@ export function ProposalForm({
               </div>
             </div>
           </div>
+          {draftProjects.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <label className="label">ใช้ข้อมูลจากร่างโครงการที่เตรียมไว้ (ถ้ามี)</label>
+              <select
+                value={selectedDraftId}
+                onChange={(e) => handleDraftSelect(e.target.value)}
+                className="input"
+              >
+                <option value="">— ไม่ใช้ พิมพ์เอง —</option>
+                {draftProjects.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                เลือกแล้วจะเติมชื่อโครงการ กลุ่มงาน แหล่งเงินงบประมาณ และงบประมาณให้อัตโนมัติ แก้ไขต่อได้ตามต้องการ
+              </p>
+            </div>
+          )}
           <div>
             <label className="label">ชื่อโครงการ</label>
             <input
@@ -384,7 +441,14 @@ export function ProposalForm({
           </div>
           <div>
             <label className="label">กลุ่มงานที่รับผิดชอบ</label>
-            <select name="admin_group_id" required defaultValue={initial?.adminGroupId ?? ""} className="input">
+            <select
+              name="admin_group_id"
+              required
+              value={adminGroupId}
+              onChange={(e) => setAdminGroupId(e.target.value)}
+              disabled={!!lockedDraft}
+              className="input disabled:bg-slate-100 disabled:text-slate-500"
+            >
               <option value="" disabled>
                 เลือกกลุ่มบริหาร..
               </option>
@@ -394,6 +458,7 @@ export function ProposalForm({
                 </option>
               ))}
             </select>
+            {lockedDraft && <input type="hidden" name="admin_group_id" value={adminGroupId} />}
           </div>
           <div ref={responsibleRef} className={fieldErrors.responsible ? "rounded-xl ring-2 ring-red-400 p-1" : ""}>
             <label className="label">ผู้รับผิดชอบโครงการ</label>
@@ -420,7 +485,14 @@ export function ProposalForm({
         <div className="card-title">ขั้นตอนการดำเนินงาน และงบประมาณ</div>
         <div className="mb-3 w-full sm:w-56">
           <label className="label">แหล่งเงินงบประมาณ</label>
-          <select name="budget_source_id" required defaultValue={initial?.budgetSourceId ?? ""} className="input">
+          <select
+            name="budget_source_id"
+            required
+            value={budgetSourceId}
+            onChange={(e) => setBudgetSourceId(e.target.value)}
+            disabled={!!lockedDraft}
+            className="input disabled:bg-slate-100 disabled:text-slate-500"
+          >
             <option value="" disabled>
               เลือกแหล่งเงินงบประมาณ..
             </option>
@@ -430,6 +502,7 @@ export function ProposalForm({
               </option>
             ))}
           </select>
+          {lockedDraft && <input type="hidden" name="budget_source_id" value={budgetSourceId} />}
         </div>
         <div className="mb-3 flex items-center gap-3 text-sm">
           <button
@@ -509,9 +582,30 @@ export function ProposalForm({
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
                 <span className="font-semibold text-slate-600">รวมงบประมาณทั้งสิ้น</span>
-                <span className="font-bold text-navy-800">{formatBaht(totalBudget)} บาท</span>
+                <span className="font-bold text-navy-800">
+                  {formatBaht(lockedDraft ? lockedDraft.budget : totalBudget)} บาท
+                </span>
               </div>
+              {lockedDraft && Math.abs(activityBudgetDiff) >= 0.01 && (
+                <div className="flex flex-wrap items-center justify-end gap-2 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <span>
+                    งบประมาณกิจกรรมย่อยรวม {formatBaht(totalBudget)} บาท —{" "}
+                    {activityBudgetDiff > 0
+                      ? `เกินจากร่างโครงการ ${formatBaht(activityBudgetDiff)} บาท`
+                      : `ยังขาดอีก ${formatBaht(Math.abs(activityBudgetDiff))} บาท`}
+                  </span>
+                </div>
+              )}
             </div>
+            {lockedDraft && (
+              <>
+                <p className="mb-2 text-xs text-slate-500">
+                  งบประมาณกิจกรรมย่อยกรอกเองได้ตามจริง แต่ยอดรวมงบประมาณทั้งสิ้นจะยึดตามที่กำหนดไว้ในร่างโครงการ —
+                  ยอดรวมกิจกรรมย่อยต้องตรงกับยอดนี้พอดี จึงจะบันทึกได้
+                </p>
+                <input type="hidden" name="locked_budget_amount" value={lockedDraft.budget} />
+              </>
+            )}
             <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
               + เพิ่มกิจกรรม
             </button>
@@ -526,9 +620,11 @@ export function ProposalForm({
               required
               value={projectBudget}
               onChange={(e) => setProjectBudget(e.target.value)}
-              className="input"
+              disabled={!!lockedDraft}
+              className="input disabled:bg-slate-100 disabled:text-slate-500"
               placeholder="0.00"
             />
+            {lockedDraft && <input type="hidden" name="project_budget" value={projectBudget} />}
           </div>
         )}
       </div>

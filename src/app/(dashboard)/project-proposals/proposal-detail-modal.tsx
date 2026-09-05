@@ -244,6 +244,7 @@ export function ProposalDetailModal({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="สนองกลยุทธ์โรงเรียน" value={proposal.strategyAlignment} />
           <Field label="สอดคล้องกับมาตรฐานการศึกษา" value={proposal.standard} />
+          <Field label="กลุ่มงานที่รับผิดชอบ" value={proposal.adminGroup} />
           <Field label="ผู้รับผิดชอบ" value={proposal.responsible.join(", ") || "-"} />
         </div>
 
@@ -266,8 +267,9 @@ export function ProposalDetailModal({
                 );
               })}
             </div>
-            <div className="mt-2 text-left text-sm font-bold text-navy-800">
-              รวมงบประมาณทั้งสิ้น: {formatBaht(proposal.budgetAmount)} บาท (แหล่งเงิน: {proposal.budgetSource})
+            <div className="mt-2 grid grid-cols-1 gap-0.5 text-left text-sm font-bold text-navy-800">
+              <div>รวมงบประมาณทั้งสิ้น: {formatBaht(proposal.budgetAmount)} บาท</div>
+              <div>แหล่งเงิน: {proposal.budgetSource}</div>
             </div>
           </div>
         )}

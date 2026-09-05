@@ -593,6 +593,7 @@ export type Database = {
       plan_budget_years: {
         Row: {
           created_at: string
+          draft_projects_open_edit: boolean
           id: string
           is_open: boolean
           name: string
@@ -600,6 +601,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          draft_projects_open_edit?: boolean
           id?: string
           is_open?: boolean
           name: string
@@ -607,6 +609,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          draft_projects_open_edit?: boolean
           id?: string
           is_open?: boolean
           name?: string
@@ -666,6 +669,115 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "plan_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_draft_projects: {
+        Row: {
+          admin_group_id: string | null
+          budget: number
+          budget_source_id: string | null
+          budget_year_id: string
+          created_at: string
+          editing_at: string | null
+          editing_by: string | null
+          editing_by_name: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          admin_group_id?: string | null
+          budget?: number
+          budget_source_id?: string | null
+          budget_year_id: string
+          created_at?: string
+          editing_at?: string | null
+          editing_by?: string | null
+          editing_by_name?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          admin_group_id?: string | null
+          budget?: number
+          budget_source_id?: string | null
+          budget_year_id?: string
+          created_at?: string
+          editing_at?: string | null
+          editing_by?: string | null
+          editing_by_name?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_draft_projects_admin_group_id_fkey"
+            columns: ["admin_group_id"]
+            isOneToOne: false
+            referencedRelation: "plan_admin_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_draft_projects_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_draft_projects_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_group_allocations: {
+        Row: {
+          admin_group_id: string
+          allocated_amount: number
+          budget_year_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          admin_group_id: string
+          allocated_amount?: number
+          budget_year_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          admin_group_id?: string
+          allocated_amount?: number
+          budget_year_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_group_allocations_admin_group_id_fkey"
+            columns: ["admin_group_id"]
+            isOneToOne: false
+            referencedRelation: "plan_admin_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_group_allocations_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
             referencedColumns: ["id"]
           },
         ]
@@ -960,6 +1072,44 @@ export type Database = {
           },
         ]
       }
+      plan_revenue_rates: {
+        Row: {
+          budget_year_id: string
+          created_at: string
+          grade_key: string
+          id: string
+          item_key: string
+          rate_per_student: number
+          updated_at: string
+        }
+        Insert: {
+          budget_year_id: string
+          created_at?: string
+          grade_key: string
+          id?: string
+          item_key: string
+          rate_per_student?: number
+          updated_at?: string
+        }
+        Update: {
+          budget_year_id?: string
+          created_at?: string
+          grade_key?: string
+          id?: string
+          item_key?: string
+          rate_per_student?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_revenue_rates_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_revenue_types: {
         Row: {
           id: string
@@ -980,6 +1130,38 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      plan_school_income: {
+        Row: {
+          amount: number
+          budget_year_id: string
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          budget_year_id: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          budget_year_id?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_school_income_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: true
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_standards: {
         Row: {
@@ -1028,6 +1210,41 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      plan_student_counts: {
+        Row: {
+          budget_year_id: string
+          created_at: string
+          grade_key: string
+          id: string
+          student_count: number
+          updated_at: string
+        }
+        Insert: {
+          budget_year_id: string
+          created_at?: string
+          grade_key: string
+          id?: string
+          student_count?: number
+          updated_at?: string
+        }
+        Update: {
+          budget_year_id?: string
+          created_at?: string
+          grade_key?: string
+          id?: string
+          student_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_student_counts_budget_year_id_fkey"
+            columns: ["budget_year_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_years"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_teachers: {
         Row: {
