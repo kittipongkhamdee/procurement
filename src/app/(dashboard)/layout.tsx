@@ -3,6 +3,7 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { DashboardShell } from "@/components/dashboard-shell";
 import {
   ArchiveIcon,
+  BarChartIcon,
   ClipboardCheckIcon,
   CoinsIcon,
   FileSignatureIcon,
@@ -25,7 +26,10 @@ const ICON_CLASS = "h-[18px] w-[18px]";
 const NAV_SECTIONS = [
   {
     heading: null,
-    items: [{ href: "/", label: "แดชบอร์ด", icon: <HomeIcon className={ICON_CLASS} /> }],
+    items: [
+      { href: "/", label: "แดชบอร์ด", icon: <HomeIcon className={ICON_CLASS} /> },
+      { href: "/overview-summary", label: "สรุปภาพรวม", icon: <BarChartIcon className={ICON_CLASS} /> },
+    ],
   },
   {
     heading: "งานแผนงาน",
