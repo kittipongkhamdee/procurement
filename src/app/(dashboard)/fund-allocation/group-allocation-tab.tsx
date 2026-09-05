@@ -15,7 +15,15 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
-export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId: string; adminGroups: Group[] }) {
+export function GroupAllocationTab({
+  budgetYearId,
+  adminGroups,
+  isAdmin,
+}: {
+  budgetYearId: string;
+  adminGroups: Group[];
+  isAdmin: boolean;
+}) {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
@@ -179,14 +187,18 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
               <tr key={g.id}>
                 <td className="font-medium text-slate-900">{g.name}</td>
                 <td className="whitespace-nowrap text-right">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={amounts[g.id] ?? 0}
-                    onChange={(e) => handleChange(g.id, e.target.value)}
-                    disabled={savingId === g.id}
-                    className="input w-40 text-right disabled:bg-slate-100"
-                  />
+                  {isAdmin ? (
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={amounts[g.id] ?? 0}
+                      onChange={(e) => handleChange(g.id, e.target.value)}
+                      disabled={savingId === g.id}
+                      className="input w-40 text-right disabled:bg-slate-100"
+                    />
+                  ) : (
+                    <span className="tabular-nums">{formatBaht(amounts[g.id] ?? 0)}</span>
+                  )}
                 </td>
               </tr>
             ))}

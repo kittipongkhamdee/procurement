@@ -593,6 +593,7 @@ export type Database = {
       plan_budget_years: {
         Row: {
           created_at: string
+          draft_projects_open_edit: boolean
           id: string
           is_open: boolean
           name: string
@@ -600,6 +601,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          draft_projects_open_edit?: boolean
           id?: string
           is_open?: boolean
           name: string
@@ -607,6 +609,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          draft_projects_open_edit?: boolean
           id?: string
           is_open?: boolean
           name?: string

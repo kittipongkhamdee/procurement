@@ -54,14 +54,6 @@ export default function FundAllocationPage() {
 
   if (authLoading || loading) return <PageLoadingSkeleton />;
 
-  if (!isAdmin) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
-        หน้านี้สำหรับผู้ดูแลระบบ (admin) เท่านั้น
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="page-header">
@@ -109,15 +101,18 @@ export default function FundAllocationPage() {
           <p className="p-4 text-sm text-slate-400">ยังไม่มีปีงบประมาณ</p>
         ) : (
           <>
-            {tab === "student_rates" && <StudentRatesTab budgetYearId={budgetYearId} />}
+            {tab === "student_rates" && <StudentRatesTab budgetYearId={budgetYearId} isAdmin={isAdmin} />}
             {tab === "revenue" && <RevenueTab budgetYearId={budgetYearId} />}
-            {tab === "group" && <GroupAllocationTab budgetYearId={budgetYearId} adminGroups={adminGroups} />}
+            {tab === "group" && (
+              <GroupAllocationTab budgetYearId={budgetYearId} adminGroups={adminGroups} isAdmin={isAdmin} />
+            )}
             {tab === "project" && (
               <ProjectAllocationTab
                 budgetYearId={budgetYearId}
                 budgetYears={budgetYears}
                 adminGroups={adminGroups}
                 budgetSources={budgetSources}
+                isAdmin={isAdmin}
               />
             )}
           </>

@@ -10,7 +10,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import { copyProjectsToDraft, createDraftProject, deleteDraftProject, updateDraftProject } from "./actions";
+import {
+  copyProjectsToDraft,
+  createDraftProject,
+  deleteDraftProject,
+  setDraftEditOpen,
+  updateDraftProject,
+} from "./actions";
 import { computeAllItemTotals, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 // ชื่อแหล่งงบประมาณ (plan_budget_sources.name) ที่มีที่มาจากเงินอุดหนุนรายหัว (คำนวณได้จากแท็บ
@@ -71,11 +77,13 @@ export function ProjectAllocationTab({
   budgetYears,
   adminGroups,
   budgetSources,
+  isAdmin,
 }: {
   budgetYearId: string;
   budgetYears: BudgetYear[];
   adminGroups: Option[];
   budgetSources: Option[];
+  isAdmin: boolean;
 }) {
   const targetYear = budgetYears.find((y) => y.id === budgetYearId) ?? null;
   const otherYears = budgetYears.filter((y) => y.id !== budgetYearId);
@@ -101,6 +109,9 @@ export function ProjectAllocationTab({
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
   const [schoolIncome, setSchoolIncome] = useState(0);
+  const [draftOpenEdit, setDraftOpenEdit] = useState(false);
+  const [togglingOpenEdit, setTogglingOpenEdit] = useState(false);
+  const canEditDraft = isAdmin || draftOpenEdit;
 
   const [subTab, setSubTab] = useState<SubTabKey>("copy");
 
@@ -175,15 +186,17 @@ export function ProjectAllocationTab({
 
   const loadSummaryData = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: allocData }, { data: countsData }, { data: ratesData }, { data: incomeData }] = await Promise.all([
-      supabase.from("plan_group_allocations").select("admin_group_id, allocated_amount").eq("budget_year_id", budgetYearId),
-      supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
-      supabase
-        .from("plan_revenue_rates")
-        .select("item_key, grade_key, rate_per_student")
-        .eq("budget_year_id", budgetYearId),
-      supabase.from("plan_school_income").select("amount").eq("budget_year_id", budgetYearId).maybeSingle(),
-    ]);
+    const [{ data: allocData }, { data: countsData }, { data: ratesData }, { data: incomeData }, { data: yearData }] =
+      await Promise.all([
+        supabase.from("plan_group_allocations").select("admin_group_id, allocated_amount").eq("budget_year_id", budgetYearId),
+        supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
+        supabase
+          .from("plan_revenue_rates")
+          .select("item_key, grade_key, rate_per_student")
+          .eq("budget_year_id", budgetYearId),
+        supabase.from("plan_school_income").select("amount").eq("budget_year_id", budgetYearId).maybeSingle(),
+        supabase.from("plan_budget_years").select("draft_projects_open_edit").eq("id", budgetYearId).maybeSingle(),
+      ]);
 
     const nextAllocations: Record<string, number> = {};
     for (const row of allocData ?? []) nextAllocations[row.admin_group_id] = Number(row.allocated_amount);
@@ -199,6 +212,7 @@ export function ProjectAllocationTab({
     setRates(nextRates);
 
     setSchoolIncome(Number(incomeData?.amount ?? 0));
+    setDraftOpenEdit(yearData?.draft_projects_open_edit ?? false);
   }, [budgetYearId]);
 
   useEffect(() => {
@@ -319,7 +333,7 @@ export function ProjectAllocationTab({
     try {
       const adminGroupId = editDraft.adminGroupId || null;
       const budgetSourceId = editDraft.budgetSourceId || null;
-      await updateDraftProject(row.id, {
+      await updateDraftProject(row.id, budgetYearId, {
         name,
         admin_group_id: adminGroupId,
         budget_source_id: budgetSourceId,
@@ -386,6 +400,20 @@ export function ProjectAllocationTab({
     }
   }
 
+  async function handleToggleOpenEdit() {
+    const next = !draftOpenEdit;
+    setTogglingOpenEdit(true);
+    try {
+      await setDraftEditOpen(budgetYearId, next);
+      setDraftOpenEdit(next);
+      await toastSuccess(next ? "เปิดการแก้ไขให้ทุกคนแล้ว" : "ปิดการแก้ไขให้ทุกคนแล้ว");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setTogglingOpenEdit(false);
+    }
+  }
+
   return (
     <div>
       <div className="flex gap-1 border-b border-slate-200">
@@ -449,14 +477,16 @@ export function ProjectAllocationTab({
             <table className="table-base">
               <thead>
                 <tr>
-                  <th className="w-10 text-center">
-                    <input
-                      type="checkbox"
-                      checked={filteredSourceRows.length > 0 && selectedIds.size === filteredSourceRows.length}
-                      onChange={toggleSelectAll}
-                      disabled={filteredSourceRows.length === 0}
-                    />
-                  </th>
+                  {isAdmin && (
+                    <th className="w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={filteredSourceRows.length > 0 && selectedIds.size === filteredSourceRows.length}
+                        onChange={toggleSelectAll}
+                        disabled={filteredSourceRows.length === 0}
+                      />
+                    </th>
+                  )}
                   <th>โครงการ</th>
                   <th className="whitespace-nowrap">กลุ่มบริหาร</th>
                   <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
@@ -466,9 +496,11 @@ export function ProjectAllocationTab({
               <tbody>
                 {filteredSourceRows.map((r) => (
                   <tr key={r.id}>
-                    <td className="text-center">
-                      <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
-                    </td>
+                    {isAdmin && (
+                      <td className="text-center">
+                        <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
+                      </td>
+                    )}
                     <td className="min-w-[10rem] max-w-[18rem]">
                       <span className="break-words font-medium text-slate-900">{r.name}</span>
                     </td>
@@ -479,14 +511,14 @@ export function ProjectAllocationTab({
                 ))}
                 {sourceRows !== null && filteredSourceRows.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="table-empty">
+                    <td colSpan={isAdmin ? 5 : 4} className="table-empty">
                       ไม่พบโครงการในปีงบประมาณต้นทางที่เลือก
                     </td>
                   </tr>
                 )}
                 {sourceRows === null && (
                   <tr>
-                    <td colSpan={5} className="table-empty">
+                    <td colSpan={isAdmin ? 5 : 4} className="table-empty">
                       กำลังโหลด...
                     </td>
                   </tr>
@@ -495,27 +527,55 @@ export function ProjectAllocationTab({
             </table>
           </div>
 
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={handleCopy}
-              disabled={selectedIds.size === 0 || copying}
-              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {copying ? "กำลังคัดลอก..." : `คัดลอกที่เลือก (${selectedIds.size}) เป็นร่างโครงการ`}
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={handleCopy}
+                disabled={selectedIds.size === 0 || copying}
+                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {copying ? "กำลังคัดลอก..." : `คัดลอกที่เลือก (${selectedIds.size}) เป็นร่างโครงการ`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {subTab === "draft" && (
         <div className="mt-4">
-          <div className="card-title mb-2 text-base font-bold text-navy-800">
-            ร่างโครงการปีงบประมาณนี้ {targetYear ? `(${targetYear.year})` : ""}
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="card-title text-base font-bold text-navy-800">
+              ร่างโครงการปีงบประมาณนี้ {targetYear ? `(${targetYear.year})` : ""}
+            </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleToggleOpenEdit}
+                disabled={togglingOpenEdit}
+                className={`btn-sm disabled:cursor-not-allowed disabled:opacity-40 ${
+                  draftOpenEdit ? "btn-danger" : "btn-primary"
+                }`}
+              >
+                {togglingOpenEdit
+                  ? "กำลังบันทึก..."
+                  : draftOpenEdit
+                    ? "ปิดการแก้ไขให้ทุกคน"
+                    : "เปิดการแก้ไขให้ทุกคน"}
+              </button>
+            )}
           </div>
+          {draftOpenEdit && (
+            <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              เปิดให้ครูทุกคนเพิ่ม/แก้ไขร่างโครงการได้อยู่ (การลบยังจำกัดเฉพาะผู้ดูแลระบบ)
+            </p>
+          )}
           <p className="mb-3 text-sm text-slate-500">
-            กด &quot;แก้ไข&quot; ต่อรายการเพื่อแก้ไขแล้วกด &quot;บันทึก&quot; — ครูจะเลือกจากรายการนี้ตอนสร้าง
-            ข้อเสนอโครงการจริงที่เมนู &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
+            {canEditDraft
+              ? "กด \"แก้ไข\" ต่อรายการเพื่อแก้ไขแล้วกด \"บันทึก\""
+              : "ดูรายการได้อย่างเดียว"}{" "}
+            — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู &quot;เสนอโครงการ&quot;
+            (หรือพิมพ์ชื่อใหม่เองก็ได้)
           </p>
 
           <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -641,14 +701,16 @@ export function ProjectAllocationTab({
                   </select>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleAddDraft}
-                disabled={adding || editingRowId !== null}
-                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {adding ? "กำลังเพิ่ม..." : "+ เพิ่มร่างโครงการ"}
-              </button>
+              {canEditDraft && (
+                <button
+                  type="button"
+                  onClick={handleAddDraft}
+                  disabled={adding || editingRowId !== null}
+                  className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {adding ? "กำลังเพิ่ม..." : "+ เพิ่มร่างโครงการ"}
+                </button>
+              )}
             </div>
 
             <div className="table-shell mt-2">
@@ -763,22 +825,26 @@ export function ProjectAllocationTab({
                             </div>
                           ) : (
                             <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => startEditDraft(r)}
-                                disabled={editingRowId !== null}
-                                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                แก้ไข
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteDraft(r)}
-                                disabled={isSaving || editingRowId !== null}
-                                className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                ลบ
-                              </button>
+                              {canEditDraft && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditDraft(r)}
+                                  disabled={editingRowId !== null}
+                                  className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  แก้ไข
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDraft(r)}
+                                  disabled={isSaving || editingRowId !== null}
+                                  className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  ลบ
+                                </button>
+                              )}
                             </div>
                           )}
                         </td>

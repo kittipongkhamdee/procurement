@@ -17,7 +17,7 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
-export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
+export function StudentRatesTab({ budgetYearId, isAdmin }: { budgetYearId: string; isAdmin: boolean }) {
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [countDrafts, setCountDrafts] = useState<Record<string, string>>({});
   const [countsEditing, setCountsEditing] = useState(false);
@@ -168,7 +168,7 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
       <div className="card">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="card-title text-base font-bold text-navy-800">จำนวนนักเรียน</div>
-          {!countsEditing ? (
+          {!isAdmin ? null : !countsEditing ? (
             <button type="button" onClick={() => setCountsEditing(true)} className="btn-secondary btn-sm">
               แก้ไข
             </button>
@@ -231,7 +231,7 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
       <div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="card-title text-base font-bold text-navy-800">งบรายหัว (บาท/คน/ปี)</div>
-          {!ratesEditing ? (
+          {!isAdmin ? null : !ratesEditing ? (
             <button type="button" onClick={() => setRatesEditing(true)} className="btn-secondary btn-sm">
               แก้ไข
             </button>
@@ -314,7 +314,7 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
       <div className="card">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="card-title text-base font-bold text-navy-800">เงินรายได้สถานศึกษา</div>
-          {!schoolIncomeEditing ? (
+          {!isAdmin ? null : !schoolIncomeEditing ? (
             <button type="button" onClick={() => setSchoolIncomeEditing(true)} className="btn-secondary btn-sm">
               แก้ไข
             </button>

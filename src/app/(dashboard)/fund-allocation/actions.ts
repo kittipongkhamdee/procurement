@@ -17,6 +17,26 @@ async function requireAdmin() {
   return supabase;
 }
 
+// อนุญาตให้ admin แก้ไขร่างโครงการได้เสมอ ส่วนผู้ใช้อื่นแก้ไขได้เฉพาะตอนที่ admin เปิด
+// "เปิดการแก้ไขให้ทุกคน" ไว้สำหรับปีงบประมาณนั้น (plan_budget_years.draft_projects_open_edit) —
+// เพิ่ม/แก้ไขร่างโครงการเท่านั้น การลบยังคงจำกัดเฉพาะ admin เสมอ (ดู deleteDraftProject)
+async function requireDraftEditor(budgetYearId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+  const { data: profile } = await supabase.from("proc_profiles").select("role").eq("user_id", user.id).maybeSingle();
+  if (profile?.role === "admin") return supabase;
+  const { data: year } = await supabase
+    .from("plan_budget_years")
+    .select("draft_projects_open_edit")
+    .eq("id", budgetYearId)
+    .maybeSingle();
+  if (!year?.draft_projects_open_edit) throw new Error("ขณะนี้ยังไม่เปิดให้แก้ไขร่างโครงการ กรุณาติดต่อผู้ดูแลระบบ");
+  return supabase;
+}
+
 export async function upsertStudentCount(budgetYearId: string, gradeKey: string, studentCount: number) {
   const supabase = await requireAdmin();
   const { error } = await supabase
@@ -102,7 +122,7 @@ export async function copyProjectsToDraft(targetBudgetYearId: string, projectIds
 
 // เพิ่มร่างโครงการเปล่าให้แก้ไขต่อได้ทันที — คืนแถวที่สร้างเพื่อให้ฝั่งหน้าเว็บเปิดโหมดแก้ไขต่อได้เลย
 export async function createDraftProject(budgetYearId: string) {
-  const supabase = await requireAdmin();
+  const supabase = await requireDraftEditor(budgetYearId);
   const { data, error } = await supabase
     .from("plan_draft_projects")
     .insert({ budget_year_id: budgetYearId, name: "โครงการใหม่" })
@@ -116,17 +136,30 @@ export async function createDraftProject(budgetYearId: string) {
 // แก้ไขร่างโครงการแบบอินไลน์ (ชื่อ/กลุ่มบริหาร/แหล่งงบ/งบประมาณ) — ส่งเฉพาะฟิลด์ที่เปลี่ยน
 export async function updateDraftProject(
   id: string,
+  budgetYearId: string,
   fields: { name?: string; admin_group_id?: string | null; budget_source_id?: string | null; budget?: number },
 ) {
-  const supabase = await requireAdmin();
+  const supabase = await requireDraftEditor(budgetYearId);
   const { error } = await supabase.from("plan_draft_projects").update(fields).eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
 }
 
+// การลบร่างโครงการจำกัดเฉพาะ admin เสมอ ไม่ว่าจะเปิดการแก้ไขให้ทุกคนหรือไม่ก็ตาม
 export async function deleteDraftProject(id: string) {
   const supabase = await requireAdmin();
   const { error } = await supabase.from("plan_draft_projects").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
+}
+
+// admin เปิด/ปิดให้ทุกคนเพิ่ม/แก้ไขร่างโครงการได้ สำหรับปีงบประมาณที่ระบุ
+export async function setDraftEditOpen(budgetYearId: string, open: boolean) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("plan_budget_years")
+    .update({ draft_projects_open_edit: open })
+    .eq("id", budgetYearId);
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
 }
