@@ -259,6 +259,8 @@ export function ProposalForm({
     }
   }
 
+  const lockedDraft = draftProjects.find((d) => d.id === selectedDraftId) ?? null;
+
   function handleDraftSelect(draftId: string) {
     setSelectedDraftId(draftId);
     if (!draftId) return;
@@ -433,7 +435,8 @@ export function ProposalForm({
               required
               value={adminGroupId}
               onChange={(e) => setAdminGroupId(e.target.value)}
-              className="input"
+              disabled={!!lockedDraft}
+              className="input disabled:bg-slate-100 disabled:text-slate-500"
             >
               <option value="" disabled>
                 เลือกกลุ่มบริหาร..
@@ -444,6 +447,7 @@ export function ProposalForm({
                 </option>
               ))}
             </select>
+            {lockedDraft && <input type="hidden" name="admin_group_id" value={adminGroupId} />}
           </div>
           <div ref={responsibleRef} className={fieldErrors.responsible ? "rounded-xl ring-2 ring-red-400 p-1" : ""}>
             <label className="label">ผู้รับผิดชอบโครงการ</label>
@@ -475,7 +479,8 @@ export function ProposalForm({
             required
             value={budgetSourceId}
             onChange={(e) => setBudgetSourceId(e.target.value)}
-            className="input"
+            disabled={!!lockedDraft}
+            className="input disabled:bg-slate-100 disabled:text-slate-500"
           >
             <option value="" disabled>
               เลือกแหล่งเงินงบประมาณ..
@@ -486,6 +491,7 @@ export function ProposalForm({
               </option>
             ))}
           </select>
+          {lockedDraft && <input type="hidden" name="budget_source_id" value={budgetSourceId} />}
         </div>
         <div className="mb-3 flex items-center gap-3 text-sm">
           <button
@@ -565,9 +571,19 @@ export function ProposalForm({
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
                 <span className="font-semibold text-slate-600">รวมงบประมาณทั้งสิ้น</span>
-                <span className="font-bold text-navy-800">{formatBaht(totalBudget)} บาท</span>
+                <span className="font-bold text-navy-800">
+                  {formatBaht(lockedDraft ? lockedDraft.budget : totalBudget)} บาท
+                </span>
               </div>
             </div>
+            {lockedDraft && (
+              <>
+                <p className="mb-2 text-xs text-slate-500">
+                  งบประมาณกิจกรรมย่อยกรอกเองได้ตามจริง แต่ยอดรวมงบประมาณทั้งสิ้นจะยึดตามที่กำหนดไว้ในร่างโครงการ
+                </p>
+                <input type="hidden" name="locked_budget_amount" value={lockedDraft.budget} />
+              </>
+            )}
             <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
               + เพิ่มกิจกรรม
             </button>
@@ -582,9 +598,11 @@ export function ProposalForm({
               required
               value={projectBudget}
               onChange={(e) => setProjectBudget(e.target.value)}
-              className="input"
+              disabled={!!lockedDraft}
+              className="input disabled:bg-slate-100 disabled:text-slate-500"
               placeholder="0.00"
             />
+            {lockedDraft && <input type="hidden" name="project_budget" value={projectBudget} />}
           </div>
         )}
       </div>
