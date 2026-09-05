@@ -172,10 +172,6 @@ export const LockIcon = base(
   </>,
 );
 
-export const BarChartIcon = base(
-  <path strokeLinecap="round" strokeLinejoin="round" d="M5 20V10M12 20V4M19 20v-7" />,
-);
-
 export const GridIcon = base(
   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />,
 );
