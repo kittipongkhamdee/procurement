@@ -19,19 +19,21 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
   const [amounts, setAmounts] = useState<Record<string, number>>({});
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
+  const [schoolIncome, setSchoolIncome] = useState(0);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const [{ data: allocData }, { data: countsData }, { data: ratesData }] = await Promise.all([
+    const [{ data: allocData }, { data: countsData }, { data: ratesData }, { data: incomeData }] = await Promise.all([
       supabase.from("plan_group_allocations").select("admin_group_id, allocated_amount").eq("budget_year_id", budgetYearId),
       supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
       supabase
         .from("plan_revenue_rates")
         .select("item_key, grade_key, rate_per_student")
         .eq("budget_year_id", budgetYearId),
+      supabase.from("plan_school_income").select("amount").eq("budget_year_id", budgetYearId).maybeSingle(),
     ]);
 
     const nextAmounts: Record<string, number> = {};
@@ -46,6 +48,8 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
     for (const row of ratesData ?? [])
       nextRates[rateKey(row.item_key as ItemKey, row.grade_key as GradeKey)] = Number(row.rate_per_student);
     setRates(nextRates);
+
+    setSchoolIncome(Number(incomeData?.amount ?? 0));
 
     setLoading(false);
   }, [budgetYearId]);
@@ -85,6 +89,7 @@ export function GroupAllocationTab({ budgetYearId, adminGroups }: { budgetYearId
       amount: itemTotalByKey.teaching + itemTotalByKey.topup,
     },
     { label: "ค่ากิจกรรมพัฒนาผู้เรียน", amount: itemTotalByKey.student_activity },
+    { label: "เงินรายได้สถานศึกษา", amount: schoolIncome },
   ];
   const projectTotal = projectRows.reduce((sum, r) => sum + r.amount, 0);
 

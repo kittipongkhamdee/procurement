@@ -14,17 +14,19 @@ function formatBaht(n: number) {
 export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
+  const [schoolIncome, setSchoolIncome] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const [{ data: countsData }, { data: ratesData }] = await Promise.all([
+    const [{ data: countsData }, { data: ratesData }, { data: incomeData }] = await Promise.all([
       supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
       supabase
         .from("plan_revenue_rates")
         .select("item_key, grade_key, rate_per_student")
         .eq("budget_year_id", budgetYearId),
+      supabase.from("plan_school_income").select("amount").eq("budget_year_id", budgetYearId).maybeSingle(),
     ]);
     const nextCounts: Partial<Record<GradeKey, number>> = {};
     for (const row of countsData ?? []) nextCounts[row.grade_key as GradeKey] = Number(row.student_count);
@@ -34,6 +36,8 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
     for (const row of ratesData ?? [])
       nextRates[rateKey(row.item_key as ItemKey, row.grade_key as GradeKey)] = Number(row.rate_per_student);
     setRates(nextRates);
+
+    setSchoolIncome(Number(incomeData?.amount ?? 0));
     setLoading(false);
   }, [budgetYearId]);
 
@@ -44,10 +48,8 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
 
   if (loading) return <p className="p-4 text-sm text-slate-400">กำลังโหลด...</p>;
 
-  const grandTotal = ITEM_DEFS.reduce(
-    (sum, item) => sum + computeItemTotal(item.grades, item.key, counts, rates),
-    0,
-  );
+  const grandTotal =
+    ITEM_DEFS.reduce((sum, item) => sum + computeItemTotal(item.grades, item.key, counts, rates), 0) + schoolIncome;
 
   return (
     <div>
@@ -104,6 +106,13 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
                 </Fragment>
               );
             })}
+            <tr>
+              <td className="font-medium text-slate-900">เงินรายได้สถานศึกษา</td>
+              <td className="whitespace-nowrap">-</td>
+              <td className="whitespace-nowrap text-right tabular-nums text-slate-500">-</td>
+              <td className="whitespace-nowrap text-right tabular-nums text-slate-500">-</td>
+              <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(schoolIncome)}</td>
+            </tr>
           </tbody>
           <tfoot>
             <tr>
