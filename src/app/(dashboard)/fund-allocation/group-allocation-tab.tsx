@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { errorMessage, toastError } from "@/lib/swal";
+import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { upsertGroupAllocation } from "./actions";
 import { computeItemTotal, ITEM_DEFS, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
@@ -25,11 +25,13 @@ export function GroupAllocationTab({
   isAdmin: boolean;
 }) {
   const [amounts, setAmounts] = useState<Record<string, number>>({});
+  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+  const [amountsEditing, setAmountsEditing] = useState(false);
+  const [savingAmounts, setSavingAmounts] = useState(false);
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
   const [schoolIncome, setSchoolIncome] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -67,17 +69,33 @@ export function GroupAllocationTab({
     reload();
   }, [reload]);
 
-  async function handleChange(groupId: string, value: string) {
-    const num = Number(value);
-    if (value === "" || Number.isNaN(num) || num < 0) return;
-    setAmounts((prev) => ({ ...prev, [groupId]: num }));
-    setSavingId(groupId);
+  function handleCancelAmounts() {
+    setAmountDrafts({});
+    setAmountsEditing(false);
+  }
+
+  async function handleSaveAmounts() {
+    setSavingAmounts(true);
     try {
-      await upsertGroupAllocation(budgetYearId, groupId, num);
+      for (const [groupId, raw] of Object.entries(amountDrafts)) {
+        if (raw.trim() === "") continue;
+        const num = Number(raw);
+        if (Number.isNaN(num) || num < 0) {
+          await toastError("กรุณากรอกจำนวนเงินให้ถูกต้องทุกช่อง");
+          setSavingAmounts(false);
+          return;
+        }
+        if (num === (amounts[groupId] ?? 0)) continue;
+        await upsertGroupAllocation(budgetYearId, groupId, num);
+        setAmounts((prev) => ({ ...prev, [groupId]: num }));
+      }
+      setAmountDrafts({});
+      setAmountsEditing(false);
+      await toastSuccess("บันทึกการจัดสรรงบประมาณเรียบร้อยแล้ว");
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {
-      setSavingId(null);
+      setSavingAmounts(false);
     }
   }
 
@@ -169,10 +187,36 @@ export function GroupAllocationTab({
         </table>
       </div>
 
-      <div className="card-title mb-2 text-base font-bold text-navy-800">จัดสรรงบประมาณตามกลุ่มบริหารงาน</div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="card-title text-base font-bold text-navy-800">จัดสรรงบประมาณตามกลุ่มบริหารงาน</div>
+        {!isAdmin ? null : !amountsEditing ? (
+          <button type="button" onClick={() => setAmountsEditing(true)} className="btn-secondary btn-sm">
+            แก้ไข
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleCancelAmounts}
+              disabled={savingAmounts}
+              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAmounts}
+              disabled={savingAmounts}
+              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {savingAmounts ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+        )}
+      </div>
       <p className="mb-4 text-sm text-slate-500">
         กรอกจำนวนเงินงบประมาณที่จัดสรรให้แต่ละกลุ่มบริหารงานสำหรับปีงบประมาณนี้ — เทียบได้กับยอดรวม
-        &quot;งบประมาณจัดทำโครงการ&quot; ด้านบน
+        &quot;งบประมาณจัดทำโครงการ&quot; ด้านบน — ต้องกด &quot;แก้ไข&quot; ก่อนจึงจะเปลี่ยนค่าได้
       </p>
       <div className="table-shell">
         <table className="table-base">
@@ -187,14 +231,13 @@ export function GroupAllocationTab({
               <tr key={g.id}>
                 <td className="font-medium text-slate-900">{g.name}</td>
                 <td className="whitespace-nowrap text-right">
-                  {isAdmin ? (
+                  {amountsEditing ? (
                     <input
                       type="number"
                       step="0.01"
-                      value={amounts[g.id] ?? 0}
-                      onChange={(e) => handleChange(g.id, e.target.value)}
-                      disabled={savingId === g.id}
-                      className="input w-40 text-right disabled:bg-slate-100"
+                      value={amountDrafts[g.id] ?? amounts[g.id] ?? 0}
+                      onChange={(e) => setAmountDrafts((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                      className="input w-40 text-right"
                     />
                   ) : (
                     <span className="tabular-nums">{formatBaht(amounts[g.id] ?? 0)}</span>
