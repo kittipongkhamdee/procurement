@@ -18,7 +18,8 @@ function formatBaht(n: number) {
 export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [countDrafts, setCountDrafts] = useState<Record<string, string>>({});
-  const [savingCountKey, setSavingCountKey] = useState<string | null>(null);
+  const [countsEditing, setCountsEditing] = useState(false);
+  const [savingCounts, setSavingCounts] = useState(false);
 
   const [rates, setRates] = useState<Record<string, number>>({});
   const [rateDrafts, setRateDrafts] = useState<Record<string, string>>({});
@@ -55,35 +56,33 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
     reload();
   }, [reload]);
 
-  async function handleCountBlur(grade: GradeKey) {
-    const raw = countDrafts[grade];
-    if (raw === undefined) return;
-    const num = Number(raw);
-    if (raw.trim() === "" || Number.isNaN(num) || num < 0) {
-      await toastError("กรุณากรอกจำนวนนักเรียนให้ถูกต้อง");
-      return;
-    }
-    if (num === (counts[grade] ?? 0)) {
-      setCountDrafts((prev) => {
-        const next = { ...prev };
-        delete next[grade];
-        return next;
-      });
-      return;
-    }
-    setSavingCountKey(grade);
+  function handleCancelCounts() {
+    setCountDrafts({});
+    setCountsEditing(false);
+  }
+
+  async function handleSaveCounts() {
+    setSavingCounts(true);
     try {
-      await upsertStudentCount(budgetYearId, grade, num);
-      setCounts((prev) => ({ ...prev, [grade]: num }));
-      setCountDrafts((prev) => {
-        const next = { ...prev };
-        delete next[grade];
-        return next;
-      });
+      for (const [grade, raw] of Object.entries(countDrafts)) {
+        if (raw.trim() === "") continue;
+        const num = Number(raw);
+        if (Number.isNaN(num) || num < 0) {
+          await toastError("กรุณากรอกจำนวนนักเรียนให้ถูกต้องทุกช่อง");
+          setSavingCounts(false);
+          return;
+        }
+        if (num === (counts[grade as GradeKey] ?? 0)) continue;
+        await upsertStudentCount(budgetYearId, grade, num);
+        setCounts((prev) => ({ ...prev, [grade]: num }));
+      }
+      setCountDrafts({});
+      setCountsEditing(false);
+      await toastSuccess("บันทึกจำนวนนักเรียนเรียบร้อยแล้ว");
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {
-      setSavingCountKey(null);
+      setSavingCounts(false);
     }
   }
 
@@ -125,23 +124,52 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
 
   return (
     <div>
-      <div className="card-title mb-2 text-base font-bold text-navy-800">จำนวนนักเรียน</div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="card-title text-base font-bold text-navy-800">จำนวนนักเรียน</div>
+        {!countsEditing ? (
+          <button type="button" onClick={() => setCountsEditing(true)} className="btn-secondary btn-sm">
+            แก้ไข
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleCancelCounts}
+              disabled={savingCounts}
+              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveCounts}
+              disabled={savingCounts}
+              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {savingCounts ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+        )}
+      </div>
       <p className="mb-3 text-sm text-slate-500">
         กรอกจำนวนนักเรียนแยกตามชั้น — ระบบจะรวมชั้น ม.1-3 เป็น &quot;มัธยมศึกษาตอนต้น&quot; และ ม.4-6 เป็น
-        &quot;มัธยมศึกษาตอนปลาย&quot; ให้อัตโนมัติ นำไปใช้คำนวณต่อที่แท็บ &quot;รายรับ&quot;
+        &quot;มัธยมศึกษาตอนปลาย&quot; ให้อัตโนมัติ นำไปใช้คำนวณต่อที่แท็บ &quot;รายรับ&quot; — ต้องกด
+        &quot;แก้ไข&quot; ก่อนจึงจะเปลี่ยนค่าได้
       </p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {TEXTBOOK_GRADES.map((g) => (
           <div key={g}>
             <label className="label">{GRADE_LABELS[g]}</label>
-            <input
-              type="number"
-              value={countDrafts[g] ?? counts[g] ?? 0}
-              onChange={(e) => setCountDrafts((prev) => ({ ...prev, [g]: e.target.value }))}
-              onBlur={() => handleCountBlur(g)}
-              disabled={savingCountKey === g}
-              className="input disabled:bg-slate-100"
-            />
+            {countsEditing ? (
+              <input
+                type="number"
+                value={countDrafts[g] ?? counts[g] ?? 0}
+                onChange={(e) => setCountDrafts((prev) => ({ ...prev, [g]: e.target.value }))}
+                className="input"
+              />
+            ) : (
+              <div className="input bg-slate-100 text-slate-700">{counts[g] ?? 0}</div>
+            )}
           </div>
         ))}
       </div>
