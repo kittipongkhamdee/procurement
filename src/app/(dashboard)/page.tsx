@@ -10,14 +10,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { DashboardLoadingSkeleton } from "@/components/loading-skeleton";
-import { ClipboardCheckIcon, FolderIcon, ShoppingCartIcon, StoreIcon } from "@/components/icons";
+import { ClipboardCheckIcon, FileTextIcon, FolderIcon, ShoppingCartIcon } from "@/components/icons";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
 type DashboardData = {
-  vendorCount: number;
   purchaseCount: number;
   contractCount: number;
   deliveryCount: number;
@@ -34,6 +33,7 @@ type DashboardData = {
   totalPendingAmount: number;
   pendingDisbursementCount: number;
   paidDisbursementCount: number;
+  reportedProjectCount: number;
 };
 
 export default function DashboardPage() {
@@ -43,7 +43,6 @@ export default function DashboardPage() {
     const supabase = createClient();
 
     const [
-      { count: vendorCount },
       { count: purchaseCount },
       { count: contractCount },
       { count: deliveryCount },
@@ -54,8 +53,8 @@ export default function DashboardPage() {
       { count: approvalCount },
       { data: approvalSumRows },
       { data: budgetYears },
+      { data: reportRows },
     ] = await Promise.all([
-      supabase.from("proc_vendors").select("*", { count: "exact", head: true }),
       supabase.from("proc_purchase_requests").select("*", { count: "exact", head: true }),
       supabase.from("proc_contracts").select("*", { count: "exact", head: true }),
       supabase.from("proc_deliveries").select("*", { count: "exact", head: true }),
@@ -66,7 +65,12 @@ export default function DashboardPage() {
       supabase.from("proc_approvals").select("*", { count: "exact", head: true }),
       supabase.from("proc_approvals").select("requested_amount"),
       supabase.from("plan_budget_years").select("id, year, is_open").order("year", { ascending: false }),
+      supabase.from("proc_project_reports").select("project_id"),
     ]);
+
+    const reportedProjectCount = new Set(
+      (reportRows ?? []).map((r) => r.project_id).filter((id): id is string => !!id),
+    ).size;
 
     const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0];
     const { data: currentYearProjects } = currentYear
@@ -114,7 +118,6 @@ export default function DashboardPage() {
     const totalPendingAmount = pendingDisbursements.reduce((sum, r) => sum + Number(r.amount ?? 0), 0);
 
     setData({
-      vendorCount: vendorCount ?? 0,
       purchaseCount: purchaseCount ?? 0,
       contractCount: contractCount ?? 0,
       deliveryCount: deliveryCount ?? 0,
@@ -131,6 +134,7 @@ export default function DashboardPage() {
       totalPendingAmount,
       pendingDisbursementCount: pendingDisbursements.length,
       paidDisbursementCount: paidDisbursements.length,
+      reportedProjectCount,
     });
   }, []);
 
@@ -142,13 +146,17 @@ export default function DashboardPage() {
   if (data === null) return <DashboardLoadingSkeleton />;
 
   const cards = [
-    { label: "ผู้ขาย/ผู้รับจ้าง", value: data.vendorCount, suffix: "ราย", accent: "#1b4177", icon: StoreIcon },
     {
       label: "รายการขอซื้อ-ขอจ้าง",
-      value: data.purchaseCount,
-      suffix: "รายการ",
+      display: `${data.purchaseCount.toLocaleString("th-TH")} รายการ`,
       accent: "#a3791a",
       icon: ShoppingCartIcon,
+    },
+    {
+      label: "รายงานโครงการ",
+      display: `${data.reportedProjectCount.toLocaleString("th-TH")}/${data.projectCount.toLocaleString("th-TH")}`,
+      accent: "#7C3AED",
+      icon: FileTextIcon,
     },
   ];
 
@@ -222,9 +230,7 @@ export default function DashboardPage() {
               </span>
               <div className="min-w-0">
                 <div className="stat-label">{c.label}</div>
-                <div className="stat-value">
-                  {c.value.toLocaleString("th-TH")} <span className="stat-suffix">{c.suffix}</span>
-                </div>
+                <div className="stat-value">{c.display}</div>
               </div>
             </div>
           </div>
