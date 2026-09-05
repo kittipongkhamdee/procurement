@@ -61,8 +61,7 @@ const NAV_SECTIONS = [
   {
     heading: "กำหนดรายการ",
     items: [
-      { href: "/strategies", label: "กลยุทธ์โรงเรียน", icon: <GridIcon className={ICON_CLASS} /> },
-      { href: "/standards", label: "มาตรฐานการศึกษา", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
+      { href: "/standards-strategies", label: "มาตรฐานและกลยุทธ์", icon: <GridIcon className={ICON_CLASS} /> },
     ],
   },
 ];
