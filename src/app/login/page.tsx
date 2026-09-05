@@ -61,7 +61,7 @@ export default async function LoginPage({
 
         <p className="mt-4 text-center text-sm">
           <a href="/login/signup" className="text-navy-800 hover:underline">
-            ยังไม่มีบัญชี? สมัครสมาชิก
+            ยังไม่มีบัญชี? ลงทะเบียน
           </a>
         </p>
       </div>

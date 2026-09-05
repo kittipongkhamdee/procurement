@@ -157,6 +157,21 @@ export const LogOutIcon = base(
   </>,
 );
 
+export const UserIcon = base(
+  <>
+    <circle cx="12" cy="8" r="3.5" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 20c.6-4 3.4-6.5 7.5-6.5s6.9 2.5 7.5 6.5" />
+  </>,
+);
+
+export const LockIcon = base(
+  <>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.5 11V8a5.5 5.5 0 0 1 11 0v3" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5.5 11h13a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z" />
+    <circle cx="12" cy="15.5" r="1.5" />
+  </>,
+);
+
 export const GridIcon = base(
   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />,
 );
