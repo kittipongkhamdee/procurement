@@ -230,8 +230,19 @@ export default function DashboardPage() {
     computed;
 
   return (
-    <div>
-      <style>{`@media print { @page { size: A4 portrait; margin: 12mm; } }`}</style>
+    <div className="print-compact">
+      <style>{`
+        @media print {
+          @page { size: A4 portrait; margin: 10mm; }
+          .print-compact .card { padding: 8px 12px !important; }
+          .print-compact .stat-card { padding: 7px 10px 7px 14px !important; }
+          .print-compact .card-title { margin-bottom: 4px !important; font-size: 11.5px !important; }
+          .print-compact .stat-label { font-size: 9px !important; }
+          .print-compact .stat-value { font-size: 14px !important; margin-top: 1px !important; }
+          .print-compact .table-base th,
+          .print-compact .table-base td { padding: 3px 8px !important; font-size: 10.5px !important; }
+        }
+      `}</style>
 
       <div className="page-header print:hidden">
         <div>
@@ -248,7 +259,7 @@ export default function DashboardPage() {
       </div>
 
       {/* หัวเอกสารสำหรับตอนพิมพ์เท่านั้น (จอปกติไม่แสดง เพราะซ้ำกับ page-header ด้านบน) */}
-      <div className="mb-4 hidden items-center justify-between border-b-2 border-navy-800 pb-3 print:flex">
+      <div className="hidden items-center justify-between border-b-2 border-navy-800 pb-2 print:mb-2 print:flex">
         <div className="flex items-center gap-3">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -278,7 +289,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 print:grid-cols-4 print:gap-3">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 print:grid-cols-4 print:gap-2">
             <div className="stat-card" style={{ "--accent": BRAND } as React.CSSProperties}>
               <div className="stat-label">จำนวนโครงการ</div>
               <div className="stat-value">
@@ -303,10 +314,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 print:grid-cols-2 print:gap-3">
+          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-2 print:grid-cols-2 print:gap-2">
             <div className="card">
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 print:gap-2">
                 <Donut
                   segments={[
                     { value: completed, color: GOOD },
@@ -316,7 +327,7 @@ export default function DashboardPage() {
                   centerValue={String(projectCount)}
                   centerLabel="โครงการ"
                 />
-                <div className="min-w-0 flex-1 space-y-2 text-sm">
+                <div className="min-w-0 flex-1 space-y-2 text-sm print:space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
                     <span className="min-w-0 flex-1 truncate text-slate-600">เสร็จสิ้น</span>
@@ -347,7 +358,7 @@ export default function DashboardPage() {
 
             <div className="card">
               <div className="card-title">การใช้งบประมาณโดยรวม</div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 print:gap-2">
                 <Donut
                   segments={[
                     { value: totalSpent, color: GOOD },
@@ -356,7 +367,7 @@ export default function DashboardPage() {
                   centerValue={`${pct(totalSpent, totalBudget).toFixed(1)}%`}
                   centerLabel="เบิกจ่ายแล้ว"
                 />
-                <div className="min-w-0 flex-1 space-y-2 text-sm">
+                <div className="min-w-0 flex-1 space-y-2 text-sm print:space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
                     <span className="min-w-0 flex-1 truncate text-slate-600">เบิกจ่ายแล้ว</span>
@@ -377,7 +388,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 print:grid-cols-2 print:gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-2 print:grid-cols-2 print:gap-2">
             <div className="card">
               <div className="card-title">งบประมาณแยกตามประเภทเงิน</div>
               <div className="mb-3 flex gap-4 text-xs text-slate-500">
@@ -390,7 +401,7 @@ export default function DashboardPage() {
                   คงเหลือ
                 </span>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 print:space-y-2">
                 {bySource.map((s) => {
                   const spentPct = pct(s.spent, s.budget);
                   return (
@@ -416,7 +427,7 @@ export default function DashboardPage() {
 
             <div className="card">
               <div className="card-title">สรุปงบที่ใช้ (แยกตามประเภทรายจ่าย)</div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 print:gap-2">
                 <div
                   className="relative h-[104px] w-[104px] shrink-0 rounded-full border border-slate-200"
                   style={{
@@ -437,7 +448,7 @@ export default function DashboardPage() {
                     <span className="text-[9px] text-slate-400">รวมจ่าย</span>
                   </div>
                 </div>
-                <div className="min-w-0 flex-1 space-y-1.5 text-sm">
+                <div className="min-w-0 flex-1 space-y-1.5 text-sm print:space-y-0.5">
                   {SUMMARY_DISPLAY_LABELS.map((label, i) => (
                     <div key={label} className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: CAT_COLORS[i] }} />
@@ -457,7 +468,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-4 table-shell">
+          <div className="mt-4 table-shell print:mt-2">
             <div className="card-title px-4 pt-4">งบประมาณแยกตามกลุ่มบริหารงาน</div>
             <table className="table-base">
               <thead>
