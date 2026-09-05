@@ -11,6 +11,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { copyProjectsToDraft, createDraftProject, deleteDraftProject, updateDraftProject } from "./actions";
+import { computeAllItemTotals, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
+
+// ชื่อแหล่งงบประมาณ (plan_budget_sources.name) ที่มีที่มาจากเงินอุดหนุนรายหัว (คำนวณได้จากแท็บ
+// "รายรับ") -> รายการรายรับที่นับรวมเป็น "งบประมาณที่จัดสรร" ของแหล่งนั้น ส่วนแหล่งงบประมาณอื่น
+// (เช่น เงินรายได้สถานศึกษา) ไม่มีสูตรคำนวณอัตโนมัติ ถือว่ายังไม่จัดสรร (0) จนกว่าจะมีการระบุเพิ่มเติม
+const BUDGET_SOURCE_REVENUE_ITEMS: Record<string, ItemKey[]> = {
+  ค่าจัดการเรียนการสอน: ["teaching", "topup"],
+  ค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน: ["student_activity"],
+};
 
 type Option = { id: string; name: string };
 type BudgetYear = { id: string; year: number; is_open: boolean };
@@ -74,6 +83,10 @@ export function ProjectAllocationTab({
 
   const [draftAdminGroupId, setDraftAdminGroupId] = useState<string>(ALL);
   const [draftBudgetSourceId, setDraftBudgetSourceId] = useState<string>(ALL);
+
+  const [groupAllocations, setGroupAllocations] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
+  const [rates, setRates] = useState<Record<string, number>>({});
 
   const [subTab, setSubTab] = useState<SubTabKey>("copy");
 
@@ -145,6 +158,60 @@ export function ProjectAllocationTab({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDraftRows();
   }, [loadDraftRows]);
+
+  const loadSummaryData = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: allocData }, { data: countsData }, { data: ratesData }] = await Promise.all([
+      supabase.from("plan_group_allocations").select("admin_group_id, allocated_amount").eq("budget_year_id", budgetYearId),
+      supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
+      supabase
+        .from("plan_revenue_rates")
+        .select("item_key, grade_key, rate_per_student")
+        .eq("budget_year_id", budgetYearId),
+    ]);
+
+    const nextAllocations: Record<string, number> = {};
+    for (const row of allocData ?? []) nextAllocations[row.admin_group_id] = Number(row.allocated_amount);
+    setGroupAllocations(nextAllocations);
+
+    const nextCounts: Partial<Record<GradeKey, number>> = {};
+    for (const row of countsData ?? []) nextCounts[row.grade_key as GradeKey] = Number(row.student_count);
+    setCounts(nextCounts);
+
+    const nextRates: Record<string, number> = {};
+    for (const row of ratesData ?? [])
+      nextRates[rateKey(row.item_key as ItemKey, row.grade_key as GradeKey)] = Number(row.rate_per_student);
+    setRates(nextRates);
+  }, [budgetYearId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadSummaryData();
+  }, [loadSummaryData]);
+
+  const itemTotalByKey = useMemo(() => {
+    const totals = computeAllItemTotals(counts, rates);
+    return Object.fromEntries(totals.map((i) => [i.key, i.total])) as Record<ItemKey, number>;
+  }, [counts, rates]);
+
+  const sourceSummaryRows = useMemo(() => {
+    const rows = draftRows ?? [];
+    return budgetSources.map((s) => {
+      const items = BUDGET_SOURCE_REVENUE_ITEMS[s.name];
+      const allocated = items ? items.reduce((sum, k) => sum + (itemTotalByKey[k] ?? 0), 0) : 0;
+      const draftTotal = rows.filter((r) => r.budgetSourceId === s.id).reduce((sum, r) => sum + r.budget, 0);
+      return { id: s.id, label: s.name, allocated, draftTotal, diff: allocated - draftTotal };
+    });
+  }, [budgetSources, draftRows, itemTotalByKey]);
+
+  const groupSummaryRows = useMemo(() => {
+    const rows = draftRows ?? [];
+    return adminGroups.map((g) => {
+      const allocated = groupAllocations[g.id] ?? 0;
+      const draftTotal = rows.filter((r) => r.adminGroupId === g.id).reduce((sum, r) => sum + r.budget, 0);
+      return { id: g.id, label: g.name, allocated, draftTotal, diff: allocated - draftTotal };
+    });
+  }, [adminGroups, draftRows, groupAllocations]);
 
   const filteredSourceRows = useMemo(() => {
     if (!sourceRows) return [];
@@ -437,6 +504,86 @@ export function ProjectAllocationTab({
             แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู
             &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
           </p>
+
+          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div>
+              <div className="card-title mb-2 text-sm font-bold text-navy-800">เทียบตามแหล่งงบประมาณ</div>
+              <div className="table-shell">
+                <table className="table-base">
+                  <thead>
+                    <tr>
+                      <th>แหล่งเงิน</th>
+                      <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร</th>
+                      <th className="whitespace-nowrap text-right">งบร่างโครงการ</th>
+                      <th className="whitespace-nowrap text-right">ผลต่าง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sourceSummaryRows.map((r) => (
+                      <tr key={r.id}>
+                        <td className="font-medium text-slate-900">{r.label}</td>
+                        <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.allocated)}</td>
+                        <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.draftTotal)}</td>
+                        <td
+                          className={`whitespace-nowrap text-right tabular-nums font-semibold ${
+                            Math.abs(r.diff) < 0.005 ? "text-emerald-700" : "text-red-600"
+                          }`}
+                        >
+                          {formatBaht(r.diff)}
+                        </td>
+                      </tr>
+                    ))}
+                    {sourceSummaryRows.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="table-empty">
+                          ยังไม่มีแหล่งงบประมาณ
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div>
+              <div className="card-title mb-2 text-sm font-bold text-navy-800">เทียบตามกลุ่มบริหารงาน</div>
+              <div className="table-shell">
+                <table className="table-base">
+                  <thead>
+                    <tr>
+                      <th>กลุ่มบริหารงาน</th>
+                      <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร</th>
+                      <th className="whitespace-nowrap text-right">งบร่างโครงการ</th>
+                      <th className="whitespace-nowrap text-right">ผลต่าง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groupSummaryRows.map((r) => (
+                      <tr key={r.id}>
+                        <td className="font-medium text-slate-900">{r.label}</td>
+                        <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.allocated)}</td>
+                        <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.draftTotal)}</td>
+                        <td
+                          className={`whitespace-nowrap text-right tabular-nums font-semibold ${
+                            Math.abs(r.diff) < 0.005 ? "text-emerald-700" : "text-red-600"
+                          }`}
+                        >
+                          {formatBaht(r.diff)}
+                        </td>
+                      </tr>
+                    ))}
+                    {groupSummaryRows.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="table-empty">
+                          ยังไม่มีกลุ่มบริหารงาน
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
