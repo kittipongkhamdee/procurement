@@ -3,7 +3,7 @@
 // แท็บ "จัดโครงการ" — เตรียม "ร่างโครงการ" (plan_draft_projects) สำหรับปีงบประมาณใหม่ ยังไม่ใช่
 // โครงการจริงและไม่ใช่ข้อเสนอโครงการ โดย:
 // 1) คัดลอกรายการจากปีงบประมาณเดิมมาเป็นร่างตั้งต้น (แก้ไขได้ทุกอย่างหลังคัดลอก)
-// 2) แก้ไข/เพิ่ม/ลบ ชื่อโครงการ/กลุ่มบริหาร/แหล่งงบประมาณ/งบประมาณ แบบคลิกแก้ไขได้เลย บันทึกอัตโนมัติ
+// 2) แก้ไข/เพิ่ม/ลบ ชื่อโครงการ/กลุ่มบริหาร/แหล่งงบประมาณ/งบประมาณ ต่อรายการผ่านปุ่มแก้ไข/บันทึก
 // ครูจะไปเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู "เสนอโครงการ" ต่อไป (หรือพิมพ์ใหม่เองก็ได้)
 // โครงการที่ผ่านการอนุมัติจริงแล้วดูได้ที่เมนู "เสนอโครงการ" อยู่แล้ว จึงไม่ต้องแสดงซ้ำในแท็บนี้
 
@@ -47,6 +47,13 @@ type DraftRow = {
   budget: number;
 };
 
+type DraftEditState = {
+  name: string;
+  adminGroupId: string;
+  budgetSourceId: string;
+  budget: string;
+};
+
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
@@ -81,11 +88,12 @@ export function ProjectAllocationTab({
   const [sourceBudgetSourceId, setSourceBudgetSourceId] = useState<string>(ALL);
 
   const [draftRows, setDraftRows] = useState<DraftRow[] | null>(null);
-  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
-  const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({});
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<DraftEditState | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
+  const [draftSearch, setDraftSearch] = useState("");
   const [draftAdminGroupId, setDraftAdminGroupId] = useState<string>(ALL);
   const [draftBudgetSourceId, setDraftBudgetSourceId] = useState<string>(ALL);
 
@@ -238,12 +246,14 @@ export function ProjectAllocationTab({
 
   const filteredDraftRows = useMemo(() => {
     if (!draftRows) return [];
+    const search = draftSearch.trim().toLowerCase();
     return draftRows.filter((r) => {
+      if (search && !r.name.toLowerCase().includes(search)) return false;
       if (draftAdminGroupId !== ALL && r.adminGroupId !== draftAdminGroupId) return false;
       if (draftBudgetSourceId !== ALL && r.budgetSourceId !== draftBudgetSourceId) return false;
       return true;
     });
-  }, [draftRows, draftAdminGroupId, draftBudgetSourceId]);
+  }, [draftRows, draftSearch, draftAdminGroupId, draftBudgetSourceId]);
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -278,81 +288,47 @@ export function ProjectAllocationTab({
     setDraftRows((prev) => (prev ? prev.map((r) => (r.id === id ? { ...r, ...patch } : r)) : prev));
   }
 
-  async function handleNameBlur(row: DraftRow) {
-    const draft = nameDrafts[row.id];
-    if (draft === undefined || draft.trim() === "" || draft === row.name) {
-      setNameDrafts((prev) => {
-        const next = { ...prev };
-        delete next[row.id];
-        return next;
-      });
+  function startEditDraft(row: DraftRow) {
+    setEditingRowId(row.id);
+    setEditDraft({
+      name: row.name,
+      adminGroupId: row.adminGroupId ?? "",
+      budgetSourceId: row.budgetSourceId ?? "",
+      budget: String(row.budget),
+    });
+  }
+
+  function cancelEditDraft() {
+    setEditingRowId(null);
+    setEditDraft(null);
+  }
+
+  async function saveEditDraft(row: DraftRow) {
+    if (!editDraft) return;
+    const name = editDraft.name.trim();
+    if (!name) {
+      await toastError("กรุณากรอกชื่อโครงการ");
       return;
     }
-    setSavingId(row.id);
-    try {
-      await updateDraftProject(row.id, { name: draft.trim() });
-      patchDraft(row.id, { name: draft.trim() });
-      setNameDrafts((prev) => {
-        const next = { ...prev };
-        delete next[row.id];
-        return next;
-      });
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function handleGroupChange(row: DraftRow, groupId: string) {
-    setSavingId(row.id);
-    try {
-      await updateDraftProject(row.id, { admin_group_id: groupId || null });
-      patchDraft(row.id, { adminGroupId: groupId || null });
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function handleSourceChange(row: DraftRow, sourceId: string) {
-    setSavingId(row.id);
-    try {
-      await updateDraftProject(row.id, { budget_source_id: sourceId || null });
-      patchDraft(row.id, { budgetSourceId: sourceId || null });
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function handleBudgetBlur(row: DraftRow) {
-    const raw = budgetDrafts[row.id];
-    if (raw === undefined) return;
-    const value = Number(raw);
-    if (Number.isNaN(value) || value < 0) {
+    const budget = Number(editDraft.budget);
+    if (Number.isNaN(budget) || budget < 0) {
       await toastError("กรุณากรอกจำนวนเงินให้ถูกต้อง");
       return;
     }
-    if (value === row.budget) {
-      setBudgetDrafts((prev) => {
-        const next = { ...prev };
-        delete next[row.id];
-        return next;
-      });
-      return;
-    }
     setSavingId(row.id);
     try {
-      await updateDraftProject(row.id, { budget: value });
-      patchDraft(row.id, { budget: value });
-      setBudgetDrafts((prev) => {
-        const next = { ...prev };
-        delete next[row.id];
-        return next;
+      const adminGroupId = editDraft.adminGroupId || null;
+      const budgetSourceId = editDraft.budgetSourceId || null;
+      await updateDraftProject(row.id, {
+        name,
+        admin_group_id: adminGroupId,
+        budget_source_id: budgetSourceId,
+        budget,
       });
+      patchDraft(row.id, { name, adminGroupId, budgetSourceId, budget });
+      setEditingRowId(null);
+      setEditDraft(null);
+      await toastSuccess("บันทึกร่างโครงการเรียบร้อยแล้ว");
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {
@@ -379,6 +355,10 @@ export function ProjectAllocationTab({
     try {
       await deleteDraftProject(row.id);
       setDraftRows((prev) => (prev ? prev.filter((r) => r.id !== row.id) : prev));
+      if (editingRowId === row.id) {
+        setEditingRowId(null);
+        setEditDraft(null);
+      }
       await toastSuccess("ลบร่างโครงการเรียบร้อยแล้ว");
     } catch (err) {
       await toastError(errorMessage(err));
@@ -515,8 +495,8 @@ export function ProjectAllocationTab({
             ร่างโครงการปีงบประมาณนี้ {targetYear ? `(${targetYear.year})` : ""}
           </div>
           <p className="mb-3 text-sm text-slate-500">
-            แก้ไขได้ทุกช่อง บันทึกอัตโนมัติ — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู
-            &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
+            กด &quot;แก้ไข&quot; ต่อรายการเพื่อแก้ไขแล้วกด &quot;บันทึก&quot; — ครูจะเลือกจากรายการนี้ตอนสร้าง
+            ข้อเสนอโครงการจริงที่เมนู &quot;เสนอโครงการ&quot; (หรือพิมพ์ชื่อใหม่เองก็ได้)
           </p>
 
           <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -600,7 +580,17 @@ export function ProjectAllocationTab({
           </div>
 
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="label">ค้นหาชื่อโครงการ</label>
+                  <input
+                    type="text"
+                    value={draftSearch}
+                    onChange={(e) => setDraftSearch(e.target.value)}
+                    placeholder="พิมพ์ชื่อโครงการ..."
+                    className="input"
+                  />
+                </div>
                 <div>
                   <label className="label">กลุ่มบริหารงาน</label>
                   <select
@@ -641,85 +631,139 @@ export function ProjectAllocationTab({
               <table className="table-base">
                 <thead>
                   <tr>
+                    <th className="w-12 text-center">#</th>
                     <th>โครงการ</th>
                     <th className="whitespace-nowrap">กลุ่มบริหาร</th>
                     <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
                     <th className="whitespace-nowrap text-right">งบประมาณ</th>
-                    <th className="w-16"></th>
+                    <th className="whitespace-nowrap"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDraftRows.map((r) => {
+                  {filteredDraftRows.map((r, i) => {
                     const isSaving = savingId === r.id;
+                    const isEditing = editingRowId === r.id;
                     return (
                       <tr key={r.id}>
+                        <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                         <td className="min-w-[10rem] max-w-[18rem]">
-                          <input
-                            type="text"
-                            value={nameDrafts[r.id] ?? r.name}
-                            onChange={(e) => setNameDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                            onBlur={() => handleNameBlur(r)}
-                            disabled={isSaving}
-                            className="input w-full font-medium text-slate-900 disabled:bg-slate-100"
-                          />
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              value={editDraft?.name ?? ""}
+                              onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+                              disabled={isSaving}
+                              className="input w-full font-medium text-slate-900 disabled:bg-slate-100"
+                            />
+                          ) : (
+                            <span className="break-words font-medium text-slate-900">{r.name}</span>
+                          )}
                         </td>
                         <td className="whitespace-nowrap">
-                          <select
-                            value={r.adminGroupId ?? ""}
-                            onChange={(e) => handleGroupChange(r, e.target.value)}
-                            disabled={isSaving}
-                            className="input disabled:bg-slate-100"
-                          >
-                            <option value="">ไม่ระบุ</option>
-                            {adminGroups.map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.name}
-                              </option>
-                            ))}
-                          </select>
+                          {isEditing ? (
+                            <select
+                              value={editDraft?.adminGroupId ?? ""}
+                              onChange={(e) =>
+                                setEditDraft((prev) => (prev ? { ...prev, adminGroupId: e.target.value } : prev))
+                              }
+                              disabled={isSaving}
+                              className="input disabled:bg-slate-100"
+                            >
+                              <option value="">ไม่ระบุ</option>
+                              {adminGroups.map((g) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            adminGroups.find((g) => g.id === r.adminGroupId)?.name ?? "ไม่ระบุ"
+                          )}
                         </td>
                         <td className="whitespace-nowrap">
-                          <select
-                            value={r.budgetSourceId ?? ""}
-                            onChange={(e) => handleSourceChange(r, e.target.value)}
-                            disabled={isSaving}
-                            className="input disabled:bg-slate-100"
-                          >
-                            <option value="">ไม่ระบุ</option>
-                            {budgetSources.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
+                          {isEditing ? (
+                            <select
+                              value={editDraft?.budgetSourceId ?? ""}
+                              onChange={(e) =>
+                                setEditDraft((prev) => (prev ? { ...prev, budgetSourceId: e.target.value } : prev))
+                              }
+                              disabled={isSaving}
+                              className="input disabled:bg-slate-100"
+                            >
+                              <option value="">ไม่ระบุ</option>
+                              {budgetSources.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            budgetSources.find((s) => s.id === r.budgetSourceId)?.name ?? "ไม่ระบุ"
+                          )}
                         </td>
                         <td className="whitespace-nowrap text-right">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={budgetDrafts[r.id] ?? r.budget}
-                            onChange={(e) => setBudgetDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                            onBlur={() => handleBudgetBlur(r)}
-                            disabled={isSaving}
-                            className="input w-36 text-right disabled:bg-slate-100"
-                          />
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editDraft?.budget ?? ""}
+                              onChange={(e) =>
+                                setEditDraft((prev) => (prev ? { ...prev, budget: e.target.value } : prev))
+                              }
+                              disabled={isSaving}
+                              className="input w-36 text-right disabled:bg-slate-100"
+                            />
+                          ) : (
+                            <span className="tabular-nums">{formatBaht(r.budget)}</span>
+                          )}
                         </td>
-                        <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteDraft(r)}
-                            disabled={isSaving}
-                            className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            ลบ
-                          </button>
+                        <td className="whitespace-nowrap text-right">
+                          {isEditing ? (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={cancelEditDraft}
+                                disabled={isSaving}
+                                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                ยกเลิก
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => saveEditDraft(r)}
+                                disabled={isSaving}
+                                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEditDraft(r)}
+                                disabled={editingRowId !== null}
+                                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                แก้ไข
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteDraft(r)}
+                                disabled={isSaving || editingRowId !== null}
+                                className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                ลบ
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
                   })}
                   {draftRows !== null && filteredDraftRows.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="table-empty">
+                      <td colSpan={6} className="table-empty">
                         {draftRows.length === 0
                           ? "ยังไม่มีร่างโครงการ — คัดลอกจากปีเดิมด้านบน หรือกด \"+ เพิ่มร่างโครงการ\""
                           : "ไม่พบร่างโครงการตามตัวกรองที่เลือก"}
