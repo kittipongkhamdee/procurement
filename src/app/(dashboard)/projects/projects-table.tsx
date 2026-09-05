@@ -59,6 +59,54 @@ function ActivitiesDetail({ activities, projectBudget }: { activities: Activity[
   );
 }
 
+// จอกว้าง: แสดงกิจกรรมย่อยเป็น <tr> จริงในตารางเดียวกับแถวโครงการ (ไม่ใช่ td colSpan + flex)
+// เพื่อให้แต่ละคอลัมน์ (โครงการ/กลุ่มบริหาร/งบประมาณ) จัดตำแหน่งตรงกับหัวตารางจริงๆ
+function ActivityRows({
+  activities,
+  projectBudget,
+  colSpan,
+  hasAdminCol,
+}: {
+  activities: Activity[];
+  projectBudget: number;
+  colSpan: number;
+  hasAdminCol: boolean;
+}) {
+  if (activities.length === 0) {
+    return (
+      <tr className="bg-slate-50">
+        <td colSpan={colSpan} className="px-4 py-3 pl-[2.375rem] text-sm text-slate-400">
+          ไม่มีกิจกรรมย่อย (งบประมาณโครงการโดยตรง {formatBaht(projectBudget)} บาท)
+        </td>
+      </tr>
+    );
+  }
+  return (
+    <>
+      {activities.map((a, j) => (
+        <tr key={a.id} className="bg-slate-50">
+          <td></td>
+          <td className="min-w-[10rem] max-w-[16rem] py-1.5 pl-[2.375rem] text-sm text-slate-700">
+            <span className="break-words">
+              <span className="text-slate-400">{j + 1}.</span> {a.name}
+            </span>
+          </td>
+          <td className="whitespace-nowrap py-1.5 text-sm text-slate-500">
+            {(a.responsible ?? []).join(", ") || "ไม่ระบุผู้รับผิดชอบ"}
+          </td>
+          <td></td>
+          <td className="whitespace-nowrap py-1.5 text-right text-sm font-medium tabular-nums text-navy-800">
+            {formatBaht(a.budget)}
+          </td>
+          <td></td>
+          <td></td>
+          {hasAdminCol && <td></td>}
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export function ProjectsTable({
   rows,
   isAdmin,
@@ -279,11 +327,12 @@ export function ProjectsTable({
                   )}
                 </tr>
                 {isOpen && (
-                  <tr>
-                    <td colSpan={colSpan} className="bg-slate-50 p-0 pl-[2.375rem]">
-                      <ActivitiesDetail activities={r.activities} projectBudget={r.projectBudget} />
-                    </td>
-                  </tr>
+                  <ActivityRows
+                    activities={r.activities}
+                    projectBudget={r.projectBudget}
+                    colSpan={colSpan}
+                    hasAdminCol={isAdmin}
+                  />
                 )}
               </Fragment>
             );
