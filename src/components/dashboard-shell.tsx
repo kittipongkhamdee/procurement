@@ -271,20 +271,24 @@ export function DashboardShell({
             ระบบบริหารงานงบประมาณ
           </span>
 
-          <span className="ml-auto hidden shrink-0 text-xs text-slate-400 lg:inline">{dateLabel}</span>
+          {/* ห่อกลุ่มวันที่/กระดิ่ง/โปรไฟล์ไว้ในคอนเทนเนอร์เดียวแล้วใส่ ml-auto ที่นี่แทน (ไม่ใช่ที่
+              วันที่ตรงๆ) เพราะวันที่ถูกซ่อนไว้ก่อน lg — ถ้าไม่มี ml-auto ที่ระดับกลุ่ม ตอนจอกว้าง
+              ระหว่าง sm–lg (วันที่ยังซ่อนอยู่) จะไม่มีตัวไหนดันกลุ่มนี้ไปชิดขวา เหลือช่องว่างค้างไว้ */}
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <span className="hidden text-xs text-slate-400 lg:inline">{dateLabel}</span>
 
-          {!DISABLED_HREFS.has("/project-disbursements") && (
-            <Link
-              href="/project-disbursements"
-              aria-label="รายการเบิกจ่ายงบประมาณโครงการ"
-              className="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-800"
-            >
-              <BellIcon className="h-5 w-5" />
-            </Link>
-          )}
+            {!DISABLED_HREFS.has("/project-disbursements") && (
+              <Link
+                href="/project-disbursements"
+                aria-label="รายการเบิกจ่ายงบประมาณโครงการ"
+                className="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-navy-800"
+              >
+                <BellIcon className="h-5 w-5" />
+              </Link>
+            )}
 
-          <div className="relative">
-            <button
+            <div className="relative">
+              <button
               type="button"
               onClick={() => setProfileOpen((v) => !v)}
               className="flex items-center gap-2 rounded-md py-1 pl-1.5 pr-2 hover:bg-slate-100"
@@ -341,6 +345,7 @@ export function DashboardShell({
                 </div>
               </>
             )}
+            </div>
           </div>
         </header>
 
