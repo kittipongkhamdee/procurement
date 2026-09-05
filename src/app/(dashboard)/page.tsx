@@ -278,7 +278,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 print:grid-cols-4 print:gap-3">
             <div className="stat-card" style={{ "--accent": BRAND } as React.CSSProperties}>
               <div className="stat-label">จำนวนโครงการ</div>
               <div className="stat-value">
@@ -303,7 +303,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
               <div className="flex items-center gap-4">
@@ -377,7 +377,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">งบประมาณแยกตามประเภทเงิน</div>
               <div className="mb-3 flex gap-4 text-xs text-slate-500">
