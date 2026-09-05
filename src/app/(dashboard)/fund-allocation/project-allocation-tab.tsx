@@ -339,8 +339,27 @@ export function ProjectAllocationTab({
   async function handleAddDraft() {
     setAdding(true);
     try {
-      await createDraftProject(budgetYearId);
-      await loadDraftRows();
+      const created = await createDraftProject(budgetYearId);
+      if (created) {
+        const row: DraftRow = {
+          id: created.id,
+          name: created.name,
+          adminGroupId: created.admin_group_id,
+          budgetSourceId: created.budget_source_id,
+          budget: Number(created.budget ?? 0),
+        };
+        setDraftRows((prev) => [row, ...(prev ?? [])]);
+        setDraftSearch("");
+        setDraftAdminGroupId(ALL);
+        setDraftBudgetSourceId(ALL);
+        setEditingRowId(row.id);
+        setEditDraft({
+          name: row.name,
+          adminGroupId: row.adminGroupId ?? "",
+          budgetSourceId: row.budgetSourceId ?? "",
+          budget: String(row.budget),
+        });
+      }
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {
@@ -622,7 +641,12 @@ export function ProjectAllocationTab({
                   </select>
                 </div>
               </div>
-              <button type="button" onClick={handleAddDraft} disabled={adding} className="btn-primary btn-sm">
+              <button
+                type="button"
+                onClick={handleAddDraft}
+                disabled={adding || editingRowId !== null}
+                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
                 {adding ? "กำลังเพิ่ม..." : "+ เพิ่มร่างโครงการ"}
               </button>
             </div>

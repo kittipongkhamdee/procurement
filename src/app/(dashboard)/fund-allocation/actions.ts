@@ -100,14 +100,17 @@ export async function copyProjectsToDraft(targetBudgetYearId: string, projectIds
   revalidatePath("/fund-allocation");
 }
 
-// เพิ่มร่างโครงการเปล่าให้แก้ไขต่อได้ทันที
+// เพิ่มร่างโครงการเปล่าให้แก้ไขต่อได้ทันที — คืนแถวที่สร้างเพื่อให้ฝั่งหน้าเว็บเปิดโหมดแก้ไขต่อได้เลย
 export async function createDraftProject(budgetYearId: string) {
   const supabase = await requireAdmin();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("plan_draft_projects")
-    .insert({ budget_year_id: budgetYearId, name: "โครงการใหม่" });
+    .insert({ budget_year_id: budgetYearId, name: "โครงการใหม่" })
+    .select("id, name, admin_group_id, budget_source_id, budget")
+    .single();
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
+  return data;
 }
 
 // แก้ไขร่างโครงการแบบอินไลน์ (ชื่อ/กลุ่มบริหาร/แหล่งงบ/งบประมาณ) — ส่งเฉพาะฟิลด์ที่เปลี่ยน
