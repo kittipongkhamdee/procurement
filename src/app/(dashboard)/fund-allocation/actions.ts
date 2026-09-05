@@ -120,27 +120,88 @@ export async function copyProjectsToDraft(targetBudgetYearId: string, projectIds
   revalidatePath("/fund-allocation");
 }
 
-// เพิ่มร่างโครงการเปล่าให้แก้ไขต่อได้ทันที — คืนแถวที่สร้างเพื่อให้ฝั่งหน้าเว็บเปิดโหมดแก้ไขต่อได้เลย
+// ล็อกแก้ไขร่างโครงการหมดอายุอัตโนมัติหลังไม่มีการบันทึก/ยกเลิกภายในเวลานี้ (กันกรณีปิดแท็บทิ้งไว้
+// ระหว่างแก้ไข ไม่ให้ร่างโครงการนั้นถูกล็อกค้างตลอดไป)
+const EDIT_LOCK_MINUTES = 10;
+
+async function getDisplayName(supabase: Awaited<ReturnType<typeof createClient>>, userId: string, fallbackEmail: string | null) {
+  const { data: profile } = await supabase.from("proc_profiles").select("full_name").eq("user_id", userId).maybeSingle();
+  return profile?.full_name ?? fallbackEmail ?? "ผู้ใช้";
+}
+
+// เพิ่มร่างโครงการเปล่าให้แก้ไขต่อได้ทันที — ล็อกให้ผู้สร้างแก้ไขต่อได้เลยโดยไม่มีคนอื่นแย่งแก้ไขระหว่างนั้น
+// คืนแถวที่สร้างเพื่อให้ฝั่งหน้าเว็บเปิดโหมดแก้ไขต่อได้เลย
 export async function createDraftProject(budgetYearId: string) {
   const supabase = await requireDraftEditor(budgetYearId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const myName = user ? await getDisplayName(supabase, user.id, user.email ?? null) : "ผู้ใช้";
   const { data, error } = await supabase
     .from("plan_draft_projects")
-    .insert({ budget_year_id: budgetYearId, name: "โครงการใหม่" })
-    .select("id, name, admin_group_id, budget_source_id, budget")
+    .insert({
+      budget_year_id: budgetYearId,
+      name: "โครงการใหม่",
+      editing_by: user?.id ?? null,
+      editing_by_name: myName,
+      editing_at: new Date().toISOString(),
+    })
+    .select("id, name, admin_group_id, budget_source_id, budget, editing_by, editing_by_name, editing_at")
     .single();
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
   return data;
 }
 
-// แก้ไขร่างโครงการแบบอินไลน์ (ชื่อ/กลุ่มบริหาร/แหล่งงบ/งบประมาณ) — ส่งเฉพาะฟิลด์ที่เปลี่ยน
+// จองสิทธิ์แก้ไขร่างโครงการแถวหนึ่ง — กันไม่ให้อีกคนกดแก้ไขแถวเดียวกันพร้อมกัน จนกว่าจะบันทึก/ยกเลิก
+// (หรือจนล็อกหมดอายุ) ใช้ UPDATE เงื่อนไขเดียวกันแบบ atomic กันแย่งกันจองพร้อมกันพอดี
+export async function acquireDraftEditLock(id: string, budgetYearId: string) {
+  const supabase = await requireDraftEditor(budgetYearId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+  const myName = await getDisplayName(supabase, user.id, user.email ?? null);
+
+  const staleThreshold = new Date(Date.now() - EDIT_LOCK_MINUTES * 60 * 1000).toISOString();
+  const { data: updated, error } = await supabase
+    .from("plan_draft_projects")
+    .update({ editing_by: user.id, editing_by_name: myName, editing_at: new Date().toISOString() })
+    .eq("id", id)
+    .or(`editing_by.is.null,editing_by.eq.${user.id},editing_at.lt.${staleThreshold}`)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!updated) {
+    const { data: row } = await supabase.from("plan_draft_projects").select("editing_by_name").eq("id", id).maybeSingle();
+    throw new Error(`ขณะนี้ ${row?.editing_by_name ?? "ผู้ใช้อื่น"} กำลังแก้ไขรายการนี้อยู่ กรุณาลองใหม่อีกครั้ง`);
+  }
+  revalidatePath("/fund-allocation");
+}
+
+// ปล่อยสิทธิ์แก้ไข (ตอนกดยกเลิก) — ให้คนอื่นกดแก้ไขแถวนี้ต่อได้ทันที
+export async function releaseDraftEditLock(id: string, budgetYearId: string) {
+  const supabase = await requireDraftEditor(budgetYearId);
+  const { error } = await supabase
+    .from("plan_draft_projects")
+    .update({ editing_by: null, editing_by_name: null, editing_at: null })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/fund-allocation");
+}
+
+// แก้ไขร่างโครงการแบบอินไลน์ (ชื่อ/กลุ่มบริหาร/แหล่งงบ/งบประมาณ) — ส่งเฉพาะฟิลด์ที่เปลี่ยน พร้อมปล่อย
+// สิทธิ์แก้ไขที่จองไว้ (บันทึกสำเร็จ = แก้ไขเสร็จแล้ว)
 export async function updateDraftProject(
   id: string,
   budgetYearId: string,
   fields: { name?: string; admin_group_id?: string | null; budget_source_id?: string | null; budget?: number },
 ) {
   const supabase = await requireDraftEditor(budgetYearId);
-  const { error } = await supabase.from("plan_draft_projects").update(fields).eq("id", id);
+  const { error } = await supabase
+    .from("plan_draft_projects")
+    .update({ ...fields, editing_by: null, editing_by_name: null, editing_at: null })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
 }

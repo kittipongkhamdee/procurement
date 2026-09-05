@@ -11,9 +11,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import {
+  acquireDraftEditLock,
   copyProjectsToDraft,
   createDraftProject,
   deleteDraftProject,
+  releaseDraftEditLock,
   setDraftEditOpen,
   updateDraftProject,
 } from "./actions";
@@ -51,6 +53,7 @@ type DraftRow = {
   adminGroupId: string | null;
   budgetSourceId: string | null;
   budget: number;
+  editingByName: string | null;
 };
 
 type DraftEditState = {
@@ -99,6 +102,7 @@ export function ProjectAllocationTab({
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DraftEditState | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [acquiringId, setAcquiringId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   const [draftSearch, setDraftSearch] = useState("");
@@ -164,7 +168,7 @@ export function ProjectAllocationTab({
     const supabase = createClient();
     const { data } = await supabase
       .from("plan_draft_projects")
-      .select("id, name, admin_group_id, budget_source_id, budget")
+      .select("id, name, admin_group_id, budget_source_id, budget, editing_by_name")
       .eq("budget_year_id", budgetYearId)
       .order("sort_order")
       .order("created_at");
@@ -175,6 +179,7 @@ export function ProjectAllocationTab({
         adminGroupId: d.admin_group_id,
         budgetSourceId: d.budget_source_id,
         budget: Number(d.budget ?? 0),
+        editingByName: d.editing_by_name,
       })),
     );
   }, [budgetYearId]);
@@ -183,6 +188,15 @@ export function ProjectAllocationTab({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDraftRows();
   }, [loadDraftRows]);
+
+  // โพลข้อมูลร่างโครงการเป็นระยะขณะอยู่แท็บนี้ เพื่อให้เห็นว่าใครกำลังแก้ไขแถวไหนอยู่โดยไม่ต้องรีเฟรชเอง
+  useEffect(() => {
+    if (subTab !== "draft") return;
+    const interval = setInterval(() => {
+      loadDraftRows();
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [subTab, loadDraftRows]);
 
   const loadSummaryData = useCallback(async () => {
     const supabase = createClient();
@@ -302,19 +316,34 @@ export function ProjectAllocationTab({
     setDraftRows((prev) => (prev ? prev.map((r) => (r.id === id ? { ...r, ...patch } : r)) : prev));
   }
 
-  function startEditDraft(row: DraftRow) {
-    setEditingRowId(row.id);
-    setEditDraft({
-      name: row.name,
-      adminGroupId: row.adminGroupId ?? "",
-      budgetSourceId: row.budgetSourceId ?? "",
-      budget: String(row.budget),
-    });
+  async function startEditDraft(row: DraftRow) {
+    setAcquiringId(row.id);
+    try {
+      await acquireDraftEditLock(row.id, budgetYearId);
+      setEditingRowId(row.id);
+      setEditDraft({
+        name: row.name,
+        adminGroupId: row.adminGroupId ?? "",
+        budgetSourceId: row.budgetSourceId ?? "",
+        budget: String(row.budget),
+      });
+    } catch (err) {
+      await toastError(errorMessage(err));
+      await loadDraftRows();
+    } finally {
+      setAcquiringId(null);
+    }
   }
 
-  function cancelEditDraft() {
+  async function cancelEditDraft(row: DraftRow) {
     setEditingRowId(null);
     setEditDraft(null);
+    try {
+      await releaseDraftEditLock(row.id, budgetYearId);
+      patchDraft(row.id, { editingByName: null });
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
   }
 
   async function saveEditDraft(row: DraftRow) {
@@ -339,7 +368,7 @@ export function ProjectAllocationTab({
         budget_source_id: budgetSourceId,
         budget,
       });
-      patchDraft(row.id, { name, adminGroupId, budgetSourceId, budget });
+      patchDraft(row.id, { name, adminGroupId, budgetSourceId, budget, editingByName: null });
       setEditingRowId(null);
       setEditDraft(null);
       await toastSuccess("บันทึกร่างโครงการเรียบร้อยแล้ว");
@@ -361,6 +390,7 @@ export function ProjectAllocationTab({
           adminGroupId: created.admin_group_id,
           budgetSourceId: created.budget_source_id,
           budget: Number(created.budget ?? 0),
+          editingByName: created.editing_by_name,
         };
         setDraftRows((prev) => [row, ...(prev ?? [])]);
         setDraftSearch("");
@@ -729,6 +759,8 @@ export function ProjectAllocationTab({
                   {filteredDraftRows.map((r, i) => {
                     const isSaving = savingId === r.id;
                     const isEditing = editingRowId === r.id;
+                    const isAcquiring = acquiringId === r.id;
+                    const lockedByOther = !isEditing && !!r.editingByName;
                     return (
                       <tr key={r.id}>
                         <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
@@ -808,7 +840,7 @@ export function ProjectAllocationTab({
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"
-                                onClick={cancelEditDraft}
+                                onClick={() => cancelEditDraft(r)}
                                 disabled={isSaving}
                                 className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
                               >
@@ -823,16 +855,18 @@ export function ProjectAllocationTab({
                                 {isSaving ? "กำลังบันทึก..." : "บันทึก"}
                               </button>
                             </div>
+                          ) : lockedByOther ? (
+                            <span className="text-xs text-amber-700">กำลังแก้ไขโดย {r.editingByName}</span>
                           ) : (
                             <div className="flex justify-end gap-2">
                               {canEditDraft && (
                                 <button
                                   type="button"
                                   onClick={() => startEditDraft(r)}
-                                  disabled={editingRowId !== null}
+                                  disabled={editingRowId !== null || isAcquiring}
                                   className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
                                 >
-                                  แก้ไข
+                                  {isAcquiring ? "กำลังเปิด..." : "แก้ไข"}
                                 </button>
                               )}
                               {isAdmin && (

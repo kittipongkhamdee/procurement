@@ -680,6 +680,9 @@ export type Database = {
           budget_source_id: string | null
           budget_year_id: string
           created_at: string
+          editing_at: string | null
+          editing_by: string | null
+          editing_by_name: string | null
           id: string
           name: string
           sort_order: number
@@ -691,6 +694,9 @@ export type Database = {
           budget_source_id?: string | null
           budget_year_id: string
           created_at?: string
+          editing_at?: string | null
+          editing_by?: string | null
+          editing_by_name?: string | null
           id?: string
           name: string
           sort_order?: number
@@ -702,6 +708,9 @@ export type Database = {
           budget_source_id?: string | null
           budget_year_id?: string
           created_at?: string
+          editing_at?: string | null
+          editing_by?: string | null
+          editing_by_name?: string | null
           id?: string
           name?: string
           sort_order?: number
