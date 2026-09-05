@@ -5,7 +5,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { computeItemTotal, GRADE_LABELS, gradeCount, ITEM_DEFS, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
+import { computeItemTotal, GRADE_LABELS, ITEM_DEFS, itemGradeCount, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -53,7 +53,9 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
     <div>
       <p className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
         จำนวนนักเรียนและอัตราเงินอุดหนุนรายหัวแก้ไขได้ที่แท็บ &quot;นักเรียนและรายหัว&quot; — หน้านี้แสดงผลการ
-        คำนวณประมาณการรายรับเท่านั้น
+        คำนวณประมาณการรายรับเท่านั้น (ค่าหนังสือเรียนคำนวณแบบเลื่อนชั้น เช่น ม.2 ใช้จำนวนนักเรียน ม.1
+        ปัจจุบัน เพราะเป็นกลุ่มที่จะเลื่อนขึ้นมาเรียน ม.2 ปีถัดไป — จำนวนที่แสดงในตารางจึงไม่ใช่จำนวน
+        นักเรียนจริงของชั้นนั้นในปีนี้)
       </p>
 
       <div className="table-shell">
@@ -75,9 +77,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
                 <Fragment key={item.key}>
                   {grades.map((g, i) => {
                     const isAll = g === "all";
-                    const count = isAll
-                      ? gradeCount("lower_secondary", counts) + gradeCount("upper_secondary", counts)
-                      : gradeCount(g as GradeKey, counts);
+                    const count = itemGradeCount(item.key, g, counts);
                     const rate = rates[rateKey(item.key, g as GradeKey)] ?? 0;
                     return (
                       <tr key={`${item.key}-${g}`}>

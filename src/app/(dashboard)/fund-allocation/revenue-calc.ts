@@ -41,6 +41,32 @@ export function gradeCount(grade: GradeKey, counts: Partial<Record<GradeKey, num
   return counts[grade] ?? 0;
 }
 
+// ค่าหนังสือเรียนคำนวณแบบ "เลื่อนชั้น" — ใช้จำนวนนักเรียนของชั้นก่อนหน้าในปีนี้แทนจำนวนของชั้นนั้นๆ
+// (เพราะนักเรียนชั้นก่อนหน้าคือกลุ่มที่จะเลื่อนขึ้นมาเรียนชั้นนี้ในปีถัดไป และต้องซื้อหนังสือรอไว้)
+// ม.1/ม.4 เป็นจุดเริ่มต้นของแต่ละช่วงชั้น (ม.ต้น/ม.ปลาย) จึงใช้จำนวนของตัวเองตรงๆ ไม่มีชั้นก่อนหน้าให้อ้างอิง
+const TEXTBOOK_SOURCE_GRADE: Partial<Record<GradeKey, GradeKey>> = {
+  m2: "m1",
+  m3: "m2",
+  m5: "m4",
+  m6: "m5",
+};
+
+export function textbookSourceGrade(grade: GradeKey): GradeKey {
+  return TEXTBOOK_SOURCE_GRADE[grade] ?? grade;
+}
+
+// จำนวนนักเรียนที่ใช้คำนวณรายรับของ "รายการ" หนึ่งๆ ในระดับชั้นหนึ่งๆ — ปกติคือจำนวนจริงของชั้นนั้น
+// ยกเว้นค่าหนังสือเรียนที่ใช้แบบเลื่อนชั้น (ดู textbookSourceGrade)
+export function itemGradeCount(
+  itemKey: ItemKey,
+  grade: GradeKey | "all",
+  counts: Partial<Record<GradeKey, number>>,
+): number {
+  if (grade === "all") return gradeCount("lower_secondary", counts) + gradeCount("upper_secondary", counts);
+  if (itemKey === "textbook") return gradeCount(textbookSourceGrade(grade), counts);
+  return gradeCount(grade, counts);
+}
+
 export function computeItemTotal(
   grades: GradeKey[] | "all",
   itemKey: ItemKey,
@@ -49,10 +75,7 @@ export function computeItemTotal(
 ) {
   const list = grades === "all" ? (["all"] as const) : grades;
   return list.reduce((s, g) => {
-    const count =
-      g === "all"
-        ? gradeCount("lower_secondary", counts) + gradeCount("upper_secondary", counts)
-        : gradeCount(g as GradeKey, counts);
+    const count = itemGradeCount(itemKey, g, counts);
     const rate = rates[rateKey(itemKey, g as GradeKey)] ?? 0;
     return s + count * rate;
   }, 0);
