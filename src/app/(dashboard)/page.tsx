@@ -316,28 +316,28 @@ export default function DashboardPage() {
                   centerValue={String(projectCount)}
                   centerLabel="โครงการ"
                 />
-                <div className="flex-1 space-y-2 text-sm">
+                <div className="min-w-0 flex-1 space-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
-                    <span className="flex-1 text-slate-600">เสร็จสิ้น</span>
-                    <span className="font-semibold tabular-nums text-slate-900">{completed}</span>
-                    <span className="w-14 text-right text-xs tabular-nums text-slate-400">
+                    <span className="min-w-0 flex-1 truncate text-slate-600">เสร็จสิ้น</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{completed}</span>
+                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
                       {pct(completed, projectCount).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: WARN }} />
-                    <span className="flex-1 text-slate-600">กำลังดำเนินการ</span>
-                    <span className="font-semibold tabular-nums text-slate-900">{inProgress}</span>
-                    <span className="w-14 text-right text-xs tabular-nums text-slate-400">
+                    <span className="min-w-0 flex-1 truncate text-slate-600">กำลังดำเนินการ</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{inProgress}</span>
+                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
                       {pct(inProgress, projectCount).toFixed(1)}%
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: NEUTRAL }} />
-                    <span className="flex-1 text-slate-600">ยังไม่ดำเนินการ</span>
-                    <span className="font-semibold tabular-nums text-slate-900">{notStarted}</span>
-                    <span className="w-14 text-right text-xs tabular-nums text-slate-400">
+                    <span className="min-w-0 flex-1 truncate text-slate-600">ยังไม่ดำเนินการ</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{notStarted}</span>
+                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
                       {pct(notStarted, projectCount).toFixed(1)}%
                     </span>
                   </div>
@@ -356,21 +356,21 @@ export default function DashboardPage() {
                   centerValue={`${pct(totalSpent, totalBudget).toFixed(1)}%`}
                   centerLabel="เบิกจ่ายแล้ว"
                 />
-                <div className="flex-1 space-y-2 text-sm">
+                <div className="min-w-0 flex-1 space-y-2 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
-                    <span className="flex-1 text-slate-600">เบิกจ่ายแล้ว</span>
-                    <span className="font-semibold tabular-nums text-slate-900">{formatBaht(totalSpent)}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-600">เบิกจ่ายแล้ว</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalSpent)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: WARN }} />
-                    <span className="flex-1 text-slate-600">คงเหลือ</span>
-                    <span className="font-semibold tabular-nums text-slate-900">{formatBaht(totalRemaining)}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-600">คงเหลือ</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalRemaining)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: BRAND }} />
-                    <span className="flex-1 text-slate-600">รวมทั้งสิ้น</span>
-                    <span className="font-semibold tabular-nums text-slate-900">{formatBaht(totalBudget)}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-600">รวมทั้งสิ้น</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalBudget)}</span>
                   </div>
                 </div>
               </div>
@@ -437,14 +437,18 @@ export default function DashboardPage() {
                     <span className="text-[9px] text-slate-400">รวมจ่าย</span>
                   </div>
                 </div>
-                <div className="flex-1 space-y-1.5 text-sm">
+                <div className="min-w-0 flex-1 space-y-1.5 text-sm">
                   {SUMMARY_DISPLAY_LABELS.map((label, i) => (
                     <div key={label} className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: CAT_COLORS[i] }} />
-                      <span className="flex-1 truncate text-slate-600">{label}</span>
-                      <span className="font-semibold tabular-nums text-slate-900">{formatBaht(expenseTotals[i])}</span>
-                      <span className="w-12 text-right text-xs tabular-nums text-slate-400">
-                        {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
+                      <span className="min-w-0 flex-1 truncate text-slate-600">{label}</span>
+                      <span className="shrink-0 text-right leading-tight">
+                        <span className="block font-semibold tabular-nums text-slate-900">
+                          {formatBaht(expenseTotals[i])}
+                        </span>
+                        <span className="block text-[10px] tabular-nums text-slate-400">
+                          {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
+                        </span>
                       </span>
                     </div>
                   ))}
