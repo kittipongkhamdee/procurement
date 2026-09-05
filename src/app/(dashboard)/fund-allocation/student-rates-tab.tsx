@@ -4,7 +4,7 @@
 // 1) จำนวนนักเรียน — กรอกแยกเป็นรายชั้น ม.1-ม.6 (ระบบรวม ม.1-3/ม.4-6 เป็นมัธยมต้น/ปลายให้อัตโนมัติ)
 // 2) งบรายหัว — อัตราเงินอุดหนุนต่อคนต่อปีของแต่ละรายการ ปรับไม่บ่อย จึงมีปุ่มแก้ไข/บันทึกแยกจากการ
 //    บันทึกอัตโนมัติแบบจำนวนนักเรียน
-// 3) รายได้สถานศึกษา — จำนวนเงินรายได้ของสถานศึกษาเอง (ไม่ได้มาจากเงินอุดหนุนรายหัว) กรอกเป็นยอดเดียว
+// 3) เงินรายได้สถานศึกษา — จำนวนเงินรายได้ของสถานศึกษาเอง (ไม่ได้มาจากเงินอุดหนุนรายหัว) กรอกเป็นยอดเดียว
 //    ต่อปีงบประมาณ ปรับไม่บ่อยเช่นกัน จึงใช้ปุ่มแก้ไข/บันทึกแบบเดียวกับงบรายหัว
 
 import { Fragment, useCallback, useEffect, useState } from "react";
@@ -150,7 +150,7 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
       setSchoolIncome(num);
       setSchoolIncomeDraft(null);
       setSchoolIncomeEditing(false);
-      await toastSuccess("บันทึกรายได้สถานศึกษาเรียบร้อยแล้ว");
+      await toastSuccess("บันทึกเงินรายได้สถานศึกษาเรียบร้อยแล้ว");
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {
@@ -311,7 +311,7 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
 
       <div className="mt-8 border-t border-slate-200 pt-6">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="card-title text-base font-bold text-navy-800">รายได้สถานศึกษา</div>
+          <div className="card-title text-base font-bold text-navy-800">เงินรายได้สถานศึกษา</div>
           {!schoolIncomeEditing ? (
             <button type="button" onClick={() => setSchoolIncomeEditing(true)} className="btn-secondary btn-sm">
               แก้ไข
