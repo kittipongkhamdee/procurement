@@ -1,14 +1,11 @@
 "use client";
 
-// แท็บ "รายรับ" — ประมาณการรายรับงบอุดหนุนรายหัว = จำนวนนักเรียน × อัตราต่อคนต่อปี
-// ช่องกรอกจำนวนนักเรียนมีแค่ 2 ช่องหลัก (ม.ต้น/ม.ปลาย) ใช้ร่วมกันในหลายรายการ (ตามไฟล์ต้นฉบับของ
-// โรงเรียน) ส่วนค่าหนังสือเรียนแยกอิสระตามชั้นปี ม.1-ม.6 เพราะจำนวนไม่ตรงกับ ม.ต้น/ม.ปลาย
+// แท็บ "รายรับ" — ประมาณการรายรับงบอุดหนุนรายหัว = จำนวนนักเรียน × อัตราต่อคนต่อปี (แสดงผลอย่างเดียว)
+// จำนวนนักเรียนและอัตราแก้ไขได้ที่แท็บ "นักเรียนและรายหัว" เท่านั้น
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { errorMessage, toastError } from "@/lib/swal";
-import { upsertRevenueRate, upsertStudentCount } from "./actions";
-import { computeItemTotal, GRADE_LABELS, ITEM_DEFS, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
+import { computeItemTotal, GRADE_LABELS, gradeCount, ITEM_DEFS, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -18,7 +15,6 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -46,40 +42,6 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
     reload();
   }, [reload]);
 
-  function getCount(grade: GradeKey) {
-    return counts[grade] ?? 0;
-  }
-
-  async function handleCountChange(grade: GradeKey, value: string) {
-    const num = Number(value);
-    if (value === "" || Number.isNaN(num) || num < 0) return;
-    setCounts((prev) => ({ ...prev, [grade]: num }));
-    const key = `count:${grade}`;
-    setSavingKey(key);
-    try {
-      await upsertStudentCount(budgetYearId, grade, num);
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setSavingKey(null);
-    }
-  }
-
-  async function handleRateChange(item: ItemKey, grade: GradeKey, value: string) {
-    const num = Number(value);
-    if (value === "" || Number.isNaN(num) || num < 0) return;
-    const key = rateKey(item, grade);
-    setRates((prev) => ({ ...prev, [key]: num }));
-    setSavingKey(key);
-    try {
-      await upsertRevenueRate(budgetYearId, item, grade, num);
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setSavingKey(null);
-    }
-  }
-
   if (loading) return <p className="p-4 text-sm text-slate-400">กำลังโหลด...</p>;
 
   const grandTotal = ITEM_DEFS.reduce(
@@ -89,30 +51,10 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
 
   return (
     <div>
-      <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
-        <div>
-          <label className="label">จำนวนนักเรียน มัธยมศึกษาตอนต้น</label>
-          <input
-            type="number"
-            value={getCount("lower_secondary")}
-            onChange={(e) => handleCountChange("lower_secondary", e.target.value)}
-            className="input"
-          />
-        </div>
-        <div>
-          <label className="label">จำนวนนักเรียน มัธยมศึกษาตอนปลาย</label>
-          <input
-            type="number"
-            value={getCount("upper_secondary")}
-            onChange={(e) => handleCountChange("upper_secondary", e.target.value)}
-            className="input"
-          />
-        </div>
-        <p className="col-span-full text-xs text-slate-500">
-          กรอกจำนวนนักเรียน 2 ช่องนี้ที่เดียว — รายการ ค่าจัดการเรียนการสอน/ค่ากิจกรรมพัฒนาผู้เรียน/
-          ค่าอุปกรณ์การเรียน/ค่าเครื่องแบบนักเรียน/Topup จะอัปเดตจำนวนตามอัตโนมัติ
-        </p>
-      </div>
+      <p className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+        จำนวนนักเรียนและอัตราเงินอุดหนุนรายหัวแก้ไขได้ที่แท็บ &quot;นักเรียนและรายหัว&quot; — หน้านี้แสดงผลการ
+        คำนวณประมาณการรายรับเท่านั้น
+      </p>
 
       <div className="table-shell">
         <table className="table-base">
@@ -133,7 +75,9 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
                 <Fragment key={item.key}>
                   {grades.map((g, i) => {
                     const isAll = g === "all";
-                    const count = isAll ? getCount("lower_secondary") + getCount("upper_secondary") : getCount(g);
+                    const count = isAll
+                      ? gradeCount("lower_secondary", counts) + gradeCount("upper_secondary", counts)
+                      : gradeCount(g as GradeKey, counts);
                     const rate = rates[rateKey(item.key, g as GradeKey)] ?? 0;
                     return (
                       <tr key={`${item.key}-${g}`}>
@@ -143,27 +87,8 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
                           </td>
                         )}
                         <td className="whitespace-nowrap">{isAll ? "นักเรียนทั้งหมด" : GRADE_LABELS[g as GradeKey]}</td>
-                        <td className="whitespace-nowrap text-right tabular-nums text-slate-500">
-                          {isAll ? count : (
-                            <input
-                              type="number"
-                              value={count}
-                              onChange={(e) => handleCountChange(g as GradeKey, e.target.value)}
-                              disabled={item.key !== "textbook" || savingKey === `count:${g}`}
-                              className="input w-24 text-right disabled:bg-slate-100"
-                            />
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap text-right">
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={rate}
-                            onChange={(e) => handleRateChange(item.key, g as GradeKey, e.target.value)}
-                            disabled={savingKey === rateKey(item.key, g as GradeKey)}
-                            className="input w-28 text-right disabled:bg-slate-100"
-                          />
-                        </td>
+                        <td className="whitespace-nowrap text-right tabular-nums text-slate-500">{count}</td>
+                        <td className="whitespace-nowrap text-right tabular-nums text-slate-500">{formatBaht(rate)}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(count * rate)}</td>
                       </tr>
                     );

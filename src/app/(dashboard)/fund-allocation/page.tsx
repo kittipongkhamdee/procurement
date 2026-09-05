@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { StudentRatesTab } from "./student-rates-tab";
 import { RevenueTab } from "./revenue-tab";
 import { GroupAllocationTab } from "./group-allocation-tab";
 import { ProjectAllocationTab } from "./project-allocation-tab";
@@ -15,6 +16,7 @@ type Option = { id: string; name: string };
 type BudgetYear = { id: string; year: number; is_open: boolean };
 
 const TABS = [
+  { key: "student_rates", label: "นักเรียนและรายหัว" },
   { key: "revenue", label: "รายรับ" },
   { key: "group", label: "จัดสรรเงิน" },
   { key: "project", label: "จัดโครงการ" },
@@ -107,6 +109,7 @@ export default function FundAllocationPage() {
           <p className="p-4 text-sm text-slate-400">ยังไม่มีปีงบประมาณ</p>
         ) : (
           <>
+            {tab === "student_rates" && <StudentRatesTab budgetYearId={budgetYearId} />}
             {tab === "revenue" && <RevenueTab budgetYearId={budgetYearId} />}
             {tab === "group" && <GroupAllocationTab budgetYearId={budgetYearId} adminGroups={adminGroups} />}
             {tab === "project" && (

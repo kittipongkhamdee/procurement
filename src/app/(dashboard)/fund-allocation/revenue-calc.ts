@@ -17,6 +17,8 @@ export const GRADE_LABELS: Record<GradeKey, string> = {
 
 export const MAIN_GRADES: GradeKey[] = ["lower_secondary", "upper_secondary"];
 export const TEXTBOOK_GRADES: GradeKey[] = ["m1", "m2", "m3", "m4", "m5", "m6"];
+export const LOWER_SECONDARY_GRADES: GradeKey[] = ["m1", "m2", "m3"];
+export const UPPER_SECONDARY_GRADES: GradeKey[] = ["m4", "m5", "m6"];
 
 export const ITEM_DEFS: { key: ItemKey; label: string; grades: GradeKey[] | "all" }[] = [
   { key: "teaching", label: "ค่าจัดการเรียนการสอน", grades: MAIN_GRADES },
@@ -31,6 +33,14 @@ export function rateKey(item: ItemKey, grade: GradeKey) {
   return `${item}:${grade}`;
 }
 
+// จำนวนนักเรียนของระดับชั้นหนึ่งๆ — กรอกแยกเป็นรายชั้น ม.1-ม.6 ที่แท็บ "นักเรียนและรายหัว" เท่านั้น
+// ส่วน "มัธยมศึกษาตอนต้น"/"มัธยมศึกษาตอนปลาย" คำนวณรวมจาก ม.1-3 / ม.4-6 เสมอ ไม่ต้องกรอกซ้ำ
+export function gradeCount(grade: GradeKey, counts: Partial<Record<GradeKey, number>>): number {
+  if (grade === "lower_secondary") return LOWER_SECONDARY_GRADES.reduce((s, g) => s + (counts[g] ?? 0), 0);
+  if (grade === "upper_secondary") return UPPER_SECONDARY_GRADES.reduce((s, g) => s + (counts[g] ?? 0), 0);
+  return counts[grade] ?? 0;
+}
+
 export function computeItemTotal(
   grades: GradeKey[] | "all",
   itemKey: ItemKey,
@@ -39,7 +49,10 @@ export function computeItemTotal(
 ) {
   const list = grades === "all" ? (["all"] as const) : grades;
   return list.reduce((s, g) => {
-    const count = g === "all" ? (counts.lower_secondary ?? 0) + (counts.upper_secondary ?? 0) : (counts[g] ?? 0);
+    const count =
+      g === "all"
+        ? gradeCount("lower_secondary", counts) + gradeCount("upper_secondary", counts)
+        : gradeCount(g as GradeKey, counts);
     const rate = rates[rateKey(itemKey, g as GradeKey)] ?? 0;
     return s + count * rate;
   }, 0);
