@@ -46,6 +46,12 @@ type GroupItem = { id: string; name: string };
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
+// ย่อเป็น "ล้านบาท" เฉพาะยอดตั้งแต่ 1 ล้านขึ้นไป — ยอดน้อยกว่านั้นหารล้านแล้วปัดเหลือ 2 ตำแหน่งจะ
+// กลายเป็น "0.00M" ดูเหมือนไม่มีข้อมูลทั้งที่มีจริง จึงโชว์เป็นจำนวนเงินตรงๆ แทน
+function formatCompact(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  return n.toLocaleString("th-TH", { maximumFractionDigits: 0 });
+}
 function pct(part: number, total: number) {
   if (total <= 0) return 0;
   return (part / total) * 100;
@@ -439,9 +445,7 @@ export default function DashboardPage() {
                   }}
                 >
                   <div className="absolute left-1/2 top-1/2 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-slate-200 bg-white">
-                    <b className="text-sm font-bold tabular-nums text-slate-900">
-                      {(expenseTotal / 1_000_000).toFixed(2)}M
-                    </b>
+                    <b className="text-sm font-bold tabular-nums text-slate-900">{formatCompact(expenseTotal)}</b>
                     <span className="text-[9px] text-slate-400">รวมจ่าย</span>
                   </div>
                 </div>
