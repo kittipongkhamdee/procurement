@@ -164,69 +164,71 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
   const upperTotal = gradeCount("upper_secondary", counts);
 
   return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="card-title text-base font-bold text-navy-800">จำนวนนักเรียน</div>
-        {!countsEditing ? (
-          <button type="button" onClick={() => setCountsEditing(true)} className="btn-secondary btn-sm">
-            แก้ไข
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleCancelCounts}
-              disabled={savingCounts}
-              className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              ยกเลิก
+    <div className="grid grid-cols-1 gap-6">
+      <div className="card">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="card-title text-base font-bold text-navy-800">จำนวนนักเรียน</div>
+          {!countsEditing ? (
+            <button type="button" onClick={() => setCountsEditing(true)} className="btn-secondary btn-sm">
+              แก้ไข
             </button>
-            <button
-              type="button"
-              onClick={handleSaveCounts}
-              disabled={savingCounts}
-              className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {savingCounts ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
-          </div>
-        )}
-      </div>
-      <p className="mb-3 text-sm text-slate-500">
-        กรอกจำนวนนักเรียนแยกตามชั้น — ระบบจะรวมชั้น ม.1-3 เป็น &quot;มัธยมศึกษาตอนต้น&quot; และ ม.4-6 เป็น
-        &quot;มัธยมศึกษาตอนปลาย&quot; ให้อัตโนมัติ นำไปใช้คำนวณต่อที่แท็บ &quot;รายรับ&quot; — ต้องกด
-        &quot;แก้ไข&quot; ก่อนจึงจะเปลี่ยนค่าได้
-      </p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {TEXTBOOK_GRADES.map((g) => (
-          <div key={g}>
-            <label className="label">{GRADE_LABELS[g]}</label>
-            {countsEditing ? (
-              <input
-                type="number"
-                value={countDrafts[g] ?? counts[g] ?? 0}
-                onChange={(e) => setCountDrafts((prev) => ({ ...prev, [g]: e.target.value }))}
-                className="input"
-              />
-            ) : (
-              <div className="input bg-slate-100 text-slate-700">{counts[g] ?? 0}</div>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-500">
-        <span>
-          รวมมัธยมศึกษาตอนต้น (ม.1-3): <span className="font-semibold text-navy-800">{lowerTotal}</span> คน
-        </span>
-        <span>
-          รวมมัธยมศึกษาตอนปลาย (ม.4-6): <span className="font-semibold text-navy-800">{upperTotal}</span> คน
-        </span>
-        <span>
-          รวมนักเรียนทั้งหมด: <span className="font-semibold text-navy-800">{lowerTotal + upperTotal}</span> คน
-        </span>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleCancelCounts}
+                disabled={savingCounts}
+                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCounts}
+                disabled={savingCounts}
+                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {savingCounts ? "กำลังบันทึก..." : "บันทึก"}
+              </button>
+            </div>
+          )}
+        </div>
+        <p className="mb-3 text-sm text-slate-500">
+          กรอกจำนวนนักเรียนแยกตามชั้น — ระบบจะรวมชั้น ม.1-3 เป็น &quot;มัธยมศึกษาตอนต้น&quot; และ ม.4-6 เป็น
+          &quot;มัธยมศึกษาตอนปลาย&quot; ให้อัตโนมัติ นำไปใช้คำนวณต่อที่แท็บ &quot;รายรับ&quot; — ต้องกด
+          &quot;แก้ไข&quot; ก่อนจึงจะเปลี่ยนค่าได้
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {TEXTBOOK_GRADES.map((g) => (
+            <div key={g}>
+              <label className="label">{GRADE_LABELS[g]}</label>
+              {countsEditing ? (
+                <input
+                  type="number"
+                  value={countDrafts[g] ?? counts[g] ?? 0}
+                  onChange={(e) => setCountDrafts((prev) => ({ ...prev, [g]: e.target.value }))}
+                  className="input"
+                />
+              ) : (
+                <div className="input bg-slate-100 text-slate-700">{counts[g] ?? 0}</div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-500">
+          <span>
+            รวมมัธยมศึกษาตอนต้น (ม.1-3): <span className="font-semibold text-navy-800">{lowerTotal}</span> คน
+          </span>
+          <span>
+            รวมมัธยมศึกษาตอนปลาย (ม.4-6): <span className="font-semibold text-navy-800">{upperTotal}</span> คน
+          </span>
+          <span>
+            รวมนักเรียนทั้งหมด: <span className="font-semibold text-navy-800">{lowerTotal + upperTotal}</span> คน
+          </span>
+        </div>
       </div>
 
-      <div className="mt-8 border-t border-slate-200 pt-6">
+      <div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="card-title text-base font-bold text-navy-800">งบรายหัว (บาท/คน/ปี)</div>
           {!ratesEditing ? (
@@ -309,7 +311,7 @@ export function StudentRatesTab({ budgetYearId }: { budgetYearId: string }) {
         </div>
       </div>
 
-      <div className="mt-8 border-t border-slate-200 pt-6">
+      <div className="card">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="card-title text-base font-bold text-navy-800">เงินรายได้สถานศึกษา</div>
           {!schoolIncomeEditing ? (
