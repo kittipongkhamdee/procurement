@@ -49,12 +49,6 @@ type GroupItem = { id: string; name: string };
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
-// ย่อเป็น "ล้านบาท" เฉพาะยอดตั้งแต่ 1 ล้านขึ้นไป — ยอดน้อยกว่านั้นหารล้านแล้วปัดเหลือ 2 ตำแหน่งจะ
-// กลายเป็น "0.00M" ดูเหมือนไม่มีข้อมูลทั้งที่มีจริง จึงโชว์เป็นจำนวนเงินตรงๆ แทน
-function formatCompact(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  return n.toLocaleString("th-TH", { maximumFractionDigits: 0 });
-}
 function pct(part: number, total: number) {
   if (total <= 0) return 0;
   return (part / total) * 100;
@@ -459,41 +453,35 @@ export default function DashboardPage() {
 
             <div className="card">
               <div className="card-title">สรุปงบที่ใช้ (แยกตามประเภทรายจ่าย)</div>
-              <div className="flex items-center gap-4 print:gap-3">
-                <div
-                  className="relative h-[104px] w-[104px] shrink-0 rounded-full border border-slate-200"
-                  style={{
-                    background: `conic-gradient(${(() => {
-                      let acc = 0;
-                      return SUMMARY_DISPLAY_LABELS.map((_, i) => {
-                        const start = acc;
-                        acc += pct(expenseTotals[i], expenseTotal);
-                        return `${CAT_COLORS[i]} ${start}% ${acc}%`;
-                      }).join(", ");
-                    })()})`,
-                  }}
-                >
-                  <div className="absolute left-1/2 top-1/2 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-slate-200 bg-white">
-                    <b className="text-sm font-bold tabular-nums text-slate-900">{formatCompact(expenseTotal)}</b>
-                    <span className="text-[9px] text-slate-400">รวมจ่าย</span>
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1 space-y-1.5 text-sm print:space-y-1">
-                  {SUMMARY_DISPLAY_LABELS.map((label, i) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: CAT_COLORS[i] }} />
-                      <span className="min-w-0 flex-1 truncate text-slate-600">{label}</span>
-                      <span className="shrink-0 text-right leading-tight">
-                        <span className="block font-semibold tabular-nums text-slate-900">
-                          {formatBaht(expenseTotals[i])}
-                        </span>
-                        <span className="block text-[10px] tabular-nums text-slate-400">
-                          {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
-                        </span>
+              <p className="mb-4 text-xs text-slate-400">
+                รวมจ่ายทั้งหมด <b className="font-semibold tabular-nums text-slate-700">{formatBaht(expenseTotal)}</b> บาท
+              </p>
+              <div className="flex items-end gap-3 border-b border-slate-100 pb-0" style={{ height: 140 }}>
+                {SUMMARY_DISPLAY_LABELS.map((label, i) => {
+                  const maxTotal = Math.max(...expenseTotals, 1);
+                  const barHeightPct = Math.max(pct(expenseTotals[i], maxTotal), expenseTotals[i] > 0 ? 4 : 0);
+                  return (
+                    <div key={label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
+                      <span className="mb-1 whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-700">
+                        {formatBaht(expenseTotals[i])}
                       </span>
+                      <div
+                        className="w-full max-w-[38px] rounded-t-md"
+                        style={{ height: `${barHeightPct}%`, background: CAT_COLORS[i] }}
+                      />
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex gap-3">
+                {SUMMARY_DISPLAY_LABELS.map((label, i) => (
+                  <div key={label} className="min-w-0 flex-1 text-center text-[10.5px] leading-tight text-slate-500">
+                    {label}
+                    <b className="block text-[10px] font-bold text-slate-700">
+                      {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
+                    </b>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
