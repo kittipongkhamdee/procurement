@@ -57,52 +57,6 @@ function pct(part: number, total: number) {
   return (part / total) * 100;
 }
 
-// วงกลมโดนัท 2-3 สัดส่วน วาดด้วย stroke-dasharray ต่อกันเป็นเส้นรอบวง (r=15.9 ให้เส้นรอบวง = 100
-// พอดี แปลง % เป็นความยาวเส้นได้ตรงๆ โดยไม่ต้องคำนวณ circumference เอง)
-function Donut({
-  segments,
-  centerValue,
-  centerLabel,
-}: {
-  segments: { value: number; color: string }[];
-  centerValue: string;
-  centerLabel: string;
-}) {
-  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
-  // เริ่มที่ตำแหน่ง 12 นาฬิกา (ค่า default ของ SVG คือ 3 นาฬิกา จึงชดเชย 25 หน่วย) แล้วไล่สะสม
-  // offset ของแต่ละส่วนไว้ล่วงหน้าเป็น array ก่อน render กันการ mutate ตัวแปรระหว่าง map
-  const arcs = segments.reduce<{ segPct: number; color: string; offset: number }[]>((acc, seg) => {
-    const segPct = (seg.value / total) * 100;
-    const prevOffset = acc.length > 0 ? acc[acc.length - 1].offset - acc[acc.length - 1].segPct : 25;
-    acc.push({ segPct, color: seg.color, offset: prevOffset });
-    return acc;
-  }, []);
-  return (
-    <svg width="92" height="92" viewBox="0 0 42 42" role="img" aria-label={centerLabel}>
-      <circle cx="21" cy="21" r="15.9" fill="none" stroke="#eef1f5" strokeWidth="6" />
-      {arcs.map((arc, i) => (
-        <circle
-          key={i}
-          cx="21"
-          cy="21"
-          r="15.9"
-          fill="none"
-          stroke={arc.color}
-          strokeWidth="6"
-          strokeDasharray={`${arc.segPct} ${100 - arc.segPct}`}
-          strokeDashoffset={arc.offset}
-        />
-      ))}
-      <text x="21" y="19.5" textAnchor="middle" fontSize="6.2" fontWeight="700" fill="#0c2447">
-        {centerValue}
-      </text>
-      <text x="21" y="26" textAnchor="middle" fontSize="3.4" fill="#8a93a6">
-        {centerLabel}
-      </text>
-    </svg>
-  );
-}
-
 // วงแหวนไล่เฉดสีค่าเดียว (ไม่ใช่โดนัทหลายสัดส่วน) — ใช้กับ "การใช้งบประมาณโดยรวม" แทนโดนัท 2 สัดส่วนเดิม
 // เพราะเบิกจ่ายจริงมักเป็นสัดส่วนน้อยมากเทียบกับงบทั้งหมด (เช่น 0.0%) ทำให้ arc สีที่สองในโดนัทบางจน
 // มองไม่เห็น วงแหวนนี้โชว์แค่ % เบิกจ่ายแล้วค่าเดียวเป็นเส้นไล่เฉดสีปลายมน อ่านง่ายกว่า
@@ -368,42 +322,30 @@ export default function DashboardPage() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-4 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
-              <div className="flex items-center gap-4 print:gap-3">
-                <Donut
-                  segments={[
-                    { value: completed, color: GOOD },
-                    { value: inProgress, color: WARN },
-                    { value: notStarted, color: NEUTRAL },
-                  ]}
-                  centerValue={String(projectCount)}
-                  centerLabel="โครงการ"
-                />
-                <div className="min-w-0 flex-1 space-y-2 text-sm print:space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">เสร็จสิ้น</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{completed}</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
-                      {pct(completed, projectCount).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: WARN }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">กำลังดำเนินการ</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{inProgress}</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
-                      {pct(inProgress, projectCount).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: NEUTRAL }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">ยังไม่ดำเนินการ</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{notStarted}</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
-                      {pct(notStarted, projectCount).toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
+              <div className="flex h-4 overflow-hidden rounded-full bg-slate-100 print:h-3.5">
+                <span style={{ width: `${pct(completed, projectCount)}%`, background: GOOD }} />
+                <span style={{ width: `${pct(inProgress, projectCount)}%`, background: WARN }} />
+                <span style={{ width: `${pct(notStarted, projectCount)}%`, background: NEUTRAL }} />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm print:mt-3 print:gap-x-4">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: GOOD }} />
+                  <span className="text-slate-600">
+                    เสร็จสิ้น <b className="font-semibold text-slate-900">{completed}</b> ({pct(completed, projectCount).toFixed(1)}%)
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: WARN }} />
+                  <span className="text-slate-600">
+                    กำลังดำเนินการ <b className="font-semibold text-slate-900">{inProgress}</b> ({pct(inProgress, projectCount).toFixed(1)}%)
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: NEUTRAL }} />
+                  <span className="text-slate-600">
+                    ยังไม่ดำเนินการ <b className="font-semibold text-slate-900">{notStarted}</b> ({pct(notStarted, projectCount).toFixed(1)}%)
+                  </span>
+                </span>
               </div>
             </div>
 
