@@ -103,6 +103,54 @@ function Donut({
   );
 }
 
+// วงแหวนไล่เฉดสีค่าเดียว (ไม่ใช่โดนัทหลายสัดส่วน) — ใช้กับ "การใช้งบประมาณโดยรวม" แทนโดนัท 2 สัดส่วนเดิม
+// เพราะเบิกจ่ายจริงมักเป็นสัดส่วนน้อยมากเทียบกับงบทั้งหมด (เช่น 0.0%) ทำให้ arc สีที่สองในโดนัทบางจน
+// มองไม่เห็น วงแหวนนี้โชว์แค่ % เบิกจ่ายแล้วค่าเดียวเป็นเส้นไล่เฉดสีปลายมน อ่านง่ายกว่า
+function GradientRing({
+  percent,
+  gradientFrom,
+  gradientTo,
+  centerLabel,
+  gradientId,
+}: {
+  percent: number;
+  gradientFrom: string;
+  gradientTo: string;
+  centerLabel: string;
+  gradientId: string;
+}) {
+  const clamped = Math.min(Math.max(percent, 0), 100);
+  const circumference = 2 * Math.PI * 50;
+  const offset = circumference - (clamped / 100) * circumference;
+  return (
+    <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={centerLabel}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={gradientFrom} />
+          <stop offset="100%" stopColor={gradientTo} />
+        </linearGradient>
+      </defs>
+      <g style={{ transform: "rotate(-90deg)", transformOrigin: "60px 60px" }}>
+        <circle cx="60" cy="60" r="50" fill="none" stroke="#eef1f5" strokeWidth="14" />
+        <circle
+          cx="60"
+          cy="60"
+          r="50"
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth="14"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+        />
+      </g>
+      <text x="60" y="66" textAnchor="middle" fontSize="22" fontWeight="800" fill="#0c2447">
+        {clamped.toFixed(1)}%
+      </text>
+    </svg>
+  );
+}
+
 export default function DashboardPage() {
   const { schoolName, logoUrl } = useSchoolSettings();
   const [loading, setLoading] = useState(true);
@@ -362,13 +410,12 @@ export default function DashboardPage() {
             <div className="card">
               <div className="card-title">การใช้งบประมาณโดยรวม</div>
               <div className="flex items-center gap-4 print:gap-3">
-                <Donut
-                  segments={[
-                    { value: totalSpent, color: GOOD },
-                    { value: Math.max(totalRemaining, 0), color: WARN },
-                  ]}
-                  centerValue={`${pct(totalSpent, totalBudget).toFixed(1)}%`}
+                <GradientRing
+                  percent={pct(totalSpent, totalBudget)}
+                  gradientFrom="#34d399"
+                  gradientTo={GOOD}
                   centerLabel="เบิกจ่ายแล้ว"
+                  gradientId="budget-usage-ring"
                 />
                 <div className="min-w-0 flex-1 space-y-2 text-sm print:space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -380,11 +427,6 @@ export default function DashboardPage() {
                     <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: WARN }} />
                     <span className="min-w-0 flex-1 truncate text-slate-600">คงเหลือ</span>
                     <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalRemaining)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: BRAND }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">รวมทั้งสิ้น</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalBudget)}</span>
                   </div>
                 </div>
               </div>
