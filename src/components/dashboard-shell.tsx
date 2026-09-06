@@ -65,8 +65,9 @@ export function DashboardShell({
   const [profileOpen, setProfileOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
-  // เมนูกลุ่มไหนถูกหุบไว้ (เก็บด้วย heading ข้อความ) — ค่าเริ่มต้นกางทุกกลุ่มไว้เหมือนเดิม
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  // กลุ่มเมนูที่กางอยู่ตอนนี้ — กางได้ทีละกลุ่มเท่านั้น (เหมือน accordion) ค่าเริ่มต้นกาง "งานแผนงาน"
+  // ไว้ก่อน กลุ่มอื่นหุบหมด (null = หุบทุกกลุ่ม)
+  const [expandedSection, setExpandedSection] = useState<string | null>("งานแผนงาน");
 
   useEffect(() => {
     if (localStorage.getItem("sidebar-collapsed") === "1") {
@@ -74,13 +75,9 @@ export function DashboardShell({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCollapsed(true);
     }
-    const savedSections = localStorage.getItem("sidebar-collapsed-sections");
-    if (savedSections) {
-      try {
-        setCollapsedSections(new Set(JSON.parse(savedSections) as string[]));
-      } catch {
-        // ค่าที่เก็บไว้เสีย/format เก่า — ใช้ค่าเริ่มต้น (กางทุกกลุ่ม) แทนไปเลย
-      }
+    const savedSection = localStorage.getItem("sidebar-expanded-section");
+    if (savedSection !== null) {
+      setExpandedSection(savedSection === "" ? null : savedSection);
     }
   }, []);
 
@@ -93,11 +90,9 @@ export function DashboardShell({
   }
 
   function toggleSection(heading: string) {
-    setCollapsedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(heading)) next.delete(heading);
-      else next.add(heading);
-      localStorage.setItem("sidebar-collapsed-sections", JSON.stringify([...next]));
+    setExpandedSection((prev) => {
+      const next = prev === heading ? null : heading;
+      localStorage.setItem("sidebar-expanded-section", next ?? "");
       return next;
     });
   }
@@ -186,7 +181,7 @@ export function DashboardShell({
 
         <nav className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-3 py-4">
           {navSections.map((section) => {
-            const sectionCollapsed = !!section.heading && collapsedSections.has(section.heading);
+            const sectionCollapsed = !!section.heading && expandedSection !== section.heading;
             return (
             <div key={section.heading ?? "root"}>
               {section.heading && (
