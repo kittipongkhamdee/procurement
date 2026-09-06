@@ -512,18 +512,18 @@ export default function DashboardPage() {
               {byGroup.length > 0 && (
                 <tfoot>
                   <tr>
-                    <td className="font-bold text-slate-700">รวมทั้งสิ้น</td>
-                    <td></td>
-                    <td className="whitespace-nowrap text-right font-bold tabular-nums text-navy-800">
+                    <td className="px-4 py-3 font-bold text-slate-700">รวมทั้งสิ้น</td>
+                    <td className="px-4 py-3"></td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-navy-800">
                       {formatBaht(totalBudget)}
                     </td>
-                    <td className="whitespace-nowrap text-right font-bold tabular-nums text-navy-800">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-navy-800">
                       {formatBaht(totalSpent)}
                     </td>
-                    <td className="whitespace-nowrap text-right font-bold tabular-nums text-navy-800">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-navy-800">
                       {formatBaht(totalRemaining)}
                     </td>
-                    <td className="whitespace-nowrap text-right font-bold tabular-nums text-navy-800">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-navy-800">
                       {pct(totalSpent, totalBudget).toFixed(1)}%
                     </td>
                   </tr>
