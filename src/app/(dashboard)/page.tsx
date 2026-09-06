@@ -32,6 +32,9 @@ const GOOD = "#059669"; // เบิกจ่ายแล้ว / เสร็�
 const WARN = "#d97706"; // คงเหลือ / กำลังดำเนินการ
 const NEUTRAL = "#94a3b8"; // ยังไม่ดำเนินการ
 const BRAND = "#123361";
+// สีวนใช้ต่อวงในเกจครึ่งวงกลมซ้อน "งบประมาณแยกตามประเภทเงิน" — แค่แยกแยะแต่ละวง ไม่ได้มีความหมาย
+// เชิงสถานะแบบ GOOD/WARN/NEUTRAL จึงแยกชุดสีต่างหาก วนซ้ำถ้าประเภทเงินมีมากกว่าจำนวนสีที่กำหนด
+const SOURCE_RING_COLORS = ["#1b4177", "#c19a2e", "#059669", "#0891b2", "#7c3aed"];
 
 type ProjectRow = {
   id: string;
@@ -101,6 +104,55 @@ function GradientRing({
       <text x="60" y="66" textAnchor="middle" fontSize="22" fontWeight="800" fill="#0c2447">
         {clamped.toFixed(1)}%
       </text>
+    </svg>
+  );
+}
+
+// เกจครึ่งวงกลมซ้อนกันหลายชั้น — แต่ละชั้นเป็นวงอิสระของตัวเอง (ไม่แบ่งเส้นรอบวงเดียวกัน) ใช้กับ
+// "งบประมาณแยกตามประเภทเงิน" แทนแถบเส้นตรงเดิม รัศมีของแต่ละชั้นลดหลั่นจากนอกเข้าใน (ชั้นแรก = วงนอกสุด)
+// จำกัดรัศมีขั้นต่ำไว้กันชั้นทับกันเมื่อมีประเภทเงินจำนวนมาก
+function ConcentricHalfGauges({ rings }: { rings: { percent: number; color: string }[] }) {
+  const cx = 115;
+  const cy = 115;
+  const strokeWidth = 15;
+  const outerR = 95;
+  const step = 20;
+  const minR = 20;
+
+  const pointAt = (angleDeg: number, r: number) => {
+    const rad = (angleDeg * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+  };
+
+  return (
+    <svg viewBox="0 0 230 135" width="230" height="135" role="img" aria-label="งบประมาณแยกตามประเภทเงิน">
+      {rings.map((ring, i) => {
+        const r = Math.max(outerR - i * step, minR);
+        const clamped = Math.min(Math.max(ring.percent, 0), 100);
+        const start = pointAt(180, r);
+        const trackEnd = pointAt(0, r);
+        const valueEnd = pointAt(180 - (clamped / 100) * 180, r);
+        return (
+          <g key={i}>
+            <path
+              d={`M${start.x},${start.y} A${r},${r} 0 0 1 ${trackEnd.x},${trackEnd.y}`}
+              fill="none"
+              stroke="#eef1f5"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
+            {clamped > 0 && (
+              <path
+                d={`M${start.x},${start.y} A${r},${r} 0 0 1 ${valueEnd.x},${valueEnd.y}`}
+                fill="none"
+                stroke={ring.color}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+              />
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -378,33 +430,26 @@ export default function DashboardPage() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-3 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">งบประมาณแยกตามประเภทเงิน</div>
-              <div className="mb-3 flex gap-4 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: GOOD }} />
-                  เบิกจ่ายแล้ว
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm opacity-60" style={{ background: WARN }} />
-                  คงเหลือ
-                </span>
-              </div>
-              <div className="space-y-4 print:space-y-3">
-                {bySource.map((s) => {
+              <ConcentricHalfGauges
+                rings={bySource.map((s, i) => ({
+                  percent: pct(s.spent, s.budget),
+                  color: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length],
+                }))}
+              />
+              <div className="mt-2 space-y-2.5 text-sm print:mt-1 print:space-y-2">
+                {bySource.map((s, i) => {
                   const spentPct = pct(s.spent, s.budget);
                   return (
-                    <div key={s.id}>
-                      <div className="mb-1 flex items-baseline justify-between text-sm">
-                        <span className="font-medium text-slate-900">{s.name}</span>
-                        <span className="tabular-nums text-slate-500">{formatBaht(s.budget)} บาท</span>
-                      </div>
-                      <div className="flex h-3.5 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                        <div style={{ width: `${spentPct}%`, background: GOOD }} />
-                        <div style={{ width: `${100 - spentPct}%`, background: WARN, opacity: 0.55 }} />
-                      </div>
-                      <div className="mt-1 flex justify-between text-xs tabular-nums text-slate-400">
-                        <span>จ่ายแล้ว {spentPct.toFixed(1)}%</span>
-                        <span>คงเหลือ {(100 - spentPct).toFixed(1)}%</span>
-                      </div>
+                    <div key={s.id} className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ background: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length] }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-slate-600">{s.name}</span>
+                      <span className="shrink-0 tabular-nums text-slate-400">{formatBaht(s.budget)} บาท</span>
+                      <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-slate-900">
+                        {spentPct.toFixed(1)}%
+                      </span>
                     </div>
                   );
                 })}
