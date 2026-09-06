@@ -32,6 +32,9 @@ const GOOD = "#059669"; // เบิกจ่ายแล้ว / เสร็�
 const WARN = "#d97706"; // คงเหลือ / กำลังดำเนินการ
 const NEUTRAL = "#94a3b8"; // ยังไม่ดำเนินการ
 const BRAND = "#123361";
+// สีวนใช้ต่อวงในเกจครึ่งวงกลมซ้อน "งบประมาณแยกตามประเภทเงิน" — แค่แยกแยะแต่ละวง ไม่ได้มีความหมาย
+// เชิงสถานะแบบ GOOD/WARN/NEUTRAL จึงแยกชุดสีต่างหาก วนซ้ำถ้าประเภทเงินมีมากกว่าจำนวนสีที่กำหนด
+const SOURCE_RING_COLORS = ["#1b4177", "#c19a2e", "#059669", "#0891b2", "#7c3aed"];
 
 type ProjectRow = {
   id: string;
@@ -46,61 +49,9 @@ type GroupItem = { id: string; name: string };
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
-// ย่อเป็น "ล้านบาท" เฉพาะยอดตั้งแต่ 1 ล้านขึ้นไป — ยอดน้อยกว่านั้นหารล้านแล้วปัดเหลือ 2 ตำแหน่งจะ
-// กลายเป็น "0.00M" ดูเหมือนไม่มีข้อมูลทั้งที่มีจริง จึงโชว์เป็นจำนวนเงินตรงๆ แทน
-function formatCompact(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  return n.toLocaleString("th-TH", { maximumFractionDigits: 0 });
-}
 function pct(part: number, total: number) {
   if (total <= 0) return 0;
   return (part / total) * 100;
-}
-
-// วงกลมโดนัท 2-3 สัดส่วน วาดด้วย stroke-dasharray ต่อกันเป็นเส้นรอบวง (r=15.9 ให้เส้นรอบวง = 100
-// พอดี แปลง % เป็นความยาวเส้นได้ตรงๆ โดยไม่ต้องคำนวณ circumference เอง)
-function Donut({
-  segments,
-  centerValue,
-  centerLabel,
-}: {
-  segments: { value: number; color: string }[];
-  centerValue: string;
-  centerLabel: string;
-}) {
-  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
-  // เริ่มที่ตำแหน่ง 12 นาฬิกา (ค่า default ของ SVG คือ 3 นาฬิกา จึงชดเชย 25 หน่วย) แล้วไล่สะสม
-  // offset ของแต่ละส่วนไว้ล่วงหน้าเป็น array ก่อน render กันการ mutate ตัวแปรระหว่าง map
-  const arcs = segments.reduce<{ segPct: number; color: string; offset: number }[]>((acc, seg) => {
-    const segPct = (seg.value / total) * 100;
-    const prevOffset = acc.length > 0 ? acc[acc.length - 1].offset - acc[acc.length - 1].segPct : 25;
-    acc.push({ segPct, color: seg.color, offset: prevOffset });
-    return acc;
-  }, []);
-  return (
-    <svg width="92" height="92" viewBox="0 0 42 42" role="img" aria-label={centerLabel}>
-      <circle cx="21" cy="21" r="15.9" fill="none" stroke="#eef1f5" strokeWidth="6" />
-      {arcs.map((arc, i) => (
-        <circle
-          key={i}
-          cx="21"
-          cy="21"
-          r="15.9"
-          fill="none"
-          stroke={arc.color}
-          strokeWidth="6"
-          strokeDasharray={`${arc.segPct} ${100 - arc.segPct}`}
-          strokeDashoffset={arc.offset}
-        />
-      ))}
-      <text x="21" y="19.5" textAnchor="middle" fontSize="6.2" fontWeight="700" fill="#0c2447">
-        {centerValue}
-      </text>
-      <text x="21" y="26" textAnchor="middle" fontSize="3.4" fill="#8a93a6">
-        {centerLabel}
-      </text>
-    </svg>
-  );
 }
 
 // วงแหวนไล่เฉดสีค่าเดียว (ไม่ใช่โดนัทหลายสัดส่วน) — ใช้กับ "การใช้งบประมาณโดยรวม" แทนโดนัท 2 สัดส่วนเดิม
@@ -147,6 +98,55 @@ function GradientRing({
       <text x="60" y="66" textAnchor="middle" fontSize="22" fontWeight="800" fill="#0c2447">
         {clamped.toFixed(1)}%
       </text>
+    </svg>
+  );
+}
+
+// เกจครึ่งวงกลมซ้อนกันหลายชั้น — แต่ละชั้นเป็นวงอิสระของตัวเอง (ไม่แบ่งเส้นรอบวงเดียวกัน) ใช้กับ
+// "งบประมาณแยกตามประเภทเงิน" แทนแถบเส้นตรงเดิม รัศมีของแต่ละชั้นลดหลั่นจากนอกเข้าใน (ชั้นแรก = วงนอกสุด)
+// จำกัดรัศมีขั้นต่ำไว้กันชั้นทับกันเมื่อมีประเภทเงินจำนวนมาก
+function ConcentricHalfGauges({ rings }: { rings: { percent: number; color: string }[] }) {
+  const cx = 115;
+  const cy = 115;
+  const strokeWidth = 15;
+  const outerR = 95;
+  const step = 20;
+  const minR = 20;
+
+  const pointAt = (angleDeg: number, r: number) => {
+    const rad = (angleDeg * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+  };
+
+  return (
+    <svg viewBox="0 0 230 135" width="230" height="135" role="img" aria-label="งบประมาณแยกตามประเภทเงิน">
+      {rings.map((ring, i) => {
+        const r = Math.max(outerR - i * step, minR);
+        const clamped = Math.min(Math.max(ring.percent, 0), 100);
+        const start = pointAt(180, r);
+        const trackEnd = pointAt(0, r);
+        const valueEnd = pointAt(180 - (clamped / 100) * 180, r);
+        return (
+          <g key={i}>
+            <path
+              d={`M${start.x},${start.y} A${r},${r} 0 0 1 ${trackEnd.x},${trackEnd.y}`}
+              fill="none"
+              stroke="#eef1f5"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
+            {clamped > 0 && (
+              <path
+                d={`M${start.x},${start.y} A${r},${r} 0 0 1 ${valueEnd.x},${valueEnd.y}`}
+                fill="none"
+                stroke={ring.color}
+                strokeWidth={strokeWidth}
+                strokeLinecap="round"
+              />
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -368,42 +368,30 @@ export default function DashboardPage() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-4 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
-              <div className="flex items-center gap-4 print:gap-3">
-                <Donut
-                  segments={[
-                    { value: completed, color: GOOD },
-                    { value: inProgress, color: WARN },
-                    { value: notStarted, color: NEUTRAL },
-                  ]}
-                  centerValue={String(projectCount)}
-                  centerLabel="โครงการ"
-                />
-                <div className="min-w-0 flex-1 space-y-2 text-sm print:space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">เสร็จสิ้น</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{completed}</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
-                      {pct(completed, projectCount).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: WARN }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">กำลังดำเนินการ</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{inProgress}</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
-                      {pct(inProgress, projectCount).toFixed(1)}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: NEUTRAL }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">ยังไม่ดำเนินการ</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{notStarted}</span>
-                    <span className="w-12 shrink-0 text-right text-xs tabular-nums text-slate-400">
-                      {pct(notStarted, projectCount).toFixed(1)}%
-                    </span>
-                  </div>
-                </div>
+              <div className="flex h-4 overflow-hidden rounded-full bg-slate-100 print:h-3.5">
+                <span style={{ width: `${pct(completed, projectCount)}%`, background: GOOD }} />
+                <span style={{ width: `${pct(inProgress, projectCount)}%`, background: WARN }} />
+                <span style={{ width: `${pct(notStarted, projectCount)}%`, background: NEUTRAL }} />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm print:mt-3 print:gap-x-4">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: GOOD }} />
+                  <span className="text-slate-600">
+                    เสร็จสิ้น <b className="font-semibold text-slate-900">{completed}</b> ({pct(completed, projectCount).toFixed(1)}%)
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: WARN }} />
+                  <span className="text-slate-600">
+                    กำลังดำเนินการ <b className="font-semibold text-slate-900">{inProgress}</b> ({pct(inProgress, projectCount).toFixed(1)}%)
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: NEUTRAL }} />
+                  <span className="text-slate-600">
+                    ยังไม่ดำเนินการ <b className="font-semibold text-slate-900">{notStarted}</b> ({pct(notStarted, projectCount).toFixed(1)}%)
+                  </span>
+                </span>
               </div>
             </div>
 
@@ -436,33 +424,26 @@ export default function DashboardPage() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-3 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">งบประมาณแยกตามประเภทเงิน</div>
-              <div className="mb-3 flex gap-4 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: GOOD }} />
-                  เบิกจ่ายแล้ว
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-sm opacity-60" style={{ background: WARN }} />
-                  คงเหลือ
-                </span>
-              </div>
-              <div className="space-y-4 print:space-y-3">
-                {bySource.map((s) => {
+              <ConcentricHalfGauges
+                rings={bySource.map((s, i) => ({
+                  percent: pct(s.spent, s.budget),
+                  color: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length],
+                }))}
+              />
+              <div className="mt-2 space-y-2.5 text-sm print:mt-1 print:space-y-2">
+                {bySource.map((s, i) => {
                   const spentPct = pct(s.spent, s.budget);
                   return (
-                    <div key={s.id}>
-                      <div className="mb-1 flex items-baseline justify-between text-sm">
-                        <span className="font-medium text-slate-900">{s.name}</span>
-                        <span className="tabular-nums text-slate-500">{formatBaht(s.budget)} บาท</span>
-                      </div>
-                      <div className="flex h-3.5 overflow-hidden rounded-md border border-slate-200 bg-slate-100">
-                        <div style={{ width: `${spentPct}%`, background: GOOD }} />
-                        <div style={{ width: `${100 - spentPct}%`, background: WARN, opacity: 0.55 }} />
-                      </div>
-                      <div className="mt-1 flex justify-between text-xs tabular-nums text-slate-400">
-                        <span>จ่ายแล้ว {spentPct.toFixed(1)}%</span>
-                        <span>คงเหลือ {(100 - spentPct).toFixed(1)}%</span>
-                      </div>
+                    <div key={s.id} className="flex items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ background: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length] }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-slate-600">{s.name}</span>
+                      <span className="shrink-0 tabular-nums text-slate-400">{formatBaht(s.budget)} บาท</span>
+                      <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-slate-900">
+                        {spentPct.toFixed(1)}%
+                      </span>
                     </div>
                   );
                 })}
@@ -472,41 +453,35 @@ export default function DashboardPage() {
 
             <div className="card">
               <div className="card-title">สรุปงบที่ใช้ (แยกตามประเภทรายจ่าย)</div>
-              <div className="flex items-center gap-4 print:gap-3">
-                <div
-                  className="relative h-[104px] w-[104px] shrink-0 rounded-full border border-slate-200"
-                  style={{
-                    background: `conic-gradient(${(() => {
-                      let acc = 0;
-                      return SUMMARY_DISPLAY_LABELS.map((_, i) => {
-                        const start = acc;
-                        acc += pct(expenseTotals[i], expenseTotal);
-                        return `${CAT_COLORS[i]} ${start}% ${acc}%`;
-                      }).join(", ");
-                    })()})`,
-                  }}
-                >
-                  <div className="absolute left-1/2 top-1/2 flex h-[58px] w-[58px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-slate-200 bg-white">
-                    <b className="text-sm font-bold tabular-nums text-slate-900">{formatCompact(expenseTotal)}</b>
-                    <span className="text-[9px] text-slate-400">รวมจ่าย</span>
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1 space-y-1.5 text-sm print:space-y-1">
-                  {SUMMARY_DISPLAY_LABELS.map((label, i) => (
-                    <div key={label} className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: CAT_COLORS[i] }} />
-                      <span className="min-w-0 flex-1 truncate text-slate-600">{label}</span>
-                      <span className="shrink-0 text-right leading-tight">
-                        <span className="block font-semibold tabular-nums text-slate-900">
-                          {formatBaht(expenseTotals[i])}
-                        </span>
-                        <span className="block text-[10px] tabular-nums text-slate-400">
-                          {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
-                        </span>
+              <p className="mb-4 text-xs text-slate-400">
+                รวมจ่ายทั้งหมด <b className="font-semibold tabular-nums text-slate-700">{formatBaht(expenseTotal)}</b> บาท
+              </p>
+              <div className="flex items-end gap-3 border-b border-slate-100 pb-0" style={{ height: 140 }}>
+                {SUMMARY_DISPLAY_LABELS.map((label, i) => {
+                  const maxTotal = Math.max(...expenseTotals, 1);
+                  const barHeightPct = Math.max(pct(expenseTotals[i], maxTotal), expenseTotals[i] > 0 ? 4 : 0);
+                  return (
+                    <div key={label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
+                      <span className="mb-1 whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-700">
+                        {formatBaht(expenseTotals[i])}
                       </span>
+                      <div
+                        className="w-full max-w-[38px] rounded-t-md"
+                        style={{ height: `${barHeightPct}%`, background: CAT_COLORS[i] }}
+                      />
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex gap-3">
+                {SUMMARY_DISPLAY_LABELS.map((label, i) => (
+                  <div key={label} className="min-w-0 flex-1 text-center text-[10.5px] leading-tight text-slate-500">
+                    {label}
+                    <b className="block text-[10px] font-bold text-slate-700">
+                      {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
+                    </b>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
