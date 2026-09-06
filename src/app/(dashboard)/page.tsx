@@ -105,6 +105,77 @@ function GradientRing({
   );
 }
 
+// เกจครึ่งวงกลมชั้นเดียว แบ่งสีตามสัดส่วนไปตามส่วนโค้งเดียว (ซ้าย=มุม 180°, ขวา=มุม 0°) — ใช้กับ
+// "สถานะโครงการ" แทนแถบเส้นตรงเดิม ปลายซ้าย-ขวาสุดของเกจปัดมนด้วยวงกลมทับ (cap) ส่วนรอยต่อระหว่าง
+// สัดส่วนตัดตรง (butt) กันไม่ให้ปลายมนของแต่ละสัดส่วนทับซ้อนกันจนดูเป็นก้อนตอนสัดส่วนนั้นเล็กมาก
+function HalfGauge({
+  segments,
+  centerValue,
+  centerLabel,
+}: {
+  segments: { value: number; color: string }[];
+  centerValue: string;
+  centerLabel: string;
+}) {
+  const cx = 115;
+  const cy = 115;
+  const r = 95;
+  const strokeWidth = 26;
+  const capR = strokeWidth / 2;
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+
+  const pointAt = (angleDeg: number) => {
+    const rad = (angleDeg * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+  };
+
+  // มุมเริ่มต้น (ซ้าย) = 180° ไล่ลดลงเป็น 0° (ขวา) ตามสัดส่วนสะสมของแต่ละส่วน สะสมค่าไว้ล่วงหน้าเป็น
+  // array ผ่าน reduce ก่อน render กันการ mutate ตัวแปรระหว่าง map (แพทเทิร์นเดียวกับ Donut/GradientRing เดิม)
+  const drawnArcs = segments.reduce<{ from: { x: number; y: number }; to: { x: number; y: number }; color: string; cumulative: number }[]>(
+    (acc, seg) => {
+      const prevCumulative = acc.length > 0 ? acc[acc.length - 1].cumulative : 0;
+      const cumulative = prevCumulative + seg.value;
+      const fromAngle = 180 - (prevCumulative / total) * 180;
+      const toAngle = 180 - (cumulative / total) * 180;
+      acc.push({ from: pointAt(fromAngle), to: pointAt(toAngle), color: seg.color, cumulative });
+      return acc;
+    },
+    [],
+  );
+
+  const startPoint = pointAt(180);
+  const endPoint = pointAt(0);
+
+  return (
+    <div className="relative mx-auto" style={{ width: 230, height: 135 }}>
+      <svg viewBox="0 0 230 135" width="230" height="135" role="img" aria-label={centerLabel}>
+        <path
+          d={`M${startPoint.x},${startPoint.y} A${r},${r} 0 0 1 ${endPoint.x},${endPoint.y}`}
+          fill="none"
+          stroke="#eef1f5"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        {drawnArcs.map((arc, i) => (
+          <path
+            key={i}
+            d={`M${arc.from.x},${arc.from.y} A${r},${r} 0 0 1 ${arc.to.x},${arc.to.y}`}
+            fill="none"
+            stroke={arc.color}
+            strokeWidth={strokeWidth}
+          />
+        ))}
+        <circle cx={startPoint.x} cy={startPoint.y} r={capR} fill={segments[0]?.color ?? "#eef1f5"} />
+        <circle cx={endPoint.x} cy={endPoint.y} r={capR} fill={segments[segments.length - 1]?.color ?? "#eef1f5"} />
+      </svg>
+      <div className="absolute inset-x-0 flex flex-col items-center" style={{ bottom: 14 }}>
+        <div className="text-[28px] font-extrabold leading-none tabular-nums text-navy-900">{centerValue}</div>
+        <div className="mt-0.5 text-[11.5px] font-semibold text-slate-500">{centerLabel}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const { schoolName, logoUrl } = useSchoolSettings();
   const [loading, setLoading] = useState(true);
@@ -322,12 +393,16 @@ export default function DashboardPage() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-4 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
-              <div className="flex h-4 overflow-hidden rounded-full bg-slate-100 print:h-3.5">
-                <span style={{ width: `${pct(completed, projectCount)}%`, background: GOOD }} />
-                <span style={{ width: `${pct(inProgress, projectCount)}%`, background: WARN }} />
-                <span style={{ width: `${pct(notStarted, projectCount)}%`, background: NEUTRAL }} />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm print:mt-3 print:gap-x-4">
+              <HalfGauge
+                segments={[
+                  { value: completed, color: GOOD },
+                  { value: inProgress, color: WARN },
+                  { value: notStarted, color: NEUTRAL },
+                ]}
+                centerValue={String(projectCount)}
+                centerLabel="โครงการ"
+              />
+              <div className="mt-1 flex flex-wrap gap-x-6 gap-y-2 text-sm print:mt-1 print:gap-x-4">
                 <span className="inline-flex items-center gap-2">
                   <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: GOOD }} />
                   <span className="text-slate-600">
