@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { CheckIcon, ClipboardCheckIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
 import {
   deleteApproval,
@@ -410,6 +411,53 @@ export default function ApprovalsPage() {
           + สร้างบันทึกขออนุมัติ
         </a>
       </div>
+
+      {approvals !== null && (canApproveDeputy || canApproveDirector) && (
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="stat-card" style={{ "--accent": "#b45309" } as React.CSSProperties}>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon" style={{ background: "#b45309" }}>
+                <ClipboardCheckIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">รอเสนอ</div>
+                <div className="stat-value">
+                  {approvals.filter((a) => mergedStatus(a) === "รอเสนอ").length.toLocaleString("th-TH")}{" "}
+                  <span className="stat-suffix">รายการ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon" style={{ background: "#1b4177" }}>
+                <ClipboardCheckIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">รออนุมัติ</div>
+                <div className="stat-value">
+                  {approvals.filter((a) => mergedStatus(a) === "รออนุมัติ").length.toLocaleString("th-TH")}{" "}
+                  <span className="stat-suffix">รายการ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="stat-card" style={{ "--accent": "#059669" } as React.CSSProperties}>
+            <div className="flex items-start gap-3">
+              <span className="stat-icon" style={{ background: "#059669" }}>
+                <CheckIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">อนุมัติแล้ว</div>
+                <div className="stat-value">
+                  {approvals.filter((a) => mergedStatus(a) === "อนุมัติ").length.toLocaleString("th-TH")}{" "}
+                  <span className="stat-suffix">รายการ</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {approvals === null ? (
         <PageLoadingSkeleton />

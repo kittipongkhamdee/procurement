@@ -65,6 +65,9 @@ export function DashboardShell({
   const [profileOpen, setProfileOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
+  // กลุ่มเมนูที่กางอยู่ตอนนี้ — กางได้ทีละกลุ่มเท่านั้น (เหมือน accordion) ค่าเริ่มต้นกาง "งานแผนงาน"
+  // ไว้ก่อน กลุ่มอื่นหุบหมด (null = หุบทุกกลุ่ม)
+  const [expandedSection, setExpandedSection] = useState<string | null>("งานแผนงาน");
 
   useEffect(() => {
     if (localStorage.getItem("sidebar-collapsed") === "1") {
@@ -72,12 +75,24 @@ export function DashboardShell({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCollapsed(true);
     }
+    const savedSection = localStorage.getItem("sidebar-expanded-section");
+    if (savedSection !== null) {
+      setExpandedSection(savedSection === "" ? null : savedSection);
+    }
   }, []);
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem("sidebar-collapsed", next ? "1" : "0");
+      return next;
+    });
+  }
+
+  function toggleSection(heading: string) {
+    setExpandedSection((prev) => {
+      const next = prev === heading ? null : heading;
+      localStorage.setItem("sidebar-expanded-section", next ?? "");
       return next;
     });
   }
@@ -165,18 +180,25 @@ export function DashboardShell({
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-3 py-4">
-          {navSections.map((section) => (
+          {navSections.map((section) => {
+            const sectionCollapsed = !!section.heading && expandedSection !== section.heading;
+            return (
             <div key={section.heading ?? "root"}>
               {section.heading && (
-                <div
-                  className={`px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400/90 ${
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.heading!)}
+                  className={`flex w-full items-center justify-between px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gold-400/90 hover:text-gold-300 ${
                     collapsed ? "lg:hidden" : ""
                   }`}
                 >
-                  {section.heading}
-                </div>
+                  <span>{section.heading}</span>
+                  <ChevronRightIcon
+                    className={`h-3 w-3 shrink-0 transition-transform ${sectionCollapsed ? "" : "rotate-90"}`}
+                  />
+                </button>
               )}
-              <div className="space-y-0.5">
+              <div className={`space-y-0.5 ${sectionCollapsed && !collapsed ? "hidden" : ""}`}>
                 {section.items.map((item) => {
                   const active = pathname === item.href;
                   if (DISABLED_HREFS.has(item.href)) {
@@ -217,7 +239,8 @@ export function DashboardShell({
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         <button

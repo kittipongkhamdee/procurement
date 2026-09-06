@@ -4,7 +4,6 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import {
   ArchiveIcon,
   ClipboardCheckIcon,
-  CoinsIcon,
   FileSignatureIcon,
   FileTextIcon,
   FolderIcon,
@@ -17,7 +16,6 @@ import {
   StoreIcon,
   TruckIcon,
   UsersIcon,
-  WalletIcon,
 } from "@/components/icons";
 
 const ICON_CLASS = "h-[18px] w-[18px]";
@@ -45,13 +43,6 @@ const NAV_SECTIONS = [
       { href: "/vendors", label: "ข้อมูลผู้ขาย/ผู้รับจ้าง", icon: <StoreIcon className={ICON_CLASS} /> },
       { href: "/contracts", label: "งานสัญญาจ้าง", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/deliveries", label: "บันทึกส่งมอบงาน", icon: <TruckIcon className={ICON_CLASS} /> },
-    ],
-  },
-  {
-    heading: "งานการเงิน",
-    items: [
-      { href: "/project-disbursements", label: "เบิกจ่ายงบประมาณโครงการ", icon: <WalletIcon className={ICON_CLASS} /> },
-      { href: "/allowance", label: "เบิกจ่ายเบี้ยเลี้ยง/สาธารณูปโภค", icon: <CoinsIcon className={ICON_CLASS} /> },
     ],
   },
   {

@@ -25,7 +25,7 @@ type TabKey = (typeof TABS)[number]["key"];
 
 export default function FundAllocationPage() {
   const { isAdmin, loading: authLoading } = useAuth();
-  const [tab, setTab] = useState<TabKey>("revenue");
+  const [tab, setTab] = useState<TabKey>("student_rates");
   const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
   const [adminGroups, setAdminGroups] = useState<Option[]>([]);
   const [budgetSources, setBudgetSources] = useState<Option[]>([]);
