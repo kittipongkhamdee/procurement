@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   // ในส่วนหัวเอกสาร หรือชื่อเรื่องใหญ่ที่กว้างอัตโนมัติ ไม่เจอปัญหานี้) ลองแก้ด้วยการเติมช่องว่างนำหน้า
   // (ทั้งช่องว่างธรรมดาและ non-breaking space) และเพิ่ม padding แล้วก็ยังไม่หาย จึงเปลี่ยนมาไม่ใช้ตัวหนา
   // กับหัวตารางเลย ใช้พื้นหลังสีเทาอ่อนของแถวหัวตาราง (tHeadRow) แยกความแตกต่างจากแถวข้อมูลแทน
-  headLine: { fontSize: 11 },
+  headLine: { fontSize: 11, textAlign: "center" },
 });
 
 export type AssetDepreciationRow = {
