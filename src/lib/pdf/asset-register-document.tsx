@@ -40,18 +40,18 @@ const styles = StyleSheet.create({
   // กระดาษ (เคยเกิดมาแล้วตอนรวมได้ 105%)
   // colDate ต้องพอสำหรับ "28/05/2569" (แถวรับเข้ารายการที่มีวันที่เต็ม) ส่วนแถวคิดค่าเสื่อมรายปี
   // อื่นๆ แสดงแค่ปี พ.ศ. 4 หลัก ซึ่งแคบกว่ามากอยู่แล้ว
-  colDate: { width: "10%" },
-  colItem: { width: "14%" },
+  colDate: { width: "9%" },
+  colItem: { width: "18%" },
   colQty: { width: "6%", textAlign: "right" },
   colUnit: { width: "6%" },
   colUnitPrice: { width: "8%", textAlign: "right" },
   colTotal: { width: "8%", textAlign: "right" },
-  colLife: { width: "7%", textAlign: "right" },
+  colLife: { width: "5%", textAlign: "right" },
   colRate: { width: "6%", textAlign: "right" },
   colAnnual: { width: "8%", textAlign: "right" },
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
-  colNote: { width: "11%" },
+  colNote: { width: "10%" },
   cellLine: { fontSize: 11 },
   // ไม่ใช้ fontWeight: "bold" — เจอบั๊กซ้ำๆ ว่าตัวอักษรตัวแรกของ Text ตัวหนาที่อยู่ในคอลัมน์กว้างแบบ
   // % (เช่น "รายการ", "อายุใช้งาน") โดนตัดหายไปเฉยๆ เฉพาะกรณีนี้ (Text ตัวหนาที่กว้างคงที่ เช่น ป้ายชื่อ
