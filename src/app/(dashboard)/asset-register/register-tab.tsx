@@ -8,7 +8,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
 import { compressPhotoFile } from "@/lib/image-resize";
-import { deleteAssetItem, updateAssetItemStatus, upsertAssetItem } from "./actions";
+import { deleteAssetItem, generateAssetCode, updateAssetItemStatus, upsertAssetItem } from "./actions";
 
 async function uploadAssetPhoto(file: File): Promise<string> {
   const formData = new FormData();
@@ -53,9 +53,12 @@ type AssetItem = {
   vendor_address: string | null;
   vendor_phone: string | null;
   acquisition_method_id: string | null;
+  item_type_id: string | null;
   model: string | null;
   spec: string | null;
 };
+
+type ItemType = Option & { category_id: string };
 
 const ALL = "__all__";
 
@@ -85,6 +88,7 @@ function ItemModal({
   units,
   budgetSources,
   acquisitionMethods,
+  itemTypes,
   rounds,
   defaultRoundId,
   onSaved,
@@ -96,12 +100,15 @@ function ItemModal({
   units: Option[];
   budgetSources: Option[];
   acquisitionMethods: Option[];
+  itemTypes: ItemType[];
   rounds: { id: string; year: number; name: string }[];
   defaultRoundId: string;
   onSaved: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const assetCodeInputRef = useRef<HTMLInputElement>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   // การแก้ไขรูปยังไม่อัปโหลด/ลบจริงจนกว่าจะกดบันทึกฟอร์ม — เก็บไว้เป็น state ระหว่างนั้นก่อน
   const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
@@ -110,6 +117,9 @@ function ItemModal({
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // ต้องเป็น state (ไม่ใช่ uncontrolled) เพื่อกรองตัวเลือก "ชนิดครุภัณฑ์" ตามหมวดหมู่ที่เลือกอยู่แบบ real-time
+  const [categoryId, setCategoryId] = useState(item?.category_id ?? "");
+  const [generatingCode, setGeneratingCode] = useState(false);
 
   async function handleOpen() {
     setPhotoUrl(null);
@@ -118,10 +128,32 @@ function ItemModal({
     setPhotoRemoved(false);
     setRejecting(false);
     setRejectReason("");
+    setCategoryId(item?.category_id ?? "");
     if (item?.photo_path) {
       const supabase = createClient();
       const { data } = await supabase.storage.from("asset-photos").createSignedUrl(item.photo_path, 3600);
       if (data?.signedUrl) setPhotoUrl(data.signedUrl);
+    }
+  }
+
+  async function handleGenerateCode() {
+    if (!formRef.current) return;
+    const fd = new FormData(formRef.current);
+    const cid = String(fd.get("category_id") ?? "");
+    const tid = String(fd.get("item_type_id") ?? "");
+    const acquiredDate = String(fd.get("acquired_date") ?? "") || null;
+    if (!cid || !tid) {
+      await toastError("กรุณาเลือกหมวดหมู่และชนิดครุภัณฑ์ก่อนสร้างเลขอัตโนมัติ");
+      return;
+    }
+    setGeneratingCode(true);
+    try {
+      const code = await generateAssetCode(cid, tid, acquiredDate);
+      if (assetCodeInputRef.current) assetCodeInputRef.current.value = code;
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setGeneratingCode(false);
     }
   }
 
@@ -310,7 +342,7 @@ function ItemModal({
           )}
         </dl>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label">รอบสำรวจ</label>
@@ -326,9 +358,19 @@ function ItemModal({
               <label className="label">ลำดับที่</label>
               <input name="sequence_no" defaultValue={item?.sequence_no ?? ""} className="input" />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="label">รหัสครุภัณฑ์</label>
-              <input name="asset_code" defaultValue={item?.asset_code ?? ""} className="input" />
+              <div className="flex gap-2">
+                <input ref={assetCodeInputRef} name="asset_code" defaultValue={item?.asset_code ?? ""} className="input" />
+                <button
+                  type="button"
+                  onClick={handleGenerateCode}
+                  disabled={generatingCode}
+                  className="btn-secondary btn-sm shrink-0 disabled:opacity-50"
+                >
+                  {generatingCode ? "กำลังสร้าง..." : "สร้างเลขอัตโนมัติ"}
+                </button>
+              </div>
             </div>
             <div className="sm:col-span-2">
               <label className="label">ชื่อทรัพย์สิน</label>
@@ -336,13 +378,26 @@ function ItemModal({
             </div>
             <div>
               <label className="label">หมวดหมู่</label>
-              <select name="category_id" defaultValue={item?.category_id ?? ""} className="input">
+              <select name="category_id" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="input">
                 <option value="">ไม่ระบุ</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">ชนิดครุภัณฑ์</label>
+              <select name="item_type_id" defaultValue={item?.item_type_id ?? ""} className="input">
+                <option value="">ไม่ระบุ</option>
+                {itemTypes
+                  .filter((t) => t.category_id === categoryId)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
@@ -512,6 +567,7 @@ export function RegisterTab({
   units,
   budgetSources,
   acquisitionMethods,
+  itemTypes,
   onChanged,
 }: {
   canManage: boolean;
@@ -521,6 +577,7 @@ export function RegisterTab({
   units: Option[];
   budgetSources: Option[];
   acquisitionMethods: Option[];
+  itemTypes: ItemType[];
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<AssetItem[] | null>(null);
@@ -537,7 +594,7 @@ export function RegisterTab({
     const { data } = await supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
       )
       .order("created_at", { ascending: false });
     setItems((data as unknown as AssetItem[]) ?? []);
@@ -651,6 +708,7 @@ export function RegisterTab({
             units={units}
             budgetSources={budgetSources}
             acquisitionMethods={acquisitionMethods}
+            itemTypes={itemTypes}
             rounds={rounds}
             defaultRoundId={defaultRoundId}
             onSaved={handleChanged}
@@ -709,6 +767,7 @@ export function RegisterTab({
                         units={units}
                         budgetSources={budgetSources}
                         acquisitionMethods={acquisitionMethods}
+                        itemTypes={itemTypes}
                         rounds={rounds}
                         defaultRoundId={defaultRoundId}
                         onSaved={handleChanged}

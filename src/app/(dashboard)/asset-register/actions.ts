@@ -51,6 +51,7 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     floor: String(formData.get("floor") ?? "").trim() || null,
     room,
     category_id: String(formData.get("category_id") ?? "") || null,
+    item_type_id: String(formData.get("item_type_id") ?? "") || null,
     name,
     quantity: Number(formData.get("quantity") ?? 1) || 1,
     unit: String(formData.get("unit") ?? "").trim() || null,
@@ -151,9 +152,10 @@ export async function createAssetCategory(formData: FormData) {
   const depreciation_rate_percent = formData.get("depreciation_rate_percent")
     ? Number(formData.get("depreciation_rate_percent"))
     : null;
+  const type_code = String(formData.get("type_code") ?? "").trim() || null;
   const { error } = await supabase
     .from("asset_categories")
-    .insert({ name, useful_life_years, depreciation_rate_percent });
+    .insert({ name, useful_life_years, depreciation_rate_percent, type_code });
   if (error) throw new Error(error.message);
   revalidatePath(PATH);
 }
@@ -166,9 +168,10 @@ export async function updateAssetCategory(id: string, formData: FormData) {
   const depreciation_rate_percent = formData.get("depreciation_rate_percent")
     ? Number(formData.get("depreciation_rate_percent"))
     : null;
+  const type_code = String(formData.get("type_code") ?? "").trim() || null;
   const { error } = await supabase
     .from("asset_categories")
-    .update({ name, useful_life_years, depreciation_rate_percent })
+    .update({ name, useful_life_years, depreciation_rate_percent, type_code })
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(PATH);
@@ -186,6 +189,80 @@ export async function deleteAssetCategory(id: string) {
   const { error } = await supabase.from("asset_categories").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(PATH);
+}
+
+// ---------------- asset_item_types (ชนิดครุภัณฑ์ ใต้แต่ละหมวดหมู่ — ใช้กำหนดรหัสชนิด 2 หลักหลังจุด
+// ตอนสร้างเลขครุภัณฑ์อัตโนมัติ เช่น "โต๊ะทำงาน"=01, "เก้าอี้"=02 ในหมวดหมู่เดียวกัน) ----------------
+
+export async function createAssetItemType(formData: FormData) {
+  const { supabase } = await requireAssetStaff();
+  const category_id = String(formData.get("category_id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const code = String(formData.get("code") ?? "").trim();
+  if (!category_id || !name || !code) throw new Error("กรอกหมวดหมู่ ชื่อ และรหัสชนิดให้ครบ");
+  const { error } = await supabase.from("asset_item_types").insert({ category_id, name, code });
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function updateAssetItemType(id: string, formData: FormData) {
+  const { supabase } = await requireAssetStaff();
+  const name = String(formData.get("name") ?? "").trim();
+  const code = String(formData.get("code") ?? "").trim();
+  if (!name || !code) throw new Error("กรอกชื่อและรหัสชนิดให้ครบ");
+  const { error } = await supabase.from("asset_item_types").update({ name, code }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function toggleAssetItemTypeActive(id: string, isActive: boolean) {
+  const { supabase } = await requireAssetStaff();
+  const { error } = await supabase.from("asset_item_types").update({ is_active: !isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function deleteAssetItemType(id: string) {
+  const { supabase } = await requireAssetStaff();
+  const { error } = await supabase.from("asset_item_types").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+// ---------------- กำหนดเลขครุภัณฑ์อัตโนมัติ ----------------
+// รูปแบบ: [อักษรย่อโรงเรียน] [รหัสประเภท].[รหัสชนิด] / [เลขลำดับ 3 หลัก] / [ปีงบประมาณ พ.ศ. 2 หลักท้าย]
+// เช่น "ต.บ.ว. 20.01 / 005 / 69" — เลขลำดับนับแยกตามหมวดหมู่+ชนิด+ปีงบประมาณ (ปีของ acquired_date
+// ที่เลือกในฟอร์ม ถ้ายังไม่เลือกใช้ปีงบประมาณปัจจุบัน) เริ่มนับ 001 ใหม่ทุกปีงบประมาณ
+export async function generateAssetCode(
+  categoryId: string,
+  itemTypeId: string,
+  acquiredDateIso: string | null,
+): Promise<string> {
+  const { supabase } = await requireAssetStaff();
+
+  const [{ data: category }, { data: itemType }, { data: settings }] = await Promise.all([
+    supabase.from("asset_categories").select("type_code").eq("id", categoryId).maybeSingle(),
+    supabase.from("asset_item_types").select("code").eq("id", itemTypeId).maybeSingle(),
+    supabase.from("proc_school_settings").select("asset_code_prefix").eq("id", true).maybeSingle(),
+  ]);
+
+  if (!category?.type_code) throw new Error("หมวดหมู่นี้ยังไม่ได้ตั้งรหัสประเภท (ไปตั้งค่าที่แท็บข้อมูลหลัก)");
+  if (!itemType?.code) throw new Error("ชนิดครุภัณฑ์นี้ยังไม่ได้ตั้งรหัสชนิด (ไปตั้งค่าที่แท็บข้อมูลหลัก)");
+  if (!settings?.asset_code_prefix) throw new Error("ยังไม่ได้ตั้งอักษรย่อโรงเรียน (ไปตั้งค่าที่หน้าตั้งค่าระบบ)");
+
+  const yearBE = acquiredDateIso ? Number(acquiredDateIso.slice(0, 4)) + 543 : new Date().getFullYear() + 543;
+  const yy = String(yearBE % 100).padStart(2, "0");
+
+  const { count } = await supabase
+    .from("asset_items")
+    .select("id", { count: "exact", head: true })
+    .eq("category_id", categoryId)
+    .eq("item_type_id", itemTypeId)
+    .eq("acquired_year", yearBE);
+
+  const seq = String((count ?? 0) + 1).padStart(3, "0");
+
+  return `${settings.asset_code_prefix} ${category.type_code}.${itemType.code} / ${seq} / ${yy}`;
 }
 
 // ---------------- asset_buildings ----------------

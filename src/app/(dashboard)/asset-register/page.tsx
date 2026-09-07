@@ -15,7 +15,12 @@ import { SurveyRoundTab } from "./survey-round-tab";
 
 type Option = { id: string; name: string };
 type Lookup = Option & { is_active: boolean };
-type Category = Lookup & { useful_life_years: number | null; depreciation_rate_percent: number | null };
+type Category = Lookup & {
+  useful_life_years: number | null;
+  depreciation_rate_percent: number | null;
+  type_code: string | null;
+};
+type ItemType = Lookup & { category_id: string; code: string };
 type SurveyRound = { id: string; year: number; name: string; is_open: boolean };
 
 const TABS = [
@@ -35,6 +40,7 @@ export default function AssetRegisterPage() {
   const [units, setUnits] = useState<Lookup[]>([]);
   const [budgetSources, setBudgetSources] = useState<Lookup[]>([]);
   const [acquisitionMethods, setAcquisitionMethods] = useState<Lookup[]>([]);
+  const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [rounds, setRounds] = useState<SurveyRound[]>([]);
 
   const reload = useCallback(async () => {
@@ -46,17 +52,19 @@ export default function AssetRegisterPage() {
       { data: unitsData },
       { data: budgetSourcesData },
       { data: acquisitionMethodsData },
+      { data: itemTypesData },
       { data: roundsData },
     ] = await Promise.all([
       supabase
         .from("asset_categories")
-        .select("id, name, useful_life_years, depreciation_rate_percent, is_active")
+        .select("id, name, useful_life_years, depreciation_rate_percent, type_code, is_active")
         .order("sort_order")
         .order("name"),
       supabase.from("asset_buildings").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("asset_units").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("asset_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("asset_acquisition_methods").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("asset_item_types").select("id, category_id, name, code, is_active").order("sort_order").order("name"),
       supabase.from("asset_survey_rounds").select("id, year, name, is_open").order("year", { ascending: false }),
     ]);
     setCategories(categoriesData ?? []);
@@ -64,6 +72,7 @@ export default function AssetRegisterPage() {
     setUnits(unitsData ?? []);
     setBudgetSources(budgetSourcesData ?? []);
     setAcquisitionMethods(acquisitionMethodsData ?? []);
+    setItemTypes(itemTypesData ?? []);
     setRounds(roundsData ?? []);
     setLoading(false);
   }, []);
@@ -80,6 +89,7 @@ export default function AssetRegisterPage() {
   const activeUnits = units.filter((u) => u.is_active);
   const activeBudgetSources = budgetSources.filter((s) => s.is_active);
   const activeAcquisitionMethods = acquisitionMethods.filter((m) => m.is_active);
+  const activeItemTypes = itemTypes.filter((t) => t.is_active);
 
   return (
     <div>
@@ -117,6 +127,7 @@ export default function AssetRegisterPage() {
             units={activeUnits}
             budgetSources={activeBudgetSources}
             acquisitionMethods={activeAcquisitionMethods}
+            itemTypes={activeItemTypes}
             onChanged={reload}
           />
         )}
@@ -128,6 +139,7 @@ export default function AssetRegisterPage() {
             units={units}
             budgetSources={budgetSources}
             acquisitionMethods={acquisitionMethods}
+            itemTypes={itemTypes}
             onChanged={reload}
           />
         )}

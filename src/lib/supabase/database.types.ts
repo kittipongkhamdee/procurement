@@ -84,6 +84,7 @@ export type Database = {
           is_active: boolean
           name: string
           sort_order: number
+          type_code: string | null
           useful_life_years: number | null
         }
         Insert: {
@@ -92,6 +93,7 @@ export type Database = {
           is_active?: boolean
           name: string
           sort_order?: number
+          type_code?: string | null
           useful_life_years?: number | null
         }
         Update: {
@@ -100,9 +102,45 @@ export type Database = {
           is_active?: boolean
           name?: string
           sort_order?: number
+          type_code?: string | null
           useful_life_years?: number | null
         }
         Relationships: []
+      }
+      asset_item_types: {
+        Row: {
+          category_id: string
+          code: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          category_id: string
+          code: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          category_id?: string
+          code?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_item_types_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "asset_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       asset_items: {
         Row: {
@@ -118,6 +156,7 @@ export type Database = {
           created_at: string
           floor: string | null
           id: string
+          item_type_id: string | null
           model: string | null
           name: string
           note: string | null
@@ -153,6 +192,7 @@ export type Database = {
           created_at?: string
           floor?: string | null
           id?: string
+          item_type_id?: string | null
           model?: string | null
           name: string
           note?: string | null
@@ -188,6 +228,7 @@ export type Database = {
           created_at?: string
           floor?: string | null
           id?: string
+          item_type_id?: string | null
           model?: string | null
           name?: string
           note?: string | null
@@ -230,6 +271,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "asset_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_items_item_type_id_fkey"
+            columns: ["item_type_id"]
+            isOneToOne: false
+            referencedRelation: "asset_item_types"
             referencedColumns: ["id"]
           },
           {
@@ -1968,6 +2016,7 @@ export type Database = {
       }
       proc_school_settings: {
         Row: {
+          asset_code_prefix: string | null
           education_area: string | null
           id: boolean
           logo_url: string | null
@@ -1976,6 +2025,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          asset_code_prefix?: string | null
           education_area?: string | null
           id?: boolean
           logo_url?: string | null
@@ -1984,6 +2034,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          asset_code_prefix?: string | null
           education_area?: string | null
           id?: boolean
           logo_url?: string | null
