@@ -14,8 +14,9 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: "center" },
   title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
-  headerCols: { flexDirection: "row", gap: 20 },
-  headerCol: { width: "50%" },
+  // "ส่วนราชการ"/"หน่วยงาน" อยู่ชิดขวาบนของฟอร์ม (ตามแบบฟอร์มทะเบียนคุมทรัพย์สินมาตรฐาน) แยกจาก
+  // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
+  rightAlign: { alignItems: "flex-end", marginBottom: 4 },
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: "bold", marginRight: 8 },
   value: { flex: 1, paddingRight: 12 },
@@ -43,7 +44,8 @@ const styles = StyleSheet.create({
   // colDate ต้องพอสำหรับ "28/05/2569" (แถวรับเข้ารายการที่มีวันที่เต็ม) ส่วนแถวคิดค่าเสื่อมรายปี
   // อื่นๆ แสดงแค่ปี พ.ศ. 4 หลัก ซึ่งแคบกว่ามากอยู่แล้ว
   colDate: { width: "9%" },
-  colItem: { width: "18%" },
+  colDocRef: { width: "8%" },
+  colItem: { width: "12%" },
   colQty: { width: "6%", textAlign: "right" },
   colUnit: { width: "6%" },
   colUnitPrice: { width: "8%", textAlign: "right" },
@@ -53,7 +55,7 @@ const styles = StyleSheet.create({
   colAnnual: { width: "8%", textAlign: "right" },
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
-  colNote: { width: "10%" },
+  colNote: { width: "8%" },
   cellLine: { fontSize: 11 },
   // ไม่ใช้ fontWeight: "bold" — เจอบั๊กซ้ำๆ ว่าตัวอักษรตัวแรกของ Text ตัวหนาที่อยู่ในคอลัมน์กว้างแบบ
   // % (เช่น "รายการ", "อายุใช้งาน") โดนตัดหายไปเฉยๆ เฉพาะกรณีนี้ (Text ตัวหนาที่กว้างคงที่ เช่น ป้ายชื่อ
@@ -119,46 +121,20 @@ function guard(value: string | number | null | undefined): string {
   return ` ${t(value)}`;
 }
 
-// label ปกติเป็นสตริงบรรทัดเดียว แต่บางป้ายยาวมากและไม่มีช่องว่างให้ตัดคำ (เช่น
-// "ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค") ทำให้ล้นออกนอกกรอบความกว้างคงที่ 130 ไปทับข้อความค่าด้านขวา —
-// รับเป็นอาร์เรย์ได้เพื่อกำหนดจุดตัดบรรทัดเองล่วงหน้าเหมือน HeadCell
-function HeaderRow({ label, value }: { label: string | string[]; value: string | null | undefined }) {
+// แถวหัวเอกสาร — รับ 1 ช่องขึ้นไปในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ... ลักษณะ/คุณสมบัติ ... รุ่น/แบบ ...")
+// label กว้างอัตโนมัติ + marginRight, value กว้าง flex:1 แบ่งพื้นที่ที่เหลือของแถวเท่าๆ กันโดยอัตโนมัติ
+// จาก flexDirection: row — ใช้ได้ทั้งแถว 1, 2 และ 4 ช่อง
+function HeaderRowGroup({ items }: { items: { label: string; value: string | null | undefined }[] }) {
   return (
     <View style={styles.row}>
-      {typeof label === "string" ? (
-        <Text style={styles.label}>{guard(label)}</Text>
-      ) : (
-        <View style={styles.label}>
-          {label.map((line, i) => (
-            <Text key={i}>{guard(line)}</Text>
-          ))}
-        </View>
-      )}
-      <Text style={styles.value}>{guard(value || "-")}</Text>
-    </View>
-  );
-}
-
-// แถวที่รวม 2 ป้าย/ค่าไว้ในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ...") — ป้าย/ค่าแต่ละคู่ใช้
-// สไตล์เดียวกับ HeaderRow ปกติ (label กว้างอัตโนมัติ + marginRight, value กว้าง flex:1 แบ่งครึ่ง
-// ที่เหลือของแถวเท่าๆ กันโดยอัตโนมัติจาก flexDirection: row)
-function DoubleHeaderRow({
-  label1,
-  value1,
-  label2,
-  value2,
-}: {
-  label1: string;
-  value1: string | null | undefined;
-  label2: string;
-  value2: string | null | undefined;
-}) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.label}>{guard(label1)}</Text>
-      <Text style={styles.value}>{guard(value1 || "-")}</Text>
-      <Text style={styles.label}>{guard(label2)}</Text>
-      <Text style={styles.value}>{guard(value2 || "-")}</Text>
+      {items.flatMap((it, i) => [
+        <Text style={styles.label} key={`l${i}`}>
+          {guard(it.label)}
+        </Text>,
+        <Text style={styles.value} key={`v${i}`}>
+          {guard(it.value || "-")}
+        </Text>,
+      ])}
     </View>
   );
 }
@@ -193,34 +169,39 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
         </View>
 
-        <View style={styles.headerCols}>
-          <View style={styles.headerCol}>
-            <HeaderRow label="ลำดับที่" value={data.sequence_no} />
-            <DoubleHeaderRow label1="ประเภท" value1={data.category_name} label2="รหัส" value2={data.asset_code} />
-            <DoubleHeaderRow label1="ชื่อทรัพย์สิน" value1={data.name} label2="ยี่ห้อ/รุ่น" value2={data.model} />
-            <HeaderRow label="แบบ/ลักษณะ" value={data.spec} />
-            <HeaderRow label="สถานที่ตั้ง" value={location} />
-            <DoubleHeaderRow
-              label1="ประเภทเงิน"
-              value1={data.budget_source_name}
-              label2="วิธีการได้มา"
-              value2={data.acquisition_method}
-            />
-          </View>
-          <View style={styles.headerCol}>
-            <HeaderRow label="ส่วนราชการ" value={data.school_name} />
-            <HeaderRow label="หน่วยงาน" value={null} />
-            <HeaderRow label="ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={data.vendor_name} />
-            <HeaderRow
-              label="ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค"
-              value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null}
-            />
-          </View>
+        <View style={styles.rightAlign}>
+          <HeaderRowGroup items={[{ label: "ส่วนราชการ", value: data.school_name }]} />
+          <HeaderRowGroup items={[{ label: "หน่วยงาน", value: null }]} />
         </View>
+
+        <HeaderRowGroup items={[{ label: "ลำดับที่", value: data.sequence_no }]} />
+        <HeaderRowGroup
+          items={[
+            { label: "ประเภท", value: data.category_name },
+            { label: "รหัส", value: data.asset_code },
+            { label: "ลักษณะ/คุณสมบัติ", value: data.spec },
+            { label: "รุ่น/แบบ", value: data.model },
+          ]}
+        />
+        <HeaderRowGroup
+          items={[
+            { label: "สถานที่ตั้ง", value: location },
+            { label: "ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค", value: data.vendor_name },
+            { label: "ที่อยู่", value: data.vendor_address },
+            { label: "โทรศัพท์", value: data.vendor_phone },
+          ]}
+        />
+        <HeaderRowGroup
+          items={[
+            { label: "ประเภทเงิน", value: data.budget_source_name },
+            { label: "วิธีการได้มา", value: data.acquisition_method },
+          ]}
+        />
 
         <View style={[styles.table, { marginTop: 8 }]}>
           <View style={styles.tHeadRow}>
             <HeadCell style={[styles.cell, styles.colDate]} lines={["วัน/เดือน/", "ปี"]} />
+            <HeadCell style={[styles.cell, styles.colDocRef]} lines={["ที่", "เอกสาร"]} />
             <HeadCell style={[styles.cell, styles.colItem]} lines="รายการ" />
             <HeadCell style={[styles.cell, styles.colQty]} lines="จำนวน" />
             <HeadCell style={[styles.cell, styles.colUnit]} lines="หน่วย" />
@@ -236,6 +217,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           {data.schedule.map((row, i) => (
             <View style={styles.tRow} key={i}>
               <Text style={[styles.cell, styles.colDate]}>{guard(row.yearLabel)}</Text>
+              <Text style={[styles.cell, styles.colDocRef]}>{guard("")}</Text>
               <Text style={[styles.cell, styles.colItem]}>{guard(row.itemLabel)}</Text>
               <Text style={[styles.cell, styles.colQty]}>{guard(row.quantity ?? "")}</Text>
               <Text style={[styles.cell, styles.colUnit]}>{guard(row.unit ?? "")}</Text>
