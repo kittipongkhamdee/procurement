@@ -30,11 +30,10 @@ const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
 
 const GOOD = "#059669"; // เบิกจ่ายแล้ว / เสร็จสิ้น
 const WARN = "#d97706"; // คงเหลือ
-// แยกจาก WARN (ที่แปลว่า "คงเหลือ/ควรระวัง" ในการ์ดงบประมาณจุดอื่นของหน้านี้) เพราะสีส้มเดียวกัน
-// ทำให้ "กำลังดำเนินการ" ดูเหมือนสถานะที่มีปัญหา ทั้งที่แค่ยังไม่เสร็จตามปกติ ใช้น้ำเงินแทนตามธรรมเนียม
-// สถานะ "กำลังทำอยู่" ทั่วไป
-const INPROGRESS = "#2563eb"; // กำลังดำเนินการ
-const NEUTRAL = "#94a3b8"; // ยังไม่ดำเนินการ
+// "กำลังดำเนินการ" ใช้เขียวเฉดอ่อนกว่า GOOD (เสร็จสิ้น) เพื่อให้ทั้งคู่อยู่ในโทนเขียวเดียวกัน
+// (สื่อว่าเป็นไปด้วยดีทั้งคู่) แต่ยังแยกจากกันได้ชัดด้วยความเข้ม
+const INPROGRESS = "#34d399"; // กำลังดำเนินการ
+const NEUTRAL = "#cbd5e1"; // ยังไม่ดำเนินการ — เทาจางกว่าเดิม (#94a3b8) ให้ดูเป็นสถานะ "ยังไม่เริ่ม" เฉยๆ ไม่เด่นเกิน
 const BRAND = "#123361";
 // สีวนใช้ต่อวงในเกจครึ่งวงกลมซ้อน "งบประมาณแยกตามประเภทเงิน" — แค่แยกแยะแต่ละวง ไม่ได้มีความหมาย
 // เชิงสถานะแบบ GOOD/WARN/NEUTRAL จึงแยกชุดสีต่างหาก วนซ้ำถ้าประเภทเงินมีมากกว่าจำนวนสีที่กำหนด
@@ -512,7 +511,7 @@ export default function DashboardPage() {
                       <td className="min-w-[120px]">
                         <div className="flex h-2.5 overflow-hidden rounded-sm border border-slate-200 bg-slate-100">
                           <div style={{ width: `${spentPct}%`, background: GOOD }} />
-                          <div style={{ width: `${100 - spentPct}%`, background: WARN, opacity: 0.55 }} />
+                          <div style={{ width: `${100 - spentPct}%`, background: NEUTRAL }} />
                         </div>
                       </td>
                       <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(g.budget)}</td>
