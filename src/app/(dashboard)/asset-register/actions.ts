@@ -39,6 +39,16 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     throw new Error("กรอกข้อมูลให้ครบ (รอบสำรวจ/อาคาร/ห้อง/ชื่อทรัพย์สิน)");
   }
 
+  // ฟอร์มให้กรอกวัน/เดือน/ปี พ.ศ. แยก 3 ช่อง (ไม่ใช้ input type="date" ตัวเดียว เพราะปฏิทินเบราว์เซอร์
+  // ส่วนใหญ่แสดง ค.ศ.) แปลงเป็น ISO date (ค.ศ.) ก่อนเก็บลงคอลัมน์ acquired_date
+  const acquiredDay = Number(formData.get("acquired_day") ?? "");
+  const acquiredMonth = Number(formData.get("acquired_month") ?? "");
+  const acquiredYearBE = Number(formData.get("acquired_year_be") ?? "");
+  const hasAcquiredDate = acquiredDay > 0 && acquiredMonth > 0 && acquiredYearBE > 0;
+  const acquiredDateIso = hasAcquiredDate
+    ? `${acquiredYearBE - 543}-${String(acquiredMonth).padStart(2, "0")}-${String(acquiredDay).padStart(2, "0")}`
+    : null;
+
   const payload = {
     round_id,
     building,
@@ -51,12 +61,9 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     asset_code: String(formData.get("asset_code") ?? "").trim() || null,
     condition: String(formData.get("condition") ?? "usable") as "usable" | "damaged" | "disposal",
     note: String(formData.get("note") ?? "").trim() || null,
-    // ปีที่ได้มา (พ.ศ.) เก็บไว้เพื่อความเข้ากันได้ย้อนหลัง — คำนวณจากวันที่ได้มาที่กรอกจริงเสมอ
-    // ไม่ให้ผู้ใช้กรอกแยกอีกต่อไป
-    acquired_date: String(formData.get("acquired_date") ?? "").trim() || null,
-    acquired_year: formData.get("acquired_date")
-      ? new Date(String(formData.get("acquired_date"))).getFullYear() + 543
-      : null,
+    acquired_date: acquiredDateIso,
+    // เก็บปี พ.ศ. แยกไว้ด้วยเพื่อความเข้ากันได้ย้อนหลัง (ใช้อ้างอิงกับข้อมูลเก่าที่มีแต่ปี ไม่มีวันที่เต็ม)
+    acquired_year: hasAcquiredDate ? acquiredYearBE : null,
     budget_source_id: String(formData.get("budget_source_id") ?? "") || null,
     price: formData.get("price") ? Number(formData.get("price")) : null,
     vendor_name: String(formData.get("vendor_name") ?? "").trim() || null,
