@@ -9,7 +9,7 @@ const styles = StyleSheet.create({
   page: {
     fontFamily: "Sarabun",
     fontSize: 11,
-    padding: 32,
+    padding: 16,
     color: "#111827",
   },
   center: { textAlign: "center" },
