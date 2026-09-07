@@ -103,29 +103,37 @@ export type AssetRegisterPdfData = {
   schedule: AssetDepreciationRow[];
 };
 
+// react-pdf ตัดตัวอักษรตัวแรกของ Text ทิ้งเป็นบางครั้งแบบสุ่มเดา (เจอมาแล้วกับ "รายการ" -> "ายการ",
+// "อายุ" -> "ายุ") ไม่ว่าจะห่อด้วย View หรือไม่ก็ตาม เพิ่ม paddingLeft อย่างเดียวไม่พอ — ทางแก้ที่ได้ผล
+// จริงคือเติมช่องว่างนำหน้าข้อความเองเลย (เหมือนแพทเทิร์น t() ในไฟล์เดียวกันที่เติมช่องว่างต่อท้าย
+// กันตัวท้ายโดนตัดใน thai-pdf.ts) ตัวอักษรจริงตัวแรกจะได้ไม่ใช่ตัวที่โดนตัดทิ้ง — ใช้แทน t() ทุกจุด
+// ในไฟล์นี้ที่ข้อความอาจขึ้นต้นบรรทัด/เซลล์
+function guard(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "";
+  return ` ${t(value)}`;
+}
+
 function HeaderRow({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{t(label)}</Text>
-      <Text style={styles.value}>{t(value || "-")}</Text>
+      <Text style={styles.label}>{guard(label)}</Text>
+      <Text style={styles.value}>{guard(value || "-")}</Text>
     </View>
   );
 }
 
 // หัวตารางบางคอลัมน์แคบ (เช่น "อายุใช้งาน", "เสื่อมสะสม") เป็นคำไทยยาวไม่มีช่องว่างคั่นคำ ตัดบรรทัด
 // อัตโนมัติของ react-pdf ตัดกลางคำไม่ได้ ล้นทับคอลัมน์ข้างๆ (ดู note ใน AssetDepreciationRow ด้านบน) —
-// จึงกำหนดจุดตัดบรรทัดของหัวตารางเองล่วงหน้าเป็นอาร์เรย์บรรทัดสั้นๆ แทนสตริงยาวประโยคเดียว — ใช้ View
-// ครอบเฉพาะตอนมีหลายบรรทัดจริงๆ เท่านั้น เพราะเคยเจอ View ครอบ Text บรรทัดเดียวแล้วอักษรตัวแรก
-// (โดยเฉพาะ "ร") ถูกตัดหายที่ขอบซ้าย — ใช้ Text ตรงๆ (ไม่มี View ครอบ) กับกรณีบรรทัดเดียวแทน
+// จึงกำหนดจุดตัดบรรทัดของหัวตารางเองล่วงหน้าเป็นอาร์เรย์บรรทัดสั้นๆ แทนสตริงยาวประโยคเดียว
 function HeadCell({ style, lines }: { style: StyleProp; lines: string | string[] }) {
   if (typeof lines === "string") {
-    return <Text style={[style, styles.headLine]}>{t(lines)}</Text>;
+    return <Text style={[style, styles.headLine]}>{guard(lines)}</Text>;
   }
   return (
     <View style={style}>
       {lines.map((line, i) => (
         <Text style={styles.headLine} key={i}>
-          {t(line)}
+          {guard(line)}
         </Text>
       ))}
     </View>
@@ -139,7 +147,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.center}>
-          <Text style={styles.title}>{t("ทะเบียนคุมทรัพย์สิน (สพฐ.)")}</Text>
+          <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน (สพฐ.)")}</Text>
         </View>
 
         <View style={styles.hr} />
@@ -180,21 +188,21 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           </View>
           {data.schedule.map((row, i) => (
             <View style={styles.tRow} key={i}>
-              <Text style={[styles.cell, styles.colDate]}>{t(row.yearLabel)}</Text>
-              <Text style={[styles.cell, styles.colItem]}>{t(row.itemLabel)}</Text>
-              <Text style={[styles.cell, styles.colQty]}>{t(row.quantity ?? "")}</Text>
-              <Text style={[styles.cell, styles.colUnit]}>{t(row.unit ?? "")}</Text>
-              <Text style={[styles.cell, styles.colUnitPrice]}>{t(row.unitPrice != null ? formatBaht(row.unitPrice) : "")}</Text>
-              <Text style={[styles.cell, styles.colTotal]}>{t(row.total != null ? formatBaht(row.total) : "")}</Text>
-              <Text style={[styles.cell, styles.colLife]}>{t(row.usefulLifeYears ?? "")}</Text>
-              <Text style={[styles.cell, styles.colRate]}>{t(row.ratePercent != null ? row.ratePercent.toFixed(2) : "")}</Text>
-              <Text style={[styles.cell, styles.colAnnual]}>{t(row.annual != null ? formatBaht(row.annual) : "")}</Text>
-              <Text style={[styles.cell, styles.colCumulative]}>{t(row.cumulative != null ? formatBaht(row.cumulative) : "")}</Text>
-              <Text style={[styles.cell, styles.colNet]}>{t(row.net != null ? formatBaht(row.net) : "")}</Text>
+              <Text style={[styles.cell, styles.colDate]}>{guard(row.yearLabel)}</Text>
+              <Text style={[styles.cell, styles.colItem]}>{guard(row.itemLabel)}</Text>
+              <Text style={[styles.cell, styles.colQty]}>{guard(row.quantity ?? "")}</Text>
+              <Text style={[styles.cell, styles.colUnit]}>{guard(row.unit ?? "")}</Text>
+              <Text style={[styles.cell, styles.colUnitPrice]}>{guard(row.unitPrice != null ? formatBaht(row.unitPrice) : "")}</Text>
+              <Text style={[styles.cell, styles.colTotal]}>{guard(row.total != null ? formatBaht(row.total) : "")}</Text>
+              <Text style={[styles.cell, styles.colLife]}>{guard(row.usefulLifeYears ?? "")}</Text>
+              <Text style={[styles.cell, styles.colRate]}>{guard(row.ratePercent != null ? row.ratePercent.toFixed(2) : "")}</Text>
+              <Text style={[styles.cell, styles.colAnnual]}>{guard(row.annual != null ? formatBaht(row.annual) : "")}</Text>
+              <Text style={[styles.cell, styles.colCumulative]}>{guard(row.cumulative != null ? formatBaht(row.cumulative) : "")}</Text>
+              <Text style={[styles.cell, styles.colNet]}>{guard(row.net != null ? formatBaht(row.net) : "")}</Text>
               <View style={[styles.cellLast, styles.colNote]}>
                 {(row.note ?? []).map((line, j) => (
                   <Text style={styles.cellLine} key={j}>
-                    {t(line)}
+                    {guard(line)}
                   </Text>
                 ))}
               </View>
