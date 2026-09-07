@@ -53,7 +53,9 @@ const styles = StyleSheet.create({
   colNet: { width: "8%", textAlign: "right" },
   colNote: { width: "11%" },
   cellLine: { fontSize: 11 },
-  headLine: { fontSize: 11, fontWeight: "bold" },
+  // paddingLeft กันตัวอักษรแรก (โดยเฉพาะ "ร" ตัวหนา) โดนตัดที่ขอบซ้ายเซลล์ — เจอมาแล้วที่หัวตาราง
+  // "รายการ"/"ราคา/หน่วย" เรนเดอร์ออกมาขาดตัว ร ตัวแรกไปเฉยๆ
+  headLine: { fontSize: 11, fontWeight: "bold", paddingLeft: 2 },
 });
 
 export type AssetDepreciationRow = {
@@ -112,12 +114,16 @@ function HeaderRow({ label, value }: { label: string; value: string | null | und
 
 // หัวตารางบางคอลัมน์แคบ (เช่น "อายุใช้งาน", "เสื่อมสะสม") เป็นคำไทยยาวไม่มีช่องว่างคั่นคำ ตัดบรรทัด
 // อัตโนมัติของ react-pdf ตัดกลางคำไม่ได้ ล้นทับคอลัมน์ข้างๆ (ดู note ใน AssetDepreciationRow ด้านบน) —
-// จึงกำหนดจุดตัดบรรทัดของหัวตารางเองล่วงหน้าเป็นอาร์เรย์บรรทัดสั้นๆ แทนสตริงยาวประโยคเดียว
+// จึงกำหนดจุดตัดบรรทัดของหัวตารางเองล่วงหน้าเป็นอาร์เรย์บรรทัดสั้นๆ แทนสตริงยาวประโยคเดียว — ใช้ View
+// ครอบเฉพาะตอนมีหลายบรรทัดจริงๆ เท่านั้น เพราะเคยเจอ View ครอบ Text บรรทัดเดียวแล้วอักษรตัวแรก
+// (โดยเฉพาะ "ร") ถูกตัดหายที่ขอบซ้าย — ใช้ Text ตรงๆ (ไม่มี View ครอบ) กับกรณีบรรทัดเดียวแทน
 function HeadCell({ style, lines }: { style: StyleProp; lines: string | string[] }) {
-  const arr = Array.isArray(lines) ? lines : [lines];
+  if (typeof lines === "string") {
+    return <Text style={[style, styles.headLine]}>{t(lines)}</Text>;
+  }
   return (
     <View style={style}>
-      {arr.map((line, i) => (
+      {lines.map((line, i) => (
         <Text style={styles.headLine} key={i}>
           {t(line)}
         </Text>
