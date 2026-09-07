@@ -173,11 +173,11 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         <View style={styles.rightAlign}>
           <View style={styles.row}>
             <Text style={styles.label}>{guard("ส่วนราชการ")}</Text>
-            <Text>{guard(data.school_name || "-")}</Text>
+            <Text>{guard(data.education_area || "-")}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>{guard("หน่วยงาน")}</Text>
-            <Text>{guard("-")}</Text>
+            <Text>{guard(data.school_name || "-")}</Text>
           </View>
         </View>
 
