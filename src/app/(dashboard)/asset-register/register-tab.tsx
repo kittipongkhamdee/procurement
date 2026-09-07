@@ -425,6 +425,8 @@ export function RegisterTab({
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -463,6 +465,15 @@ export function RegisterTab({
     return true;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  function updateFilter(setter: (v: string) => void, value: string) {
+    setter(value);
+    setPage(1);
+  }
+
   if (items === null) return <p className="table-empty">กำลังโหลดข้อมูล...</p>;
 
   return (
@@ -471,7 +482,7 @@ export function RegisterTab({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
           <div>
             <label className="label">รอบสำรวจ</label>
-            <select value={roundFilter} onChange={(e) => setRoundFilter(e.target.value)} className="input">
+            <select value={roundFilter} onChange={(e) => updateFilter(setRoundFilter, e.target.value)} className="input">
               <option value={ALL}>ทั้งหมด</option>
               {rounds.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -482,7 +493,7 @@ export function RegisterTab({
           </div>
           <div>
             <label className="label">หมวดหมู่</label>
-            <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="input">
+            <select value={categoryFilter} onChange={(e) => updateFilter(setCategoryFilter, e.target.value)} className="input">
               <option value={ALL}>ทั้งหมด</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -493,7 +504,7 @@ export function RegisterTab({
           </div>
           <div>
             <label className="label">สถานะ</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input">
+            <select value={statusFilter} onChange={(e) => updateFilter(setStatusFilter, e.target.value)} className="input">
               <option value={ALL}>ทั้งหมด</option>
               <option value="draft">แบบร่าง</option>
               <option value="submitted">รอตรวจสอบ</option>
@@ -503,7 +514,7 @@ export function RegisterTab({
           </div>
           <div>
             <label className="label">สภาพ</label>
-            <select value={conditionFilter} onChange={(e) => setConditionFilter(e.target.value)} className="input">
+            <select value={conditionFilter} onChange={(e) => updateFilter(setConditionFilter, e.target.value)} className="input">
               <option value={ALL}>ทั้งหมด</option>
               <option value="usable">ใช้งานได้</option>
               <option value="damaged">ชำรุด</option>
@@ -514,7 +525,7 @@ export function RegisterTab({
             <label className="label">ค้นหา</label>
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => updateFilter(setSearch, e.target.value)}
               placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่"
               className="input"
             />
@@ -558,7 +569,7 @@ export function RegisterTab({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((it) => {
+            {pageRows.map((it) => {
               const sb = statusBadge(it.status);
               const cb = conditionBadge(it.condition);
               return (
@@ -604,6 +615,32 @@ export function RegisterTab({
             )}
           </tbody>
         </table>
+
+        {filtered.length > 0 && totalPages > 1 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 px-4 py-3 text-sm">
+            <span className="text-slate-500">
+              หน้า {currentPage} จาก {totalPages} ({filtered.length.toLocaleString("th-TH")} รายการ)
+            </span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ก่อนหน้า
+              </button>
+              <button
+                type="button"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ถัดไป
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
