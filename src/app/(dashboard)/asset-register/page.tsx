@@ -34,6 +34,7 @@ export default function AssetRegisterPage() {
   const [buildings, setBuildings] = useState<Lookup[]>([]);
   const [units, setUnits] = useState<Lookup[]>([]);
   const [budgetSources, setBudgetSources] = useState<Lookup[]>([]);
+  const [acquisitionMethods, setAcquisitionMethods] = useState<Lookup[]>([]);
   const [rounds, setRounds] = useState<SurveyRound[]>([]);
 
   const reload = useCallback(async () => {
@@ -44,6 +45,7 @@ export default function AssetRegisterPage() {
       { data: buildingsData },
       { data: unitsData },
       { data: budgetSourcesData },
+      { data: acquisitionMethodsData },
       { data: roundsData },
     ] = await Promise.all([
       supabase
@@ -54,12 +56,14 @@ export default function AssetRegisterPage() {
       supabase.from("asset_buildings").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("asset_units").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("asset_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("asset_acquisition_methods").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("asset_survey_rounds").select("id, year, name, is_open").order("year", { ascending: false }),
     ]);
     setCategories(categoriesData ?? []);
     setBuildings(buildingsData ?? []);
     setUnits(unitsData ?? []);
     setBudgetSources(budgetSourcesData ?? []);
+    setAcquisitionMethods(acquisitionMethodsData ?? []);
     setRounds(roundsData ?? []);
     setLoading(false);
   }, []);
@@ -75,6 +79,7 @@ export default function AssetRegisterPage() {
   const activeBuildings = buildings.filter((b) => b.is_active);
   const activeUnits = units.filter((u) => u.is_active);
   const activeBudgetSources = budgetSources.filter((s) => s.is_active);
+  const activeAcquisitionMethods = acquisitionMethods.filter((m) => m.is_active);
 
   return (
     <div>
@@ -111,6 +116,7 @@ export default function AssetRegisterPage() {
             buildings={activeBuildings}
             units={activeUnits}
             budgetSources={activeBudgetSources}
+            acquisitionMethods={activeAcquisitionMethods}
             onChanged={reload}
           />
         )}
@@ -121,6 +127,7 @@ export default function AssetRegisterPage() {
             buildings={buildings}
             units={units}
             budgetSources={budgetSources}
+            acquisitionMethods={acquisitionMethods}
             onChanged={reload}
           />
         )}

@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      asset_acquisition_methods: {
+        Row: {
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       asset_budget_sources: {
         Row: {
           id: string
@@ -88,6 +109,7 @@ export type Database = {
           acquired_date: string | null
           acquired_year: number | null
           acquisition_method: string | null
+          acquisition_method_id: string | null
           asset_code: string | null
           budget_source_id: string | null
           building: string
@@ -122,6 +144,7 @@ export type Database = {
           acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null
+          acquisition_method_id?: string | null
           asset_code?: string | null
           budget_source_id?: string | null
           building: string
@@ -156,6 +179,7 @@ export type Database = {
           acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null
+          acquisition_method_id?: string | null
           asset_code?: string | null
           budget_source_id?: string | null
           building?: string
@@ -187,6 +211,13 @@ export type Database = {
           vendor_phone?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "asset_items_acquisition_method_id_fkey"
+            columns: ["acquisition_method_id"]
+            isOneToOne: false
+            referencedRelation: "asset_acquisition_methods"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "asset_items_budget_source_id_fkey"
             columns: ["budget_source_id"]

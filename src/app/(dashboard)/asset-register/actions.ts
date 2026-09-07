@@ -66,7 +66,7 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     vendor_name: String(formData.get("vendor_name") ?? "").trim() || null,
     vendor_address: String(formData.get("vendor_address") ?? "").trim() || null,
     vendor_phone: String(formData.get("vendor_phone") ?? "").trim() || null,
-    acquisition_method: String(formData.get("acquisition_method") ?? "").trim() || null,
+    acquisition_method_id: String(formData.get("acquisition_method_id") ?? "") || null,
     model: String(formData.get("model") ?? "").trim() || null,
     spec: String(formData.get("spec") ?? "").trim() || null,
   };
@@ -263,6 +263,40 @@ export async function toggleAssetBudgetSourceActive(id: string, isActive: boolea
 export async function deleteAssetBudgetSource(id: string) {
   const { supabase } = await requireAssetStaff();
   const { error } = await supabase.from("asset_budget_sources").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+// ---------------- asset_acquisition_methods ----------------
+
+export async function createAssetAcquisitionMethod(formData: FormData) {
+  const { supabase } = await requireAssetStaff();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("asset_acquisition_methods").insert({ name });
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function updateAssetAcquisitionMethodName(id: string, formData: FormData) {
+  const { supabase } = await requireAssetStaff();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("asset_acquisition_methods").update({ name }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function toggleAssetAcquisitionMethodActive(id: string, isActive: boolean) {
+  const { supabase } = await requireAssetStaff();
+  const { error } = await supabase.from("asset_acquisition_methods").update({ is_active: !isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function deleteAssetAcquisitionMethod(id: string) {
+  const { supabase } = await requireAssetStaff();
+  const { error } = await supabase.from("asset_acquisition_methods").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(PATH);
 }

@@ -35,7 +35,7 @@ type AssetItem = {
   vendor_name: string | null;
   vendor_address: string | null;
   vendor_phone: string | null;
-  acquisition_method: string | null;
+  acquisition_method_id: string | null;
   model: string | null;
   spec: string | null;
 };
@@ -67,6 +67,7 @@ function ItemModal({
   buildings,
   units,
   budgetSources,
+  acquisitionMethods,
   rounds,
   defaultRoundId,
   onSaved,
@@ -77,6 +78,7 @@ function ItemModal({
   buildings: Option[];
   units: Option[];
   budgetSources: Option[];
+  acquisitionMethods: Option[];
   rounds: { id: string; year: number; name: string }[];
   defaultRoundId: string;
   onSaved: () => void;
@@ -334,7 +336,14 @@ function ItemModal({
             </div>
             <div>
               <label className="label">วิธีการได้มา</label>
-              <input name="acquisition_method" defaultValue={item?.acquisition_method ?? ""} className="input" />
+              <select name="acquisition_method_id" defaultValue={item?.acquisition_method_id ?? ""} className="input">
+                <option value="">ไม่ระบุ</option>
+                {acquisitionMethods.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label">ยี่ห้อ/รุ่น</label>
@@ -421,6 +430,7 @@ export function RegisterTab({
   buildings,
   units,
   budgetSources,
+  acquisitionMethods,
   onChanged,
 }: {
   canManage: boolean;
@@ -429,6 +439,7 @@ export function RegisterTab({
   buildings: Option[];
   units: Option[];
   budgetSources: Option[];
+  acquisitionMethods: Option[];
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<AssetItem[] | null>(null);
@@ -445,7 +456,7 @@ export function RegisterTab({
     const { data } = await supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method, model, spec",
+        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
       )
       .order("created_at", { ascending: false });
     setItems((data as unknown as AssetItem[]) ?? []);
@@ -558,6 +569,7 @@ export function RegisterTab({
             buildings={buildings}
             units={units}
             budgetSources={budgetSources}
+            acquisitionMethods={acquisitionMethods}
             rounds={rounds}
             defaultRoundId={defaultRoundId}
             onSaved={handleChanged}
@@ -615,6 +627,7 @@ export function RegisterTab({
                         buildings={buildings}
                         units={units}
                         budgetSources={budgetSources}
+                        acquisitionMethods={acquisitionMethods}
                         rounds={rounds}
                         defaultRoundId={defaultRoundId}
                         onSaved={handleChanged}
