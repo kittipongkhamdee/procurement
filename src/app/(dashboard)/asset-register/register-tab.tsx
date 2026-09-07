@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess, confirmDelete } from "@/lib/swal";
 import { Modal, type ModalHandle } from "@/components/modal";
-import { PencilIcon, PlusIcon } from "@/components/icons";
+import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
 import { deleteAssetItem, updateAssetItemStatus, upsertAssetItem } from "./actions";
 
 type Option = { id: string; name: string };
@@ -591,17 +591,23 @@ export function RegisterTab({
                     <span className={sb.cls}>{sb.label}</span>
                   </td>
                   <td className="whitespace-nowrap text-right">
-                    <ItemModal
-                      item={it}
-                      canManage={canManage}
-                      categories={categories}
-                      buildings={buildings}
-                      units={units}
-                      budgetSources={budgetSources}
-                      rounds={rounds}
-                      defaultRoundId={defaultRoundId}
-                      onSaved={handleChanged}
-                    />
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <a href={`/asset-register/${it.id}/pdf`} target="_blank" className="btn-secondary btn-sm">
+                        <PrinterIcon className="h-3.5 w-3.5" />
+                        พิมพ์
+                      </a>
+                      <ItemModal
+                        item={it}
+                        canManage={canManage}
+                        categories={categories}
+                        buildings={buildings}
+                        units={units}
+                        budgetSources={budgetSources}
+                        rounds={rounds}
+                        defaultRoundId={defaultRoundId}
+                        onSaved={handleChanged}
+                      />
+                    </div>
                   </td>
                 </tr>
               );
