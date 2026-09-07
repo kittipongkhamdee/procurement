@@ -17,18 +17,7 @@ function formatShortThaiDate(isoDate: string): string {
 const NO_DEPRECIATION_THRESHOLD = 5000;
 const MAX_SCHEDULE_ROWS = 60;
 
-/** ปีงบประมาณปัจจุบัน คิดค่าเสื่อมราคาถึง 30 กันยายนของปีนี้เสมอ แม้วันที่พิมพ์จะยังไม่ถึง 30 ก.ย.
- * ก็ตาม (ครูอาจต้องพิมพ์เอกสารเตรียมไว้ล่วงหน้าก่อนสิ้นปีงบประมาณ) ใช้เป็นเพดานการคำนวณค่าเสื่อม
- * ราคารายปี (ไม่มีวันที่ได้มาแบบเต็ม มีแค่ปี พ.ศ. ที่ได้มา จึงคำนวณเป็นรายปีเท่านั้น ไม่ใช่รายเดือน
- * แบบละเอียดเหมือนไฟล์ตัวอย่างที่มีวันที่เต็ม) */
-function currentFiscalYearEndBE(): number {
-  return new Date().getFullYear() + 543;
-}
-
-/** คำนวณตารางค่าเสื่อมราคาแบบเส้นตรง (straight-line) รายปี ตั้งแต่ปีที่ได้มาจนถึงปีปัจจุบันหรือ
- * จนมูลค่าสุทธิเหลือ 1 บาท (ตามหลักเกณฑ์ สพฐ. ที่คงมูลค่าทางบัญชีไว้ 1 บาทไม่ให้เป็นศูนย์) —
- * ทรัพย์สินมูลค่าไม่เกิน 5,000 บาท ไม่ต้องคำนวณค่าเสื่อมราคาตามระเบียบ จึงมีแค่แถวรับเข้ารายการเดียว */
-function buildDepreciationSchedule(item: {
+function acquireRowFor(item: {
   name: string;
   quantity: number;
   unit: string | null;
@@ -37,9 +26,9 @@ function buildDepreciationSchedule(item: {
   acquired_year: number | null;
   useful_life_years: number | null;
   depreciation_rate_percent: number | null;
-}): AssetDepreciationRow[] {
+}): AssetDepreciationRow {
   const unitPrice = item.price != null && item.quantity > 0 ? item.price / item.quantity : item.price;
-  const acquireRow: AssetDepreciationRow = {
+  return {
     yearLabel: item.acquired_date ? formatShortThaiDate(item.acquired_date) : item.acquired_year != null ? String(item.acquired_year) : "-",
     itemLabel: item.name,
     quantity: item.quantity,
@@ -56,20 +45,83 @@ function buildDepreciationSchedule(item: {
         ? ["ไม่คำนวณค่าเสื่อม", "(มูลค่าไม่เกิน", "5,000 บาท)"]
         : null,
   };
+}
 
-  if (
-    item.price == null ||
-    item.price <= NO_DEPRECIATION_THRESHOLD ||
-    item.acquired_year == null ||
-    !item.depreciation_rate_percent
-  ) {
-    return [acquireRow];
+/** คำนวณตารางค่าเสื่อมราคาแบบเส้นตรงรายเดือนจากวันที่ได้มาจริง (ตามรอบปีงบประมาณ ตัดยอด 30 กันยายน
+ * — เหมือนไฟล์ตัวอย่างที่ส่งมา): ค่าเสื่อมต่อเดือน = ราคา ÷ (อายุใช้งานปี × 12) แบ่งเป็นงวดตามรอบปี
+ * งบประมาณ — งวดแรก (ตั้งแต่เดือนที่ได้มาถึง ก.ย. ของปีงบประมาณเดียวกัน) มักไม่เต็ม 12 เดือน จากนั้น
+ * เป็นงวดละ 12 เดือนเต็ม จนงวดสุดท้ายที่อาจไม่เต็ม 12 เดือนอีกครั้งเมื่อครบอายุใช้งาน — คิดถึงปี
+ * งบประมาณปัจจุบันเสมอแม้ยังไม่ถึงวันที่ 30 ก.ย. จริง (ครูอาจต้องพิมพ์เอกสารเตรียมไว้ล่วงหน้า) */
+function buildDepreciationScheduleByDate(item: {
+  name: string;
+  quantity: number;
+  unit: string | null;
+  price: number | null;
+  acquired_date: string;
+  useful_life_years: number;
+}): AssetDepreciationRow[] {
+  const price = item.price as number;
+  const totalMonths = item.useful_life_years * 12;
+  const monthlyDep = price / totalMonths;
+
+  const [acqYear, acqMonth] = item.acquired_date.slice(0, 10).split("-").map(Number);
+  // ปีงบประมาณราชการ: ต.ค.-ก.ย. — ถ้าได้มาในเดือน ม.ค.-ก.ย. ปีงบประมาณสิ้นสุด ก.ย. ปีเดียวกัน
+  // ถ้าได้มาในเดือน ต.ค.-ธ.ค. ปีงบประมาณสิ้นสุด ก.ย. ปีถัดไป
+  let fiscalYearEndAD = acqMonth <= 9 ? acqYear : acqYear + 1;
+  const firstPeriodMonths = (fiscalYearEndAD - acqYear) * 12 + (9 - acqMonth) + 1;
+
+  const currentFiscalYearEndAD = new Date().getMonth() + 1 <= 9 ? new Date().getFullYear() : new Date().getFullYear() + 1;
+
+  const rows: AssetDepreciationRow[] = [];
+  let cumulative = 0;
+  let remainingMonths = totalMonths;
+  let periodMonths = Math.min(firstPeriodMonths, remainingMonths);
+  let rowCount = 0;
+
+  while (remainingMonths > 0 && fiscalYearEndAD <= currentFiscalYearEndAD && rowCount < MAX_SCHEDULE_ROWS) {
+    const remainingValue = price - cumulative;
+    if (remainingValue <= 1) break;
+    const dep = Math.min(monthlyDep * periodMonths, remainingValue - 1);
+    cumulative += dep;
+    const net = price - cumulative;
+    const yearBE = fiscalYearEndAD + 543;
+    rows.push({
+      yearLabel: `30/09/${yearBE}`,
+      itemLabel: `ค่าเสื่อมราคา ${periodMonths} เดือน`,
+      quantity: null,
+      unit: null,
+      unitPrice: null,
+      total: null,
+      usefulLifeYears: null,
+      ratePercent: null,
+      annual: dep,
+      cumulative,
+      net,
+      note: net <= 1 ? ["คงมูลค่าบัญชี", "ไว้ 1 บาท"] : null,
+    });
+    if (net <= 1) break;
+
+    remainingMonths -= periodMonths;
+    fiscalYearEndAD += 1;
+    periodMonths = Math.min(12, remainingMonths);
+    rowCount += 1;
   }
 
-  const rows: AssetDepreciationRow[] = [acquireRow];
+  return rows;
+}
+
+/** คำนวณตารางค่าเสื่อมราคาแบบเส้นตรงรายปี (ไม่มีวันที่ได้มาแบบเต็ม มีแค่ปี พ.ศ. — ใช้กับรายการเก่าที่
+ * ยังไม่ได้กรอกวันที่เต็ม) ตั้งแต่ปีที่ได้มาจนถึงปีงบประมาณปัจจุบัน หรือจนมูลค่าสุทธิเหลือ 1 บาท */
+function buildDepreciationScheduleByYear(item: {
+  price: number;
+  acquired_year: number;
+  depreciation_rate_percent: number;
+}): AssetDepreciationRow[] {
+  const rows: AssetDepreciationRow[] = [];
   const rate = item.depreciation_rate_percent / 100;
   const annualDep = item.price * rate;
-  const lastYear = Math.min(currentFiscalYearEndBE(), item.acquired_year + MAX_SCHEDULE_ROWS);
+  const currentFiscalYearEndBE = new Date().getFullYear() + 543;
+  const lastYear = Math.min(currentFiscalYearEndBE, item.acquired_year + MAX_SCHEDULE_ROWS);
   let cumulative = 0;
 
   for (let year = item.acquired_year + 1; year <= lastYear; year++) {
@@ -96,6 +148,52 @@ function buildDepreciationSchedule(item: {
   }
 
   return rows;
+}
+
+/** ทรัพย์สินมูลค่าไม่เกิน 5,000 บาท ไม่ต้องคำนวณค่าเสื่อมราคาตามระเบียบ จึงมีแค่แถวรับเข้ารายการเดียว
+ * — มีวันที่ได้มาแบบเต็มและอายุใช้งานครบ ใช้การคำนวณรายเดือนตามจริง ไม่งั้น fallback เป็นรายปี */
+function buildDepreciationSchedule(item: {
+  name: string;
+  quantity: number;
+  unit: string | null;
+  price: number | null;
+  acquired_date: string | null;
+  acquired_year: number | null;
+  useful_life_years: number | null;
+  depreciation_rate_percent: number | null;
+}): AssetDepreciationRow[] {
+  const acquireRow = acquireRowFor(item);
+
+  if (item.price == null || item.price <= NO_DEPRECIATION_THRESHOLD) {
+    return [acquireRow];
+  }
+
+  if (item.acquired_date && item.useful_life_years) {
+    return [
+      acquireRow,
+      ...buildDepreciationScheduleByDate({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        price: item.price,
+        acquired_date: item.acquired_date,
+        useful_life_years: item.useful_life_years,
+      }),
+    ];
+  }
+
+  if (item.acquired_year && item.depreciation_rate_percent) {
+    return [
+      acquireRow,
+      ...buildDepreciationScheduleByYear({
+        price: item.price,
+        acquired_year: item.acquired_year,
+        depreciation_rate_percent: item.depreciation_rate_percent,
+      }),
+    ];
+  }
+
+  return [acquireRow];
 }
 
 export async function buildAssetRegisterPdfData(
