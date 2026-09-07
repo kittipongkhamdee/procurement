@@ -16,7 +16,13 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
   // "ส่วนราชการ"/"หน่วยงาน" อยู่ชิดขวาบนของฟอร์ม (ตามแบบฟอร์มทะเบียนคุมทรัพย์สินมาตรฐาน) แยกจาก
   // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
-  rightAlign: { alignItems: "flex-end", marginBottom: 4 },
+  // alignSelf (ไม่ใช่ alignItems) ดันกล่องทั้งกล่องไปชิดขวาสุดของหน้า แต่ปล่อยให้แถวข้างในเรียงชิดซ้าย
+  // ตามปกติภายในกล่องเอง ทำให้ขอบซ้ายของทั้ง 2 แถวตรงกัน (ถ้าใช้ alignItems: "flex-end" แทน แต่ละแถว
+  // จะถูกดันชิดขวาแยกกันเอง ทำให้ขอบซ้ายเยื้องกันเมื่อความยาวข้อความ/ป้ายไม่เท่ากัน)
+  rightAlign: { alignSelf: "flex-end", marginBottom: 4 },
+  // ป้าย "ส่วนราชการ"/"หน่วยงาน" ยาวไม่เท่ากัน (5 กับ 4 ตัวอักษร) — กำหนดความกว้างคงที่ให้ป้าย
+  // ทั้งสองแถวเพื่อให้ขอบซ้ายของป้าย (และค่าที่ตามมา) เริ่มตรงตำแหน่งเดียวกันทั้งคู่
+  rightLabel: { fontWeight: "bold", marginRight: 8, width: 70 },
   row: { flexDirection: "row", marginBottom: 4 },
   // คอลัมน์ตายตัว 3 คอลัมน์ (33.33% เท่ากันทุกแถว) ให้ป้ายชื่อ/ค่าในแต่ละแถวเรียงตรงแนวเดียวกันแนวตั้ง
   // ไม่ว่าแถวนั้นจะมีกี่ช่อง (2 หรือ 3 ช่อง) ก็ยังอยู่ตำแหน่งคอลัมน์เดียวกับแถวอื่นๆ
@@ -172,11 +178,11 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
 
         <View style={styles.rightAlign}>
           <View style={styles.row}>
-            <Text style={styles.label}>{guard("ส่วนราชการ")}</Text>
+            <Text style={styles.rightLabel}>{guard("ส่วนราชการ")}</Text>
             <Text>{guard(data.education_area || "-")}</Text>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>{guard("หน่วยงาน")}</Text>
+            <Text style={styles.rightLabel}>{guard("หน่วยงาน")}</Text>
             <Text>{guard(data.school_name || "-")}</Text>
           </View>
         </View>
