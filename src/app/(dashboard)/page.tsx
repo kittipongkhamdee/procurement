@@ -511,7 +511,7 @@ export default function DashboardPage() {
                       <td className="min-w-[120px]">
                         <div className="flex h-2.5 overflow-hidden rounded-sm border border-slate-200 bg-slate-100">
                           <div style={{ width: `${spentPct}%`, background: GOOD }} />
-                          <div style={{ width: `${100 - spentPct}%`, background: WARN, opacity: 0.55 }} />
+                          <div style={{ width: `${100 - spentPct}%`, background: NEUTRAL }} />
                         </div>
                       </td>
                       <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(g.budget)}</td>
