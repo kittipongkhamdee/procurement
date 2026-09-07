@@ -1,4 +1,4 @@
-const THAI_MONTHS = [
+export const THAI_MONTHS = [
   "",
   "มกราคม",
   "กุมภาพันธ์",

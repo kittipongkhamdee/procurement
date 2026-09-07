@@ -3,6 +3,7 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { DashboardShell } from "@/components/dashboard-shell";
 import {
   ArchiveIcon,
+  BoxIcon,
   ClipboardCheckIcon,
   FileSignatureIcon,
   FileTextIcon,
@@ -43,6 +44,7 @@ const NAV_SECTIONS = [
       { href: "/vendors", label: "ข้อมูลผู้ขาย/ผู้รับจ้าง", icon: <StoreIcon className={ICON_CLASS} /> },
       { href: "/contracts", label: "งานสัญญาจ้าง", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/deliveries", label: "บันทึกส่งมอบงาน", icon: <TruckIcon className={ICON_CLASS} /> },
+      { href: "/asset-register", label: "ทะเบียนคุมทรัพย์สิน", icon: <BoxIcon className={ICON_CLASS} /> },
     ],
   },
   {

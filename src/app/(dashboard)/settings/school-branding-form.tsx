@@ -13,6 +13,8 @@ import type {
 export function SchoolBrandingForm({
   schoolName,
   logoUrl,
+  educationArea,
+  schoolAddress,
   setSchoolName,
   uploadSchoolLogo,
   removeSchoolLogo,
@@ -20,6 +22,8 @@ export function SchoolBrandingForm({
 }: {
   schoolName: string;
   logoUrl: string | null;
+  educationArea: string | null;
+  schoolAddress: string | null;
   setSchoolName: typeof setSchoolNameAction;
   uploadSchoolLogo: typeof uploadSchoolLogoAction;
   removeSchoolLogo: typeof removeSchoolLogoAction;
@@ -27,6 +31,8 @@ export function SchoolBrandingForm({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(schoolName);
+  const [educationAreaValue, setEducationAreaValue] = useState(educationArea ?? "");
+  const [schoolAddressValue, setSchoolAddressValue] = useState(schoolAddress ?? "");
   const [savingName, setSavingName] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [removingLogo, setRemovingLogo] = useState(false);
@@ -37,8 +43,10 @@ export function SchoolBrandingForm({
     try {
       const fd = new FormData();
       fd.set("school_name", name);
+      fd.set("education_area", educationAreaValue);
+      fd.set("school_address", schoolAddressValue);
       await setSchoolName(fd);
-      await toastSuccess("บันทึกชื่อโรงเรียนแล้ว");
+      await toastSuccess("บันทึกข้อมูลโรงเรียนแล้ว");
       onChanged();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -135,8 +143,26 @@ export function SchoolBrandingForm({
           <label className="label">ชื่อโรงเรียน</label>
           <input value={name} onChange={(e) => setName(e.target.value)} required className="input" />
         </div>
+        <div>
+          <label className="label">ส่วนราชการ (หน่วยงานต้นสังกัด)</label>
+          <input
+            value={educationAreaValue}
+            onChange={(e) => setEducationAreaValue(e.target.value)}
+            placeholder="เช่น สำนักงานเขตพื้นที่การศึกษาประถมศึกษา..."
+            className="input"
+          />
+        </div>
+        <div>
+          <label className="label">ที่อยู่โรงเรียน</label>
+          <input
+            value={schoolAddressValue}
+            onChange={(e) => setSchoolAddressValue(e.target.value)}
+            placeholder="เช่น ม.4 ต.... อ.... จ.... รหัสไปรษณีย์"
+            className="input"
+          />
+        </div>
         <button type="submit" disabled={savingName} className="btn-primary">
-          {savingName ? "กำลังบันทึก..." : "บันทึกชื่อโรงเรียน"}
+          {savingName ? "กำลังบันทึก..." : "บันทึกข้อมูลโรงเรียน"}
         </button>
       </form>
     </div>

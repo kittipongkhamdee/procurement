@@ -85,6 +85,7 @@ export type Database = {
       }
       asset_items: {
         Row: {
+          acquired_date: string | null
           acquired_year: number | null
           acquisition_method: string | null
           asset_code: string | null
@@ -106,6 +107,7 @@ export type Database = {
           reviewed_by: string | null
           room: string
           round_id: string
+          sequence_no: string | null
           spec: string | null
           status: Database["public"]["Enums"]["asset_item_status"]
           surveyed_by: string | null
@@ -117,6 +119,7 @@ export type Database = {
           vendor_phone: string | null
         }
         Insert: {
+          acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null
           asset_code?: string | null
@@ -138,6 +141,7 @@ export type Database = {
           reviewed_by?: string | null
           room: string
           round_id: string
+          sequence_no?: string | null
           spec?: string | null
           status?: Database["public"]["Enums"]["asset_item_status"]
           surveyed_by?: string | null
@@ -149,6 +153,7 @@ export type Database = {
           vendor_phone?: string | null
         }
         Update: {
+          acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null
           asset_code?: string | null
@@ -170,6 +175,7 @@ export type Database = {
           reviewed_by?: string | null
           room?: string
           round_id?: string
+          sequence_no?: string | null
           spec?: string | null
           status?: Database["public"]["Enums"]["asset_item_status"]
           surveyed_by?: string | null
@@ -1931,20 +1937,26 @@ export type Database = {
       }
       proc_school_settings: {
         Row: {
+          education_area: string | null
           id: boolean
           logo_url: string | null
+          school_address: string | null
           school_name: string
           updated_at: string
         }
         Insert: {
+          education_area?: string | null
           id?: boolean
           logo_url?: string | null
+          school_address?: string | null
           school_name?: string
           updated_at?: string
         }
         Update: {
+          education_area?: string | null
           id?: boolean
           logo_url?: string | null
+          school_address?: string | null
           school_name?: string
           updated_at?: string
         }
