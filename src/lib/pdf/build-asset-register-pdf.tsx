@@ -10,17 +10,12 @@ import {
 const NO_DEPRECIATION_THRESHOLD = 5000;
 const MAX_SCHEDULE_ROWS = 60;
 
-/** ปีงบประมาณล่าสุดที่ครบรอบการคำนวณค่าเสื่อมราคาแล้ว (คิด ณ วันที่ 30 กันยายน ของปีนั้นๆ ตาม
- * รอบปีงบประมาณราชการ) ใช้เป็นเพดานการคำนวณค่าเสื่อมราคารายปี — ถ้าวันนี้ผ่าน 30 ก.ย. ของปีนี้มาแล้ว
- * ถือว่าปีนี้ครบรอบแล้ว ถ้ายังไม่ถึง ให้ถือว่าปีที่แล้วเป็นปีล่าสุดที่ครบรอบ (ไม่มีวันที่ได้มาแบบเต็ม
- * มีแค่ปี พ.ศ. ที่ได้มา จึงคำนวณเป็นรายปีเท่านั้น ไม่ใช่รายเดือนแบบละเอียดเหมือนไฟล์ตัวอย่างที่มีวันที่เต็ม) */
-function lastFiscalYearEndBE(): number {
-  const now = new Date();
-  const adYear = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
-  const passedThisYearCutoff = month > 9 || (month === 9 && day >= 30);
-  return (passedThisYearCutoff ? adYear : adYear - 1) + 543;
+/** ปีงบประมาณปัจจุบัน คิดค่าเสื่อมราคาถึง 30 กันยายนของปีนี้เสมอ แม้วันที่พิมพ์จะยังไม่ถึง 30 ก.ย.
+ * ก็ตาม (ครูอาจต้องพิมพ์เอกสารเตรียมไว้ล่วงหน้าก่อนสิ้นปีงบประมาณ) ใช้เป็นเพดานการคำนวณค่าเสื่อม
+ * ราคารายปี (ไม่มีวันที่ได้มาแบบเต็ม มีแค่ปี พ.ศ. ที่ได้มา จึงคำนวณเป็นรายปีเท่านั้น ไม่ใช่รายเดือน
+ * แบบละเอียดเหมือนไฟล์ตัวอย่างที่มีวันที่เต็ม) */
+function currentFiscalYearEndBE(): number {
+  return new Date().getFullYear() + 543;
 }
 
 /** คำนวณตารางค่าเสื่อมราคาแบบเส้นตรง (straight-line) รายปี ตั้งแต่ปีที่ได้มาจนถึงปีปัจจุบันหรือ
@@ -66,7 +61,7 @@ function buildDepreciationSchedule(item: {
   const rows: AssetDepreciationRow[] = [acquireRow];
   const rate = item.depreciation_rate_percent / 100;
   const annualDep = item.price * rate;
-  const lastYear = Math.min(lastFiscalYearEndBE(), item.acquired_year + MAX_SCHEDULE_ROWS);
+  const lastYear = Math.min(currentFiscalYearEndBE(), item.acquired_year + MAX_SCHEDULE_ROWS);
   let cumulative = 0;
 
   for (let year = item.acquired_year + 1; year <= lastYear; year++) {
