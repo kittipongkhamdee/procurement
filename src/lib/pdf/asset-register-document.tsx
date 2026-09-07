@@ -198,6 +198,12 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             <DoubleHeaderRow label1="ชื่อทรัพย์สิน" value1={data.name} label2="ยี่ห้อ/รุ่น" value2={data.model} />
             <HeaderRow label="แบบ/ลักษณะ" value={data.spec} />
             <HeaderRow label="สถานที่ตั้ง/หน่วยงาน" value={location} />
+            <DoubleHeaderRow
+              label1="ประเภทเงิน"
+              value1={data.budget_source_name}
+              label2="วิธีการได้มา"
+              value2={data.acquisition_method}
+            />
           </View>
           <View style={styles.headerCol}>
             <HeaderRow label="ส่วนราชการ" value={data.school_name} />
@@ -206,12 +212,6 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             <HeaderRow
               label={["ที่อยู่ผู้ขาย/ผู้รับจ้าง/", "ผู้บริจาค"]}
               value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null}
-            />
-            <DoubleHeaderRow
-              label1="ประเภทเงิน"
-              value1={data.budget_source_name}
-              label2="วิธีการได้มา"
-              value2={data.acquisition_method}
             />
           </View>
         </View>
