@@ -61,10 +61,10 @@ const styles = StyleSheet.create({
   colTotal: { width: "8%", textAlign: "right" },
   colLife: { width: "5%", textAlign: "right" },
   colRate: { width: "5%", textAlign: "right" },
-  colAnnual: { width: "6%", textAlign: "right" },
+  colAnnual: { width: "7%", textAlign: "right" },
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
-  colNote: { width: "8%" },
+  colNote: { width: "7%" },
   cellLine: { fontSize: 11 },
   // ไม่ใช้ fontWeight: "bold" — เจอบั๊กซ้ำๆ ว่าตัวอักษรตัวแรกของ Text ตัวหนาที่อยู่ในคอลัมน์กว้างแบบ
   // % (เช่น "รายการ", "อายุใช้งาน") โดนตัดหายไปเฉยๆ เฉพาะกรณีนี้ (Text ตัวหนาที่กว้างคงที่ เช่น ป้ายชื่อ
@@ -215,7 +215,9 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         />
 
         <View style={[styles.table, { marginTop: 8 }]}>
-          <View style={styles.tHeadRow}>
+          {/* fixed ทำให้แถวหัวตารางนี้พิมพ์ซ้ำที่ตำแหน่งเดียวกันทุกครั้งที่ตารางขึ้นหน้าใหม่
+              (react-pdf จะ render แถวนี้ที่ตำแหน่งเดิมของทุกหน้าที่ตารางล้นไปถึง) */}
+          <View style={styles.tHeadRow} fixed>
             <HeadCell style={[styles.cell, styles.colDate]} lines={["วัน/เดือน/", "ปี"]} />
             <HeadCell style={[styles.cell, styles.colDocRef]} lines={["ที่", "เอกสาร"]} />
             <HeadCell style={[styles.cell, styles.colItem]} lines="รายการ" />
