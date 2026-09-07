@@ -203,7 +203,7 @@ export async function buildAssetRegisterPdfData(
   const { data: item, error } = await supabase
     .from("asset_items")
     .select(
-      "asset_code, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquired_date, acquired_year, category_id, budget_source_id",
+      "asset_code, sequence_no, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquired_date, acquired_year, category_id, budget_source_id",
     )
     .eq("id", id)
     .maybeSingle();
@@ -217,7 +217,7 @@ export async function buildAssetRegisterPdfData(
     item.budget_source_id
       ? supabase.from("asset_budget_sources").select("name").eq("id", item.budget_source_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle(),
+    supabase.from("proc_school_settings").select("school_name, education_area, school_address").eq("id", true).maybeSingle(),
   ]);
 
   const schedule = buildDepreciationSchedule({
@@ -233,6 +233,7 @@ export async function buildAssetRegisterPdfData(
 
   const data: AssetRegisterPdfData = {
     asset_code: item.asset_code,
+    sequence_no: item.sequence_no,
     name: item.name,
     category_name: category?.name ?? null,
     quantity: item.quantity,
@@ -244,6 +245,8 @@ export async function buildAssetRegisterPdfData(
     spec: item.spec,
     model: item.model,
     school_name: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
+    education_area: schoolSettings?.education_area ?? null,
+    school_address: schoolSettings?.school_address ?? null,
     vendor_name: item.vendor_name,
     vendor_address: item.vendor_address,
     vendor_phone: item.vendor_phone,

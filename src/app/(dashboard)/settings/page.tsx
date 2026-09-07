@@ -67,6 +67,8 @@ type SettingsData = {
   storageProvider: "supabase" | "google_drive";
   schoolName: string;
   schoolLogoUrl: string | null;
+  educationArea: string | null;
+  schoolAddress: string | null;
 };
 
 export default function SettingsPage() {
@@ -100,7 +102,7 @@ export default function SettingsPage() {
       supabase.from("proc_app_settings").select("value").eq("key", "gemini_model").maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
-      supabase.from("proc_school_settings").select("school_name, logo_url").eq("id", true).maybeSingle(),
+      supabase.from("proc_school_settings").select("school_name, logo_url, education_area, school_address").eq("id", true).maybeSingle(),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -124,6 +126,8 @@ export default function SettingsPage() {
       storageProvider: storageProviderSetting?.value === "google_drive" ? "google_drive" : "supabase",
       schoolName: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
       schoolLogoUrl: schoolSettings?.logo_url ?? null,
+      educationArea: schoolSettings?.education_area ?? null,
+      schoolAddress: schoolSettings?.school_address ?? null,
     });
   }, []);
 
@@ -212,6 +216,8 @@ export default function SettingsPage() {
             <SchoolBrandingForm
               schoolName={data.schoolName}
               logoUrl={data.schoolLogoUrl}
+              educationArea={data.educationArea}
+              schoolAddress={data.schoolAddress}
               setSchoolName={setSchoolName}
               uploadSchoolLogo={uploadSchoolLogo}
               removeSchoolLogo={removeSchoolLogo}

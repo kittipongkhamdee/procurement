@@ -77,6 +77,7 @@ export type AssetDepreciationRow = {
 
 export type AssetRegisterPdfData = {
   asset_code: string | null;
+  sequence_no: string | null;
   name: string;
   category_name: string | null;
   quantity: number;
@@ -88,6 +89,8 @@ export type AssetRegisterPdfData = {
   spec: string | null;
   model: string | null;
   school_name: string;
+  education_area: string | null;
+  school_address: string | null;
   vendor_name: string | null;
   vendor_address: string | null;
   vendor_phone: string | null;
@@ -132,19 +135,24 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.center}>
           <Text style={styles.title}>{t("ทะเบียนคุมทรัพย์สิน (สพฐ.)")}</Text>
-          <Text>{t(data.category_name ? `ประเภท: ${data.category_name}` : "")}</Text>
         </View>
 
         <View style={styles.hr} />
 
         <View style={styles.headerCols}>
           <View style={styles.headerCol}>
-            <HeaderRow label="รหัสครุภัณฑ์" value={data.asset_code} />
+            <HeaderRow label="ลำดับที่" value={data.sequence_no} />
+            <HeaderRow
+              label="ประเภท / รหัส"
+              value={[data.category_name, data.asset_code].filter(Boolean).join(" / ") || null}
+            />
             <HeaderRow label="ชื่อทรัพย์สิน" value={data.name} />
             <HeaderRow label="สถานที่ตั้ง/หน่วยงาน" value={location} />
+            <HeaderRow label="ที่อยู่" value={data.school_address} />
             <HeaderRow label="ลักษณะ/คุณสมบัติ" value={[data.model, data.spec].filter(Boolean).join(" — ") || null} />
           </View>
           <View style={styles.headerCol}>
+            <HeaderRow label="ส่วนราชการ" value={data.education_area} />
             <HeaderRow label="หน่วยงาน" value={data.school_name} />
             <HeaderRow label="ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={data.vendor_name} />
             <HeaderRow label="ที่อยู่/โทรศัพท์ผู้ขาย" value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null} />

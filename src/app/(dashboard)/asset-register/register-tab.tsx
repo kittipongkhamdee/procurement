@@ -21,6 +21,7 @@ type AssetItem = {
   quantity: number;
   unit: string | null;
   asset_code: string | null;
+  sequence_no: string | null;
   condition: string;
   note: string | null;
   acquired_date: string | null;
@@ -190,6 +191,10 @@ function ItemModal({
       {item && !canManage ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <div>
+            <dt className="text-slate-400">ลำดับที่</dt>
+            <dd>{item.sequence_no ?? "-"}</dd>
+          </div>
+          <div>
             <dt className="text-slate-400">รหัสครุภัณฑ์</dt>
             <dd>{item.asset_code ?? "-"}</dd>
           </div>
@@ -242,6 +247,10 @@ function ItemModal({
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="label">ลำดับที่</label>
+              <input name="sequence_no" defaultValue={item?.sequence_no ?? ""} className="input" />
             </div>
             <div>
               <label className="label">รหัสครุภัณฑ์</label>
@@ -470,7 +479,7 @@ export function RegisterTab({
     const { data } = await supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method, model, spec",
+        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method, model, spec",
       )
       .order("created_at", { ascending: false });
     setItems((data as unknown as AssetItem[]) ?? []);

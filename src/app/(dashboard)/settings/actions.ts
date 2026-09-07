@@ -230,7 +230,13 @@ export async function setSchoolName(formData: FormData) {
   if (!schoolName) throw new Error("กรุณาระบุชื่อโรงเรียน");
   const { error } = await supabase
     .from("proc_school_settings")
-    .update({ school_name: schoolName, updated_at: new Date().toISOString() })
+    .update({
+      school_name: schoolName,
+      // ส่วนราชการ/ที่อยู่โรงเรียน — ใช้แสดงในหัวเอกสารทางการ เช่น ใบทะเบียนคุมทรัพย์สิน
+      education_area: String(formData.get("education_area") ?? "").trim() || null,
+      school_address: String(formData.get("school_address") ?? "").trim() || null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", true);
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
