@@ -13,8 +13,7 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
   center: { textAlign: "center" },
-  title: { fontSize: 14, fontWeight: "bold", marginBottom: 2 },
-  hr: { borderBottomWidth: 1, borderBottomColor: "#111827", marginVertical: 8 },
+  title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
   headerCols: { flexDirection: "row", gap: 20 },
   headerCol: { width: "50%" },
   row: { flexDirection: "row", marginBottom: 4 },
@@ -167,8 +166,6 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         <View style={styles.center}>
           <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
         </View>
-
-        <View style={styles.hr} />
 
         <View style={styles.headerCols}>
           <View style={styles.headerCol}>
