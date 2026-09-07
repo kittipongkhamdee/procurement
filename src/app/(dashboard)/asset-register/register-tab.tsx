@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess, confirmDelete } from "@/lib/swal";
-import { formatThaiDate, THAI_MONTHS } from "@/lib/thai";
+import { formatThaiDate } from "@/lib/thai";
 import { Modal, type ModalHandle } from "@/components/modal";
+import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
 import { deleteAssetItem, updateAssetItemStatus, upsertAssetItem } from "./actions";
 
@@ -59,15 +60,6 @@ function conditionBadge(condition: string) {
   return { cls: "badge-red", label: "จำหน่าย" };
 }
 
-/** "2026-08-25" -> { day: 25, month: 8, yearBE: 2569 } — แยกไว้เติมค่าเริ่มต้นให้ช่องกรอกวัน/
- * เดือน/ปี พ.ศ. แยก 3 ช่อง แทน input type="date" ตัวเดียว ซึ่งปฏิทินของเบราว์เซอร์ส่วนใหญ่แสดงเป็น
- * ค.ศ. ให้กรอกเอง ไม่ใช่ พ.ศ. */
-function parseAcquiredDate(iso: string | null): { day: string; month: string; yearBE: string } {
-  if (!iso) return { day: "", month: "", yearBE: "" };
-  const [year, month, day] = iso.slice(0, 10).split("-");
-  return { day: String(Number(day)), month: String(Number(month)), yearBE: String(Number(year) + 543) };
-}
-
 function ItemModal({
   item,
   canManage,
@@ -94,7 +86,6 @@ function ItemModal({
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const acquiredDateParts = parseAcquiredDate(item?.acquired_date ?? null);
 
   async function handleOpen() {
     setPhotoUrl(null);
@@ -327,33 +318,8 @@ function ItemModal({
               <input name="price" type="number" step="0.01" defaultValue={item?.price ?? ""} className="input" />
             </div>
             <div>
-              <label className="label">วัน/เดือน/ปีที่ได้มา (พ.ศ.)</label>
-              <div className="grid grid-cols-3 gap-2">
-                <input
-                  name="acquired_day"
-                  type="number"
-                  min={1}
-                  max={31}
-                  placeholder="วัน"
-                  defaultValue={acquiredDateParts.day}
-                  className="input"
-                />
-                <select name="acquired_month" defaultValue={acquiredDateParts.month} className="input">
-                  <option value="">เดือน</option>
-                  {THAI_MONTHS.slice(1).map((m, i) => (
-                    <option key={m} value={i + 1}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  name="acquired_year_be"
-                  type="number"
-                  placeholder="ปี พ.ศ."
-                  defaultValue={acquiredDateParts.yearBE}
-                  className="input"
-                />
-              </div>
+              <label className="label">วัน/เดือน/ปีที่ได้มา</label>
+              <ThaiDatePicker name="acquired_date" defaultValue={item?.acquired_date ?? null} />
             </div>
             <div>
               <label className="label">แหล่งงบประมาณ</label>

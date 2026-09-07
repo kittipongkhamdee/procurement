@@ -33,3 +33,21 @@ wordLink / DeleteReportButton มี parameter `asButton` สลับสไต�
 ถ้าฟังก์ชัน/คอมโพเนนต์เดียวกันถูกใช้ทั้งการ์ดมือถือ (ลิงก์ตัวหนังสือเรียบง่ายพอแล้ว) และตารางจอกว้าง
 (ต้องเป็นปุ่ม) ให้เพิ่ม prop แบบ optional (เช่น `asButton`, default `false`) แทนการเปลี่ยนทุกจุดเป็นปุ่ม
 หมด
+
+## ข้อควรจำ: ช่องกรอกวันที่ต้องใช้ `ThaiDatePicker` ไม่ใช่ `input type="date"`
+
+`input type="date"` ของเบราว์เซอร์ส่วนใหญ่แสดงปฏิทินเป็น ค.ศ. ให้กรอกเอง ไม่ใช่ พ.ศ. — ระบบนี้ใช้
+วันที่แบบไทย (พ.ศ.) ทั่วทั้งระบบ ทุกครั้งที่สร้าง/แก้ช่องกรอกวันที่ ให้ใช้คอมโพเนนต์
+`ThaiDatePicker` (`@/components/thai-date-picker`) แทน ไม่ใช่ `<input type="date">` ตรงๆ — ปฏิทิน
+กำหนดเดือน/ปี พ.ศ. แบบ dropdown พร้อมปุ่มลัด "วันนี้/+3 วัน/+7 วัน/+15 วัน/+30 วัน" (ดูตัวอย่างการใช้ที่
+`src/app/(dashboard)/asset-register/register-tab.tsx` ช่อง "วัน/เดือน/ปีที่ได้มา")
+
+ใช้แบบ uncontrolled ในฟอร์ม `<form>` ปกติ: `<ThaiDatePicker name="acquired_date"
+defaultValue={item?.acquired_date ?? null} />` — จะ render hidden input ชื่อนั้นด้วยค่า ISO date
+(ค.ศ.) ให้อัตโนมัติ อ่านค่าฝั่ง server action ด้วย `formData.get("acquired_date")` ได้เลยเหมือน input
+ธรรมดา (ไม่ต้องแยกกรอกวัน/เดือน/ปีเป็นช่องละคอลัมน์เอง)
+
+ยังมีจุดอื่นในระบบที่ใช้ `input type="date"` เดิมอยู่ (`project-reports/project-report-form.tsx`,
+`deliveries/delivery-form.tsx`, `purchase-requests/new/purchase-request-form.tsx`,
+`approvals/approval-form.tsx`, `contracts/page.tsx`) — ยังไม่ได้ปรับ รอทยอยเปลี่ยนเป็น
+`ThaiDatePicker` เมื่อได้แก้ไขหน้านั้นๆ ครั้งต่อไป

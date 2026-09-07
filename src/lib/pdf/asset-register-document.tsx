@@ -148,7 +148,6 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             />
             <HeaderRow label="ชื่อทรัพย์สิน" value={data.name} />
             <HeaderRow label="สถานที่ตั้ง/หน่วยงาน" value={location} />
-            <HeaderRow label="ที่อยู่" value={data.school_address} />
             <HeaderRow label="ลักษณะ/คุณสมบัติ" value={[data.model, data.spec].filter(Boolean).join(" — ") || null} />
           </View>
           <View style={styles.headerCol}>
