@@ -20,7 +20,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: "bold", width: 130 },
   value: { flex: 1, paddingRight: 12 },
-  table: { marginTop: 4, borderWidth: 1, borderColor: "#111827" },
+  // ไม่ใช้ borderWidth (กรอบรอบทุกด้าน) — เส้นขอบล่างของกรอบตารางจะไปทับกับ borderBottomWidth
+  // ของแถวข้อมูลแถวสุดท้าย (cell/cellLast ด้านล่าง) ทำให้เส้นล่างสุดหนากว่าเส้นแบ่งแถวอื่นๆ 2 เท่า
+  // จึงกำหนดเฉพาะด้านบน/ซ้าย/ขวา ปล่อยให้เส้นล่างสุดมาจากแถวสุดท้ายเส้นเดียวพอ
+  table: { marginTop: 4, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#111827" },
   tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   tRow: { flexDirection: "row" },
   cell: {
