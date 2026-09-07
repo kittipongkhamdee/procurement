@@ -68,46 +68,41 @@ export default function ProjectReportsPage() {
 
   if (reports === null || authLoading) return <PageLoadingSkeleton />;
 
-  // การ์ดมือถือใช้ text-xs ให้เข้ากับ meta บรรทัดเล็ก ส่วนตารางจอกว้างใช้ text-sm ให้เท่ากับ
-  // เซลล์อื่นในแถวเดียวกัน
-  function fileLink(r: Report, textSizeClass: string = "text-xs") {
+  // การ์ดมือถือใช้ลิงก์ตัวหนังสือธรรมดา (asButton=false) ส่วนตารางจอกว้างแสดงเป็นปุ่มแทน
+  // (asButton=true) ให้กดง่ายและแยกจากข้อความอื่นในแถวชัดเจนขึ้น
+  function fileLink(r: Report, asButton = false) {
+    const cls = asButton
+      ? "btn-secondary btn-sm whitespace-nowrap"
+      : "inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline";
     if (r.file_url) {
       return signedUrls.get(r.file_url) ? (
-        <a
-          href={signedUrls.get(r.file_url)}
-          target="_blank"
-          className={`inline-flex items-center gap-1 ${textSizeClass} font-medium text-navy-800 hover:underline`}
-        >
+        <a href={signedUrls.get(r.file_url)} target="_blank" className={cls}>
           <FileTextIcon className="h-3.5 w-3.5" />
           เปิดไฟล์
         </a>
       ) : (
-        <span className={`${textSizeClass} text-slate-400`}>ไม่พบไฟล์</span>
+        <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
       );
     }
     return (
-      <a
-        href={`/project-reports/${r.id}/pdf`}
-        target="_blank"
-        className={`inline-flex items-center gap-1 ${textSizeClass} font-medium text-navy-800 hover:underline`}
-      >
+      <a href={`/project-reports/${r.id}/pdf`} target="_blank" className={cls}>
         <PrinterIcon className="h-3.5 w-3.5" />
-        ดู/พิมพ์ PDF
+        {asButton ? "PDF" : "ดู/พิมพ์ PDF"}
       </a>
     );
   }
 
   // ปุ่มดาวน์โหลด Word ใช้ได้เฉพาะรายงานที่กรอกผ่านฟอร์ม (สร้างเอกสารจากข้อมูลในระบบ) — รายงานที่
   // อัปโหลดไฟล์ของตัวเองมา (r.file_url) ไม่มีข้อมูลให้สร้างเอกสาร Word ใหม่
-  function wordLink(r: Report, textSizeClass: string = "text-xs") {
+  function wordLink(r: Report, asButton = false) {
     if (r.file_url) return null;
+    const cls = asButton
+      ? "btn-secondary btn-sm whitespace-nowrap"
+      : "inline-flex items-center gap-1 text-xs font-medium text-navy-800 hover:underline";
     return (
-      <a
-        href={`/project-reports/${r.id}/word`}
-        className={`inline-flex items-center gap-1 ${textSizeClass} font-medium text-navy-800 hover:underline`}
-      >
+      <a href={`/project-reports/${r.id}/word`} className={cls}>
         <WordFileIcon className="h-3.5 w-3.5" />
-        ดาวน์โหลด Word
+        {asButton ? "Word" : "ดาวน์โหลด Word"}
       </a>
     );
   }
@@ -181,7 +176,6 @@ export default function ProjectReportsPage() {
               <th className="whitespace-nowrap">ผู้รับผิดชอบโครงการ</th>
               <th className="whitespace-nowrap">วันที่รายงาน</th>
               <th></th>
-              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -198,39 +192,34 @@ export default function ProjectReportsPage() {
                   <td>{r.responsible_name ?? "-"}</td>
                   <td className="whitespace-nowrap">{formatThaiDate(r.created_at)}</td>
                   <td className="text-right">
-                    <div className="flex flex-col items-end gap-1">
-                      {fileLink(r, "text-sm")}
-                      {wordLink(r, "text-sm")}
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {fileLink(r, true)}
+                      {wordLink(r, true)}
+                      {canManage && (
+                        <>
+                          <Link href={`/project-reports/${r.id}/edit`} className="btn-secondary btn-sm whitespace-nowrap">
+                            <PencilIcon className="h-3.5 w-3.5" />
+                            แก้ไข
+                          </Link>
+                          <DeleteReportButton
+                            id={r.id}
+                            fileUrl={r.file_url}
+                            photoRefs={photoRefs}
+                            projectName={r.plan_projects?.name ?? "โครงการนี้"}
+                            action={deleteProjectReport}
+                            onChanged={reload}
+                            asButton
+                          />
+                        </>
+                      )}
                     </div>
-                  </td>
-                  <td className="text-right">
-                    {canManage && (
-                      <div className="flex justify-end gap-3">
-                        <Link
-                          href={`/project-reports/${r.id}/edit`}
-                          className="inline-flex items-center gap-1 text-sm font-medium text-navy-800 hover:underline"
-                        >
-                          <PencilIcon className="h-3.5 w-3.5" />
-                          แก้ไข
-                        </Link>
-                        <DeleteReportButton
-                          id={r.id}
-                          fileUrl={r.file_url}
-                          photoRefs={photoRefs}
-                          projectName={r.plan_projects?.name ?? "โครงการนี้"}
-                          action={deleteProjectReport}
-                          onChanged={reload}
-                          textSizeClass="text-sm"
-                        />
-                      </div>
-                    )}
                   </td>
                 </tr>
               );
             })}
             {reports.length === 0 && (
               <tr>
-                <td colSpan={6} className="table-empty">
+                <td colSpan={5} className="table-empty">
                   ยังไม่มีข้อมูล
                 </td>
               </tr>
