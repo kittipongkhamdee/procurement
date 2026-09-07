@@ -139,6 +139,30 @@ function HeaderRow({ label, value }: { label: string | string[]; value: string |
   );
 }
 
+// แถวที่รวม 2 ป้าย/ค่าไว้ในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ...") — ป้าย/ค่าแต่ละคู่ใช้
+// สไตล์เดียวกับ HeaderRow ปกติ (label กว้างอัตโนมัติ + marginRight, value กว้าง flex:1 แบ่งครึ่ง
+// ที่เหลือของแถวเท่าๆ กันโดยอัตโนมัติจาก flexDirection: row)
+function DoubleHeaderRow({
+  label1,
+  value1,
+  label2,
+  value2,
+}: {
+  label1: string;
+  value1: string | null | undefined;
+  label2: string;
+  value2: string | null | undefined;
+}) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.label}>{guard(label1)}</Text>
+      <Text style={styles.value}>{guard(value1 || "-")}</Text>
+      <Text style={styles.label}>{guard(label2)}</Text>
+      <Text style={styles.value}>{guard(value2 || "-")}</Text>
+    </View>
+  );
+}
+
 // หัวตารางบางคอลัมน์แคบ (เช่น "อายุใช้งาน", "เสื่อมสะสม") เป็นคำไทยยาวไม่มีช่องว่างคั่นคำ ตัดบรรทัด
 // อัตโนมัติของ react-pdf ตัดกลางคำไม่ได้ ล้นทับคอลัมน์ข้างๆ (ดู note ใน AssetDepreciationRow ด้านบน) —
 // จึงกำหนดจุดตัดบรรทัดของหัวตารางเองล่วงหน้าเป็นอาร์เรย์บรรทัดสั้นๆ แทนสตริงยาวประโยคเดียว
@@ -170,10 +194,8 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         <View style={styles.headerCols}>
           <View style={styles.headerCol}>
             <HeaderRow label="ลำดับที่" value={data.sequence_no} />
-            <HeaderRow label="ประเภท" value={data.category_name} />
-            <HeaderRow label="รหัส" value={data.asset_code} />
-            <HeaderRow label="ชื่อทรัพย์สิน" value={data.name} />
-            <HeaderRow label="ยี่ห้อ/รุ่น" value={data.model} />
+            <DoubleHeaderRow label1="ประเภท" value1={data.category_name} label2="รหัส" value2={data.asset_code} />
+            <DoubleHeaderRow label1="ชื่อทรัพย์สิน" value1={data.name} label2="ยี่ห้อ/รุ่น" value2={data.model} />
             <HeaderRow label="แบบ/ลักษณะ" value={data.spec} />
             <HeaderRow label="สถานที่ตั้ง/หน่วยงาน" value={location} />
           </View>
@@ -185,8 +207,12 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
               label={["ที่อยู่ผู้ขาย/ผู้รับจ้าง/", "ผู้บริจาค"]}
               value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null}
             />
-            <HeaderRow label="ประเภทเงิน" value={data.budget_source_name} />
-            <HeaderRow label="วิธีการได้มา" value={data.acquisition_method} />
+            <DoubleHeaderRow
+              label1="ประเภทเงิน"
+              value1={data.budget_source_name}
+              label2="วิธีการได้มา"
+              value2={data.acquisition_method}
+            />
           </View>
         </View>
 
