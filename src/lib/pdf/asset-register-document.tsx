@@ -20,7 +20,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: "bold", width: 130 },
   value: { flex: 1, paddingRight: 12 },
-  subtitle: { fontSize: 11, fontWeight: "bold", marginTop: 6, marginBottom: 4 },
   table: { marginTop: 4, borderWidth: 1, borderColor: "#111827" },
   tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   tRow: { flexDirection: "row" },
@@ -158,8 +157,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           </View>
         </View>
 
-        <Text style={styles.subtitle}>{t("รายการคำนวณค่าเสื่อมราคา")}</Text>
-        <View style={styles.table}>
+        <View style={[styles.table, { marginTop: 8 }]}>
           <View style={styles.tHeadRow}>
             <HeadCell style={[styles.cell, styles.colDate]} lines="ปี พ.ศ." />
             <HeadCell style={[styles.cell, styles.colItem]} lines="รายการ" />
