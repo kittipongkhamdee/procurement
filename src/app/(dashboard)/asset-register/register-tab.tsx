@@ -7,7 +7,24 @@ import { formatThaiDate } from "@/lib/thai";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
+import { compressPhotoFile } from "@/lib/image-resize";
 import { deleteAssetItem, updateAssetItemStatus, upsertAssetItem } from "./actions";
+
+async function uploadAssetPhoto(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.set("file", file);
+  const res = await fetch("/api/asset-photo-upload", { method: "POST", body: formData });
+  let body: { path?: string; error?: string } = {};
+  try {
+    body = await res.json();
+  } catch {
+    // เซิร์ฟเวอร์อาจตอบกลับไม่ใช่ JSON (เช่น 413) — ใช้ข้อความสำรองด้านล่างแทน
+  }
+  if (!res.ok || !body.path) {
+    throw new Error(body.error || "อัปโหลดรูปภาพไม่สำเร็จ");
+  }
+  return body.path;
+}
 
 type Option = { id: string; name: string };
 
@@ -35,7 +52,7 @@ type AssetItem = {
   vendor_name: string | null;
   vendor_address: string | null;
   vendor_phone: string | null;
-  acquisition_method: string | null;
+  acquisition_method_id: string | null;
   model: string | null;
   spec: string | null;
 };
@@ -67,6 +84,7 @@ function ItemModal({
   buildings,
   units,
   budgetSources,
+  acquisitionMethods,
   rounds,
   defaultRoundId,
   onSaved,
@@ -77,18 +95,27 @@ function ItemModal({
   buildings: Option[];
   units: Option[];
   budgetSources: Option[];
+  acquisitionMethods: Option[];
   rounds: { id: string; year: number; name: string }[];
   defaultRoundId: string;
   onSaved: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  // การแก้ไขรูปยังไม่อัปโหลด/ลบจริงจนกว่าจะกดบันทึกฟอร์ม — เก็บไว้เป็น state ระหว่างนั้นก่อน
+  const [pendingPhotoFile, setPendingPhotoFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleOpen() {
     setPhotoUrl(null);
+    setPendingPhotoFile(null);
+    setPendingPreviewUrl(null);
+    setPhotoRemoved(false);
     setRejecting(false);
     setRejectReason("");
     if (item?.photo_path) {
@@ -98,11 +125,36 @@ function ItemModal({
     }
   }
 
+  function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingPhotoFile(file);
+    setPendingPreviewUrl(URL.createObjectURL(file));
+    setPhotoRemoved(false);
+  }
+
+  function handleRemovePhoto() {
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingPhotoFile(null);
+    setPendingPreviewUrl(null);
+    setPhotoRemoved(true);
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await upsertAssetItem(item?.id ?? null, new FormData(e.currentTarget));
+      const formData = new FormData(e.currentTarget);
+      if (pendingPhotoFile) {
+        const compressed = await compressPhotoFile(pendingPhotoFile);
+        const path = await uploadAssetPhoto(compressed);
+        formData.set("photo_path", path);
+      } else if (photoRemoved) {
+        formData.set("photo_path", "");
+      }
+      await upsertAssetItem(item?.id ?? null, formData);
       await toastSuccess(item ? "บันทึกการแก้ไขแล้ว" : "เพิ่มรายการทรัพย์สินแล้ว");
       onSaved();
       modalRef.current?.close();
@@ -174,9 +226,40 @@ function ItemModal({
         )
       }
     >
-      {photoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- รูปจาก signed URL ชั่วคราว ไม่เหมาะกับ next/image ที่ต้อง whitelist โดเมน
-        <img src={photoUrl} alt={item?.name ?? ""} className="mb-4 max-h-64 w-full rounded-lg object-contain" />
+      {canManage ? (
+        <div className="mb-4">
+          <label className="label">รูปภาพ</label>
+          <div className="flex flex-wrap items-start gap-3">
+            {pendingPreviewUrl || (!photoRemoved && photoUrl) ? (
+              <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element -- รูปจาก signed URL ชั่วคราว/พรีวิวไฟล์ในเครื่อง ไม่เหมาะกับ next/image ที่ต้อง whitelist โดเมน */}
+                <img
+                  src={pendingPreviewUrl ?? photoUrl ?? ""}
+                  alt={item?.name ?? ""}
+                  className="max-h-48 w-48 rounded-lg border border-slate-200 object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="absolute right-1.5 top-1.5 rounded-md bg-white/90 px-2 py-1 text-xs font-medium text-red-600 hover:bg-white"
+                >
+                  ลบรูป
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">ไม่มีรูปภาพ</p>
+            )}
+            <button type="button" onClick={() => photoInputRef.current?.click()} className="btn-secondary btn-sm self-start">
+              {pendingPreviewUrl || (!photoRemoved && photoUrl) ? "เปลี่ยนรูป" : "เพิ่มรูป"}
+            </button>
+            <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+          </div>
+        </div>
+      ) : (
+        photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- รูปจาก signed URL ชั่วคราว ไม่เหมาะกับ next/image ที่ต้อง whitelist โดเมน
+          <img src={photoUrl} alt={item?.name ?? ""} className="mb-4 max-h-64 w-full rounded-lg object-contain" />
+        )
       )}
 
       {item && !canManage ? (
@@ -334,7 +417,14 @@ function ItemModal({
             </div>
             <div>
               <label className="label">วิธีการได้มา</label>
-              <input name="acquisition_method" defaultValue={item?.acquisition_method ?? ""} className="input" />
+              <select name="acquisition_method_id" defaultValue={item?.acquisition_method_id ?? ""} className="input">
+                <option value="">ไม่ระบุ</option>
+                {acquisitionMethods.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label">ยี่ห้อ/รุ่น</label>
@@ -421,6 +511,7 @@ export function RegisterTab({
   buildings,
   units,
   budgetSources,
+  acquisitionMethods,
   onChanged,
 }: {
   canManage: boolean;
@@ -429,6 +520,7 @@ export function RegisterTab({
   buildings: Option[];
   units: Option[];
   budgetSources: Option[];
+  acquisitionMethods: Option[];
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<AssetItem[] | null>(null);
@@ -445,7 +537,7 @@ export function RegisterTab({
     const { data } = await supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method, model, spec",
+        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
       )
       .order("created_at", { ascending: false });
     setItems((data as unknown as AssetItem[]) ?? []);
@@ -558,6 +650,7 @@ export function RegisterTab({
             buildings={buildings}
             units={units}
             budgetSources={budgetSources}
+            acquisitionMethods={acquisitionMethods}
             rounds={rounds}
             defaultRoundId={defaultRoundId}
             onSaved={handleChanged}
@@ -615,6 +708,7 @@ export function RegisterTab({
                         buildings={buildings}
                         units={units}
                         budgetSources={budgetSources}
+                        acquisitionMethods={acquisitionMethods}
                         rounds={rounds}
                         defaultRoundId={defaultRoundId}
                         onSaved={handleChanged}

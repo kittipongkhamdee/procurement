@@ -203,19 +203,22 @@ export async function buildAssetRegisterPdfData(
   const { data: item, error } = await supabase
     .from("asset_items")
     .select(
-      "asset_code, sequence_no, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquired_date, acquired_year, category_id, budget_source_id",
+      "asset_code, sequence_no, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquisition_method_id, acquired_date, acquired_year, category_id, budget_source_id",
     )
     .eq("id", id)
     .maybeSingle();
 
   if (error || !item) return null;
 
-  const [{ data: category }, { data: budgetSource }, { data: schoolSettings }] = await Promise.all([
+  const [{ data: category }, { data: budgetSource }, { data: acquisitionMethod }, { data: schoolSettings }] = await Promise.all([
     item.category_id
       ? supabase.from("asset_categories").select("name, useful_life_years, depreciation_rate_percent").eq("id", item.category_id).maybeSingle()
       : Promise.resolve({ data: null }),
     item.budget_source_id
       ? supabase.from("asset_budget_sources").select("name").eq("id", item.budget_source_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    item.acquisition_method_id
+      ? supabase.from("asset_acquisition_methods").select("name").eq("id", item.acquisition_method_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("proc_school_settings").select("school_name, education_area, school_address").eq("id", true).maybeSingle(),
   ]);
@@ -251,7 +254,9 @@ export async function buildAssetRegisterPdfData(
     vendor_address: item.vendor_address,
     vendor_phone: item.vendor_phone,
     budget_source_name: budgetSource?.name ?? null,
-    acquisition_method: item.acquisition_method,
+    // รายการเก่าก่อนมีตารางวิธีการได้มา (asset_acquisition_methods) ยังเก็บเป็นข้อความอิสระอยู่ —
+    // ใช้ชื่อจากตารางใหม่ก่อน ถ้าไม่มีค่อย fallback ไปใช้ข้อความอิสระเดิม
+    acquisition_method: acquisitionMethod?.name ?? item.acquisition_method,
     acquired_year: item.acquired_year,
     useful_life_years: category?.useful_life_years ?? null,
     depreciation_rate_percent: category?.depreciation_rate_percent ?? null,

@@ -4,18 +4,22 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { ToggleSwitch } from "@/components/toggle-switch";
 import { CloseIcon } from "@/components/icons";
 import {
+  createAssetAcquisitionMethod,
   createAssetBudgetSource,
   createAssetBuilding,
   createAssetCategory,
   createAssetUnit,
+  deleteAssetAcquisitionMethod,
   deleteAssetBudgetSource,
   deleteAssetBuilding,
   deleteAssetCategory,
   deleteAssetUnit,
+  toggleAssetAcquisitionMethodActive,
   toggleAssetBudgetSourceActive,
   toggleAssetBuildingActive,
   toggleAssetCategoryActive,
   toggleAssetUnitActive,
+  updateAssetAcquisitionMethodName,
   updateAssetBudgetSourceName,
   updateAssetBuildingName,
   updateAssetCategory,
@@ -357,6 +361,7 @@ export function MasterDataTab({
   buildings,
   units,
   budgetSources,
+  acquisitionMethods,
   onChanged,
 }: {
   canManage: boolean;
@@ -364,6 +369,7 @@ export function MasterDataTab({
   buildings: Lookup[];
   units: Lookup[];
   budgetSources: Lookup[];
+  acquisitionMethods: Lookup[];
   onChanged: () => void;
 }) {
   return (
@@ -400,6 +406,17 @@ export function MasterDataTab({
         onRename={updateAssetBudgetSourceName}
         onToggle={toggleAssetBudgetSourceActive}
         onDelete={deleteAssetBudgetSource}
+        onChanged={onChanged}
+      />
+      <LookupList
+        title="วิธีการได้มา"
+        placeholder="วิธีการได้มา เช่น จัดซื้อ, บริจาค"
+        rows={acquisitionMethods}
+        canManage={canManage}
+        onCreate={createAssetAcquisitionMethod}
+        onRename={updateAssetAcquisitionMethodName}
+        onToggle={toggleAssetAcquisitionMethodActive}
+        onDelete={deleteAssetAcquisitionMethod}
         onChanged={onChanged}
       />
     </div>
