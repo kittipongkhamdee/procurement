@@ -93,8 +93,14 @@ const styles = StyleSheet.create({
   photoCell: {
     width: "47%",
     height: 190,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // 1-2 รูป: จัดเต็มความกว้าง 1 คอลัมน์แทนที่จะเหลือครึ่งแถวว่างๆ ข้างกริด 2 คอลัมน์ปกติ
+  // เพิ่มความสูงตามไปด้วยให้ดูเต็มพื้นที่หน้ากระดาษพอดี ไม่ดูเล็กจ้อยกลางหน้าเปล่าๆ
+  photoCellSingle: {
+    width: "100%",
+    height: 320,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -306,7 +312,7 @@ export function ProjectReportDocument({
 
             <Text style={styles.subtitle}>{t("2. ผลการดำเนินงานโครงการ")}</Text>
             <BulletSection
-              heading="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง"
+              heading="การดำเนินงานโครงการ/กิจกรรม"
               items={data.activities_done}
             />
             <IndicatorTable
@@ -375,13 +381,16 @@ export function ProjectReportDocument({
 
             {data.photos.length > 0 && (
               // wrap={false} กันหัวข้อ "5. ภาพถ่ายกิจกรรม" ถูกทิ้งไว้ท้ายหน้าเดี่ยวๆ (orphan) และกัน
-              // รูปโดนตัดครึ่งข้ามหน้า — รูปสูงสุด 4 รูป (จำกัดตอนอัปโหลด) รวมกับหัวข้อสูงไม่เกินหน้า
+              // รูปโดนตัดครึ่งข้ามหน้า — รูปสูงสุด 6 รูป (จำกัดตอนอัปโหลด) รวมกับหัวข้อสูงไม่เกินหน้า
               // เดียวแน่นอน จึงบังคับให้ทั้งบล็อกย้ายไปทั้งก้อนถ้าที่เหลือในหน้าปัจจุบันไม่พอ
               <View wrap={false}>
                 <Text style={styles.subtitle}>{t("4. ภาพถ่ายกิจกรรม")}</Text>
                 <View style={styles.photoGrid}>
                   {data.photos.map((photo, i) => (
-                    <View style={styles.photoCell} key={i}>
+                    <View
+                      style={data.photos.length <= 2 ? styles.photoCellSingle : styles.photoCell}
+                      key={i}
+                    >
                       {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is a PDF node, not an HTML <img> */}
                       <Image
                         style={styles.photoImage}

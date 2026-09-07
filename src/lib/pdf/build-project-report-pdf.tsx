@@ -65,7 +65,7 @@ export async function buildProjectReportPdfData(
   if (error || !r) return null;
 
   const project = r.plan_projects as unknown as { name: string } | null;
-  const photoRefs = ((r.photo_refs as unknown as string[]) ?? []).slice(0, 4);
+  const photoRefs = ((r.photo_refs as unknown as string[]) ?? []).slice(0, 6);
   const [photos, proposal, satisfactionSurveySummary] = await Promise.all([
     Promise.all(
       photoRefs.map(async (ref) => ({

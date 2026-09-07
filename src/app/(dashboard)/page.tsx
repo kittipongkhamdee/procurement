@@ -29,7 +29,11 @@ const SUMMARY_DISPLAY_LABELS = ["จัดซื้อจัดจ้าง", "�
 const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
 
 const GOOD = "#059669"; // เบิกจ่ายแล้ว / เสร็จสิ้น
-const WARN = "#d97706"; // คงเหลือ / กำลังดำเนินการ
+const WARN = "#d97706"; // คงเหลือ
+// แยกจาก WARN (ที่แปลว่า "คงเหลือ/ควรระวัง" ในการ์ดงบประมาณจุดอื่นของหน้านี้) เพราะสีส้มเดียวกัน
+// ทำให้ "กำลังดำเนินการ" ดูเหมือนสถานะที่มีปัญหา ทั้งที่แค่ยังไม่เสร็จตามปกติ ใช้น้ำเงินแทนตามธรรมเนียม
+// สถานะ "กำลังทำอยู่" ทั่วไป
+const INPROGRESS = "#2563eb"; // กำลังดำเนินการ
 const NEUTRAL = "#94a3b8"; // ยังไม่ดำเนินการ
 const BRAND = "#123361";
 // สีวนใช้ต่อวงในเกจครึ่งวงกลมซ้อน "งบประมาณแยกตามประเภทเงิน" — แค่แยกแยะแต่ละวง ไม่ได้มีความหมาย
@@ -370,7 +374,7 @@ export default function DashboardPage() {
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
               <div className="flex h-4 overflow-hidden rounded-full bg-slate-100 print:h-3.5">
                 <span style={{ width: `${pct(completed, projectCount)}%`, background: GOOD }} />
-                <span style={{ width: `${pct(inProgress, projectCount)}%`, background: WARN }} />
+                <span style={{ width: `${pct(inProgress, projectCount)}%`, background: INPROGRESS }} />
                 <span style={{ width: `${pct(notStarted, projectCount)}%`, background: NEUTRAL }} />
               </div>
               <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm print:mt-3 print:gap-x-4">
@@ -381,7 +385,7 @@ export default function DashboardPage() {
                   </span>
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: WARN }} />
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: INPROGRESS }} />
                   <span className="text-slate-600">
                     กำลังดำเนินการ <b className="font-semibold text-slate-900">{inProgress}</b> ({pct(inProgress, projectCount).toFixed(1)}%)
                   </span>
