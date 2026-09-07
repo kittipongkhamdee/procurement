@@ -18,6 +18,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": contentDisposition("inline", `${result.fileLabel}.pdf`),
+      // ไม่ให้เบราว์เซอร์แคช PDF ไว้ที่ URL เดิม — มิเช่นนั้นหลังแก้ไขรายการแล้วกด "พิมพ์" ซ้ำ
+      // (URL เดิมเพราะอิงตาม id) อาจยังเห็นข้อมูลเก่าจากแคชแทนที่จะดึงข้อมูลใหม่จากฐานข้อมูล
+      "Cache-Control": "no-store, must-revalidate",
     },
   });
 }
