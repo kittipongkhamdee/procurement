@@ -162,7 +162,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.center}>
-          <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน (สพฐ.)")}</Text>
+          <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
         </View>
 
         <View style={styles.hr} />
