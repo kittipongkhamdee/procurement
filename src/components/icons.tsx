@@ -183,6 +183,13 @@ export const UploadIcon = base(
   </>,
 );
 
+export const BoxIcon = base(
+  <>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 8.5 12 4l8.5 4.5L12 13 3.5 8.5Z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 8.5V16l8.5 4.5V13M20.5 8.5V16L12 20.5" />
+  </>,
+);
+
 export function WordFileIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className}>

@@ -1,0 +1,131 @@
+"use client";
+
+// หน้า "ทะเบียนคุมทรัพย์สิน" — เชื่อมกับ schema asset_* ที่มีอยู่แล้วในฐานข้อมูลเดียวกัน (เดิมใช้โดย
+// ระบบสำรวจทรัพย์สินแยกต่างหาก มีข้อมูลจริงอยู่ก่อนแล้ว) shell แบบแท็บเดียวกับ /fund-allocation —
+// ทุกคนที่ล็อกอินดูทะเบียนได้ (SELECT เปิดสาธารณะที่ฐานข้อมูล) เฉพาะ admin/เจ้าหน้าที่พัสดุเท่านั้น
+// ที่แก้ไข/อนุมัติ/จัดการข้อมูลหลักได้ (ดู requireAssetStaff() ใน actions.ts)
+
+import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/lib/AuthContext";
+import { createClient } from "@/lib/supabase/client";
+import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { RegisterTab } from "./register-tab";
+import { MasterDataTab } from "./master-data-tab";
+import { SurveyRoundTab } from "./survey-round-tab";
+
+type Option = { id: string; name: string };
+type Lookup = Option & { is_active: boolean };
+type Category = Lookup & { useful_life_years: number | null; depreciation_rate_percent: number | null };
+type SurveyRound = { id: string; year: number; name: string; is_open: boolean };
+
+const TABS = [
+  { key: "register", label: "ทะเบียนทรัพย์สิน" },
+  { key: "master", label: "ข้อมูลหลัก" },
+  { key: "rounds", label: "รอบสำรวจ" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
+
+export default function AssetRegisterPage() {
+  const { user, isAdmin, loading: authLoading } = useAuth();
+  const canManage = isAdmin || user?.role === "supply_officer";
+  const [tab, setTab] = useState<TabKey>("register");
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [buildings, setBuildings] = useState<Lookup[]>([]);
+  const [units, setUnits] = useState<Lookup[]>([]);
+  const [budgetSources, setBudgetSources] = useState<Lookup[]>([]);
+  const [rounds, setRounds] = useState<SurveyRound[]>([]);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const supabase = createClient();
+    const [
+      { data: categoriesData },
+      { data: buildingsData },
+      { data: unitsData },
+      { data: budgetSourcesData },
+      { data: roundsData },
+    ] = await Promise.all([
+      supabase
+        .from("asset_categories")
+        .select("id, name, useful_life_years, depreciation_rate_percent, is_active")
+        .order("sort_order")
+        .order("name"),
+      supabase.from("asset_buildings").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("asset_units").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("asset_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("asset_survey_rounds").select("id, year, name, is_open").order("year", { ascending: false }),
+    ]);
+    setCategories(categoriesData ?? []);
+    setBuildings(buildingsData ?? []);
+    setUnits(unitsData ?? []);
+    setBudgetSources(budgetSourcesData ?? []);
+    setRounds(roundsData ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    reload();
+  }, [reload]);
+
+  if (authLoading || loading) return <PageLoadingSkeleton />;
+
+  const activeCategories = categories.filter((c) => c.is_active);
+  const activeBuildings = buildings.filter((b) => b.is_active);
+  const activeUnits = units.filter((u) => u.is_active);
+  const activeBudgetSources = budgetSources.filter((s) => s.is_active);
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">ทะเบียนคุมทรัพย์สิน</h1>
+          <p className="page-subtitle">ทะเบียนคุมทรัพย์สินของโรงเรียน จากข้อมูลการสำรวจครุภัณฑ์</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-1 border-b border-slate-200">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              tab === t.key
+                ? "border-navy-800 text-navy-800"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6">
+        {tab === "register" && (
+          <RegisterTab
+            canManage={canManage}
+            rounds={rounds}
+            categories={activeCategories}
+            buildings={activeBuildings}
+            units={activeUnits}
+            budgetSources={activeBudgetSources}
+            onChanged={reload}
+          />
+        )}
+        {tab === "master" && (
+          <MasterDataTab
+            canManage={canManage}
+            categories={categories}
+            buildings={buildings}
+            units={units}
+            budgetSources={budgetSources}
+            onChanged={reload}
+          />
+        )}
+        {tab === "rounds" && <SurveyRoundTab canManage={canManage} rounds={rounds} onChanged={reload} />}
+      </div>
+    </div>
+  );
+}
