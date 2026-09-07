@@ -152,7 +152,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             <HeaderRow label="ส่วนราชการ" value={data.education_area} />
             <HeaderRow label="หน่วยงาน" value={data.school_name} />
             <HeaderRow label="ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={data.vendor_name} />
-            <HeaderRow label="ที่อยู่/โทรศัพท์ผู้ขาย" value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null} />
+            <HeaderRow label="ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null} />
             <HeaderRow label="ประเภทเงิน" value={data.budget_source_name} />
             <HeaderRow label="วิธีการได้มา" value={data.acquisition_method} />
           </View>
