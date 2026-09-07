@@ -174,7 +174,6 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           <HeaderRowGroup items={[{ label: "หน่วยงาน", value: null }]} />
         </View>
 
-        <HeaderRowGroup items={[{ label: "ลำดับที่", value: data.sequence_no }]} />
         <HeaderRowGroup
           items={[
             { label: "ประเภท", value: data.category_name },
