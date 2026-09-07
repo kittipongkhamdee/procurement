@@ -17,7 +17,7 @@ const styles = StyleSheet.create({
   headerCols: { flexDirection: "row", gap: 20 },
   headerCol: { width: "50%" },
   row: { flexDirection: "row", marginBottom: 4 },
-  label: { fontWeight: "bold", width: 108 },
+  label: { fontWeight: "bold", marginRight: 8 },
   value: { flex: 1, paddingRight: 12 },
   // ไม่ใช้ borderWidth (กรอบรอบทุกด้าน) — เส้นขอบล่างของกรอบตารางจะไปทับกับ borderBottomWidth
   // ของแถวข้อมูลแถวสุดท้าย (cell/cellLast ด้านล่าง) ทำให้เส้นล่างสุดหนากว่าเส้นแบ่งแถวอื่นๆ 2 เท่า
@@ -175,12 +175,12 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             <HeaderRow label="ชื่อทรัพย์สิน" value={data.name} />
             <HeaderRow label="ยี่ห้อ/รุ่น" value={data.model} />
             <HeaderRow label="แบบ/ลักษณะ" value={data.spec} />
-            <HeaderRow label={["สถานที่ตั้ง/", "หน่วยงาน"]} value={location} />
+            <HeaderRow label="สถานที่ตั้ง/หน่วยงาน" value={location} />
           </View>
           <View style={styles.headerCol}>
             <HeaderRow label="ส่วนราชการ" value={data.school_name} />
             <HeaderRow label="หน่วยงาน" value={null} />
-            <HeaderRow label={["ชื่อผู้ขาย/ผู้รับจ้าง/", "ผู้บริจาค"]} value={data.vendor_name} />
+            <HeaderRow label="ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={data.vendor_name} />
             <HeaderRow
               label={["ที่อยู่ผู้ขาย/ผู้รับจ้าง/", "ผู้บริจาค"]}
               value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null}
