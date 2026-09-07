@@ -182,7 +182,9 @@ function HeadCell({ style, lines }: { style: StyleProp; lines: string | string[]
 }
 
 export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) {
-  const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room].filter(Boolean).join(" ");
+  const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room ? `ห้อง ${data.room}` : null]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <Document>
