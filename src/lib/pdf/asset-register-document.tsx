@@ -197,7 +197,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             <DoubleHeaderRow label1="ประเภท" value1={data.category_name} label2="รหัส" value2={data.asset_code} />
             <DoubleHeaderRow label1="ชื่อทรัพย์สิน" value1={data.name} label2="ยี่ห้อ/รุ่น" value2={data.model} />
             <HeaderRow label="แบบ/ลักษณะ" value={data.spec} />
-            <HeaderRow label="สถานที่ตั้ง/หน่วยงาน" value={location} />
+            <HeaderRow label="สถานที่ตั้ง" value={location} />
             <DoubleHeaderRow
               label1="ประเภทเงิน"
               value1={data.budget_source_name}
