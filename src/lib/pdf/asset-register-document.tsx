@@ -36,18 +36,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#111827",
   },
-  colDate: { width: "8%" },
-  colItem: { width: "18%" },
-  colQty: { width: "6%", textAlign: "right" },
-  colUnit: { width: "6%" },
-  colUnitPrice: { width: "9%", textAlign: "right" },
-  colTotal: { width: "9%", textAlign: "right" },
-  colLife: { width: "6%", textAlign: "right" },
-  colRate: { width: "6%", textAlign: "right" },
-  colAnnual: { width: "9%", textAlign: "right" },
+  // รวมกันต้องได้ 100% พอดี — เกินแล้วตารางจะกว้างกว่าหน้ากระดาษ ทำให้คอลัมน์ท้ายๆ (โดยเฉพาะ
+  // "หมายเหตุ") ล้นออกนอกขอบกระดาษ (เคยเกิดมาแล้วตอนรวมได้ 105%)
+  colDate: { width: "7%" },
+  colItem: { width: "15%" },
+  colQty: { width: "5%", textAlign: "right" },
+  colUnit: { width: "5%" },
+  colUnitPrice: { width: "8%", textAlign: "right" },
+  colTotal: { width: "8%", textAlign: "right" },
+  colLife: { width: "5%", textAlign: "right" },
+  colRate: { width: "5%", textAlign: "right" },
+  colAnnual: { width: "8%", textAlign: "right" },
   colCumulative: { width: "9%", textAlign: "right" },
-  colNet: { width: "9%", textAlign: "right" },
-  colNote: { width: "10%" },
+  colNet: { width: "8%", textAlign: "right" },
+  colNote: { width: "17%" },
+  noteLine: { fontSize: 11 },
 });
 
 export type AssetDepreciationRow = {
@@ -62,7 +65,10 @@ export type AssetDepreciationRow = {
   annual: number | null;
   cumulative: number | null;
   net: number | null;
-  note: string | null;
+  // แยกเป็นบรรทัดสั้นๆ ที่ตัดคำมาให้แล้วล่วงหน้า แทนที่จะเป็นประโยคยาวประโยคเดียว — ข้อความไทยไม่มี
+  // ช่องว่างคั่นคำ ทำให้ระบบตัดบรรทัดอัตโนมัติของ react-pdf ตัดคำยาวๆ กลางคำไม่ได้ ล้นออกนอกช่องแคบๆ
+  // ของคอลัมน์นี้แทน (ดู thai-pdf.ts) จึงต้องกำหนดจุดตัดบรรทัดเองให้สั้นพอ
+  note: string[] | null;
 };
 
 export type AssetRegisterPdfData = {
@@ -158,7 +164,13 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
               <Text style={[styles.cell, styles.colAnnual]}>{t(row.annual != null ? formatBaht(row.annual) : "")}</Text>
               <Text style={[styles.cell, styles.colCumulative]}>{t(row.cumulative != null ? formatBaht(row.cumulative) : "")}</Text>
               <Text style={[styles.cell, styles.colNet]}>{t(row.net != null ? formatBaht(row.net) : "")}</Text>
-              <Text style={[styles.cellLast, styles.colNote]}>{t(row.note ?? "")}</Text>
+              <View style={[styles.cellLast, styles.colNote]}>
+                {(row.note ?? []).map((line, j) => (
+                  <Text style={styles.noteLine} key={j}>
+                    {t(line)}
+                  </Text>
+                ))}
+              </View>
             </View>
           ))}
         </View>

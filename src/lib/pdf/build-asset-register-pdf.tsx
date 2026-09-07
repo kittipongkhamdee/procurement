@@ -45,7 +45,7 @@ function buildDepreciationSchedule(item: {
     net: item.price,
     note:
       item.price != null && item.price <= NO_DEPRECIATION_THRESHOLD
-        ? "ไม่ต้องคำนวณค่าเสื่อมราคา มูลค่าไม่เกิน 5,000 บาท"
+        ? ["ไม่คำนวณค่าเสื่อม", "(มูลค่าไม่เกิน", "5,000 บาท)"]
         : null,
   };
 
@@ -72,7 +72,7 @@ function buildDepreciationSchedule(item: {
     const net = item.price - cumulative;
     rows.push({
       yearLabel: String(year),
-      itemLabel: `คิดค่าเสื่อมราคา ณ วันที่ 30 กันยายน พ.ศ. ${year}`,
+      itemLabel: `ค่าเสื่อมราคา ณ 30 ก.ย. พ.ศ. ${year}`,
       quantity: null,
       unit: null,
       unitPrice: null,
@@ -82,7 +82,7 @@ function buildDepreciationSchedule(item: {
       annual: dep,
       cumulative,
       net,
-      note: net <= 1 ? "มีมูลค่าทางบัญชีคงเหลือไว้ 1 บาท" : null,
+      note: net <= 1 ? ["คงมูลค่าบัญชี", "ไว้ 1 บาท"] : null,
     });
     if (net <= 1) break;
   }
