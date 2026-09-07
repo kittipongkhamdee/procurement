@@ -71,14 +71,33 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     spec: String(formData.get("spec") ?? "").trim() || null,
   };
 
+  // ช่องรูปภาพในฟอร์มเป็น "photo_path" เฉพาะเมื่อผู้ใช้เพิ่ม/เปลี่ยน/ลบรูปจริงเท่านั้น (ไม่มี key นี้
+  // เลยแปลว่าไม่ได้แตะรูปเดิม) — ค่าว่างหมายถึงลบรูปออก ส่วนพาธใหม่มาจากการอัปโหลดผ่าน
+  // /api/asset-photo-upload แล้วล่วงหน้า ต้องลบไฟล์เก่าออกจาก storage ด้วยเมื่อมีการเปลี่ยน/ลบ
+  const photoPathRaw = formData.get("photo_path");
+  const photoPathChanged = photoPathRaw !== null;
+  const newPhotoPath = photoPathChanged ? String(photoPathRaw).trim() || null : undefined;
+  let oldPhotoPath: string | null = null;
+  if (id && photoPathChanged) {
+    const { data: existing } = await supabase.from("asset_items").select("photo_path").eq("id", id).maybeSingle();
+    oldPhotoPath = existing?.photo_path ?? null;
+  }
+
   if (id) {
-    const { error } = await supabase.from("asset_items").update(payload).eq("id", id);
+    const { error } = await supabase
+      .from("asset_items")
+      .update(photoPathChanged ? { ...payload, photo_path: newPhotoPath } : payload)
+      .eq("id", id);
     if (error) throw new Error(error.message);
+    if (oldPhotoPath && oldPhotoPath !== newPhotoPath) {
+      await supabase.storage.from("asset-photos").remove([oldPhotoPath]);
+    }
   } else {
     // รายการที่เจ้าหน้าที่พัสดุพิมพ์เพิ่มเองในทะเบียนโดยตรง (ไม่ผ่านฟอร์มสำรวจสาธารณะ) ถือว่า
     // ผ่านการตรวจสอบแล้วในตัว จึงตั้งสถานะ "อนุมัติ" ทันที ไม่ต้องรอ submitted → อนุมัติซ้ำอีกรอบ
     const { error } = await supabase.from("asset_items").insert({
       ...payload,
+      photo_path: newPhotoPath || null,
       status: "approved",
       surveyed_by: userId,
       reviewed_by: userId,
@@ -113,8 +132,12 @@ export async function updateAssetItemStatus(
 
 export async function deleteAssetItem(id: string) {
   const { supabase } = await requireAssetStaff();
+  const { data: existing } = await supabase.from("asset_items").select("photo_path").eq("id", id).maybeSingle();
   const { error } = await supabase.from("asset_items").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  if (existing?.photo_path) {
+    await supabase.storage.from("asset-photos").remove([existing.photo_path]);
+  }
   revalidatePath(PATH);
 }
 
