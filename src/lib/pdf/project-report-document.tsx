@@ -96,6 +96,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // 1-2 รูป: จัดเต็มความกว้าง 1 คอลัมน์แทนที่จะเหลือครึ่งแถวว่างๆ ข้างกริด 2 คอลัมน์ปกติ
+  // เพิ่มความสูงตามไปด้วยให้ดูเต็มพื้นที่หน้ากระดาษพอดี ไม่ดูเล็กจ้อยกลางหน้าเปล่าๆ
+  photoCellSingle: {
+    width: "100%",
+    height: 320,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   // objectFit: "contain" keeps the photo's original aspect ratio, fitting it inside the
   // fixed cell without stretching or cropping — required since photos can be any shape.
   photoImage: { width: "100%", height: "100%", objectFit: "contain" },
@@ -379,7 +387,10 @@ export function ProjectReportDocument({
                 <Text style={styles.subtitle}>{t("4. ภาพถ่ายกิจกรรม")}</Text>
                 <View style={styles.photoGrid}>
                   {data.photos.map((photo, i) => (
-                    <View style={styles.photoCell} key={i}>
+                    <View
+                      style={data.photos.length <= 2 ? styles.photoCellSingle : styles.photoCell}
+                      key={i}
+                    >
                       {/* eslint-disable-next-line jsx-a11y/alt-text -- @react-pdf/renderer's Image is a PDF node, not an HTML <img> */}
                       <Image
                         style={styles.photoImage}
