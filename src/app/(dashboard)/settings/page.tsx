@@ -69,6 +69,7 @@ type SettingsData = {
   schoolLogoUrl: string | null;
   educationArea: string | null;
   schoolAddress: string | null;
+  assetCodePrefix: string | null;
 };
 
 export default function SettingsPage() {
@@ -102,7 +103,11 @@ export default function SettingsPage() {
       supabase.from("proc_app_settings").select("value").eq("key", "gemini_model").maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
-      supabase.from("proc_school_settings").select("school_name, logo_url, education_area, school_address").eq("id", true).maybeSingle(),
+      supabase
+        .from("proc_school_settings")
+        .select("school_name, logo_url, education_area, school_address, asset_code_prefix")
+        .eq("id", true)
+        .maybeSingle(),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -128,6 +133,7 @@ export default function SettingsPage() {
       schoolLogoUrl: schoolSettings?.logo_url ?? null,
       educationArea: schoolSettings?.education_area ?? null,
       schoolAddress: schoolSettings?.school_address ?? null,
+      assetCodePrefix: schoolSettings?.asset_code_prefix ?? null,
     });
   }, []);
 
@@ -218,6 +224,7 @@ export default function SettingsPage() {
               logoUrl={data.schoolLogoUrl}
               educationArea={data.educationArea}
               schoolAddress={data.schoolAddress}
+              assetCodePrefix={data.assetCodePrefix}
               setSchoolName={setSchoolName}
               uploadSchoolLogo={uploadSchoolLogo}
               removeSchoolLogo={removeSchoolLogo}

@@ -15,6 +15,7 @@ export function SchoolBrandingForm({
   logoUrl,
   educationArea,
   schoolAddress,
+  assetCodePrefix,
   setSchoolName,
   uploadSchoolLogo,
   removeSchoolLogo,
@@ -24,6 +25,7 @@ export function SchoolBrandingForm({
   logoUrl: string | null;
   educationArea: string | null;
   schoolAddress: string | null;
+  assetCodePrefix: string | null;
   setSchoolName: typeof setSchoolNameAction;
   uploadSchoolLogo: typeof uploadSchoolLogoAction;
   removeSchoolLogo: typeof removeSchoolLogoAction;
@@ -33,6 +35,7 @@ export function SchoolBrandingForm({
   const [name, setName] = useState(schoolName);
   const [educationAreaValue, setEducationAreaValue] = useState(educationArea ?? "");
   const [schoolAddressValue, setSchoolAddressValue] = useState(schoolAddress ?? "");
+  const [assetCodePrefixValue, setAssetCodePrefixValue] = useState(assetCodePrefix ?? "");
   const [savingName, setSavingName] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [removingLogo, setRemovingLogo] = useState(false);
@@ -45,6 +48,7 @@ export function SchoolBrandingForm({
       fd.set("school_name", name);
       fd.set("education_area", educationAreaValue);
       fd.set("school_address", schoolAddressValue);
+      fd.set("asset_code_prefix", assetCodePrefixValue);
       await setSchoolName(fd);
       await toastSuccess("บันทึกข้อมูลโรงเรียนแล้ว");
       onChanged();
@@ -158,6 +162,15 @@ export function SchoolBrandingForm({
             value={schoolAddressValue}
             onChange={(e) => setSchoolAddressValue(e.target.value)}
             placeholder="เช่น ม.4 ต.... อ.... จ.... รหัสไปรษณีย์"
+            className="input"
+          />
+        </div>
+        <div>
+          <label className="label">อักษรย่อโรงเรียน (สำหรับเลขครุภัณฑ์อัตโนมัติ)</label>
+          <input
+            value={assetCodePrefixValue}
+            onChange={(e) => setAssetCodePrefixValue(e.target.value)}
+            placeholder="เช่น ต.บ.ว."
             className="input"
           />
         </div>

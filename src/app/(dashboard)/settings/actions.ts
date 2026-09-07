@@ -235,6 +235,8 @@ export async function setSchoolName(formData: FormData) {
       // ส่วนราชการ/ที่อยู่โรงเรียน — ใช้แสดงในหัวเอกสารทางการ เช่น ใบทะเบียนคุมทรัพย์สิน
       education_area: String(formData.get("education_area") ?? "").trim() || null,
       school_address: String(formData.get("school_address") ?? "").trim() || null,
+      // อักษรย่อโรงเรียน (เช่น "ต.บ.ว.") — ใช้ขึ้นต้นเลขครุภัณฑ์ที่กำหนดอัตโนมัติในทะเบียนคุมทรัพย์สิน
+      asset_code_prefix: String(formData.get("asset_code_prefix") ?? "").trim() || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", true);
