@@ -18,6 +18,9 @@ const styles = StyleSheet.create({
   // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
   rightAlign: { alignItems: "flex-end", marginBottom: 4 },
   row: { flexDirection: "row", marginBottom: 4 },
+  // คอลัมน์ตายตัว 3 คอลัมน์ (33.33% เท่ากันทุกแถว) ให้ป้ายชื่อ/ค่าในแต่ละแถวเรียงตรงแนวเดียวกันแนวตั้ง
+  // ไม่ว่าแถวนั้นจะมีกี่ช่อง (2 หรือ 3 ช่อง) ก็ยังอยู่ตำแหน่งคอลัมน์เดียวกับแถวอื่นๆ
+  groupItem: { width: "33.3333%", flexDirection: "row" },
   label: { fontWeight: "bold", marginRight: 8 },
   value: { flex: 1, paddingRight: 12 },
   // ไม่ใช้ borderWidth (กรอบรอบทุกด้าน) — เส้นขอบล่างของกรอบตารางจะไปทับกับ borderBottomWidth
@@ -121,20 +124,18 @@ function guard(value: string | number | null | undefined): string {
   return ` ${t(value)}`;
 }
 
-// แถวหัวเอกสาร — รับ 1 ช่องขึ้นไปในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ... ลักษณะ/คุณสมบัติ ... รุ่น/แบบ ...")
-// label กว้างอัตโนมัติ + marginRight, value กว้าง flex:1 แบ่งพื้นที่ที่เหลือของแถวเท่าๆ กันโดยอัตโนมัติ
-// จาก flexDirection: row — ใช้ได้ทั้งแถว 1, 2 และ 4 ช่อง
+// แถวหัวเอกสาร — รับ 1 ช่องขึ้นไปในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ... ลักษณะ/คุณสมบัติ ...")
+// แต่ละช่องอยู่ในคอลัมน์ตายตัว 3 คอลัมน์เท่ากันเสมอ (ดู groupItem) ไม่ว่าแถวนั้นจะมี 2 หรือ 3 ช่อง
+// ก็ตาม เพื่อให้ป้าย/ค่าของทุกแถวเรียงตรงแนวเดียวกันแนวตั้ง
 function HeaderRowGroup({ items }: { items: { label: string; value: string | null | undefined }[] }) {
   return (
     <View style={styles.row}>
-      {items.flatMap((it, i) => [
-        <Text style={styles.label} key={`l${i}`}>
-          {guard(it.label)}
-        </Text>,
-        <Text style={styles.value} key={`v${i}`}>
-          {guard(it.value || "-")}
-        </Text>,
-      ])}
+      {items.map((it, i) => (
+        <View style={styles.groupItem} key={i}>
+          <Text style={styles.label}>{guard(it.label)}</Text>
+          <Text style={styles.value}>{guard(it.value || "-")}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -170,8 +171,14 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         </View>
 
         <View style={styles.rightAlign}>
-          <HeaderRowGroup items={[{ label: "ส่วนราชการ", value: data.school_name }]} />
-          <HeaderRowGroup items={[{ label: "หน่วยงาน", value: null }]} />
+          <View style={styles.row}>
+            <Text style={styles.label}>{guard("ส่วนราชการ")}</Text>
+            <Text>{guard(data.school_name || "-")}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>{guard("หน่วยงาน")}</Text>
+            <Text>{guard("-")}</Text>
+          </View>
         </View>
 
         <HeaderRowGroup
