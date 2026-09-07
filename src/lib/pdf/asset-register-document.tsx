@@ -117,10 +117,21 @@ function guard(value: string | number | null | undefined): string {
   return ` ${t(value)}`;
 }
 
-function HeaderRow({ label, value }: { label: string; value: string | null | undefined }) {
+// label ปกติเป็นสตริงบรรทัดเดียว แต่บางป้ายยาวมากและไม่มีช่องว่างให้ตัดคำ (เช่น
+// "ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค") ทำให้ล้นออกนอกกรอบความกว้างคงที่ 130 ไปทับข้อความค่าด้านขวา —
+// รับเป็นอาร์เรย์ได้เพื่อกำหนดจุดตัดบรรทัดเองล่วงหน้าเหมือน HeadCell
+function HeaderRow({ label, value }: { label: string | string[]; value: string | null | undefined }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{guard(label)}</Text>
+      {typeof label === "string" ? (
+        <Text style={styles.label}>{guard(label)}</Text>
+      ) : (
+        <View style={styles.label}>
+          {label.map((line, i) => (
+            <Text key={i}>{guard(line)}</Text>
+          ))}
+        </View>
+      )}
       <Text style={styles.value}>{guard(value || "-")}</Text>
     </View>
   );
@@ -169,7 +180,10 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             <HeaderRow label="ส่วนราชการ" value={data.education_area} />
             <HeaderRow label="หน่วยงาน" value={data.school_name} />
             <HeaderRow label="ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={data.vendor_name} />
-            <HeaderRow label="ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null} />
+            <HeaderRow
+              label={["ที่อยู่ผู้ขาย/ผู้รับจ้าง/", "ผู้บริจาค"]}
+              value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null}
+            />
             <HeaderRow label="ประเภทเงิน" value={data.budget_source_name} />
             <HeaderRow label="วิธีการได้มา" value={data.acquisition_method} />
           </View>
@@ -177,7 +191,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
 
         <View style={[styles.table, { marginTop: 8 }]}>
           <View style={styles.tHeadRow}>
-            <HeadCell style={[styles.cell, styles.colDate]} lines="ปี พ.ศ." />
+            <HeadCell style={[styles.cell, styles.colDate]} lines={["วัน/เดือน/", "ปี"]} />
             <HeadCell style={[styles.cell, styles.colItem]} lines="รายการ" />
             <HeadCell style={[styles.cell, styles.colQty]} lines="จำนวน" />
             <HeadCell style={[styles.cell, styles.colUnit]} lines="หน่วย" />
