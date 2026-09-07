@@ -172,7 +172,7 @@ export async function renderProjectReportDocxBuffer(data: ProjectReportPdfData):
     }
 
     body.push(heading("2. ผลการดำเนินงานโครงการ", THAI_FONT_SIZE_HEADING));
-    body.push(...bulletSection("สรุปการดำเนินงาน/กิจกรรมที่ทำจริง", data.activities_done));
+    body.push(...bulletSection("การดำเนินงานโครงการ/กิจกรรม", data.activities_done));
     body.push(...indicatorTable("ตัวชี้วัดเชิงปริมาณ", data.indicator_results_quantity));
     body.push(...indicatorTable("ตัวชี้วัดเชิงคุณภาพ", data.indicator_results_quality));
     if (data.satisfaction_percent != null) {

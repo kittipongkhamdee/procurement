@@ -636,7 +636,7 @@ export function ProjectReportForm({
             <div className="card-title">3. ผลการดำเนินงานโครงการ</div>
             <div className="grid grid-cols-1 gap-3">
               <ListField
-                label="สรุปการดำเนินงาน/กิจกรรมที่ทำจริง"
+                label="การดำเนินงานโครงการ/กิจกรรม"
                 placeholder="เช่น จัดกิจกรรมพัฒนาทักษะอาชีพ..."
                 values={activitiesDone}
                 onChange={setActivitiesDone}

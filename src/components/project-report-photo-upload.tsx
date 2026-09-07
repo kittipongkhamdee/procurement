@@ -4,7 +4,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { compressPhotoFile } from "@/lib/image-resize";
 
 const UPLOAD_ENDPOINT = "/api/project-report-photo-upload";
-const MAX_PHOTOS = 4;
+const MAX_PHOTOS = 6;
 const JPEG_QUALITY = 0.82;
 
 type Photo = {
