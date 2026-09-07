@@ -179,13 +179,17 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             { label: "ประเภท", value: data.category_name },
             { label: "รหัส", value: data.asset_code },
             { label: "ลักษณะ/คุณสมบัติ", value: data.spec },
-            { label: "รุ่น/แบบ", value: data.model },
           ]}
         />
         <HeaderRowGroup
           items={[
+            { label: "รุ่น/แบบ", value: data.model },
             { label: "สถานที่ตั้ง", value: location },
             { label: "ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค", value: data.vendor_name },
+          ]}
+        />
+        <HeaderRowGroup
+          items={[
             { label: "ที่อยู่", value: data.vendor_address },
             { label: "โทรศัพท์", value: data.vendor_phone },
           ]}
