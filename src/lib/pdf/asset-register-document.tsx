@@ -212,7 +212,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
             <HeaderRow label="หน่วยงาน" value={null} />
             <HeaderRow label="ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={data.vendor_name} />
             <HeaderRow
-              label={["ที่อยู่ผู้ขาย/ผู้รับจ้าง/", "ผู้บริจาค"]}
+              label="ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค"
               value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null}
             />
           </View>
