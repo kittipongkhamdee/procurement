@@ -142,10 +142,8 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         <View style={styles.headerCols}>
           <View style={styles.headerCol}>
             <HeaderRow label="ลำดับที่" value={data.sequence_no} />
-            <HeaderRow
-              label="ประเภท / รหัส"
-              value={[data.category_name, data.asset_code].filter(Boolean).join(" / ") || null}
-            />
+            <HeaderRow label="ประเภท" value={data.category_name} />
+            <HeaderRow label="รหัส" value={data.asset_code} />
             <HeaderRow label="ชื่อทรัพย์สิน" value={data.name} />
             <HeaderRow label="สถานที่ตั้ง/หน่วยงาน" value={location} />
             <HeaderRow label="ลักษณะ/คุณสมบัติ" value={[data.model, data.spec].filter(Boolean).join(" — ") || null} />
