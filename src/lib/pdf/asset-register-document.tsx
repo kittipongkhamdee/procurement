@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import type { StyleProp } from "@react-pdf/types";
 import { formatBaht } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
 
@@ -36,21 +37,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: "#111827",
   },
-  // รวมกันต้องได้ 100% พอดี — เกินแล้วตารางจะกว้างกว่าหน้ากระดาษ ทำให้คอลัมน์ท้ายๆ (โดยเฉพาะ
-  // "หมายเหตุ") ล้นออกนอกขอบกระดาษ (เคยเกิดมาแล้วตอนรวมได้ 105%)
+  // รวมกันต้องได้ 100% พอดี — เกินแล้วตารางจะกว้างกว่าหน้ากระดาษ ทำให้คอลัมน์ท้ายๆ ล้นออกนอกขอบ
+  // กระดาษ (เคยเกิดมาแล้วตอนรวมได้ 105%)
   colDate: { width: "7%" },
-  colItem: { width: "15%" },
-  colQty: { width: "5%", textAlign: "right" },
-  colUnit: { width: "5%" },
+  colItem: { width: "14%" },
+  colQty: { width: "6%", textAlign: "right" },
+  colUnit: { width: "6%" },
   colUnitPrice: { width: "8%", textAlign: "right" },
   colTotal: { width: "8%", textAlign: "right" },
-  colLife: { width: "5%", textAlign: "right" },
-  colRate: { width: "5%", textAlign: "right" },
+  colLife: { width: "7%", textAlign: "right" },
+  colRate: { width: "6%", textAlign: "right" },
   colAnnual: { width: "8%", textAlign: "right" },
-  colCumulative: { width: "9%", textAlign: "right" },
+  colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
-  colNote: { width: "17%" },
-  noteLine: { fontSize: 11 },
+  colNote: { width: "14%" },
+  cellLine: { fontSize: 11 },
+  headLine: { fontSize: 11, fontWeight: "bold" },
 });
 
 export type AssetDepreciationRow = {
@@ -104,6 +106,22 @@ function HeaderRow({ label, value }: { label: string; value: string | null | und
   );
 }
 
+// หัวตารางบางคอลัมน์แคบ (เช่น "อายุใช้งาน", "เสื่อมสะสม") เป็นคำไทยยาวไม่มีช่องว่างคั่นคำ ตัดบรรทัด
+// อัตโนมัติของ react-pdf ตัดกลางคำไม่ได้ ล้นทับคอลัมน์ข้างๆ (ดู note ใน AssetDepreciationRow ด้านบน) —
+// จึงกำหนดจุดตัดบรรทัดของหัวตารางเองล่วงหน้าเป็นอาร์เรย์บรรทัดสั้นๆ แทนสตริงยาวประโยคเดียว
+function HeadCell({ style, lines }: { style: StyleProp; lines: string | string[] }) {
+  const arr = Array.isArray(lines) ? lines : [lines];
+  return (
+    <View style={style}>
+      {arr.map((line, i) => (
+        <Text style={styles.headLine} key={i}>
+          {t(line)}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) {
   const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room].filter(Boolean).join(" ");
 
@@ -138,18 +156,18 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         <Text style={styles.subtitle}>{t("รายการคำนวณค่าเสื่อมราคา")}</Text>
         <View style={styles.table}>
           <View style={styles.tHeadRow}>
-            <Text style={[styles.cell, styles.colDate, { fontWeight: "bold" }]}>{t("ปี พ.ศ.")}</Text>
-            <Text style={[styles.cell, styles.colItem, { fontWeight: "bold" }]}>{t("รายการ")}</Text>
-            <Text style={[styles.cell, styles.colQty, { fontWeight: "bold" }]}>{t("จำนวน")}</Text>
-            <Text style={[styles.cell, styles.colUnit, { fontWeight: "bold" }]}>{t("หน่วย")}</Text>
-            <Text style={[styles.cell, styles.colUnitPrice, { fontWeight: "bold" }]}>{t("ราคา/หน่วย")}</Text>
-            <Text style={[styles.cell, styles.colTotal, { fontWeight: "bold" }]}>{t("มูลค่ารวม")}</Text>
-            <Text style={[styles.cell, styles.colLife, { fontWeight: "bold" }]}>{t("อายุใช้งาน")}</Text>
-            <Text style={[styles.cell, styles.colRate, { fontWeight: "bold" }]}>{t("อัตรา%")}</Text>
-            <Text style={[styles.cell, styles.colAnnual, { fontWeight: "bold" }]}>{t("ค่าเสื่อมปี")}</Text>
-            <Text style={[styles.cell, styles.colCumulative, { fontWeight: "bold" }]}>{t("เสื่อมสะสม")}</Text>
-            <Text style={[styles.cell, styles.colNet, { fontWeight: "bold" }]}>{t("มูลค่าสุทธิ")}</Text>
-            <Text style={[styles.cellLast, styles.colNote, { fontWeight: "bold" }]}>{t("หมายเหตุ")}</Text>
+            <HeadCell style={[styles.cell, styles.colDate]} lines="ปี พ.ศ." />
+            <HeadCell style={[styles.cell, styles.colItem]} lines="รายการ" />
+            <HeadCell style={[styles.cell, styles.colQty]} lines="จำนวน" />
+            <HeadCell style={[styles.cell, styles.colUnit]} lines="หน่วย" />
+            <HeadCell style={[styles.cell, styles.colUnitPrice]} lines={["ราคา/", "หน่วย"]} />
+            <HeadCell style={[styles.cell, styles.colTotal]} lines={["มูลค่า", "รวม"]} />
+            <HeadCell style={[styles.cell, styles.colLife]} lines={["อายุ", "ใช้งาน"]} />
+            <HeadCell style={[styles.cell, styles.colRate]} lines={["อัตรา", "(%)"]} />
+            <HeadCell style={[styles.cell, styles.colAnnual]} lines={["ค่าเสื่อม", "ปี"]} />
+            <HeadCell style={[styles.cell, styles.colCumulative]} lines={["เสื่อม", "สะสม"]} />
+            <HeadCell style={[styles.cell, styles.colNet]} lines={["มูลค่า", "สุทธิ"]} />
+            <HeadCell style={[styles.cellLast, styles.colNote]} lines="หมายเหตุ" />
           </View>
           {data.schedule.map((row, i) => (
             <View style={styles.tRow} key={i}>
@@ -166,7 +184,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
               <Text style={[styles.cell, styles.colNet]}>{t(row.net != null ? formatBaht(row.net) : "")}</Text>
               <View style={[styles.cellLast, styles.colNote]}>
                 {(row.note ?? []).map((line, j) => (
-                  <Text style={styles.noteLine} key={j}>
+                  <Text style={styles.cellLine} key={j}>
                     {t(line)}
                   </Text>
                 ))}
