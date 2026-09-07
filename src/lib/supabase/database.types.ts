@@ -85,6 +85,7 @@ export type Database = {
       }
       asset_items: {
         Row: {
+          acquired_date: string | null
           acquired_year: number | null
           acquisition_method: string | null
           asset_code: string | null
@@ -117,6 +118,7 @@ export type Database = {
           vendor_phone: string | null
         }
         Insert: {
+          acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null
           asset_code?: string | null
@@ -149,6 +151,7 @@ export type Database = {
           vendor_phone?: string | null
         }
         Update: {
+          acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null
           asset_code?: string | null

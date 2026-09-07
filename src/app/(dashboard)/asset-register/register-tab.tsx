@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess, confirmDelete } from "@/lib/swal";
+import { formatThaiDate } from "@/lib/thai";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
 import { deleteAssetItem, updateAssetItemStatus, upsertAssetItem } from "./actions";
@@ -22,6 +23,7 @@ type AssetItem = {
   asset_code: string | null;
   condition: string;
   note: string | null;
+  acquired_date: string | null;
   acquired_year: number | null;
   budget_source_id: string | null;
   price: number | null;
@@ -202,8 +204,8 @@ function ItemModal({
             <dd>{formatBaht(item.price)} บาท</dd>
           </div>
           <div>
-            <dt className="text-slate-400">ปีที่ได้มา</dt>
-            <dd>{item.acquired_year ?? "-"}</dd>
+            <dt className="text-slate-400">วัน/เดือน/ปีที่ได้มา</dt>
+            <dd>{item.acquired_date ? formatThaiDate(item.acquired_date) : "-"}</dd>
           </div>
           {item.note && (
             <div className="col-span-2">
@@ -306,8 +308,8 @@ function ItemModal({
               <input name="price" type="number" step="0.01" defaultValue={item?.price ?? ""} className="input" />
             </div>
             <div>
-              <label className="label">ปีที่ได้มา</label>
-              <input name="acquired_year" type="number" defaultValue={item?.acquired_year ?? ""} className="input" />
+              <label className="label">วัน/เดือน/ปีที่ได้มา</label>
+              <input name="acquired_date" type="date" defaultValue={item?.acquired_date ?? ""} className="input" />
             </div>
             <div>
               <label className="label">แหล่งงบประมาณ</label>
@@ -433,7 +435,7 @@ export function RegisterTab({
     const { data } = await supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, condition, note, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method, model, spec",
+        "id, round_id, building, floor, room, category_id, name, quantity, unit, asset_code, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method, model, spec",
       )
       .order("created_at", { ascending: false });
     setItems((data as unknown as AssetItem[]) ?? []);

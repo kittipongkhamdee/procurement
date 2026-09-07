@@ -39,7 +39,9 @@ const styles = StyleSheet.create({
   },
   // รวมกันต้องได้ 100% พอดี — เกินแล้วตารางจะกว้างกว่าหน้ากระดาษ ทำให้คอลัมน์ท้ายๆ ล้นออกนอกขอบ
   // กระดาษ (เคยเกิดมาแล้วตอนรวมได้ 105%)
-  colDate: { width: "7%" },
+  // colDate ต้องพอสำหรับ "28/05/2569" (แถวรับเข้ารายการที่มีวันที่เต็ม) ส่วนแถวคิดค่าเสื่อมรายปี
+  // อื่นๆ แสดงแค่ปี พ.ศ. 4 หลัก ซึ่งแคบกว่ามากอยู่แล้ว
+  colDate: { width: "10%" },
   colItem: { width: "14%" },
   colQty: { width: "6%", textAlign: "right" },
   colUnit: { width: "6%" },
@@ -50,7 +52,7 @@ const styles = StyleSheet.create({
   colAnnual: { width: "8%", textAlign: "right" },
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
-  colNote: { width: "14%" },
+  colNote: { width: "11%" },
   cellLine: { fontSize: 11 },
   headLine: { fontSize: 11, fontWeight: "bold" },
 });

@@ -51,7 +51,12 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     asset_code: String(formData.get("asset_code") ?? "").trim() || null,
     condition: String(formData.get("condition") ?? "usable") as "usable" | "damaged" | "disposal",
     note: String(formData.get("note") ?? "").trim() || null,
-    acquired_year: formData.get("acquired_year") ? Number(formData.get("acquired_year")) : null,
+    // ปีที่ได้มา (พ.ศ.) เก็บไว้เพื่อความเข้ากันได้ย้อนหลัง — คำนวณจากวันที่ได้มาที่กรอกจริงเสมอ
+    // ไม่ให้ผู้ใช้กรอกแยกอีกต่อไป
+    acquired_date: String(formData.get("acquired_date") ?? "").trim() || null,
+    acquired_year: formData.get("acquired_date")
+      ? new Date(String(formData.get("acquired_date"))).getFullYear() + 543
+      : null,
     budget_source_id: String(formData.get("budget_source_id") ?? "") || null,
     price: formData.get("price") ? Number(formData.get("price")) : null,
     vendor_name: String(formData.get("vendor_name") ?? "").trim() || null,

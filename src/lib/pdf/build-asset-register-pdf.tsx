@@ -7,6 +7,13 @@ import {
   type AssetRegisterPdfData,
 } from "./asset-register-document";
 
+/** "2569-05-28" -> "28/05/2569" — รูปแบบสั้นให้พอดีกับคอลัมน์แคบๆ ในตารางค่าเสื่อมราคา
+ * (formatThaiDate จาก lib/thai.ts เขียนชื่อเดือนเต็ม ยาวเกินคอลัมน์นี้) */
+function formatShortThaiDate(isoDate: string): string {
+  const [year, month, day] = isoDate.slice(0, 10).split("-");
+  return `${day}/${month}/${Number(year) + 543}`;
+}
+
 const NO_DEPRECIATION_THRESHOLD = 5000;
 const MAX_SCHEDULE_ROWS = 60;
 
@@ -26,13 +33,14 @@ function buildDepreciationSchedule(item: {
   quantity: number;
   unit: string | null;
   price: number | null;
+  acquired_date: string | null;
   acquired_year: number | null;
   useful_life_years: number | null;
   depreciation_rate_percent: number | null;
 }): AssetDepreciationRow[] {
   const unitPrice = item.price != null && item.quantity > 0 ? item.price / item.quantity : item.price;
   const acquireRow: AssetDepreciationRow = {
-    yearLabel: item.acquired_year != null ? String(item.acquired_year) : "-",
+    yearLabel: item.acquired_date ? formatShortThaiDate(item.acquired_date) : item.acquired_year != null ? String(item.acquired_year) : "-",
     itemLabel: item.name,
     quantity: item.quantity,
     unit: item.unit,
@@ -97,7 +105,7 @@ export async function buildAssetRegisterPdfData(
   const { data: item, error } = await supabase
     .from("asset_items")
     .select(
-      "asset_code, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquired_year, category_id, budget_source_id",
+      "asset_code, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquired_date, acquired_year, category_id, budget_source_id",
     )
     .eq("id", id)
     .maybeSingle();
@@ -119,6 +127,7 @@ export async function buildAssetRegisterPdfData(
     quantity: item.quantity,
     unit: item.unit,
     price: item.price,
+    acquired_date: item.acquired_date,
     acquired_year: item.acquired_year,
     useful_life_years: category?.useful_life_years ?? null,
     depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
