@@ -7,7 +7,7 @@ import { formatThaiDate } from "@/lib/thai";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ToggleSwitch } from "@/components/toggle-switch";
-import { PencilIcon, PlusIcon, PrinterIcon, TagIcon } from "@/components/icons";
+import { ExcelFileIcon, PencilIcon, PlusIcon, PrinterIcon, TagIcon } from "@/components/icons";
 import { compressPhotoFile } from "@/lib/image-resize";
 import { QrScanButton } from "./qr-scan-button";
 import {
@@ -82,6 +82,28 @@ const ALL = "__all__";
 function formatBaht(n: number | null) {
   if (n == null) return "-";
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
+}
+
+function buildRegisterExportQuery({
+  roundFilter,
+  categoryFilter,
+  statusFilter,
+  conditionFilter,
+  search,
+}: {
+  roundFilter: string;
+  categoryFilter: string;
+  statusFilter: string;
+  conditionFilter: string;
+  search: string;
+}) {
+  const params = new URLSearchParams();
+  if (roundFilter !== ALL) params.set("round", roundFilter);
+  if (categoryFilter !== ALL) params.set("category", categoryFilter);
+  if (statusFilter !== ALL) params.set("status", statusFilter);
+  if (conditionFilter !== ALL) params.set("condition", conditionFilter);
+  if (search) params.set("q", search);
+  return params.toString();
 }
 
 function statusBadge(status: string) {
@@ -906,6 +928,13 @@ export function RegisterTab({
           {selectedIds.size > 0 && <> — เลือกไว้ {selectedIds.size.toLocaleString("th-TH")} รายการ</>}
         </p>
         <div className="flex items-center gap-2">
+          <a
+            href={`/asset-register/xlsx?${buildRegisterExportQuery({ roundFilter, categoryFilter, statusFilter, conditionFilter, search })}`}
+            className="btn-secondary btn-sm"
+          >
+            <ExcelFileIcon className="h-3.5 w-3.5" />
+            ส่งออก Excel
+          </a>
           {selectedIds.size > 0 && (
             <>
               <a

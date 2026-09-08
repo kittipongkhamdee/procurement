@@ -24,18 +24,33 @@ type Category = Lookup & {
 type ItemType = Lookup & { category_id: string; code: string };
 type SurveyRound = { id: string; year: number; name: string; is_open: boolean };
 
-const TABS = [
-  { key: "register", label: "ทะเบียนทรัพย์สิน" },
-  { key: "summary", label: "สรุปรายการ" },
+// คีย์แท็บ (key) คงเดิมไว้ตามชื่อฟีเจอร์จริง มีแค่ป้ายที่แสดง (label) เปลี่ยน — แท็บ "register" (เดิม
+// ชื่อ "ทะเบียนทรัพย์สิน") เป็นหน้าจัดการ/แก้ไขแบบเต็ม จึงเปลี่ยนป้ายเป็น "จัดการทรัพย์สิน" ส่วนแท็บ
+// "summary" (เดิมชื่อ "สรุปรายการ") เป็นตารางดูอย่างเดียว จึงเปลี่ยนป้ายเป็น "ทะเบียนทรัพย์สิน" แทน
+const ALL_TABS = [
+  { key: "summary", label: "ทะเบียนทรัพย์สิน" },
+  { key: "register", label: "จัดการทรัพย์สิน" },
   { key: "master", label: "ข้อมูลหลัก" },
   { key: "rounds", label: "รอบสำรวจ" },
 ] as const;
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = (typeof ALL_TABS)[number]["key"];
 
 export default function AssetRegisterPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const canManage = isAdmin || user?.role === "supply_officer";
-  const [tab, setTab] = useState<TabKey>("register");
+  // ครูทั่วไปเข้าดูได้เฉพาะแท็บ "ทะเบียนทรัพย์สิน" (ตารางดูอย่างเดียว) แท็บอื่นทั้งหมด (จัดการ
+  // ทรัพย์สิน/ข้อมูลหลัก/รอบสำรวจ) ซ่อนไว้ — เป็นการซ่อนระดับ UI เท่านั้น ข้อมูลจริงยังปลอดภัยด้วย RLS
+  // ที่ฐานข้อมูลเหมือนเดิม (ดูคอมเมนต์ด้านบนของไฟล์)
+  const isTeacher = user?.role === "teacher";
+  const visibleTabs = isTeacher ? ALL_TABS.filter((t) => t.key === "summary") : ALL_TABS;
+  const [tab, setTab] = useState<TabKey>("summary");
+
+  useEffect(() => {
+    if (!authLoading && isTeacher) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTab("summary");
+    }
+  }, [authLoading, isTeacher]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [buildings, setBuildings] = useState<Lookup[]>([]);
@@ -103,7 +118,7 @@ export default function AssetRegisterPage() {
       </div>
 
       <div className="mt-4 flex gap-1 border-b border-slate-200">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t.key}
             type="button"
@@ -120,7 +135,7 @@ export default function AssetRegisterPage() {
       </div>
 
       <div className="mt-6">
-        {tab === "register" && (
+        {tab === "register" && !isTeacher && (
           <RegisterTab
             canManage={canManage}
             rounds={rounds}
@@ -134,7 +149,7 @@ export default function AssetRegisterPage() {
           />
         )}
         {tab === "summary" && <SummaryTab categories={activeCategories} />}
-        {tab === "master" && (
+        {tab === "master" && !isTeacher && (
           <MasterDataTab
             canManage={canManage}
             categories={categories}
@@ -146,7 +161,7 @@ export default function AssetRegisterPage() {
             onChanged={reload}
           />
         )}
-        {tab === "rounds" && <SurveyRoundTab canManage={canManage} rounds={rounds} onChanged={reload} />}
+        {tab === "rounds" && !isTeacher && <SurveyRoundTab canManage={canManage} rounds={rounds} onChanged={reload} />}
       </div>
     </div>
   );

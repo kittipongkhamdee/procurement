@@ -8,7 +8,8 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatBaht } from "@/lib/thai";
 import { computeAssetDepreciation } from "@/lib/asset-depreciation";
-import { PrinterIcon } from "@/components/icons";
+import { ExcelFileIcon, PrinterIcon } from "@/components/icons";
+import { QrScanButton } from "./qr-scan-button";
 
 type Option = { id: string; name: string };
 
@@ -71,7 +72,13 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
     if (conditionFilter !== ALL) query = query.eq("condition", conditionFilter as "usable" | "damaged" | "disposal");
     if (debouncedSearch) {
       const q = debouncedSearch.replace(/,/g, " ");
-      query = query.or(`name.ilike.%${q}%,asset_code.ilike.%${q}%,building.ilike.%${q}%,room.ilike.%${q}%`);
+      const orParts = [`name.ilike.%${q}%`, `asset_code.ilike.%${q}%`, `building.ilike.%${q}%`, `room.ilike.%${q}%`];
+      // รวม id ไว้ในช่องค้นหาด้วย — ค่าที่เข้ารหัสใน QR Code เป็น asset_code ถ้ามี ไม่งั้น fallback
+      // เป็น id (ดู build-asset-register-pdf.tsx/build-asset-tag-pdf.tsx) สแกนแล้ววางค่าตรงนี้ได้เลย
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) {
+        orParts.push(`id.eq.${q}`);
+      }
+      query = query.or(orParts.join(","));
     }
 
     const { data } = await query;
@@ -160,12 +167,15 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
           </div>
           <div className="sm:col-span-2">
             <label className="label">ค้นหา</label>
-            <input
-              value={search}
-              onChange={(e) => updateFilter(setSearch, e.target.value)}
-              placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่"
-              className="input"
-            />
+            <div className="flex gap-2">
+              <input
+                value={search}
+                onChange={(e) => updateFilter(setSearch, e.target.value)}
+                placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่/สแกน QR"
+                className="input"
+              />
+              <QrScanButton onScan={(value) => updateFilter(setSearch, value)} />
+            </div>
           </div>
         </div>
       </div>
@@ -175,10 +185,16 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
           พบ <span className="font-semibold text-slate-900">{rowsWithTotals.length.toLocaleString("th-TH")}</span> รายการ
           จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
         </p>
-        <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
-          <PrinterIcon className="h-3.5 w-3.5" />
-          พิมพ์
-        </a>
+        <div className="flex items-center gap-2">
+          <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} className="btn-secondary btn-sm">
+            <ExcelFileIcon className="h-3.5 w-3.5" />
+            ส่งออก Excel
+          </a>
+          <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
+            <PrinterIcon className="h-3.5 w-3.5" />
+            พิมพ์
+          </a>
+        </div>
       </div>
 
       {/* การ์ดสรุปยอดรวม — แสดงทุกขนาดจอ ให้เห็นยอดรวมได้ทันทีโดยไม่ต้องเลื่อนตารางไปดูคอลัมน์ท้ายสุด

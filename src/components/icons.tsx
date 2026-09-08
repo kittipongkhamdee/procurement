@@ -225,3 +225,14 @@ export function PdfFileIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function ExcelFileIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className}>
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="#16a34a" />
+      <text x="12" y="15.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="white" fontFamily="sans-serif">
+        X
+      </text>
+    </svg>
+  );
+}
