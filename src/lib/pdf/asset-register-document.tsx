@@ -1,9 +1,11 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import type { StyleProp } from "@react-pdf/types";
 import { formatBaht } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
 
 registerSarabunFont();
+
+const PHOTO_BOX_WIDTH = 48;
 
 const styles = StyleSheet.create({
   page: {
@@ -14,6 +16,10 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: "center" },
   title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
+  // กันที่ให้รูปครุภัณฑ์เล็กๆ ที่มุมขวาบนของหน้า — ใส่ความกว้างเท่ากันทั้งซ้าย (spacer) และขวา
+  // (กล่องรูป) ของแถวหัวเรื่อง เพื่อให้ชื่อเอกสารตรงกลางหน้ายังคงอยู่กึ่งกลางจริงๆ ไม่เยื้องไปทางซ้าย
+  photoBox: { width: PHOTO_BOX_WIDTH },
+  photo: { width: 44, height: 44, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
   // "ส่วนราชการ"/"หน่วยงาน" อยู่ชิดขวาบนของฟอร์ม (ตามแบบฟอร์มทะเบียนคุมทรัพย์สินมาตรฐาน) แยกจาก
   // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
   // alignSelf (ไม่ใช่ alignItems) ดันกล่องทั้งกล่องไปชิดขวาสุดของหน้า แต่ปล่อยให้แถวข้างในเรียงชิดซ้าย
@@ -116,6 +122,7 @@ export type AssetRegisterPdfData = {
   acquired_year: number | null;
   useful_life_years: number | null;
   depreciation_rate_percent: number | null;
+  photo_url: string | null;
   schedule: AssetDepreciationRow[];
 };
 
@@ -179,8 +186,15 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={styles.center}>
-          <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
+        <View style={{ flexDirection: "row" }}>
+          <View style={styles.photoBox} />
+          <View style={[styles.center, { flex: 1 }]}>
+            <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
+          </View>
+          <View style={styles.photoBox}>
+            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
+            {data.photo_url && <Image src={data.photo_url} style={styles.photo} />}
+          </View>
         </View>
 
         <View style={styles.rightAlign}>
