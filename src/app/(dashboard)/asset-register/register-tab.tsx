@@ -731,7 +731,19 @@ export function RegisterTab({
   // ไปยัง route พิมพ์ PDF ของแต่ละรายการ) — ไม่ใช่ค่าที่บันทึกถาวร แค่คุมการพิมพ์รอบนี้เท่านั้น
   const [showPhotoInPdf, setShowPhotoInPdf] = useState(true);
   const [showQrInPdf, setShowQrInPdf] = useState(true);
+  // รายการที่ติ๊กเลือกไว้เพื่อพิมพ์สติกเกอร์รวมหลายใบในหน้าเดียว (คงค้างข้ามหน้าตาราง/การกรองได้
+  // เพราะเก็บ id ไว้ ไม่ผูกกับ pageRows ปัจจุบัน)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const pageSize = 50;
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -848,11 +860,29 @@ export function RegisterTab({
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500">
           พบ <span className="font-semibold text-slate-900">{filtered.length.toLocaleString("th-TH")}</span> รายการ
           จากทั้งหมด {(items ?? []).length.toLocaleString("th-TH")} รายการ
+          {selectedIds.size > 0 && <> — เลือกไว้ {selectedIds.size.toLocaleString("th-TH")} รายการ</>}
         </p>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <>
+              <a
+                href={`/asset-register/tag-sheet?ids=${Array.from(selectedIds).join(",")}`}
+                target="_blank"
+                className="btn-secondary btn-sm"
+              >
+                <TagIcon className="h-3.5 w-3.5" />
+                พิมพ์สติกเกอร์ที่เลือก ({selectedIds.size})
+              </a>
+              <button type="button" onClick={() => setSelectedIds(new Set())} className="btn-secondary btn-sm">
+                ล้างที่เลือก
+              </button>
+            </>
+          )}
+        </div>
         {canManage && (
           <ItemModal
             item={null}
@@ -874,6 +904,7 @@ export function RegisterTab({
         <table className="table-base">
           <thead>
             <tr>
+              <th className="w-8"></th>
               <th className="whitespace-nowrap">รหัสครุภัณฑ์</th>
               <th>ชื่อทรัพย์สิน</th>
               <th>หมวดหมู่</th>
@@ -891,6 +922,14 @@ export function RegisterTab({
               const cb = conditionBadge(it.condition);
               return (
                 <tr key={it.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(it.id)}
+                      onChange={() => toggleSelected(it.id)}
+                      aria-label={`เลือก ${it.name} สำหรับพิมพ์สติกเกอร์`}
+                    />
+                  </td>
                   <td className="whitespace-nowrap">{it.asset_code ?? "-"}</td>
                   <td className="max-w-xs whitespace-normal break-words font-medium text-slate-900">{it.name}</td>
                   <td>{it.category_id ? (categoryName.get(it.category_id) ?? "-") : "-"}</td>
@@ -941,7 +980,7 @@ export function RegisterTab({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9} className="table-empty">
+                <td colSpan={10} className="table-empty">
                   ไม่พบรายการที่ตรงกับตัวกรอง
                 </td>
               </tr>
