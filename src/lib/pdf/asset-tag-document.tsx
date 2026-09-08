@@ -34,23 +34,31 @@ export type AssetTagPdfData = {
 };
 
 // ขนาดตัวอักษร/QR/ความกว้างบรรทัดปรับได้ต่อบริบท (ค่าเริ่มต้นสำหรับพิมพ์ทีละใบขนาดเต็ม 80x50mm) —
-// พิมพ์รวมหลายใบในหน้า A4 ใช้ป้ายที่แคบกว่า จึงต้องตัดคำที่ความกว้างบรรทัด (charsPerLine) แคบลง
-// ตามไปด้วย ไม่งั้นคำยาวจะไม่ขึ้นบรรทัดใหม่จนล้นออกนอกป้าย (ข้อความไทยไม่มีช่องว่างคั่นคำที่ระบบ
-// ตัดบรรทัดอัตโนมัติของ react-pdf จะใช้ตัดได้ ต้องตัดคำเองล่วงหน้าด้วย wrapText แบบเดียวกับที่ใช้ใน
-// asset-register-document.tsx)
+// พิมพ์รวมหลายใบในหน้า A4 ใช้ป้ายที่แคบกว่า จึงต้องตัดคำที่ความกว้างบรรทัดแคบลงตามไปด้วย ไม่งั้นคำ
+// ยาวจะไม่ขึ้นบรรทัดใหม่จนล้นออกนอกป้าย (ข้อความไทยไม่มีช่องว่างคั่นคำที่ระบบตัดบรรทัดอัตโนมัติของ
+// react-pdf จะใช้ตัดได้ ต้องตัดคำเองล่วงหน้าด้วย wrapText แบบเดียวกับที่ใช้ใน
+// asset-register-document.tsx) — charsPerLine แยกต่อฟิลด์เพราะแต่ละฟิลด์ใช้ fontSize ไม่เท่ากัน
 export type TagLabelSizes = {
   qrSize: number;
   codeFontSize: number;
   nameFontSize: number;
   locationFontSize: number;
-  charsPerLine: number;
+  codeCharsPerLine: number;
+  nameCharsPerLine: number;
+  locationCharsPerLine: number;
 };
 
-const DEFAULT_SIZES: TagLabelSizes = { qrSize: 90, codeFontSize: 16, nameFontSize: 10, locationFontSize: 8, charsPerLine: 12 };
+const DEFAULT_SIZES: TagLabelSizes = {
+  qrSize: 90,
+  codeFontSize: 13,
+  nameFontSize: 10,
+  locationFontSize: 8,
+  codeCharsPerLine: 15,
+  nameCharsPerLine: 18,
+  locationCharsPerLine: 22,
+};
 
-const MAX_LINES = 3;
-
-// ตัดข้อความยาวให้ขึ้นบรรทัดใหม่ล่วงหน้า (ไม่ใช่ตัดทิ้งแบบ "…") — เห็นข้อความครบทุกตัวอักษร
+// ตัดข้อความยาวให้ขึ้นบรรทัดใหม่ล่วงหน้าเสมอ ไม่ตัดทิ้งด้วย "…" — เห็นข้อความครบทุกตัวอักษรจริงๆ
 // wrapText ตัดตามช่องว่างระหว่างคำเป็นหลัก แต่ชื่อครุภัณฑ์บางชื่อไม่มีช่องว่างเลย (เช่น
 // "คอมพิวเตอร์โน้ตบุค-lenovo") ทำให้กลายเป็น "คำ" เดียวยาวเกิน charsPerLine ที่ wrapText ตัดไม่ได้ —
 // จึงบังคับตัดตามจำนวนตัวอักษรต่อให้กับคำแบบนั้นอีกชั้น กันไม่ให้บรรทัดเดียวยาวจนล้นป้าย
@@ -64,10 +72,7 @@ function lines(value: string, charsPerLine: number): string[] {
       for (let i = 0; i < line.length; i += charsPerLine) result.push(line.slice(i, i + charsPerLine));
     }
   }
-  if (result.length <= MAX_LINES) return result;
-  const kept = result.slice(0, MAX_LINES);
-  kept[MAX_LINES - 1] = `${kept[MAX_LINES - 1].slice(0, charsPerLine - 1)}…`;
-  return kept;
+  return result;
 }
 
 // เนื้อหาป้าย 1 ใบ (QR + รหัสครุภัณฑ์/ชื่อครุภัณฑ์/สถานที่) — แยกออกมาเป็นคอมโพเนนต์ใช้ร่วมกันได้
@@ -86,21 +91,21 @@ export function TagLabelContent({ data, sizes = DEFAULT_SIZES }: { data: AssetTa
         {/* เลขครุภัณฑ์เป็นข้อมูลที่ต้องอ่านได้ไวที่สุดตอนตรวจนับ (ดูตัวอย่างป้ายจากระบบสำรวจทรัพย์สิน
             เดิม) จึงเน้นให้ใหญ่/หนาที่สุดในป้าย ส่วนชื่อครุภัณฑ์/สถานที่เป็นข้อมูลรองลงมา */}
         <View style={{ marginBottom: 3 }}>
-          {lines(data.asset_code || "-", sizes.charsPerLine).map((line, i) => (
+          {lines(data.asset_code || "-", sizes.codeCharsPerLine).map((line, i) => (
             <Text key={i} style={{ fontSize: sizes.codeFontSize, fontWeight: "bold", lineHeight: 1.15 }}>
               {guard(line)}
             </Text>
           ))}
         </View>
         <View style={{ marginBottom: 3 }}>
-          {lines(data.name, sizes.charsPerLine).map((line, i) => (
+          {lines(data.name, sizes.nameCharsPerLine).map((line, i) => (
             <Text key={i} style={{ fontSize: sizes.nameFontSize, lineHeight: 1.15 }}>
               {guard(line)}
             </Text>
           ))}
         </View>
         <View>
-          {lines(location || "-", sizes.charsPerLine).map((line, i) => (
+          {lines(location || "-", sizes.locationCharsPerLine).map((line, i) => (
             <Text key={i} style={{ fontSize: sizes.locationFontSize, color: "#64748b", lineHeight: 1.15 }}>
               {guard(line)}
             </Text>
