@@ -108,6 +108,7 @@ function ItemModal({
   const modalRef = useRef<ModalHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const assetCodeInputRef = useRef<HTMLInputElement>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   // การแก้ไขรูปยังไม่อัปโหลด/ลบจริงจนกว่าจะกดบันทึกฟอร์ม — เก็บไว้เป็น state ระหว่างนั้นก่อน
@@ -284,7 +285,20 @@ function ItemModal({
             <button type="button" onClick={() => photoInputRef.current?.click()} className="btn-secondary btn-sm self-start">
               {pendingPreviewUrl || (!photoRemoved && photoUrl) ? "เปลี่ยนรูป" : "เพิ่มรูป"}
             </button>
+            <button type="button" onClick={() => cameraInputRef.current?.click()} className="btn-secondary btn-sm self-start">
+              ถ่ายรูป
+            </button>
             <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+            {/* capture="environment" เปิดกล้องหลังของมือถือ/แท็บเล็ตโดยตรงแทนที่จะเปิดคลังรูปให้เลือก
+                (เบราว์เซอร์เดสก์ท็อปจะเมิน attribute นี้แล้ว fallback ไปเปิด dialog เลือกไฟล์ตามปกติ) */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoSelect}
+              className="hidden"
+            />
           </div>
         </div>
       ) : (
