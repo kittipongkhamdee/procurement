@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
-import { registerSarabunFont, t, wrapText } from "./thai-pdf";
+import { registerSarabunFont, t } from "./thai-pdf";
 
 registerSarabunFont();
 
@@ -9,11 +9,13 @@ registerSarabunFont();
 export const TAG_WIDTH = 227; // 80mm
 export const TAG_HEIGHT = 142; // 50mm
 
+const TEXT_COLOR = "#111827";
+
 const styles = StyleSheet.create({
   page: {
     fontFamily: "Sarabun",
     padding: 10,
-    color: "#111827",
+    color: TEXT_COLOR,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -37,42 +39,38 @@ export type AssetTagPdfData = {
 // ในหน้า A4 ใช้ป้ายที่แคบกว่า จึงต้องย่อทุกอย่างลงตามสัดส่วน (asset-tag-sheet-document.tsx)
 export type TagLabelSizes = {
   qrSize: number;
-  codeFontSize: number;
+  // ความกว้างที่แท้จริงเป็น pt ของคอลัมน์ข้อความ (ความกว้างป้าย/เซลล์ - padding - qrSize - ระยะห่าง)
+  // ใช้คำนวณย่อขนาดตัวอักษรรหัสครุภัณฑ์อัตโนมัติให้พอดีบรรทัดเดียวเสมอ (ดู fitCodeFontSize ด้านล่าง)
+  textWidth: number;
+  codeMaxFontSize: number;
   nameFontSize: number;
   locationFontSize: number;
-  // เฉพาะรหัสครุภัณฑ์เท่านั้นที่ยังตัดคำเองล่วงหน้าด้วย charsPerLine (ดู wrapFull ด้านล่าง) แทนที่จะ
-  // ใช้ maxLines ของ react-pdf เหมือนชื่อ/สถานที่ เพราะ maxLines ตัดทิ้งด้วย "…" เมื่อเกิน ซึ่งขัดกับ
-  // requirement ที่ต้องแสดงรหัสครุภัณฑ์เต็มทุกตัวอักษรเสมอ — ตั้งใจให้ค่านี้ "แคบกว่า" ความกว้างจริง
-  // ของกล่องพอสมควร (ไม่ใช่กะให้พอดีเป๊ะ) เพื่อการันตีว่าแต่ละบรรทัดที่ตัดมาจะไม่กว้างเกินกล่องจนต้อง
-  // ให้ react-pdf ขึ้นบรรทัดใหม่เองซ้ำอีกชั้นภายใน <Text> เดียว (ซึ่งเป็นจุดที่เจอบั๊กตัวอักษร/คำ
-  // หายไปกลางข้อความกับ Text ตัวหนา — ดูปัญหาเดียวกันที่บันทึกไว้ใน asset-register-document.tsx
-  // เรื่อง fontWeight: "bold" กับคอลัมน์กว้างแบบ % ) ยอมให้รหัสยาวๆ ขึ้นบรรทัดมากกว่าที่จำเป็นเล็กน้อย
-  // ดีกว่าเสี่ยงเจอบั๊กทำข้อมูลหาย
-  codeCharsPerLine: number;
 };
 
 const DEFAULT_SIZES: TagLabelSizes = {
   qrSize: 90,
-  codeFontSize: 13,
+  textWidth: 109,
+  codeMaxFontSize: 13,
   nameFontSize: 10,
   locationFontSize: 8,
-  codeCharsPerLine: 11,
 };
 
-// ตัดคำยาวขึ้นบรรทัดใหม่ล่วงหน้าเสมอ ไม่ตัดทิ้ง — ใช้กับรหัสครุภัณฑ์ที่ต้องแสดงเต็มทุกตัวอักษรไม่ว่า
-// จะยาวแค่ไหน (wrapText ตัดตามช่องว่างระหว่างคำเป็นหลัก แต่คำเดี่ยวที่ไม่มีช่องว่างเลย เช่น
-// "คอมพิวเตอร์โน้ตบุค-lenovo" จะบังคับตัดตามจำนวนตัวอักษรต่อให้อีกชั้น กันบรรทัดเดียวยาวจนล้นป้าย)
-function wrapFull(value: string, charsPerLine: number): string[] {
-  const wordWrapped = wrapText(value, charsPerLine);
-  const result: string[] = [];
-  for (const line of wordWrapped) {
-    if (line.length <= charsPerLine) {
-      result.push(line);
-    } else {
-      for (let i = 0; i < line.length; i += charsPerLine) result.push(line.slice(i, i + charsPerLine));
-    }
+const CODE_MIN_FONT_SIZE = 6;
+// ความกว้างเฉลี่ยโดยประมาณของตัวอักษร (ไทย/อังกฤษผสม) ในฟอนต์ Sarabun ตัวหนา เทียบเป็นสัดส่วนของ
+// fontSize (em) — ตั้งใจประเมินแบบ "กว้างเกินจริง" ไว้ก่อน (เผื่อกันชน) ดีกว่าประเมินแคบเกินจริงแล้ว
+// ข้อความยังล้นบรรทัดจนต้องขึ้นบรรทัดใหม่เอง ซึ่งเป็นจุดที่เจอบั๊กตัวอักษร/คำหายไปกลางข้อความกับ
+// Text ตัวหนาที่ต้องขึ้นบรรทัดเอง (ดูปัญหาเดียวกันที่บันทึกไว้ใน asset-register-document.tsx เรื่อง
+// fontWeight: "bold" กับคอลัมน์กว้างแบบ %)
+const AVG_CHAR_WIDTH_EM = 0.62;
+
+// หารหัสครุภัณฑ์ที่ต้องแสดงบรรทัดเดียวเสมอ (ไม่ตัดทิ้ง ไม่ขึ้นบรรทัดใหม่) — ลดขนาดตัวอักษรลงเรื่อยๆ
+// จนกว่าความกว้างโดยประมาณจะพอดีกับคอลัมน์ หยุดที่ CODE_MIN_FONT_SIZE เป็นขั้นต่ำ (โค้ดจริงของระบบ
+// นี้มีความยาวจำกัดตามรูปแบบที่กำหนดไว้แล้ว จึงมั่นใจได้ว่าพอดีในช่วงขนาดนี้เสมอ)
+function fitCodeFontSize(text: string, maxFontSize: number, textWidth: number): number {
+  for (let size = maxFontSize; size > CODE_MIN_FONT_SIZE; size -= 0.5) {
+    if (text.length * AVG_CHAR_WIDTH_EM * size <= textWidth) return size;
   }
-  return result;
+  return CODE_MIN_FONT_SIZE;
 }
 
 // เนื้อหาป้าย 1 ใบ (QR + รหัสครุภัณฑ์/ชื่อครุภัณฑ์/สถานที่) — แยกออกมาเป็นคอมโพเนนต์ใช้ร่วมกันได้
@@ -82,6 +80,8 @@ export function TagLabelContent({ data, sizes = DEFAULT_SIZES }: { data: AssetTa
   const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room ? `ห้อง ${data.room}` : null]
     .filter(Boolean)
     .join(" ");
+  const code = data.asset_code || "-";
+  const codeFontSize = fitCodeFontSize(code, sizes.codeMaxFontSize, sizes.textWidth);
 
   return (
     <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
@@ -89,18 +89,15 @@ export function TagLabelContent({ data, sizes = DEFAULT_SIZES }: { data: AssetTa
       <Image src={data.qr_url} style={{ width: sizes.qrSize, height: sizes.qrSize, marginRight: 8 }} />
       <View style={{ flex: 1, overflow: "hidden" }}>
         {/* เลขครุภัณฑ์เป็นข้อมูลที่ต้องอ่านได้ไวที่สุดตอนตรวจนับ (ดูตัวอย่างป้ายจากระบบสำรวจทรัพย์สิน
-            เดิม) จึงเน้นให้ใหญ่/หนาที่สุดในป้าย และแสดงเต็มทุกตัวอักษรเสมอไม่ตัดทิ้งด้วย "…" */}
-        <View style={{ marginBottom: 3 }}>
-          {wrapFull(data.asset_code || "-", sizes.codeCharsPerLine).map((line, i) => (
-            <Text key={i} style={{ fontSize: sizes.codeFontSize, fontWeight: "bold", lineHeight: 1.15 }}>
-              {guard(line)}
-            </Text>
-          ))}
-        </View>
+            เดิม) จึงเน้นให้หนาที่สุดในป้าย แสดงบรรทัดเดียวเสมอ (ย่อขนาดลงถ้าไม่พอ ไม่ตัดทิ้งด้วย "…"
+            และไม่ขึ้นบรรทัดใหม่เอง) maxLines กันเป็นด่านสุดท้ายเฉยๆ ไม่ควรถูกใช้งานจริงถ้าคำนวณถูก */}
+        <Text style={{ fontSize: codeFontSize, fontWeight: "bold", lineHeight: 1.15, marginBottom: 3, maxLines: 1 }}>
+          {guard(code)}
+        </Text>
         <Text style={{ fontSize: sizes.nameFontSize, lineHeight: 1.15, marginBottom: 3, maxLines: 2, textOverflow: "ellipsis" }}>
           {guard(data.name)}
         </Text>
-        <Text style={{ fontSize: sizes.locationFontSize, lineHeight: 1.15, color: "#64748b", maxLines: 1, textOverflow: "ellipsis" }}>
+        <Text style={{ fontSize: sizes.locationFontSize, lineHeight: 1.15, maxLines: 1, textOverflow: "ellipsis" }}>
           {guard(location || "-")}
         </Text>
       </View>

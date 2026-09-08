@@ -6,14 +6,14 @@ registerSarabunFont();
 
 // เต็มพอดี 3 คอลัมน์ (33.3333% ต่อคอลัมน์) แทนความกว้างคงที่เป็น pt — ไม่มีช่องว่าง/margin ระหว่าง
 // ป้าย เส้นขอบของแต่ละป้ายจึงชนกันพอดีเป็นเส้นตัดต่อเนื่อง และไม่มีที่ว่างเหลือทิ้งที่ขอบหน้ากระดาษ
+// ความกว้างคอลัมน์ข้อความ (textWidth) คำนวณจาก: cell 33.3333% ของ A4 (~193pt หลังหัก padding หน้า)
+// - cell padding (6*2=12) - qrSize (42) - ระยะห่าง QR (8) ≈ 131pt
 const SHEET_LABEL_SIZES: TagLabelSizes = {
   qrSize: 42,
-  codeFontSize: 10,
+  textWidth: 131,
+  codeMaxFontSize: 10,
   nameFontSize: 7,
   locationFontSize: 6.5,
-  // เผื่อกันชนไว้มาก (ดูเหตุผลเต็มที่ TagLabelSizes.codeCharsPerLine ใน asset-tag-document.tsx) —
-  // คอลัมน์แคบกว่าพิมพ์ทีละใบมาก ยิ่งต้องเผื่อเยอะเป็นพิเศษไม่ให้บรรทัดที่ตัดมากว้างเกินกล่อง
-  codeCharsPerLine: 12,
 };
 
 const styles = StyleSheet.create({
