@@ -8,11 +8,21 @@ registerSarabunFont();
 // เรียง 3 คอลัมน์บน A4 (210mm) ได้พร้อมกัน — พิมพ์รวมหลายใบจึงย่อขนาดป้ายลงเป็นสัดส่วนเดียวกัน
 // (กว้าง:สูง = 8:5 เท่าเดิม) แทน ใช้ได้กับกระดาษ A4 ธรรมดา ไม่ใช่สติกเกอร์สำเร็จรูปที่มีรอยตัด
 const CELL_WIDTH = 178; // ~63mm
-const CELL_HEIGHT = 111; // ~39mm (สัดส่วน 8:5 เท่าป้ายเต็มขนาด)
+// สูงกว่าสัดส่วน 8:5 เดิมของป้ายเต็มขนาด (63x39mm) เพราะข้อความยาวๆ (ชื่อครุภัณฑ์/สถานที่) ต้องขึ้น
+// บรรทัดใหม่ได้เต็มๆ ไม่ตัดทิ้งแบบ "…" — เผื่อที่แนวตั้งไว้สำหรับ 2 บรรทัดต่อฟิลด์เป็นปกติ
+const CELL_HEIGHT = 110; // ~39mm ความกว้าง แต่สูงขึ้นจากอัตราส่วนเดิมเพื่อกันข้อความล้น
 const CELL_MARGIN = 4;
 const CELL_PADDING = 8;
 
-const SHEET_LABEL_SIZES: TagLabelSizes = { qrSize: 55, codeFontSize: 11, nameFontSize: 7.5, locationFontSize: 6.5 };
+// charsPerLine คำนวณจากความกว้างข้อความที่เหลือ (CELL_WIDTH 178 - padding 16 - qrSize 50 - ระยะ
+// ห่าง QR 6 = ~106pt) หารด้วยความกว้างเฉลี่ยตัวอักษรไทยตัวหนา (โค้ด fontSize 11) แล้วเผื่อกันชนไว้
+const SHEET_LABEL_SIZES: TagLabelSizes = {
+  qrSize: 50,
+  codeFontSize: 11,
+  nameFontSize: 7.5,
+  locationFontSize: 6.5,
+  charsPerLine: 14,
+};
 
 const styles = StyleSheet.create({
   page: {
