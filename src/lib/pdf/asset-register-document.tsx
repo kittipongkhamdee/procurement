@@ -196,9 +196,9 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
 
         <HeaderRowGroup
           items={[
-            { label: "ประเภทครุภัณฑ์", value: categoryWithName, widthPercent: 25 },
+            { label: "ประเภทครุภัณฑ์", value: categoryWithName, widthPercent: 30 },
             { label: "รหัส", value: data.asset_code, widthPercent: 20 },
-            { label: "ลักษณะ/คุณสมบัติ", value: data.spec, widthPercent: 55 },
+            { label: "ลักษณะ/คุณสมบัติ", value: data.spec, widthPercent: 50 },
           ]}
         />
         <HeaderRowGroup
