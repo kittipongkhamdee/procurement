@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import type { Database } from "@/lib/supabase/database.types";
+import { sanitizeFilenamePart } from "@/lib/http";
 import {
   AssetRegisterDocument,
   type AssetDepreciationRow,
@@ -306,7 +307,7 @@ export async function buildAssetRegisterPdfData(
     repairs,
   };
 
-  return { data, fileLabel: `ทะเบียนคุมทรัพย์สิน-${item.asset_code ?? item.name}` };
+  return { data, fileLabel: `ทะเบียนคุมทรัพย์สิน-${sanitizeFilenamePart(item.asset_code ?? item.name)}` };
 }
 
 export async function renderAssetRegisterPdfBuffer(data: AssetRegisterPdfData): Promise<Buffer> {

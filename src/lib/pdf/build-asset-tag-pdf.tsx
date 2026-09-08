@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import type { Database } from "@/lib/supabase/database.types";
+import { sanitizeFilenamePart } from "@/lib/http";
 import { AssetTagDocument, type AssetTagPdfData } from "./asset-tag-document";
 
 export async function buildAssetTagPdfData(
@@ -29,7 +30,7 @@ export async function buildAssetTagPdfData(
     qr_url: qrUrl,
   };
 
-  return { data, fileLabel: `ป้ายครุภัณฑ์-${item.asset_code ?? item.name}` };
+  return { data, fileLabel: `ป้ายครุภัณฑ์-${sanitizeFilenamePart(item.asset_code ?? item.name)}` };
 }
 
 export async function renderAssetTagPdfBuffer(data: AssetTagPdfData): Promise<Buffer> {
