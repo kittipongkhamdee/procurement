@@ -25,6 +25,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     borderColor: "#94a3b8",
     padding: 10,
+    overflow: "hidden",
   },
 });
 

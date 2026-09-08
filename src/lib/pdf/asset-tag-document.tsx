@@ -18,20 +18,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  content: { flexDirection: "row", alignItems: "center", width: "100%", height: "100%" },
-  qr: { width: 100, height: 100, marginRight: 8 },
+  // overflow: "hidden" กันไว้เป็นด่านสุดท้าย เผื่อข้อความยาวเกินคาดแม้ตัดคำมาให้แล้ว (truncate ด้านล่าง)
+  // — ไม่ให้ล้นทับป้ายข้างเคียงตอนพิมพ์รวมหลายใบในหน้า A4 เดียว (asset-tag-sheet-document.tsx)
+  content: { flexDirection: "row", alignItems: "center", width: "100%", height: "100%", overflow: "hidden" },
+  qr: { width: 85, height: 85, marginRight: 8 },
   info: { flex: 1, justifyContent: "center" },
   // เลขครุภัณฑ์เป็นข้อมูลที่ต้องอ่านได้ไวที่สุดตอนตรวจนับ (ดูตัวอย่างป้ายจากระบบสำรวจทรัพย์สินเดิม)
-  // จึงเน้นให้ใหญ่/หนาที่สุดในป้าย ส่วนชื่อโรงเรียน/ชื่อครุภัณฑ์/สถานที่เป็นข้อมูลรองลงมา
-  schoolName: { fontSize: 7, color: "#64748b", marginBottom: 2 },
-  code: { fontSize: 17, fontWeight: "bold", marginBottom: 3 },
-  name: { fontSize: 10, marginBottom: 3 },
-  location: { fontSize: 8, color: "#64748b" },
+  // จึงเน้นให้ใหญ่/หนาที่สุดในป้าย ส่วนชื่อโรงเรียน/ชื่อครุภัณฑ์/สถานที่เป็นข้อมูลรองลงมา — ทุกบรรทัด
+  // บังคับบรรทัดเดียว (ตัดคำเองล่วงหน้าด้วย truncate ไม่ปล่อยให้ react-pdf ตัดบรรทัดอัตโนมัติ) เพราะ
+  // ป้ายสูงคงที่ 50mm ถ้าปล่อยให้ข้อความยาวขึ้นบรรทัดที่ 2 เองจะดันความสูงรวมล้นออกนอกป้าย
+  schoolName: { fontSize: 6.5, color: "#64748b", marginBottom: 2 },
+  code: { fontSize: 15, fontWeight: "bold", marginBottom: 3 },
+  name: { fontSize: 9, marginBottom: 3 },
+  location: { fontSize: 7.5, color: "#64748b" },
 });
 
 function guard(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "";
   return ` ${t(value)}`;
+}
+
+// บังคับบรรทัดเดียวเสมอ — ป้ายสูงคงที่ (50mm) รับข้อความหลายบรรทัดไม่ได้ ตัดข้อความยาวด้วย "…"
+// ก่อนส่งเข้า guard() แทนที่จะปล่อยให้ react-pdf ตัดบรรทัดอัตโนมัติเอง (ดู content overflow ด้านบน)
+function truncate(value: string, maxChars: number): string {
+  return value.length > maxChars ? `${value.slice(0, maxChars - 1)}…` : value;
 }
 
 export type AssetTagPdfData = {
@@ -56,10 +66,10 @@ export function TagLabelContent({ data }: { data: AssetTagPdfData }) {
       {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
       <Image src={data.qr_url} style={styles.qr} />
       <View style={styles.info}>
-        <Text style={styles.schoolName}>{guard(data.school_name)}</Text>
-        <Text style={styles.code}>{guard(data.asset_code || "-")}</Text>
-        <Text style={styles.name}>{guard(data.name)}</Text>
-        <Text style={styles.location}>{guard(location || "-")}</Text>
+        <Text style={styles.schoolName}>{guard(truncate(data.school_name, 22))}</Text>
+        <Text style={styles.code}>{guard(truncate(data.asset_code || "-", 16))}</Text>
+        <Text style={styles.name}>{guard(truncate(data.name, 20))}</Text>
+        <Text style={styles.location}>{guard(truncate(location || "-", 24))}</Text>
       </View>
     </View>
   );
