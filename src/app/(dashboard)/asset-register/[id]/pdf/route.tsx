@@ -3,11 +3,17 @@ import { createClient } from "@/lib/supabase/server";
 import { buildAssetRegisterPdfData, renderAssetRegisterPdfBuffer } from "@/lib/pdf/build-asset-register-pdf";
 import { contentDisposition } from "@/lib/http";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const result = await buildAssetRegisterPdfData(supabase, id);
+  // สวิตช์แสดง/ไม่แสดงรูปภาพและ QR Code ใน PDF ส่งมาทาง query string จากหน้าทะเบียนทรัพย์สิน
+  // (?photo=0 / ?qr=0) — ไม่ระบุถือว่าแสดงตามค่าเริ่มต้น
+  const url = new URL(request.url);
+  const showPhoto = url.searchParams.get("photo") !== "0";
+  const showQr = url.searchParams.get("qr") !== "0";
+
+  const result = await buildAssetRegisterPdfData(supabase, id, { showPhoto, showQr });
   if (!result) {
     return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
   }

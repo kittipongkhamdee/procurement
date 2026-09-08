@@ -6,8 +6,10 @@ import { errorMessage, toastError, toastSuccess, confirmDelete } from "@/lib/swa
 import { formatThaiDate } from "@/lib/thai";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
+import { ToggleSwitch } from "@/components/toggle-switch";
+import { PencilIcon, PlusIcon, PrinterIcon, TagIcon } from "@/components/icons";
 import { compressPhotoFile } from "@/lib/image-resize";
+import { QrScanButton } from "./qr-scan-button";
 import {
   createAssetRepair,
   deleteAssetItem,
@@ -725,6 +727,10 @@ export function RegisterTab({
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  // สวิตช์คุมว่าจะพิมพ์รูปภาพ/QR Code ในทะเบียนคุมทรัพย์สินฉบับเต็มหรือไม่ (ส่งเป็น query string
+  // ไปยัง route พิมพ์ PDF ของแต่ละรายการ) — ไม่ใช่ค่าที่บันทึกถาวร แค่คุมการพิมพ์รอบนี้เท่านั้น
+  const [showPhotoInPdf, setShowPhotoInPdf] = useState(true);
+  const [showQrInPdf, setShowQrInPdf] = useState(true);
   const pageSize = 50;
 
   const reload = useCallback(async () => {
@@ -758,7 +764,9 @@ export function RegisterTab({
     if (conditionFilter !== ALL && it.condition !== conditionFilter) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      const hay = `${it.name} ${it.asset_code ?? ""} ${it.building} ${it.room}`.toLowerCase();
+      // รวม id ไว้ในช่องค้นหาด้วย — ค่าที่เข้ารหัสใน QR Code เป็น asset_code ถ้ามี ไม่งั้น fallback
+      // เป็น id (ดู build-asset-register-pdf.tsx/build-asset-tag-pdf.tsx) สแกนแล้ววางค่าตรงนี้ได้เลย
+      const hay = `${it.name} ${it.asset_code ?? ""} ${it.building} ${it.room} ${it.id}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -822,13 +830,21 @@ export function RegisterTab({
           </div>
           <div>
             <label className="label">ค้นหา</label>
-            <input
-              value={search}
-              onChange={(e) => updateFilter(setSearch, e.target.value)}
-              placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่"
-              className="input"
-            />
+            <div className="flex gap-2">
+              <input
+                value={search}
+                onChange={(e) => updateFilter(setSearch, e.target.value)}
+                placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่/สแกน QR"
+                className="input"
+              />
+              <QrScanButton onScan={(value) => updateFilter(setSearch, value)} />
+            </div>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-6 border-t border-slate-100 pt-3">
+          <span className="text-xs font-medium text-slate-500">การพิมพ์ทะเบียนคุมทรัพย์สิน (PDF):</span>
+          <ToggleSwitch checked={showPhotoInPdf} onChange={() => setShowPhotoInPdf((v) => !v)} labelOn="แสดงรูปภาพ" labelOff="ซ่อนรูปภาพ" />
+          <ToggleSwitch checked={showQrInPdf} onChange={() => setShowQrInPdf((v) => !v)} labelOn="แสดง QR Code" labelOff="ซ่อน QR Code" />
         </div>
       </div>
 
@@ -893,9 +909,17 @@ export function RegisterTab({
                   </td>
                   <td className="whitespace-nowrap text-right">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <a href={`/asset-register/${it.id}/pdf`} target="_blank" className="btn-secondary btn-sm">
+                      <a
+                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}
+                        target="_blank"
+                        className="btn-secondary btn-sm"
+                      >
                         <PrinterIcon className="h-3.5 w-3.5" />
                         พิมพ์
+                      </a>
+                      <a href={`/asset-register/${it.id}/tag`} target="_blank" className="btn-secondary btn-sm">
+                        <TagIcon className="h-3.5 w-3.5" />
+                        สติกเกอร์
                       </a>
                       <ItemModal
                         item={it}

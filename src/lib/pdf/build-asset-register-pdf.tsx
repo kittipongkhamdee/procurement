@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
+import QRCode from "qrcode";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   AssetRegisterDocument,
@@ -207,7 +208,11 @@ function buildDepreciationSchedule(item: {
 export async function buildAssetRegisterPdfData(
   supabase: SupabaseClient<Database>,
   id: string,
+  options?: { showPhoto?: boolean; showQr?: boolean },
 ): Promise<{ data: AssetRegisterPdfData; fileLabel: string } | null> {
+  const showPhoto = options?.showPhoto ?? true;
+  const showQr = options?.showQr ?? true;
+
   const { data: item, error } = await supabase
     .from("asset_items")
     .select(
@@ -219,10 +224,15 @@ export async function buildAssetRegisterPdfData(
   if (error || !item) return null;
 
   // รูปครุภัณฑ์เก็บใน bucket private "asset-photos" — ต้องขอ signed URL ชั่วคราวก่อนนำไปฝัง <Image>
-  // ใน PDF (react-pdf ดึงรูปจาก URL นี้เองตอน render ฝั่งเซิร์ฟเวอร์)
-  const photoUrl = item.photo_path
-    ? (await supabase.storage.from("asset-photos").createSignedUrl(item.photo_path, 3600)).data?.signedUrl ?? null
-    : null;
+  // ใน PDF (react-pdf ดึงรูปจาก URL นี้เองตอน render ฝั่งเซิร์ฟเวอร์) — ข้ามถ้าปิดสวิตช์แสดงรูปไว้
+  const photoUrl =
+    showPhoto && item.photo_path
+      ? (await supabase.storage.from("asset-photos").createSignedUrl(item.photo_path, 3600)).data?.signedUrl ?? null
+      : null;
+
+  // QR Code เข้ารหัสรหัสครุภัณฑ์ (หรือ id ถ้ายังไม่มีรหัส) — ใช้ค้นหารายการนี้ผ่านช่องค้นหาในหน้า
+  // ทะเบียนทรัพย์สินได้ (สแกนแล้ววางค่าลงช่องค้นหา หรือพิมพ์ตามด้วยมือก็ได้)
+  const qrUrl = showQr ? await QRCode.toDataURL(item.asset_code || id, { width: 200, margin: 0 }) : null;
 
   const [{ data: category }, { data: budgetSource }, { data: acquisitionMethod }, { data: schoolSettings }, { data: repairRows }] =
     await Promise.all([
@@ -291,6 +301,7 @@ export async function buildAssetRegisterPdfData(
     useful_life_years: category?.useful_life_years ?? null,
     depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
     photo_url: photoUrl,
+    qr_url: qrUrl,
     schedule,
     repairs,
   };

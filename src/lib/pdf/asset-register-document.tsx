@@ -14,10 +14,12 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: "center" },
   title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
-  // รูปครุภัณฑ์วางแบบ position: absolute ที่มุมซ้ายบน ไม่กินพื้นที่ในโฟลว์เอกสาร (ข้อความทั้งหมด
-  // จึงอยู่ตำแหน่งเดิมเป๊ะเหมือนตอนไม่มีรูป) — render ก่อนเนื้อหาอื่นในหน้า ทำให้อยู่เลเยอร์ล่างสุด
-  // ถ้ารูปสูงกว่าเนื้อหาส่วนหัว ข้อความที่ตามมาจะวาดทับข้างบนรูปได้ตามต้องการ
-  photo: { position: "absolute", top: 15, left: 20, width: 80, height: 60, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
+  // รูปครุภัณฑ์ + QR Code วางแบบ position: absolute ที่มุมซ้ายบน ไม่กินพื้นที่ในโฟลว์เอกสาร
+  // (ข้อความทั้งหมดจึงอยู่ตำแหน่งเดิมเป๊ะเหมือนตอนไม่มีรูป/QR) — render ก่อนเนื้อหาอื่นในหน้า ทำให้
+  // อยู่เลเยอร์ล่างสุด ถ้าสูงกว่าเนื้อหาส่วนหัว ข้อความที่ตามมาจะวาดทับข้างบนได้ตามต้องการ
+  // QR อยู่ซ้ายสุด แล้วรูปครุภัณฑ์ต่อทางขวาของ QR (left ของรูปเลื่อนตาม QR_WIDTH + ระยะห่าง)
+  qr: { position: "absolute", top: 15, left: 20, width: 55, height: 55, borderWidth: 1, borderColor: "#111827" },
+  photo: { position: "absolute", top: 15, left: 83, width: 80, height: 60, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
   // "ส่วนราชการ"/"หน่วยงาน" อยู่ชิดขวาบนของฟอร์ม (ตามแบบฟอร์มทะเบียนคุมทรัพย์สินมาตรฐาน) แยกจาก
   // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
   // alignSelf (ไม่ใช่ alignItems) ดันกล่องทั้งกล่องไปชิดขวาสุดของหน้า แต่ปล่อยให้แถวข้างในเรียงชิดซ้าย
@@ -139,6 +141,7 @@ export type AssetRegisterPdfData = {
   useful_life_years: number | null;
   depreciation_rate_percent: number | null;
   photo_url: string | null;
+  qr_url: string | null;
   schedule: AssetDepreciationRow[];
   repairs: AssetRepairPdfRow[];
 };
@@ -203,6 +206,8 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
+        {data.qr_url && <Image src={data.qr_url} style={styles.qr} />}
         {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
         {data.photo_url && <Image src={data.photo_url} style={styles.photo} />}
 
