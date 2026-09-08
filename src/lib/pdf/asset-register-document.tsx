@@ -131,13 +131,18 @@ function guard(value: string | number | null | undefined): string {
 }
 
 // แถวหัวเอกสาร — รับ 1 ช่องขึ้นไปในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ... ลักษณะ/คุณสมบัติ ...")
-// แต่ละช่องอยู่ในคอลัมน์ตายตัว 3 คอลัมน์เท่ากันเสมอ (ดู groupItem) ไม่ว่าแถวนั้นจะมี 2 หรือ 3 ช่อง
-// ก็ตาม เพื่อให้ป้าย/ค่าของทุกแถวเรียงตรงแนวเดียวกันแนวตั้ง
-function HeaderRowGroup({ items }: { items: { label: string; value: string | null | undefined }[] }) {
+// ปกติแต่ละช่องอยู่ในคอลัมน์ตายตัว 3 คอลัมน์เท่ากันเสมอ (ดู groupItem) ไม่ว่าแถวนั้นจะมี 2 หรือ 3 ช่อง
+// ก็ตาม เพื่อให้ป้าย/ค่าของทุกแถวเรียงตรงแนวเดียวกันแนวตั้ง — แต่บางแถว (เช่นแถวที่มีค่ายาวอย่าง
+// "ลักษณะ/คุณสมบัติ") ต้องการคอลัมน์กว้างกว่า 33.33% จึงใส่ widthPercent ต่อช่องเพื่อ override ได้
+function HeaderRowGroup({
+  items,
+}: {
+  items: { label: string; value: string | null | undefined; widthPercent?: number }[];
+}) {
   return (
     <View style={styles.row}>
       {items.map((it, i) => (
-        <View style={styles.groupItem} key={i}>
+        <View style={[styles.groupItem, it.widthPercent != null ? { width: `${it.widthPercent}%` } : undefined]} key={i}>
           <Text style={styles.label}>{guard(it.label)}</Text>
           <Text style={styles.value}>{guard(it.value || "-")}</Text>
         </View>
@@ -168,6 +173,8 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
   const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room ? `ห้อง ${data.room}` : null]
     .filter(Boolean)
     .join(" ");
+  // แสดงชื่อทรัพย์สินควบกับหมวดหมู่ในช่อง "ประเภทครุภัณฑ์" รูปแบบ "<ชื่อหมวดหมู่> - <ชื่อครุภัณฑ์>"
+  const categoryWithName = [data.category_name, data.name].filter(Boolean).join(" - ");
 
   return (
     <Document>
@@ -189,9 +196,9 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
 
         <HeaderRowGroup
           items={[
-            { label: "ประเภท", value: data.category_name },
-            { label: "รหัส", value: data.asset_code },
-            { label: "ลักษณะ/คุณสมบัติ", value: data.spec },
+            { label: "ประเภทครุภัณฑ์", value: categoryWithName, widthPercent: 25 },
+            { label: "รหัส", value: data.asset_code, widthPercent: 20 },
+            { label: "ลักษณะ/คุณสมบัติ", value: data.spec, widthPercent: 55 },
           ]}
         />
         <HeaderRowGroup
