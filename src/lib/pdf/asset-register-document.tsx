@@ -203,21 +203,21 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         />
         <HeaderRowGroup
           items={[
-            { label: "รุ่น/แบบ", value: data.model, widthPercent: 35 },
-            { label: "สถานที่ตั้ง", value: location, widthPercent: 20 },
-            { label: "ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค", value: data.vendor_name, widthPercent: 45 },
+            { label: "รุ่น/แบบ", value: data.model },
+            { label: "สถานที่ตั้ง", value: location },
+            { label: "ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค", value: data.vendor_name },
           ]}
         />
         <HeaderRowGroup
           items={[
-            { label: "ที่อยู่", value: data.vendor_address, widthPercent: 35 },
-            { label: "โทรศัพท์", value: data.vendor_phone, widthPercent: 65 },
+            { label: "ที่อยู่", value: data.vendor_address },
+            { label: "โทรศัพท์", value: data.vendor_phone },
           ]}
         />
         <HeaderRowGroup
           items={[
-            { label: "ประเภทเงิน", value: data.budget_source_name, widthPercent: 35 },
-            { label: "วิธีการได้มา", value: data.acquisition_method, widthPercent: 65 },
+            { label: "ประเภทเงิน", value: data.budget_source_name },
+            { label: "วิธีการได้มา", value: data.acquisition_method },
           ]}
         />
 
