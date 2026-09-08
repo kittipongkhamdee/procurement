@@ -21,10 +21,12 @@ const styles = StyleSheet.create({
   content: { flexDirection: "row", alignItems: "center", width: "100%", height: "100%" },
   qr: { width: 100, height: 100, marginRight: 8 },
   info: { flex: 1, justifyContent: "center" },
-  schoolName: { fontSize: 9, marginBottom: 4 },
-  name: { fontSize: 11, fontWeight: "bold", marginBottom: 3 },
-  code: { fontSize: 10, marginBottom: 3 },
-  location: { fontSize: 9 },
+  // เลขครุภัณฑ์เป็นข้อมูลที่ต้องอ่านได้ไวที่สุดตอนตรวจนับ (ดูตัวอย่างป้ายจากระบบสำรวจทรัพย์สินเดิม)
+  // จึงเน้นให้ใหญ่/หนาที่สุดในป้าย ส่วนชื่อโรงเรียน/ชื่อครุภัณฑ์/สถานที่เป็นข้อมูลรองลงมา
+  schoolName: { fontSize: 7, color: "#64748b", marginBottom: 2 },
+  code: { fontSize: 17, fontWeight: "bold", marginBottom: 3 },
+  name: { fontSize: 10, marginBottom: 3 },
+  location: { fontSize: 8, color: "#64748b" },
 });
 
 function guard(value: string | number | null | undefined): string {
@@ -55,8 +57,8 @@ export function TagLabelContent({ data }: { data: AssetTagPdfData }) {
       <Image src={data.qr_url} style={styles.qr} />
       <View style={styles.info}>
         <Text style={styles.schoolName}>{guard(data.school_name)}</Text>
-        <Text style={styles.name}>{guard(data.name)}</Text>
         <Text style={styles.code}>{guard(data.asset_code || "-")}</Text>
+        <Text style={styles.name}>{guard(data.name)}</Text>
         <Text style={styles.location}>{guard(location || "-")}</Text>
       </View>
     </View>
