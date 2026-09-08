@@ -50,12 +50,12 @@ export type TagLabelSizes = {
 const DEFAULT_SIZES: TagLabelSizes = {
   qrSize: 90,
   textWidth: 109,
-  codeMaxFontSize: 13,
-  nameFontSize: 10,
-  locationFontSize: 8,
+  codeMaxFontSize: 9,
+  nameFontSize: 7,
+  locationFontSize: 6.5,
 };
 
-const CODE_MIN_FONT_SIZE = 6;
+const CODE_MIN_FONT_SIZE = 7;
 // ความกว้างเฉลี่ยโดยประมาณของตัวอักษร (ไทย/อังกฤษผสม) ในฟอนต์ Sarabun ตัวหนา เทียบเป็นสัดส่วนของ
 // fontSize (em) — ตั้งใจประเมินแบบ "กว้างเกินจริง" ไว้ก่อน (เผื่อกันชน) ดีกว่าประเมินแคบเกินจริงแล้ว
 // ข้อความยังล้นบรรทัดจนต้องขึ้นบรรทัดใหม่เอง ซึ่งเป็นจุดที่เจอบั๊กตัวอักษร/คำหายไปกลางข้อความกับ

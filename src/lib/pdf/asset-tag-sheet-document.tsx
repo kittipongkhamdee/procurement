@@ -11,7 +11,7 @@ registerSarabunFont();
 const SHEET_LABEL_SIZES: TagLabelSizes = {
   qrSize: 42,
   textWidth: 131,
-  codeMaxFontSize: 10,
+  codeMaxFontSize: 9,
   nameFontSize: 7,
   locationFontSize: 6.5,
 };
