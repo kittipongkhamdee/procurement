@@ -311,10 +311,6 @@ function ItemModal({
       {item && !canManage ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <div>
-            <dt className="text-slate-400">ลำดับที่</dt>
-            <dd>{item.sequence_no ?? "-"}</dd>
-          </div>
-          <div>
             <dt className="text-slate-400">รหัสครุภัณฑ์</dt>
             <dd>{item.asset_code ?? "-"}</dd>
           </div>
@@ -367,10 +363,6 @@ function ItemModal({
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="label">ลำดับที่</label>
-              <input name="sequence_no" defaultValue={item?.sequence_no ?? ""} className="input" />
             </div>
             <div className="sm:col-span-2">
               <label className="label">รหัสครุภัณฑ์</label>

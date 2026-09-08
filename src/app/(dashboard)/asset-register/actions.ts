@@ -56,7 +56,6 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     quantity: Number(formData.get("quantity") ?? 1) || 1,
     unit: String(formData.get("unit") ?? "").trim() || null,
     asset_code: String(formData.get("asset_code") ?? "").trim() || null,
-    sequence_no: String(formData.get("sequence_no") ?? "").trim() || null,
     condition: String(formData.get("condition") ?? "usable") as "usable" | "damaged" | "disposal",
     note: String(formData.get("note") ?? "").trim() || null,
     acquired_date: acquiredDateIso,
