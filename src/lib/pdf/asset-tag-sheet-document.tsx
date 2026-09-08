@@ -11,7 +11,9 @@ const SHEET_LABEL_SIZES: TagLabelSizes = {
   codeFontSize: 10,
   nameFontSize: 7,
   locationFontSize: 6.5,
-  codeCharsPerLine: 20,
+  // เผื่อกันชนไว้มาก (ดูเหตุผลเต็มที่ TagLabelSizes.codeCharsPerLine ใน asset-tag-document.tsx) —
+  // คอลัมน์แคบกว่าพิมพ์ทีละใบมาก ยิ่งต้องเผื่อเยอะเป็นพิเศษไม่ให้บรรทัดที่ตัดมากว้างเกินกล่อง
+  codeCharsPerLine: 12,
 };
 
 const styles = StyleSheet.create({
