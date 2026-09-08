@@ -1,4 +1,4 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import type { StyleProp } from "@react-pdf/types";
 import { formatBaht } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
@@ -9,14 +9,28 @@ const styles = StyleSheet.create({
   page: {
     fontFamily: "Sarabun",
     fontSize: 11,
-    padding: 32,
+    padding: 16,
     color: "#111827",
   },
   center: { textAlign: "center" },
   title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
-  headerCols: { flexDirection: "row", gap: 20 },
-  headerCol: { width: "50%" },
+  // รูปครุภัณฑ์วางแบบ position: absolute ที่มุมซ้ายบน ไม่กินพื้นที่ในโฟลว์เอกสาร (ข้อความทั้งหมด
+  // จึงอยู่ตำแหน่งเดิมเป๊ะเหมือนตอนไม่มีรูป) — render ก่อนเนื้อหาอื่นในหน้า ทำให้อยู่เลเยอร์ล่างสุด
+  // ถ้ารูปสูงกว่าเนื้อหาส่วนหัว ข้อความที่ตามมาจะวาดทับข้างบนรูปได้ตามต้องการ
+  photo: { position: "absolute", top: 15, left: 20, width: 80, height: 60, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
+  // "ส่วนราชการ"/"หน่วยงาน" อยู่ชิดขวาบนของฟอร์ม (ตามแบบฟอร์มทะเบียนคุมทรัพย์สินมาตรฐาน) แยกจาก
+  // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
+  // alignSelf (ไม่ใช่ alignItems) ดันกล่องทั้งกล่องไปชิดขวาสุดของหน้า แต่ปล่อยให้แถวข้างในเรียงชิดซ้าย
+  // ตามปกติภายในกล่องเอง ทำให้ขอบซ้ายของทั้ง 2 แถวตรงกัน (ถ้าใช้ alignItems: "flex-end" แทน แต่ละแถว
+  // จะถูกดันชิดขวาแยกกันเอง ทำให้ขอบซ้ายเยื้องกันเมื่อความยาวข้อความ/ป้ายไม่เท่ากัน)
+  rightAlign: { alignSelf: "flex-end", marginBottom: 4 },
+  // ป้าย "ส่วนราชการ"/"หน่วยงาน" ยาวไม่เท่ากัน (5 กับ 4 ตัวอักษร) — กำหนดความกว้างคงที่ให้ป้าย
+  // ทั้งสองแถวเพื่อให้ขอบซ้ายของป้าย (และค่าที่ตามมา) เริ่มตรงตำแหน่งเดียวกันทั้งคู่
+  rightLabel: { fontWeight: "bold", marginRight: 8, width: 70 },
   row: { flexDirection: "row", marginBottom: 4 },
+  // คอลัมน์ตายตัว 3 คอลัมน์ (33.33% เท่ากันทุกแถว) ให้ป้ายชื่อ/ค่าในแต่ละแถวเรียงตรงแนวเดียวกันแนวตั้ง
+  // ไม่ว่าแถวนั้นจะมีกี่ช่อง (2 หรือ 3 ช่อง) ก็ยังอยู่ตำแหน่งคอลัมน์เดียวกับแถวอื่นๆ
+  groupItem: { width: "33.3333%", flexDirection: "row" },
   label: { fontWeight: "bold", marginRight: 8 },
   value: { flex: 1, paddingRight: 12 },
   // ไม่ใช้ borderWidth (กรอบรอบทุกด้าน) — เส้นขอบล่างของกรอบตารางจะไปทับกับ borderBottomWidth
@@ -42,18 +56,19 @@ const styles = StyleSheet.create({
   // กระดาษ (เคยเกิดมาแล้วตอนรวมได้ 105%)
   // colDate ต้องพอสำหรับ "28/05/2569" (แถวรับเข้ารายการที่มีวันที่เต็ม) ส่วนแถวคิดค่าเสื่อมรายปี
   // อื่นๆ แสดงแค่ปี พ.ศ. 4 หลัก ซึ่งแคบกว่ามากอยู่แล้ว
-  colDate: { width: "9%" },
-  colItem: { width: "18%" },
-  colQty: { width: "6%", textAlign: "right" },
-  colUnit: { width: "6%" },
+  colDate: { width: "8%", paddingLeft: 2 },
+  colDocRef: { width: "8%" },
+  colItem: { width: "16%" },
+  colQty: { width: "5%", textAlign: "center" },
+  colUnit: { width: "6%", textAlign: "center" },
   colUnitPrice: { width: "8%", textAlign: "right" },
   colTotal: { width: "8%", textAlign: "right" },
-  colLife: { width: "5%", textAlign: "right" },
-  colRate: { width: "6%", textAlign: "right" },
-  colAnnual: { width: "8%", textAlign: "right" },
+  colLife: { width: "5%", textAlign: "center" },
+  colRate: { width: "5%", textAlign: "right" },
+  colAnnual: { width: "7%", textAlign: "right" },
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
-  colNote: { width: "10%" },
+  colNote: { width: "8%" },
   cellLine: { fontSize: 11 },
   // ไม่ใช้ fontWeight: "bold" — เจอบั๊กซ้ำๆ ว่าตัวอักษรตัวแรกของ Text ตัวหนาที่อยู่ในคอลัมน์กว้างแบบ
   // % (เช่น "รายการ", "อายุใช้งาน") โดนตัดหายไปเฉยๆ เฉพาะกรณีนี้ (Text ตัวหนาที่กว้างคงที่ เช่น ป้ายชื่อ
@@ -105,6 +120,7 @@ export type AssetRegisterPdfData = {
   acquired_year: number | null;
   useful_life_years: number | null;
   depreciation_rate_percent: number | null;
+  photo_url: string | null;
   schedule: AssetDepreciationRow[];
 };
 
@@ -119,46 +135,23 @@ function guard(value: string | number | null | undefined): string {
   return ` ${t(value)}`;
 }
 
-// label ปกติเป็นสตริงบรรทัดเดียว แต่บางป้ายยาวมากและไม่มีช่องว่างให้ตัดคำ (เช่น
-// "ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค") ทำให้ล้นออกนอกกรอบความกว้างคงที่ 130 ไปทับข้อความค่าด้านขวา —
-// รับเป็นอาร์เรย์ได้เพื่อกำหนดจุดตัดบรรทัดเองล่วงหน้าเหมือน HeadCell
-function HeaderRow({ label, value }: { label: string | string[]; value: string | null | undefined }) {
-  return (
-    <View style={styles.row}>
-      {typeof label === "string" ? (
-        <Text style={styles.label}>{guard(label)}</Text>
-      ) : (
-        <View style={styles.label}>
-          {label.map((line, i) => (
-            <Text key={i}>{guard(line)}</Text>
-          ))}
-        </View>
-      )}
-      <Text style={styles.value}>{guard(value || "-")}</Text>
-    </View>
-  );
-}
-
-// แถวที่รวม 2 ป้าย/ค่าไว้ในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ...") — ป้าย/ค่าแต่ละคู่ใช้
-// สไตล์เดียวกับ HeaderRow ปกติ (label กว้างอัตโนมัติ + marginRight, value กว้าง flex:1 แบ่งครึ่ง
-// ที่เหลือของแถวเท่าๆ กันโดยอัตโนมัติจาก flexDirection: row)
-function DoubleHeaderRow({
-  label1,
-  value1,
-  label2,
-  value2,
+// แถวหัวเอกสาร — รับ 1 ช่องขึ้นไปในบรรทัดเดียวกัน (เช่น "ประเภท ... รหัส ... ลักษณะ/คุณสมบัติ ...")
+// ปกติแต่ละช่องอยู่ในคอลัมน์ตายตัว 3 คอลัมน์เท่ากันเสมอ (ดู groupItem) ไม่ว่าแถวนั้นจะมี 2 หรือ 3 ช่อง
+// ก็ตาม เพื่อให้ป้าย/ค่าของทุกแถวเรียงตรงแนวเดียวกันแนวตั้ง — แต่บางแถว (เช่นแถวที่มีค่ายาวอย่าง
+// "ลักษณะ/คุณสมบัติ") ต้องการคอลัมน์กว้างกว่า 33.33% จึงใส่ widthPercent ต่อช่องเพื่อ override ได้
+function HeaderRowGroup({
+  items,
 }: {
-  label1: string;
-  value1: string | null | undefined;
-  label2: string;
-  value2: string | null | undefined;
+  items: { label: string; value: string | null | undefined; widthPercent?: number }[];
 }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{guard(label1)}</Text>
-      <Text style={styles.value}>{guard(value1 || "-")}</Text>
-      <Text style={styles.label}>{guard(label2)}</Text>
-      <Text style={styles.value}>{guard(value2 || "-")}</Text>
+      {items.map((it, i) => (
+        <View style={[styles.groupItem, it.widthPercent != null ? { width: `${it.widthPercent}%` } : undefined]} key={i}>
+          <Text style={styles.label}>{guard(it.label)}</Text>
+          <Text style={styles.value}>{guard(it.value || "-")}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -185,42 +178,63 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
   const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room ? `ห้อง ${data.room}` : null]
     .filter(Boolean)
     .join(" ");
+  // แสดงชื่อทรัพย์สินควบกับหมวดหมู่ในช่อง "ประเภทครุภัณฑ์" รูปแบบ "<ชื่อหมวดหมู่> - <ชื่อครุภัณฑ์>"
+  const categoryWithName = [data.category_name, data.name].filter(Boolean).join(" - ");
 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
+        {data.photo_url && <Image src={data.photo_url} style={styles.photo} />}
+
         <View style={styles.center}>
           <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
         </View>
 
-        <View style={styles.headerCols}>
-          <View style={styles.headerCol}>
-            <HeaderRow label="ลำดับที่" value={data.sequence_no} />
-            <DoubleHeaderRow label1="ประเภท" value1={data.category_name} label2="รหัส" value2={data.asset_code} />
-            <DoubleHeaderRow label1="ชื่อทรัพย์สิน" value1={data.name} label2="ยี่ห้อ/รุ่น" value2={data.model} />
-            <HeaderRow label="แบบ/ลักษณะ" value={data.spec} />
-            <HeaderRow label="สถานที่ตั้ง" value={location} />
-            <DoubleHeaderRow
-              label1="ประเภทเงิน"
-              value1={data.budget_source_name}
-              label2="วิธีการได้มา"
-              value2={data.acquisition_method}
-            />
+        <View style={styles.rightAlign}>
+          <View style={styles.row}>
+            <Text style={styles.rightLabel}>{guard("ส่วนราชการ")}</Text>
+            <Text>{guard(data.education_area || "-")}</Text>
           </View>
-          <View style={styles.headerCol}>
-            <HeaderRow label="ส่วนราชการ" value={data.school_name} />
-            <HeaderRow label="หน่วยงาน" value={null} />
-            <HeaderRow label="ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค" value={data.vendor_name} />
-            <HeaderRow
-              label="ที่อยู่ผู้ขาย/ผู้รับจ้าง/ผู้บริจาค"
-              value={[data.vendor_address, data.vendor_phone].filter(Boolean).join(" โทร. ") || null}
-            />
+          <View style={styles.row}>
+            <Text style={styles.rightLabel}>{guard("หน่วยงาน")}</Text>
+            <Text>{guard(data.school_name || "-")}</Text>
           </View>
         </View>
 
+        <HeaderRowGroup
+          items={[
+            { label: "ประเภทครุภัณฑ์", value: categoryWithName, widthPercent: 35 },
+            { label: "รหัส", value: data.asset_code, widthPercent: 20 },
+            { label: "ลักษณะ/คุณสมบัติ", value: data.spec, widthPercent: 45 },
+          ]}
+        />
+        <HeaderRowGroup
+          items={[
+            { label: "รุ่น/แบบ", value: data.model },
+            { label: "สถานที่ตั้ง", value: location },
+            { label: "ชื่อผู้ขาย/ผู้รับจ้าง/ผู้บริจาค", value: data.vendor_name },
+          ]}
+        />
+        <HeaderRowGroup
+          items={[
+            { label: "ที่อยู่", value: data.vendor_address },
+            { label: "โทรศัพท์", value: data.vendor_phone },
+          ]}
+        />
+        <HeaderRowGroup
+          items={[
+            { label: "ประเภทเงิน", value: data.budget_source_name },
+            { label: "วิธีการได้มา", value: data.acquisition_method },
+          ]}
+        />
+
         <View style={[styles.table, { marginTop: 8 }]}>
-          <View style={styles.tHeadRow}>
+          {/* fixed ทำให้แถวหัวตารางนี้พิมพ์ซ้ำที่ตำแหน่งเดียวกันทุกครั้งที่ตารางขึ้นหน้าใหม่
+              (react-pdf จะ render แถวนี้ที่ตำแหน่งเดิมของทุกหน้าที่ตารางล้นไปถึง) */}
+          <View style={styles.tHeadRow} fixed>
             <HeadCell style={[styles.cell, styles.colDate]} lines={["วัน/เดือน/", "ปี"]} />
+            <HeadCell style={[styles.cell, styles.colDocRef]} lines={["ที่", "เอกสาร"]} />
             <HeadCell style={[styles.cell, styles.colItem]} lines="รายการ" />
             <HeadCell style={[styles.cell, styles.colQty]} lines="จำนวน" />
             <HeadCell style={[styles.cell, styles.colUnit]} lines="หน่วย" />
@@ -236,6 +250,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           {data.schedule.map((row, i) => (
             <View style={styles.tRow} key={i}>
               <Text style={[styles.cell, styles.colDate]}>{guard(row.yearLabel)}</Text>
+              <Text style={[styles.cell, styles.colDocRef]}>{guard("")}</Text>
               <Text style={[styles.cell, styles.colItem]}>{guard(row.itemLabel)}</Text>
               <Text style={[styles.cell, styles.colQty]}>{guard(row.quantity ?? "")}</Text>
               <Text style={[styles.cell, styles.colUnit]}>{guard(row.unit ?? "")}</Text>

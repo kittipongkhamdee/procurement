@@ -203,12 +203,18 @@ export async function buildAssetRegisterPdfData(
   const { data: item, error } = await supabase
     .from("asset_items")
     .select(
-      "asset_code, sequence_no, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquisition_method_id, acquired_date, acquired_year, category_id, budget_source_id",
+      "asset_code, sequence_no, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquisition_method_id, acquired_date, acquired_year, category_id, budget_source_id, photo_path",
     )
     .eq("id", id)
     .maybeSingle();
 
   if (error || !item) return null;
+
+  // รูปครุภัณฑ์เก็บใน bucket private "asset-photos" — ต้องขอ signed URL ชั่วคราวก่อนนำไปฝัง <Image>
+  // ใน PDF (react-pdf ดึงรูปจาก URL นี้เองตอน render ฝั่งเซิร์ฟเวอร์)
+  const photoUrl = item.photo_path
+    ? (await supabase.storage.from("asset-photos").createSignedUrl(item.photo_path, 3600)).data?.signedUrl ?? null
+    : null;
 
   const [{ data: category }, { data: budgetSource }, { data: acquisitionMethod }, { data: schoolSettings }] = await Promise.all([
     item.category_id
@@ -260,6 +266,7 @@ export async function buildAssetRegisterPdfData(
     acquired_year: item.acquired_year,
     useful_life_years: category?.useful_life_years ?? null,
     depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
+    photo_url: photoUrl,
     schedule,
   };
 
