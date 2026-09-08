@@ -5,8 +5,6 @@ import { registerSarabunFont, t } from "./thai-pdf";
 
 registerSarabunFont();
 
-const PHOTO_BOX_WIDTH = 104;
-
 const styles = StyleSheet.create({
   page: {
     fontFamily: "Sarabun",
@@ -16,10 +14,10 @@ const styles = StyleSheet.create({
   },
   center: { textAlign: "center" },
   title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
-  // กันที่ให้รูปครุภัณฑ์เล็กๆ ที่มุมขวาบนของหน้า — ใส่ความกว้างเท่ากันทั้งซ้าย (spacer) และขวา
-  // (กล่องรูป) ของแถวหัวเรื่อง เพื่อให้ชื่อเอกสารตรงกลางหน้ายังคงอยู่กึ่งกลางจริงๆ ไม่เยื้องไปทางซ้าย
-  photoBox: { width: PHOTO_BOX_WIDTH },
-  photo: { width: 100, height: 80, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
+  // รูปครุภัณฑ์วางแบบ position: absolute ที่มุมซ้ายบน ไม่กินพื้นที่ในโฟลว์เอกสาร (ข้อความทั้งหมด
+  // จึงอยู่ตำแหน่งเดิมเป๊ะเหมือนตอนไม่มีรูป) — render ก่อนเนื้อหาอื่นในหน้า ทำให้อยู่เลเยอร์ล่างสุด
+  // ถ้ารูปสูงกว่าเนื้อหาส่วนหัว ข้อความที่ตามมาจะวาดทับข้างบนรูปได้ตามต้องการ
+  photo: { position: "absolute", top: 0, left: 0, width: 100, height: 80, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
   // "ส่วนราชการ"/"หน่วยงาน" อยู่ชิดขวาบนของฟอร์ม (ตามแบบฟอร์มทะเบียนคุมทรัพย์สินมาตรฐาน) แยกจาก
   // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
   // alignSelf (ไม่ใช่ alignItems) ดันกล่องทั้งกล่องไปชิดขวาสุดของหน้า แต่ปล่อยให้แถวข้างในเรียงชิดซ้าย
@@ -186,18 +184,11 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        {/* minHeight เท่ากับความสูงรูป (styles.photo.height) กันพื้นที่แถวนี้ไว้ล่วงหน้าเสมอ ไม่พึ่งพา
-            alignItems: "stretch" อย่างเดียว — ป้องกันเนื้อหาถัดไป (ส่วนราชการ/หน่วยงาน ฯลฯ) ไม่ขยับลง
-            ให้พ้นรูปตอนมีรูปแนบ (รูปสูงกว่าชื่อเอกสารมาก) */}
-        <View style={{ flexDirection: "row", minHeight: data.photo_url ? styles.photo.height : undefined }}>
-          <View style={styles.photoBox}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
-            {data.photo_url && <Image src={data.photo_url} style={styles.photo} />}
-          </View>
-          <View style={[styles.center, { flex: 1 }]}>
-            <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
-          </View>
-          <View style={styles.photoBox} />
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
+        {data.photo_url && <Image src={data.photo_url} style={styles.photo} />}
+
+        <View style={styles.center}>
+          <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
         </View>
 
         <View style={styles.rightAlign}>
