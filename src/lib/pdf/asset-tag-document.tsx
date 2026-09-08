@@ -14,6 +14,8 @@ const styles = StyleSheet.create({
     fontFamily: "Sarabun",
     padding: 10,
     color: "#111827",
+    flexDirection: "row",
+    alignItems: "center",
   },
 });
 
@@ -48,13 +50,13 @@ export type TagLabelSizes = {
 };
 
 const DEFAULT_SIZES: TagLabelSizes = {
-  qrSize: 80,
-  codeFontSize: 14,
+  qrSize: 90,
+  codeFontSize: 13,
   nameFontSize: 10,
   locationFontSize: 8,
-  codeCharsPerLine: 28,
-  nameCharsPerLine: 16,
-  locationCharsPerLine: 20,
+  codeCharsPerLine: 15,
+  nameCharsPerLine: 18,
+  locationCharsPerLine: 22,
 };
 
 // ตัดคำยาวขึ้นบรรทัดใหม่ล่วงหน้าเสมอ ไม่ตัดทิ้ง — ใช้กับรหัสครุภัณฑ์ที่ต้องแสดงเต็มทุกตัวอักษรไม่ว่า
@@ -73,21 +75,18 @@ function wrapFull(value: string, charsPerLine: number): string[] {
   return result;
 }
 
-const MAX_LINES = 2;
-
 // เหมือน wrapFull แต่จำกัดจำนวนบรรทัดสูงสุด ตัดทิ้งด้วย "…" ถ้ายาวเกิน — ใช้กับชื่อ/สถานที่ครุภัณฑ์
 // ที่ไม่จำเป็นต้องแสดงเต็มเป๊ะเท่ารหัสครุภัณฑ์ (กันป้ายสูงเกินไปเวลาชื่อยาวผิดปกติ)
-function wrapTruncated(value: string, charsPerLine: number): string[] {
+function wrapTruncated(value: string, charsPerLine: number, maxLines: number): string[] {
   const result = wrapFull(value, charsPerLine);
-  if (result.length <= MAX_LINES) return result;
-  const kept = result.slice(0, MAX_LINES);
-  kept[MAX_LINES - 1] = `${kept[MAX_LINES - 1].slice(0, charsPerLine - 1)}…`;
+  if (result.length <= maxLines) return result;
+  const kept = result.slice(0, maxLines);
+  kept[maxLines - 1] = `${kept[maxLines - 1].slice(0, charsPerLine - 1)}…`;
   return kept;
 }
 
-// เนื้อหาป้าย 1 ใบ — รหัสครุภัณฑ์เป็นแถวเต็มความกว้างป้ายด้านบนสุด (อ่านง่ายที่สุด แสดงเต็มเสมอ
-// ไม่ตัดทิ้ง) ตามด้วยแถว QR + ชื่อครุภัณฑ์/สถานที่ด้านล่าง — แยกออกมาเป็นคอมโพเนนต์ใช้ร่วมกันได้ทั้ง
-// พิมพ์ทีละใบ (AssetTagDocument ด้านล่าง) และพิมพ์หลายใบเรียงในหน้า A4
+// เนื้อหาป้าย 1 ใบ (QR + รหัสครุภัณฑ์/ชื่อครุภัณฑ์/สถานที่) — แยกออกมาเป็นคอมโพเนนต์ใช้ร่วมกันได้
+// ทั้งพิมพ์ทีละใบ (AssetTagDocument ด้านล่าง) และพิมพ์หลายใบเรียงในหน้า A4
 // (asset-tag-sheet-document.tsx) โดยส่ง sizes ที่ย่อส่วนแล้วเข้ามาแทน
 export function TagLabelContent({ data, sizes = DEFAULT_SIZES }: { data: AssetTagPdfData; sizes?: TagLabelSizes }) {
   const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room ? `ห้อง ${data.room}` : null]
@@ -95,33 +94,32 @@ export function TagLabelContent({ data, sizes = DEFAULT_SIZES }: { data: AssetTa
     .join(" ");
 
   return (
-    <View style={{ width: "100%" }}>
-      {/* เริ่มจากขอบบนสุดของป้าย (แนวเดียวกับด้านบนของ QR ที่อยู่แถวถัดไป) ยาวเต็มความกว้างป้าย */}
-      <View style={{ marginBottom: 2 }}>
-        {wrapFull(data.asset_code || "-", sizes.codeCharsPerLine).map((line, i) => (
-          <Text key={i} style={{ fontSize: sizes.codeFontSize, fontWeight: "bold", lineHeight: 1.1 }}>
-            {guard(line)}
-          </Text>
-        ))}
-      </View>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
-        <Image src={data.qr_url} style={{ width: sizes.qrSize, height: sizes.qrSize, marginRight: 8 }} />
-        <View style={{ flex: 1, overflow: "hidden" }}>
-          <View style={{ marginBottom: 3 }}>
-            {wrapTruncated(data.name, sizes.nameCharsPerLine).map((line, i) => (
-              <Text key={i} style={{ fontSize: sizes.nameFontSize, lineHeight: 1.15 }}>
-                {guard(line)}
-              </Text>
-            ))}
-          </View>
-          <View>
-            {wrapTruncated(location || "-", sizes.locationCharsPerLine).map((line, i) => (
-              <Text key={i} style={{ fontSize: sizes.locationFontSize, color: "#64748b", lineHeight: 1.15 }}>
-                {guard(line)}
-              </Text>
-            ))}
-          </View>
+    <View style={{ flexDirection: "row", alignItems: "center", width: "100%" }}>
+      {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
+      <Image src={data.qr_url} style={{ width: sizes.qrSize, height: sizes.qrSize, marginRight: 8 }} />
+      <View style={{ flex: 1, overflow: "hidden" }}>
+        {/* เลขครุภัณฑ์เป็นข้อมูลที่ต้องอ่านได้ไวที่สุดตอนตรวจนับ (ดูตัวอย่างป้ายจากระบบสำรวจทรัพย์สิน
+            เดิม) จึงเน้นให้ใหญ่/หนาที่สุดในป้าย และแสดงเต็มทุกตัวอักษรเสมอไม่ตัดทิ้งด้วย "…" */}
+        <View style={{ marginBottom: 3 }}>
+          {wrapFull(data.asset_code || "-", sizes.codeCharsPerLine).map((line, i) => (
+            <Text key={i} style={{ fontSize: sizes.codeFontSize, fontWeight: "bold", lineHeight: 1.15 }}>
+              {guard(line)}
+            </Text>
+          ))}
+        </View>
+        <View style={{ marginBottom: 3 }}>
+          {wrapTruncated(data.name, sizes.nameCharsPerLine, 2).map((line, i) => (
+            <Text key={i} style={{ fontSize: sizes.nameFontSize, lineHeight: 1.15 }}>
+              {guard(line)}
+            </Text>
+          ))}
+        </View>
+        <View>
+          {wrapTruncated(location || "-", sizes.locationCharsPerLine, 1).map((line, i) => (
+            <Text key={i} style={{ fontSize: sizes.locationFontSize, color: "#64748b", lineHeight: 1.15 }}>
+              {guard(line)}
+            </Text>
+          ))}
         </View>
       </View>
     </View>

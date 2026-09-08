@@ -8,12 +8,12 @@ registerSarabunFont();
 // ป้าย เส้นขอบของแต่ละป้ายจึงชนกันพอดีเป็นเส้นตัดต่อเนื่อง และไม่มีที่ว่างเหลือทิ้งที่ขอบหน้ากระดาษ
 const SHEET_LABEL_SIZES: TagLabelSizes = {
   qrSize: 42,
-  codeFontSize: 11,
+  codeFontSize: 10,
   nameFontSize: 7,
   locationFontSize: 6.5,
-  codeCharsPerLine: 26,
-  nameCharsPerLine: 30,
-  locationCharsPerLine: 32,
+  codeCharsPerLine: 20,
+  nameCharsPerLine: 28,
+  locationCharsPerLine: 30,
 };
 
 const styles = StyleSheet.create({
