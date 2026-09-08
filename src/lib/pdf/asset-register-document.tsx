@@ -310,9 +310,9 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
         <View style={[styles.table, { marginTop: 8 }]}>
           <View style={styles.tHeadRow}>
             <HeadCell style={[styles.cell, styles.repairColSeq]} lines="ครั้งที่" />
-            <HeadCell style={[styles.cell, styles.repairColDate]} lines={["วัน เดือน", "ปี"]} />
+            <HeadCell style={[styles.cell, styles.repairColDate]} lines="วัน เดือน ปี" />
             <HeadCell style={[styles.cell, styles.repairColDesc]} lines="รายการ" />
-            <HeadCell style={[styles.cell, styles.repairColAmount]} lines={["จำนวน", "เงิน"]} />
+            <HeadCell style={[styles.cell, styles.repairColAmount]} lines="จำนวนเงิน" />
             <HeadCell style={[styles.cellLast, styles.repairColNote]} lines="หมายเหตุ" />
           </View>
           {data.repairs.map((r) => (
