@@ -186,7 +186,10 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <View style={{ flexDirection: "row" }}>
+        {/* minHeight เท่ากับความสูงรูป (styles.photo.height) กันพื้นที่แถวนี้ไว้ล่วงหน้าเสมอ ไม่พึ่งพา
+            alignItems: "stretch" อย่างเดียว — ป้องกันเนื้อหาถัดไป (ส่วนราชการ/หน่วยงาน ฯลฯ) ไม่ขยับลง
+            ให้พ้นรูปตอนมีรูปแนบ (รูปสูงกว่าชื่อเอกสารมาก) */}
+        <View style={{ flexDirection: "row", minHeight: data.photo_url ? styles.photo.height : undefined }}>
           <View style={styles.photoBox}>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
             {data.photo_url && <Image src={data.photo_url} style={styles.photo} />}
