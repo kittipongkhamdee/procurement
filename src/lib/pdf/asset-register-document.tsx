@@ -41,15 +41,18 @@ const styles = StyleSheet.create({
   table: { marginTop: 4, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#111827" },
   tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   tRow: { flexDirection: "row" },
+  // ทดลองย่อขนาดตัวอักษรในตารางลง (11pt เดิม ตามมาตรฐาน CLAUDE.md) เหลือ 8.5pt — เทียบสัดส่วนจากระบบ
+  // สำรวจทรัพย์สินเดิม (financial-asset-survey) ที่ใช้ตาราง 9.5px จากเนื้อหาตัวหลัก 12px (~79%)
+  // เป็นการทดลองตามคำขอผู้ใช้เท่านั้น ถ้าผู้ใช้ไม่ชอบให้ย้อนกลับเป็น 11pt ตามมาตรฐานเดิม
   cell: {
-    fontSize: 11,
+    fontSize: 8.5,
     padding: 4,
     borderRightWidth: 1,
     borderBottomWidth: 1,
     borderColor: "#111827",
   },
   cellLast: {
-    fontSize: 11,
+    fontSize: 8.5,
     padding: 4,
     borderBottomWidth: 1,
     borderColor: "#111827",
@@ -71,7 +74,7 @@ const styles = StyleSheet.create({
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
   colNote: { width: "8%" },
-  cellLine: { fontSize: 11 },
+  cellLine: { fontSize: 8.5 },
   // สไตล์ตารางหน้า 2 "ประวัติการซ่อมบำรุงรักษาทรัพย์สิน" — คอลัมน์รวมกัน 100% เหมือนกัน:
   // ครั้งที่ 8% + วันเดือนปี 12% + รายการ 45% + จำนวนเงิน 15% + หมายเหตุ 20%
   repairColSeq: { width: "8%", textAlign: "center" },
@@ -84,7 +87,7 @@ const styles = StyleSheet.create({
   // ในส่วนหัวเอกสาร หรือชื่อเรื่องใหญ่ที่กว้างอัตโนมัติ ไม่เจอปัญหานี้) ลองแก้ด้วยการเติมช่องว่างนำหน้า
   // (ทั้งช่องว่างธรรมดาและ non-breaking space) และเพิ่ม padding แล้วก็ยังไม่หาย จึงเปลี่ยนมาไม่ใช้ตัวหนา
   // กับหัวตารางเลย ใช้พื้นหลังสีเทาอ่อนของแถวหัวตาราง (tHeadRow) แยกความแตกต่างจากแถวข้อมูลแทน
-  headLine: { fontSize: 11, textAlign: "center" },
+  headLine: { fontSize: 8.5, textAlign: "center" },
 });
 
 export type AssetDepreciationRow = {
