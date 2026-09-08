@@ -37,30 +37,56 @@ function conditionBadge(condition: string) {
 }
 
 export function SummaryTab({ categories }: { categories: Option[] }) {
-  const [items, setItems] = useState<SummaryItem[]>([]);
+  const [items, setItems] = useState<SummaryItem[] | null>(null);
+  const [allCount, setAllCount] = useState(0);
   const [categoryLookup, setCategoryLookup] = useState<
     Map<string, { name: string; useful_life_years: number | null; depreciation_rate_percent: number | null }>
   >(new Map());
-  const [loading, setLoading] = useState(true);
+  const [categoryLookupLoaded, setCategoryLookupLoaded] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState(ALL);
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
+  // debounce ช่องค้นหาก่อนยิง query จริง กันไม่ให้ยิงคำขอไปเซิร์ฟเวอร์ทุกครั้งที่พิมพ์แต่ละตัวอักษร
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const pageSize = 50;
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // กรองที่ฝั่ง Supabase query โดยตรง (ไม่ดึงทุกรายการมากรองในเบราว์เซอร์แบบเดิม) — ยอดรวมท้าย
+  // ตาราง/การ์ดสรุปยังต้องคำนวณจาก "ทุกแถวที่ตรงตัวกรอง" (ไม่ใช่แค่หน้าที่เห็น) จึงยังดึงมาทั้งหมดที่
+  // ตรงเงื่อนไข ไม่ตัดด้วย range แบบแท็บทะเบียนทรัพย์สิน แต่การกรองด้วยหมวดหมู่/สภาพ/คำค้นหาที่ฝั่ง
+  // เซิร์ฟเวอร์ช่วยลดปริมาณข้อมูลที่ต้องโอนมาเมื่อผู้ใช้เลือกตัวกรองแคบลง
   const reload = useCallback(async () => {
-    setLoading(true);
     const supabase = createClient();
-    const [{ data: itemsData }, { data: categoriesData }] = await Promise.all([
-      supabase
-        .from("asset_items")
-        .select("id, name, category_id, asset_code, quantity, unit, building, floor, room, condition, acquired_date, acquired_year, price")
-        .order("created_at", { ascending: false }),
+    let query = supabase
+      .from("asset_items")
+      .select("id, name, category_id, asset_code, quantity, unit, building, floor, room, condition, acquired_date, acquired_year, price")
+      .order("created_at", { ascending: false });
+
+    if (categoryFilter !== ALL) query = query.eq("category_id", categoryFilter);
+    if (conditionFilter !== ALL) query = query.eq("condition", conditionFilter as "usable" | "damaged" | "disposal");
+    if (debouncedSearch) {
+      const q = debouncedSearch.replace(/,/g, " ");
+      query = query.or(`name.ilike.%${q}%,asset_code.ilike.%${q}%,building.ilike.%${q}%,room.ilike.%${q}%`);
+    }
+
+    const { data } = await query;
+    setItems((data as unknown as SummaryItem[]) ?? []);
+  }, [categoryFilter, conditionFilter, debouncedSearch]);
+
+  const loadStaticData = useCallback(async () => {
+    const supabase = createClient();
+    const [{ count }, { data: categoriesData }] = await Promise.all([
+      supabase.from("asset_items").select("id", { count: "exact", head: true }),
       supabase.from("asset_categories").select("id, name, useful_life_years, depreciation_rate_percent"),
     ]);
-    setItems((itemsData as unknown as SummaryItem[]) ?? []);
+    setAllCount(count ?? 0);
     setCategoryLookup(new Map((categoriesData ?? []).map((c) => [c.id, c])));
-    setLoading(false);
+    setCategoryLookupLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -68,27 +94,21 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
     reload();
   }, [reload]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadStaticData();
+  }, [loadStaticData]);
+
   function updateFilter(setter: (v: string) => void, value: string) {
     setter(value);
     setPage(1);
   }
 
-  if (loading) return <p className="table-empty">กำลังโหลดข้อมูล...</p>;
-
-  const filtered = items.filter((it) => {
-    if (categoryFilter !== ALL && it.category_id !== categoryFilter) return false;
-    if (conditionFilter !== ALL && it.condition !== conditionFilter) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      const hay = `${it.name} ${it.asset_code ?? ""} ${it.building} ${it.room}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
+  if (items === null || !categoryLookupLoaded) return <p className="table-empty">กำลังโหลดข้อมูล...</p>;
 
   // คำนวณค่าเสื่อมของทุกแถวที่ผ่านตัวกรองไว้ล่วงหน้าครั้งเดียว (ไม่ใช่แค่หน้าปัจจุบัน) เพื่อใช้ทั้งแสดง
   // ผลรายแถวและรวมยอดท้ายตาราง/การ์ดสรุป ให้ยอดรวมตรงกับ "ทั้งหมดที่กรองไว้" ไม่ใช่แค่หน้าที่เห็น
-  const rowsWithTotals = filtered.map((it) => {
+  const rowsWithTotals = items.map((it) => {
     const category = it.category_id ? categoryLookup.get(it.category_id) : null;
     const totals = computeAssetDepreciation({
       price: it.price,
@@ -153,7 +173,7 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500">
           พบ <span className="font-semibold text-slate-900">{rowsWithTotals.length.toLocaleString("th-TH")}</span> รายการ
-          จากทั้งหมด {items.length.toLocaleString("th-TH")} รายการ
+          จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
         </p>
         <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />

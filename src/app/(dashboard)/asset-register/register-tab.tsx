@@ -721,11 +721,15 @@ export function RegisterTab({
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<AssetItem[] | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [allCount, setAllCount] = useState(0);
   const [roundFilter, setRoundFilter] = useState(ALL);
   const [categoryFilter, setCategoryFilter] = useState(ALL);
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
+  // debounce ช่องค้นหาก่อนยิง query จริง กันไม่ให้ยิงคำขอไปเซิร์ฟเวอร์ทุกครั้งที่พิมพ์แต่ละตัวอักษร
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   // สวิตช์คุมว่าจะพิมพ์รูปภาพ/QR Code ในทะเบียนคุมทรัพย์สินฉบับเต็มหรือไม่ (ส่งเป็น query string
   // ไปยัง route พิมพ์ PDF ของแต่ละรายการ) — ไม่ใช่ค่าที่บันทึกถาวร แค่คุมการพิมพ์รอบนี้เท่านั้น
@@ -745,15 +749,50 @@ export function RegisterTab({
     });
   }
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // กรอง/แบ่งหน้าที่ฝั่ง Supabase query โดยตรง (ไม่ดึงทั้งหมดมากรองในเบราว์เซอร์แบบเดิม) — สำคัญมาก
+  // เมื่อจำนวนรายการทรัพย์สินโตขึ้นเรื่อยๆ (ตอนนี้ ~445 รายการ) ลดภาระเปิดหน้าและปริมาณข้อมูลที่โอน
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
+    let query = supabase
       .from("asset_items")
       .select(
         "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        { count: "exact" },
       )
       .order("created_at", { ascending: false });
+
+    if (roundFilter !== ALL) query = query.eq("round_id", roundFilter);
+    if (categoryFilter !== ALL) query = query.eq("category_id", categoryFilter);
+    if (statusFilter !== ALL) query = query.eq("status", statusFilter as "draft" | "submitted" | "approved" | "rejected");
+    if (conditionFilter !== ALL) query = query.eq("condition", conditionFilter as "usable" | "damaged" | "disposal");
+    if (debouncedSearch) {
+      // ค้นหาชื่อ/รหัสครุภัณฑ์/สถานที่ — คอมมาต้องตัดออกก่อนเพราะเป็นตัวคั่นเงื่อนไขใน .or() ของ
+      // PostgREST อยู่แล้ว ถ้าเหลือในคำค้นจะทำให้ syntax ของ or-filter ผิด
+      const q = debouncedSearch.replace(/,/g, " ");
+      const orParts = [`name.ilike.%${q}%`, `asset_code.ilike.%${q}%`, `building.ilike.%${q}%`, `room.ilike.%${q}%`];
+      // รวม id ไว้ในช่องค้นหาด้วย — ค่าที่เข้ารหัสใน QR Code เป็น asset_code ถ้ามี ไม่งั้น fallback
+      // เป็น id (ดู build-asset-register-pdf.tsx/build-asset-tag-pdf.tsx) สแกนแล้ววางค่าตรงนี้ได้เลย
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) {
+        orParts.push(`id.eq.${q}`);
+      }
+      query = query.or(orParts.join(","));
+    }
+
+    const from = (page - 1) * pageSize;
+    const { data, count } = await query.range(from, from + pageSize - 1);
     setItems((data as unknown as AssetItem[]) ?? []);
+    setTotalCount(count ?? 0);
+  }, [roundFilter, categoryFilter, statusFilter, conditionFilter, debouncedSearch, page]);
+
+  const loadAllCount = useCallback(async () => {
+    const supabase = createClient();
+    const { count } = await supabase.from("asset_items").select("id", { count: "exact", head: true });
+    setAllCount(count ?? 0);
   }, []);
 
   useEffect(() => {
@@ -761,32 +800,32 @@ export function RegisterTab({
     reload();
   }, [reload]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAllCount();
+  }, [loadAllCount]);
+
   function handleChanged() {
     reload();
+    loadAllCount();
     onChanged();
   }
 
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
   const defaultRoundId = rounds.find((r) => r.is_open)?.id ?? rounds[0]?.id ?? "";
 
-  const filtered = (items ?? []).filter((it) => {
-    if (roundFilter !== ALL && it.round_id !== roundFilter) return false;
-    if (categoryFilter !== ALL && it.category_id !== categoryFilter) return false;
-    if (statusFilter !== ALL && it.status !== statusFilter) return false;
-    if (conditionFilter !== ALL && it.condition !== conditionFilter) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      // รวม id ไว้ในช่องค้นหาด้วย — ค่าที่เข้ารหัสใน QR Code เป็น asset_code ถ้ามี ไม่งั้น fallback
-      // เป็น id (ดู build-asset-register-pdf.tsx/build-asset-tag-pdf.tsx) สแกนแล้ววางค่าตรงนี้ได้เลย
-      const hay = `${it.name} ${it.asset_code ?? ""} ${it.building} ${it.room} ${it.id}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    // หน้าปัจจุบันอาจเกินจำนวนหน้าจริงได้ (เช่น ลบรายการสุดท้ายของหน้าสุดท้าย) — ดึงหน้าที่ถูกต้องใหม่
+    if (page > totalPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pageRows = items ?? [];
 
   function updateFilter(setter: (v: string) => void, value: string) {
     setter(value);
@@ -862,8 +901,8 @@ export function RegisterTab({
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500">
-          พบ <span className="font-semibold text-slate-900">{filtered.length.toLocaleString("th-TH")}</span> รายการ
-          จากทั้งหมด {(items ?? []).length.toLocaleString("th-TH")} รายการ
+          พบ <span className="font-semibold text-slate-900">{totalCount.toLocaleString("th-TH")}</span> รายการ
+          จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
           {selectedIds.size > 0 && <> — เลือกไว้ {selectedIds.size.toLocaleString("th-TH")} รายการ</>}
         </p>
         <div className="flex items-center gap-2">
@@ -964,7 +1003,7 @@ export function RegisterTab({
               </div>
             );
           })}
-          {filtered.length === 0 && <p className="table-empty">ไม่พบรายการที่ตรงกับตัวกรอง</p>}
+          {totalCount === 0 && <p className="table-empty">ไม่พบรายการที่ตรงกับตัวกรอง</p>}
         </div>
 
         {/* จอกว้าง md ขึ้นไป: ตาราง */}
@@ -1045,7 +1084,7 @@ export function RegisterTab({
                 </tr>
               );
             })}
-            {filtered.length === 0 && (
+            {totalCount === 0 && (
               <tr>
                 <td colSpan={10} className="table-empty">
                   ไม่พบรายการที่ตรงกับตัวกรอง
@@ -1055,10 +1094,10 @@ export function RegisterTab({
           </tbody>
         </table>
 
-        {filtered.length > 0 && totalPages > 1 && (
+        {totalCount > 0 && totalPages > 1 && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 px-4 py-3 text-sm">
             <span className="text-slate-500">
-              หน้า {currentPage} จาก {totalPages} ({filtered.length.toLocaleString("th-TH")} รายการ)
+              หน้า {currentPage} จาก {totalPages} ({totalCount.toLocaleString("th-TH")} รายการ)
             </span>
             <div className="flex gap-2">
               <button
