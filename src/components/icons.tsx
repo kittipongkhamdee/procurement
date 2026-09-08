@@ -150,6 +150,20 @@ export const PrinterIcon = base(
   <path strokeLinecap="round" strokeLinejoin="round" d="M7 8.5V4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v4.5M7 17.5H5.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H17M7 14h10v6a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-6Z" />,
 );
 
+export const QrCodeIcon = base(
+  <>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14 14h2.5v2.5H14zM19 14h1v1h-1zM14 19h1v1h-1zM19 19h1v1h-1zM16.5 19h1v1h-1zM19 16.5h1v1h-1z" />
+  </>,
+);
+
+export const TagIcon = base(
+  <>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M11.5 4h6.5a1 1 0 0 1 1 1v6.5a1 1 0 0 1-.3.7l-8 8a1 1 0 0 1-1.4 0l-6.5-6.5a1 1 0 0 1 0-1.4l8-8a1 1 0 0 1 .7-.3Z" />
+    <circle cx="15.5" cy="8.5" r="1.25" />
+  </>,
+);
+
 export const LogOutIcon = base(
   <>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 8V6a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-2" />

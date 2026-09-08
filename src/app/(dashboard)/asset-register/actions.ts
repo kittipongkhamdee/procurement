@@ -56,9 +56,8 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     quantity: Number(formData.get("quantity") ?? 1) || 1,
     unit: String(formData.get("unit") ?? "").trim() || null,
     asset_code: String(formData.get("asset_code") ?? "").trim() || null,
-    sequence_no: String(formData.get("sequence_no") ?? "").trim() || null,
+    doc_ref: String(formData.get("doc_ref") ?? "").trim() || null,
     condition: String(formData.get("condition") ?? "usable") as "usable" | "damaged" | "disposal",
-    note: String(formData.get("note") ?? "").trim() || null,
     acquired_date: acquiredDateIso,
     // เก็บปี พ.ศ. แยกไว้ด้วยเพื่อความเข้ากันได้ย้อนหลัง (ใช้อ้างอิงกับข้อมูลเก่าที่มีแต่ปี ไม่มีวันที่เต็ม)
     acquired_year: acquiredYearBE,
@@ -397,6 +396,32 @@ export async function toggleAssetAcquisitionMethodActive(id: string, isActive: b
 export async function deleteAssetAcquisitionMethod(id: string) {
   const { supabase } = await requireAssetStaff();
   const { error } = await supabase.from("asset_acquisition_methods").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+// ---------------- asset_repairs (ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 ของ
+// ทะเบียนคุมทรัพย์สิน ตามแบบฟอร์มมาตรฐาน สพฐ.) ----------------
+
+export async function createAssetRepair(itemId: string, formData: FormData) {
+  const { supabase } = await requireAssetStaff();
+  const repaired_date = String(formData.get("repaired_date") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  if (!repaired_date || !description) throw new Error("กรอกวันที่ซ่อมและรายการให้ครบ");
+  const { error } = await supabase.from("asset_repairs").insert({
+    item_id: itemId,
+    repaired_date,
+    description,
+    amount: formData.get("amount") ? Number(formData.get("amount")) : null,
+    note: String(formData.get("note") ?? "").trim() || null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function deleteAssetRepair(id: string) {
+  const { supabase } = await requireAssetStaff();
+  const { error } = await supabase.from("asset_repairs").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(PATH);
 }

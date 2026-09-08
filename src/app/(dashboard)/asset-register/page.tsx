@@ -12,6 +12,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { RegisterTab } from "./register-tab";
 import { MasterDataTab } from "./master-data-tab";
 import { SurveyRoundTab } from "./survey-round-tab";
+import { SummaryTab } from "./summary-tab";
 
 type Option = { id: string; name: string };
 type Lookup = Option & { is_active: boolean };
@@ -25,6 +26,7 @@ type SurveyRound = { id: string; year: number; name: string; is_open: boolean };
 
 const TABS = [
   { key: "register", label: "ทะเบียนทรัพย์สิน" },
+  { key: "summary", label: "สรุปรายการ" },
   { key: "master", label: "ข้อมูลหลัก" },
   { key: "rounds", label: "รอบสำรวจ" },
 ] as const;
@@ -131,6 +133,7 @@ export default function AssetRegisterPage() {
             onChanged={reload}
           />
         )}
+        {tab === "summary" && <SummaryTab categories={activeCategories} />}
         {tab === "master" && (
           <MasterDataTab
             canManage={canManage}

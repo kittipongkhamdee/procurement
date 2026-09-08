@@ -154,6 +154,7 @@ export type Database = {
           category_id: string | null
           condition: Database["public"]["Enums"]["asset_condition"]
           created_at: string
+          doc_ref: string | null
           floor: string | null
           id: string
           item_type_id: string | null
@@ -190,6 +191,7 @@ export type Database = {
           category_id?: string | null
           condition: Database["public"]["Enums"]["asset_condition"]
           created_at?: string
+          doc_ref?: string | null
           floor?: string | null
           id?: string
           item_type_id?: string | null
@@ -226,6 +228,7 @@ export type Database = {
           category_id?: string | null
           condition?: Database["public"]["Enums"]["asset_condition"]
           created_at?: string
+          doc_ref?: string | null
           floor?: string | null
           id?: string
           item_type_id?: string | null
@@ -285,6 +288,44 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "asset_survey_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_repairs: {
+        Row: {
+          amount: number | null
+          created_at: string
+          description: string
+          id: string
+          item_id: string
+          note: string | null
+          repaired_date: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          description: string
+          id?: string
+          item_id: string
+          note?: string | null
+          repaired_date: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          description?: string
+          id?: string
+          item_id?: string
+          note?: string | null
+          repaired_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_repairs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "asset_items"
             referencedColumns: ["id"]
           },
         ]

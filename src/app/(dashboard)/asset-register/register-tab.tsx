@@ -6,9 +6,18 @@ import { errorMessage, toastError, toastSuccess, confirmDelete } from "@/lib/swa
 import { formatThaiDate } from "@/lib/thai";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
+import { ToggleSwitch } from "@/components/toggle-switch";
+import { PencilIcon, PlusIcon, PrinterIcon, TagIcon } from "@/components/icons";
 import { compressPhotoFile } from "@/lib/image-resize";
-import { deleteAssetItem, generateAssetCode, updateAssetItemStatus, upsertAssetItem } from "./actions";
+import { QrScanButton } from "./qr-scan-button";
+import {
+  createAssetRepair,
+  deleteAssetItem,
+  deleteAssetRepair,
+  generateAssetCode,
+  updateAssetItemStatus,
+  upsertAssetItem,
+} from "./actions";
 
 async function uploadAssetPhoto(file: File): Promise<string> {
   const formData = new FormData();
@@ -40,8 +49,8 @@ type AssetItem = {
   unit: string | null;
   asset_code: string | null;
   sequence_no: string | null;
+  doc_ref: string | null;
   condition: string;
-  note: string | null;
   acquired_date: string | null;
   acquired_year: number | null;
   budget_source_id: string | null;
@@ -59,6 +68,14 @@ type AssetItem = {
 };
 
 type ItemType = Option & { category_id: string };
+
+type Repair = {
+  id: string;
+  repaired_date: string;
+  description: string;
+  amount: number | null;
+  note: string | null;
+};
 
 const ALL = "__all__";
 
@@ -121,6 +138,25 @@ function ItemModal({
   // ต้องเป็น state (ไม่ใช่ uncontrolled) เพื่อกรองตัวเลือก "ชนิดครุภัณฑ์" ตามหมวดหมู่ที่เลือกอยู่แบบ real-time
   const [categoryId, setCategoryId] = useState(item?.category_id ?? "");
   const [generatingCode, setGeneratingCode] = useState(false);
+  // ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 ของทะเบียนคุมทรัพย์สิน มีเฉพาะรายการที่
+  // บันทึกไว้แล้ว (id มีค่า) เท่านั้น เพราะผูกกับ item_id
+  const repairFormRef = useRef<HTMLFormElement>(null);
+  const [repairs, setRepairs] = useState<Repair[]>([]);
+  const [savingRepair, setSavingRepair] = useState(false);
+
+  async function loadRepairs() {
+    if (!item) {
+      setRepairs([]);
+      return;
+    }
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("asset_repairs")
+      .select("id, repaired_date, description, amount, note")
+      .eq("item_id", item.id)
+      .order("repaired_date", { ascending: true });
+    setRepairs(data ?? []);
+  }
 
   async function handleOpen() {
     setPhotoUrl(null);
@@ -130,10 +166,37 @@ function ItemModal({
     setRejecting(false);
     setRejectReason("");
     setCategoryId(item?.category_id ?? "");
+    await loadRepairs();
     if (item?.photo_path) {
       const supabase = createClient();
       const { data } = await supabase.storage.from("asset-photos").createSignedUrl(item.photo_path, 3600);
       if (data?.signedUrl) setPhotoUrl(data.signedUrl);
+    }
+  }
+
+  async function handleAddRepair(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!item) return;
+    setSavingRepair(true);
+    try {
+      await createAssetRepair(item.id, new FormData(e.currentTarget));
+      repairFormRef.current?.reset();
+      await loadRepairs();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSavingRepair(false);
+    }
+  }
+
+  async function handleDeleteRepair(id: string) {
+    const confirmed = await confirmDelete({ title: "ลบประวัติการซ่อมนี้?" });
+    if (!confirmed) return;
+    try {
+      await deleteAssetRepair(id);
+      await loadRepairs();
+    } catch (err) {
+      await toastError(errorMessage(err));
     }
   }
 
@@ -311,12 +374,12 @@ function ItemModal({
       {item && !canManage ? (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <div>
-            <dt className="text-slate-400">ลำดับที่</dt>
-            <dd>{item.sequence_no ?? "-"}</dd>
-          </div>
-          <div>
             <dt className="text-slate-400">รหัสครุภัณฑ์</dt>
             <dd>{item.asset_code ?? "-"}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-400">ที่เอกสาร</dt>
+            <dd>{item.doc_ref ?? "-"}</dd>
           </div>
           <div>
             <dt className="text-slate-400">ชื่อทรัพย์สิน</dt>
@@ -342,12 +405,6 @@ function ItemModal({
             <dt className="text-slate-400">วัน/เดือน/ปีที่ได้มา</dt>
             <dd>{item.acquired_date ? formatThaiDate(item.acquired_date) : "-"}</dd>
           </div>
-          {item.note && (
-            <div className="col-span-2">
-              <dt className="text-slate-400">หมายเหตุ</dt>
-              <dd className="whitespace-pre-line">{item.note}</dd>
-            </div>
-          )}
           {item.reject_reason && (
             <div className="col-span-2">
               <dt className="text-slate-400">เหตุผลที่ไม่อนุมัติ</dt>
@@ -368,10 +425,6 @@ function ItemModal({
                 ))}
               </select>
             </div>
-            <div>
-              <label className="label">ลำดับที่</label>
-              <input name="sequence_no" defaultValue={item?.sequence_no ?? ""} className="input" />
-            </div>
             <div className="sm:col-span-2">
               <label className="label">รหัสครุภัณฑ์</label>
               <div className="flex gap-2">
@@ -385,6 +438,10 @@ function ItemModal({
                   {generatingCode ? "กำลังสร้าง..." : "สร้างเลขอัตโนมัติ"}
                 </button>
               </div>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">ที่เอกสาร</label>
+              <input name="doc_ref" defaultValue={item?.doc_ref ?? ""} className="input" />
             </div>
             <div className="sm:col-span-2">
               <label className="label">ชื่อทรัพย์สิน</label>
@@ -515,10 +572,6 @@ function ItemModal({
               <label className="label">ที่อยู่ผู้ขาย</label>
               <input name="vendor_address" defaultValue={item?.vendor_address ?? ""} className="input" />
             </div>
-            <div className="sm:col-span-2">
-              <label className="label">หมายเหตุ</label>
-              <textarea name="note" defaultValue={item?.note ?? ""} rows={2} className="input" />
-            </div>
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
@@ -534,6 +587,79 @@ function ItemModal({
             </button>
           </div>
         </form>
+      )}
+
+      {/* ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 ของทะเบียนคุมทรัพย์สิน (ตามแบบฟอร์ม
+          มาตรฐาน สพฐ.) มีให้เฉพาะรายการที่บันทึกไว้ในระบบแล้วเท่านั้น (ผูกกับ item_id) */}
+      {item && (
+        <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+          <p className="text-sm font-semibold text-navy-900">ประวัติการซ่อมบำรุงรักษาทรัพย์สิน</p>
+          {repairs.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="table-base w-full">
+                <thead>
+                  <tr>
+                    <th>ครั้งที่</th>
+                    <th>วัน/เดือน/ปี</th>
+                    <th>รายการ</th>
+                    <th className="text-right">จำนวนเงิน</th>
+                    <th>หมายเหตุ</th>
+                    {canManage && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {repairs.map((r, i) => (
+                    <tr key={r.id}>
+                      <td>{i + 1}</td>
+                      <td>{formatThaiDate(r.repaired_date)}</td>
+                      <td>{r.description}</td>
+                      <td className="text-right">{r.amount != null ? formatBaht(r.amount) : "-"}</td>
+                      <td>{r.note ?? "-"}</td>
+                      {canManage && (
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRepair(r.id)}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            ลบ
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">ยังไม่มีประวัติการซ่อม</p>
+          )}
+          {canManage && (
+            <form ref={repairFormRef} onSubmit={handleAddRepair} className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+              <div>
+                <label className="label">วัน/เดือน/ปีที่ซ่อม</label>
+                <ThaiDatePicker name="repaired_date" defaultValue={null} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label">รายการซ่อม</label>
+                <input name="description" required className="input" />
+              </div>
+              <div>
+                <label className="label">จำนวนเงิน</label>
+                <input name="amount" type="number" step="0.01" className="input" />
+              </div>
+              <div className="sm:col-span-3">
+                <label className="label">หมายเหตุ</label>
+                <input name="note" className="input" />
+              </div>
+              <div className="flex items-end">
+                <button type="submit" disabled={savingRepair} className="btn-secondary btn-sm w-full disabled:opacity-50">
+                  {savingRepair ? "กำลังบันทึก..." : "เพิ่มรายการซ่อม"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       )}
 
       {item && canManage && item.status === "submitted" && (
@@ -595,23 +721,78 @@ export function RegisterTab({
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<AssetItem[] | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [allCount, setAllCount] = useState(0);
   const [roundFilter, setRoundFilter] = useState(ALL);
   const [categoryFilter, setCategoryFilter] = useState(ALL);
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
+  // debounce ช่องค้นหาก่อนยิง query จริง กันไม่ให้ยิงคำขอไปเซิร์ฟเวอร์ทุกครั้งที่พิมพ์แต่ละตัวอักษร
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
+  // สวิตช์คุมว่าจะพิมพ์รูปภาพ/QR Code ในทะเบียนคุมทรัพย์สินฉบับเต็มหรือไม่ (ส่งเป็น query string
+  // ไปยัง route พิมพ์ PDF ของแต่ละรายการ) — ไม่ใช่ค่าที่บันทึกถาวร แค่คุมการพิมพ์รอบนี้เท่านั้น
+  const [showPhotoInPdf, setShowPhotoInPdf] = useState(true);
+  const [showQrInPdf, setShowQrInPdf] = useState(true);
+  // รายการที่ติ๊กเลือกไว้เพื่อพิมพ์สติกเกอร์รวมหลายใบในหน้าเดียว (คงค้างข้ามหน้าตาราง/การกรองได้
+  // เพราะเก็บ id ไว้ ไม่ผูกกับ pageRows ปัจจุบัน)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const pageSize = 50;
 
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // กรอง/แบ่งหน้าที่ฝั่ง Supabase query โดยตรง (ไม่ดึงทั้งหมดมากรองในเบราว์เซอร์แบบเดิม) — สำคัญมาก
+  // เมื่อจำนวนรายการทรัพย์สินโตขึ้นเรื่อยๆ (ตอนนี้ ~445 รายการ) ลดภาระเปิดหน้าและปริมาณข้อมูลที่โอน
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
+    let query = supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        { count: "exact" },
       )
       .order("created_at", { ascending: false });
+
+    if (roundFilter !== ALL) query = query.eq("round_id", roundFilter);
+    if (categoryFilter !== ALL) query = query.eq("category_id", categoryFilter);
+    if (statusFilter !== ALL) query = query.eq("status", statusFilter as "draft" | "submitted" | "approved" | "rejected");
+    if (conditionFilter !== ALL) query = query.eq("condition", conditionFilter as "usable" | "damaged" | "disposal");
+    if (debouncedSearch) {
+      // ค้นหาชื่อ/รหัสครุภัณฑ์/สถานที่ — คอมมาต้องตัดออกก่อนเพราะเป็นตัวคั่นเงื่อนไขใน .or() ของ
+      // PostgREST อยู่แล้ว ถ้าเหลือในคำค้นจะทำให้ syntax ของ or-filter ผิด
+      const q = debouncedSearch.replace(/,/g, " ");
+      const orParts = [`name.ilike.%${q}%`, `asset_code.ilike.%${q}%`, `building.ilike.%${q}%`, `room.ilike.%${q}%`];
+      // รวม id ไว้ในช่องค้นหาด้วย — ค่าที่เข้ารหัสใน QR Code เป็น asset_code ถ้ามี ไม่งั้น fallback
+      // เป็น id (ดู build-asset-register-pdf.tsx/build-asset-tag-pdf.tsx) สแกนแล้ววางค่าตรงนี้ได้เลย
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) {
+        orParts.push(`id.eq.${q}`);
+      }
+      query = query.or(orParts.join(","));
+    }
+
+    const from = (page - 1) * pageSize;
+    const { data, count } = await query.range(from, from + pageSize - 1);
     setItems((data as unknown as AssetItem[]) ?? []);
+    setTotalCount(count ?? 0);
+  }, [roundFilter, categoryFilter, statusFilter, conditionFilter, debouncedSearch, page]);
+
+  const loadAllCount = useCallback(async () => {
+    const supabase = createClient();
+    const { count } = await supabase.from("asset_items").select("id", { count: "exact", head: true });
+    setAllCount(count ?? 0);
   }, []);
 
   useEffect(() => {
@@ -619,30 +800,32 @@ export function RegisterTab({
     reload();
   }, [reload]);
 
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAllCount();
+  }, [loadAllCount]);
+
   function handleChanged() {
     reload();
+    loadAllCount();
     onChanged();
   }
 
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
   const defaultRoundId = rounds.find((r) => r.is_open)?.id ?? rounds[0]?.id ?? "";
 
-  const filtered = (items ?? []).filter((it) => {
-    if (roundFilter !== ALL && it.round_id !== roundFilter) return false;
-    if (categoryFilter !== ALL && it.category_id !== categoryFilter) return false;
-    if (statusFilter !== ALL && it.status !== statusFilter) return false;
-    if (conditionFilter !== ALL && it.condition !== conditionFilter) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      const hay = `${it.name} ${it.asset_code ?? ""} ${it.building} ${it.room}`.toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
-    return true;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    // หน้าปัจจุบันอาจเกินจำนวนหน้าจริงได้ (เช่น ลบรายการสุดท้ายของหน้าสุดท้าย) — ดึงหน้าที่ถูกต้องใหม่
+    if (page > totalPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
+  const pageRows = items ?? [];
 
   function updateFilter(setter: (v: string) => void, value: string) {
     setter(value);
@@ -698,21 +881,47 @@ export function RegisterTab({
           </div>
           <div>
             <label className="label">ค้นหา</label>
-            <input
-              value={search}
-              onChange={(e) => updateFilter(setSearch, e.target.value)}
-              placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่"
-              className="input"
-            />
+            <div className="flex gap-2">
+              <input
+                value={search}
+                onChange={(e) => updateFilter(setSearch, e.target.value)}
+                placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่/สแกน QR"
+                className="input"
+              />
+              <QrScanButton onScan={(value) => updateFilter(setSearch, value)} />
+            </div>
           </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-6 border-t border-slate-100 pt-3">
+          <span className="text-xs font-medium text-slate-500">การพิมพ์ทะเบียนคุมทรัพย์สิน (PDF):</span>
+          <ToggleSwitch checked={showPhotoInPdf} onChange={() => setShowPhotoInPdf((v) => !v)} labelOn="แสดงรูปภาพ" labelOff="ซ่อนรูปภาพ" />
+          <ToggleSwitch checked={showQrInPdf} onChange={() => setShowQrInPdf((v) => !v)} labelOn="แสดง QR Code" labelOff="ซ่อน QR Code" />
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500">
-          พบ <span className="font-semibold text-slate-900">{filtered.length.toLocaleString("th-TH")}</span> รายการ
-          จากทั้งหมด {(items ?? []).length.toLocaleString("th-TH")} รายการ
+          พบ <span className="font-semibold text-slate-900">{totalCount.toLocaleString("th-TH")}</span> รายการ
+          จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
+          {selectedIds.size > 0 && <> — เลือกไว้ {selectedIds.size.toLocaleString("th-TH")} รายการ</>}
         </p>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <>
+              <a
+                href={`/asset-register/tag-sheet?ids=${Array.from(selectedIds).join(",")}`}
+                target="_blank"
+                className="btn-secondary btn-sm"
+              >
+                <TagIcon className="h-3.5 w-3.5" />
+                พิมพ์สติกเกอร์ที่เลือก ({selectedIds.size})
+              </a>
+              <button type="button" onClick={() => setSelectedIds(new Set())} className="btn-secondary btn-sm">
+                ล้างที่เลือก
+              </button>
+            </>
+          )}
+        </div>
         {canManage && (
           <ItemModal
             item={null}
@@ -731,9 +940,77 @@ export function RegisterTab({
       </div>
 
       <div className="table-shell">
-        <table className="table-base">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 9 คอลัมน์ที่เลื่อนดูยาก (แพทเทิร์น
+            เดียวกับ project-reports/summary-tab) */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {pageRows.map((it) => {
+            const sb = statusBadge(it.status);
+            const cb = conditionBadge(it.condition);
+            return (
+              <div key={it.id} className="px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(it.id)}
+                    onChange={() => toggleSelected(it.id)}
+                    aria-label={`เลือก ${it.name} สำหรับพิมพ์สติกเกอร์`}
+                    className="mt-1 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-slate-900">{it.name}</span>
+                      <span className={cb.cls}>{cb.label}</span>
+                      <span className={sb.cls}>{sb.label}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {it.asset_code ?? "-"} · {it.category_id ? (categoryName.get(it.category_id) ?? "-") : "-"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      จำนวน {it.quantity} {it.unit ?? ""} · ราคา {formatBaht(it.price)} บาท
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <a
+                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}
+                        target="_blank"
+                        className="btn-secondary btn-sm"
+                      >
+                        <PrinterIcon className="h-3.5 w-3.5" />
+                        พิมพ์
+                      </a>
+                      <a href={`/asset-register/${it.id}/tag`} target="_blank" className="btn-secondary btn-sm">
+                        <TagIcon className="h-3.5 w-3.5" />
+                        สติกเกอร์
+                      </a>
+                      <ItemModal
+                        item={it}
+                        canManage={canManage}
+                        categories={categories}
+                        buildings={buildings}
+                        units={units}
+                        budgetSources={budgetSources}
+                        acquisitionMethods={acquisitionMethods}
+                        itemTypes={itemTypes}
+                        rounds={rounds}
+                        defaultRoundId={defaultRoundId}
+                        onSaved={handleChanged}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {totalCount === 0 && <p className="table-empty">ไม่พบรายการที่ตรงกับตัวกรอง</p>}
+        </div>
+
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
+              <th className="w-8"></th>
               <th className="whitespace-nowrap">รหัสครุภัณฑ์</th>
               <th>ชื่อทรัพย์สิน</th>
               <th>หมวดหมู่</th>
@@ -751,6 +1028,14 @@ export function RegisterTab({
               const cb = conditionBadge(it.condition);
               return (
                 <tr key={it.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(it.id)}
+                      onChange={() => toggleSelected(it.id)}
+                      aria-label={`เลือก ${it.name} สำหรับพิมพ์สติกเกอร์`}
+                    />
+                  </td>
                   <td className="whitespace-nowrap">{it.asset_code ?? "-"}</td>
                   <td className="max-w-xs whitespace-normal break-words font-medium text-slate-900">{it.name}</td>
                   <td>{it.category_id ? (categoryName.get(it.category_id) ?? "-") : "-"}</td>
@@ -769,9 +1054,17 @@ export function RegisterTab({
                   </td>
                   <td className="whitespace-nowrap text-right">
                     <div className="flex flex-wrap justify-end gap-2">
-                      <a href={`/asset-register/${it.id}/pdf`} target="_blank" className="btn-secondary btn-sm">
+                      <a
+                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}
+                        target="_blank"
+                        className="btn-secondary btn-sm"
+                      >
                         <PrinterIcon className="h-3.5 w-3.5" />
                         พิมพ์
+                      </a>
+                      <a href={`/asset-register/${it.id}/tag`} target="_blank" className="btn-secondary btn-sm">
+                        <TagIcon className="h-3.5 w-3.5" />
+                        สติกเกอร์
                       </a>
                       <ItemModal
                         item={it}
@@ -791,9 +1084,9 @@ export function RegisterTab({
                 </tr>
               );
             })}
-            {filtered.length === 0 && (
+            {totalCount === 0 && (
               <tr>
-                <td colSpan={9} className="table-empty">
+                <td colSpan={10} className="table-empty">
                   ไม่พบรายการที่ตรงกับตัวกรอง
                 </td>
               </tr>
@@ -801,10 +1094,10 @@ export function RegisterTab({
           </tbody>
         </table>
 
-        {filtered.length > 0 && totalPages > 1 && (
+        {totalCount > 0 && totalPages > 1 && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 px-4 py-3 text-sm">
             <span className="text-slate-500">
-              หน้า {currentPage} จาก {totalPages} ({filtered.length.toLocaleString("th-TH")} รายการ)
+              หน้า {currentPage} จาก {totalPages} ({totalCount.toLocaleString("th-TH")} รายการ)
             </span>
             <div className="flex gap-2">
               <button
