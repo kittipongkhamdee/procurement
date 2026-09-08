@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   // colDate ต้องพอสำหรับ "28/05/2569" (แถวรับเข้ารายการที่มีวันที่เต็ม) ส่วนแถวคิดค่าเสื่อมรายปี
   // อื่นๆ แสดงแค่ปี พ.ศ. 4 หลัก ซึ่งแคบกว่ามากอยู่แล้ว
   colDate: { width: "8%", paddingLeft: 2 },
-  colDocRef: { width: "8%" },
+  colDocRef: { width: "8%", textAlign: "center" },
   colItem: { width: "16%" },
   colQty: { width: "5%", textAlign: "center" },
   colUnit: { width: "6%", textAlign: "center" },
