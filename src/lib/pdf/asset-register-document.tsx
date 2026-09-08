@@ -5,7 +5,7 @@ import { registerSarabunFont, t } from "./thai-pdf";
 
 registerSarabunFont();
 
-const PHOTO_BOX_WIDTH = 48;
+const PHOTO_BOX_WIDTH = 104;
 
 const styles = StyleSheet.create({
   page: {
@@ -19,7 +19,7 @@ const styles = StyleSheet.create({
   // กันที่ให้รูปครุภัณฑ์เล็กๆ ที่มุมขวาบนของหน้า — ใส่ความกว้างเท่ากันทั้งซ้าย (spacer) และขวา
   // (กล่องรูป) ของแถวหัวเรื่อง เพื่อให้ชื่อเอกสารตรงกลางหน้ายังคงอยู่กึ่งกลางจริงๆ ไม่เยื้องไปทางซ้าย
   photoBox: { width: PHOTO_BOX_WIDTH },
-  photo: { width: 44, height: 44, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
+  photo: { width: 100, height: 80, borderWidth: 1, borderColor: "#111827", objectFit: "cover" },
   // "ส่วนราชการ"/"หน่วยงาน" อยู่ชิดขวาบนของฟอร์ม (ตามแบบฟอร์มทะเบียนคุมทรัพย์สินมาตรฐาน) แยกจาก
   // ป้าย/ค่าแถวอื่นๆ ที่ชิดซ้ายตามปกติ
   // alignSelf (ไม่ใช่ alignItems) ดันกล่องทั้งกล่องไปชิดขวาสุดของหน้า แต่ปล่อยให้แถวข้างในเรียงชิดซ้าย
