@@ -49,7 +49,6 @@ type AssetItem = {
   sequence_no: string | null;
   doc_ref: string | null;
   condition: string;
-  note: string | null;
   acquired_date: string | null;
   acquired_year: number | null;
   budget_source_id: string | null;
@@ -404,12 +403,6 @@ function ItemModal({
             <dt className="text-slate-400">วัน/เดือน/ปีที่ได้มา</dt>
             <dd>{item.acquired_date ? formatThaiDate(item.acquired_date) : "-"}</dd>
           </div>
-          {item.note && (
-            <div className="col-span-2">
-              <dt className="text-slate-400">หมายเหตุ</dt>
-              <dd className="whitespace-pre-line">{item.note}</dd>
-            </div>
-          )}
           {item.reject_reason && (
             <div className="col-span-2">
               <dt className="text-slate-400">เหตุผลที่ไม่อนุมัติ</dt>
@@ -577,10 +570,6 @@ function ItemModal({
               <label className="label">ที่อยู่ผู้ขาย</label>
               <input name="vendor_address" defaultValue={item?.vendor_address ?? ""} className="input" />
             </div>
-            <div className="sm:col-span-2">
-              <label className="label">หมายเหตุ</label>
-              <textarea name="note" defaultValue={item?.note ?? ""} rows={2} className="input" />
-            </div>
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
@@ -743,7 +732,7 @@ export function RegisterTab({
     const { data } = await supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
       )
       .order("created_at", { ascending: false });
     setItems((data as unknown as AssetItem[]) ?? []);
