@@ -28,8 +28,8 @@ type SurveyRound = { id: string; year: number; name: string; is_open: boolean };
 // ชื่อ "ทะเบียนทรัพย์สิน") เป็นหน้าจัดการ/แก้ไขแบบเต็ม จึงเปลี่ยนป้ายเป็น "จัดการทรัพย์สิน" ส่วนแท็บ
 // "summary" (เดิมชื่อ "สรุปรายการ") เป็นตารางดูอย่างเดียว จึงเปลี่ยนป้ายเป็น "ทะเบียนทรัพย์สิน" แทน
 const ALL_TABS = [
-  { key: "register", label: "จัดการทรัพย์สิน" },
   { key: "summary", label: "ทะเบียนทรัพย์สิน" },
+  { key: "register", label: "จัดการทรัพย์สิน" },
   { key: "master", label: "ข้อมูลหลัก" },
   { key: "rounds", label: "รอบสำรวจ" },
 ] as const;
@@ -43,7 +43,7 @@ export default function AssetRegisterPage() {
   // ที่ฐานข้อมูลเหมือนเดิม (ดูคอมเมนต์ด้านบนของไฟล์)
   const isTeacher = user?.role === "teacher";
   const visibleTabs = isTeacher ? ALL_TABS.filter((t) => t.key === "summary") : ALL_TABS;
-  const [tab, setTab] = useState<TabKey>("register");
+  const [tab, setTab] = useState<TabKey>("summary");
 
   useEffect(() => {
     if (!authLoading && isTeacher) {
