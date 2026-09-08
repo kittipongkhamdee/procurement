@@ -13,6 +13,9 @@ const styles = StyleSheet.create({
   tRow: { flexDirection: "row" },
   cell: { fontSize: 8, padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
   cellLast: { fontSize: 8, padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
+  footRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
+  footCell: { fontSize: 8, fontWeight: "bold", padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
+  footCellLast: { fontSize: 8, fontWeight: "bold", padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
   // รวมกันต้องได้ 100% พอดี — เกินแล้วตารางจะกว้างกว่าหน้ากระดาษ ทำให้คอลัมน์ท้ายๆ ล้นออกนอกขอบ
   // กระดาษ (ดูปัญหาเดียวกันที่บันทึกไว้ใน asset-register-document.tsx)
   // 3+12+9+9+5+5+10+6+5+8+5+8+8+7 = 100
@@ -67,6 +70,16 @@ export type AssetSummaryPdfData = {
 };
 
 export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
+  const totals = data.rows.reduce(
+    (acc, row) => ({
+      price: acc.price + (row.price ?? 0),
+      annual: acc.annual + (row.annual ?? 0),
+      cumulative: acc.cumulative + (row.cumulative ?? 0),
+      net: acc.net + (row.net ?? 0),
+    }),
+    { price: 0, annual: 0, cumulative: 0, net: 0 },
+  );
+
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
@@ -110,6 +123,22 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
               <Text style={[styles.cellLast, styles.colNet]}>{guard(row.net != null ? formatBaht(row.net) : "-")}</Text>
             </View>
           ))}
+          <View style={styles.footRow}>
+            <Text style={[styles.footCell, styles.colSeq]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colName]}>{guard(`รวม ${data.rows.length} รายการ`)}</Text>
+            <Text style={[styles.footCell, styles.colCategory]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colCode]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colQty]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colUnit]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colLocation]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colCondition]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colYear]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colPrice]}>{guard(formatBaht(totals.price))}</Text>
+            <Text style={[styles.footCell, styles.colLife]}>{guard("")}</Text>
+            <Text style={[styles.footCell, styles.colAnnual]}>{guard(formatBaht(totals.annual))}</Text>
+            <Text style={[styles.footCell, styles.colCumulative]}>{guard(formatBaht(totals.cumulative))}</Text>
+            <Text style={[styles.footCellLast, styles.colNet]}>{guard(formatBaht(totals.net))}</Text>
+          </View>
         </View>
       </Page>
     </Document>

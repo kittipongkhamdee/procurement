@@ -86,9 +86,33 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
     return true;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // คำนวณค่าเสื่อมของทุกแถวที่ผ่านตัวกรองไว้ล่วงหน้าครั้งเดียว (ไม่ใช่แค่หน้าปัจจุบัน) เพื่อใช้ทั้งแสดง
+  // ผลรายแถวและรวมยอดท้ายตาราง/การ์ดสรุป ให้ยอดรวมตรงกับ "ทั้งหมดที่กรองไว้" ไม่ใช่แค่หน้าที่เห็น
+  const rowsWithTotals = filtered.map((it) => {
+    const category = it.category_id ? categoryLookup.get(it.category_id) : null;
+    const totals = computeAssetDepreciation({
+      price: it.price,
+      acquired_date: it.acquired_date,
+      acquired_year: it.acquired_year,
+      useful_life_years: category?.useful_life_years ?? null,
+      depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
+    });
+    return { it, category, totals };
+  });
+
+  const grandTotals = rowsWithTotals.reduce(
+    (acc, { it, totals }) => ({
+      price: acc.price + (it.price ?? 0),
+      annual: acc.annual + (totals.annual ?? 0),
+      cumulative: acc.cumulative + (totals.cumulative ?? 0),
+      net: acc.net + (totals.net ?? 0),
+    }),
+    { price: 0, annual: 0, cumulative: 0, net: 0 },
+  );
+
+  const totalPages = Math.max(1, Math.ceil(rowsWithTotals.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pageRows = rowsWithTotals.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div>
@@ -128,7 +152,7 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
 
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500">
-          พบ <span className="font-semibold text-slate-900">{filtered.length.toLocaleString("th-TH")}</span> รายการ
+          พบ <span className="font-semibold text-slate-900">{rowsWithTotals.length.toLocaleString("th-TH")}</span> รายการ
           จากทั้งหมด {items.length.toLocaleString("th-TH")} รายการ
         </p>
         <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
@@ -137,69 +161,167 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
         </a>
       </div>
 
+      {/* การ์ดสรุปยอดรวม — แสดงทุกขนาดจอ ให้เห็นยอดรวมได้ทันทีโดยไม่ต้องเลื่อนตารางไปดูคอลัมน์ท้ายสุด
+          (โดยเฉพาะจอเล็ก/มือถือที่เลื่อนตารางแนวนอนดูยาก) */}
+      <div className="card mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div>
+          <p className="text-xs text-slate-500">ราคาทุนรวม (บาท)</p>
+          <p className="mt-0.5 font-semibold tabular-nums text-slate-900">{formatBaht(grandTotals.price)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">ค่าเสื่อม/ปี รวม (บาท)</p>
+          <p className="mt-0.5 font-semibold tabular-nums text-slate-900">{formatBaht(grandTotals.annual)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">ค่าเสื่อมสะสมรวม (บาท)</p>
+          <p className="mt-0.5 font-semibold tabular-nums text-slate-900">{formatBaht(grandTotals.cumulative)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">มูลค่าสุทธิรวม (บาท)</p>
+          <p className="mt-0.5 font-semibold tabular-nums text-navy-800">{formatBaht(grandTotals.net)}</p>
+        </div>
+      </div>
+
       <div className="table-shell">
-        <table className="table-base">
-          <thead>
-            <tr>
-              <th className="text-center">ลำดับ</th>
-              <th>รายการ</th>
-              <th>หมวดหมู่</th>
-              <th className="whitespace-nowrap">หมายเลขครุภัณฑ์</th>
-              <th className="text-center">จำนวน</th>
-              <th className="whitespace-nowrap">หน่วย</th>
-              <th className="whitespace-nowrap">ที่ตั้ง</th>
-              <th className="text-center">สภาพ</th>
-              <th className="whitespace-nowrap text-center">ปีที่ได้มา</th>
-              <th className="whitespace-nowrap text-right">ราคาทุน (บาท)</th>
-              <th className="whitespace-nowrap text-center">อายุใช้งาน (ปี)</th>
-              <th className="whitespace-nowrap text-right">ค่าเสื่อม/ปี (บาท)</th>
-              <th className="whitespace-nowrap text-right">ค่าเสื่อมสะสม (บาท)</th>
-              <th className="whitespace-nowrap text-right">มูลค่าสุทธิ (บาท)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((it, i) => {
-              const category = it.category_id ? categoryLookup.get(it.category_id) : null;
-              const totals = computeAssetDepreciation({
-                price: it.price,
-                acquired_date: it.acquired_date,
-                acquired_year: it.acquired_year,
-                useful_life_years: category?.useful_life_years ?? null,
-                depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
-              });
-              const cb = conditionBadge(it.condition);
-              return (
-                <tr key={it.id}>
-                  <td className="text-center tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
-                  <td className="max-w-xs whitespace-normal break-words font-medium text-slate-900">{it.name}</td>
-                  <td>{category?.name ?? "-"}</td>
-                  <td className="whitespace-nowrap">{it.asset_code ?? "ยังไม่ติดป้าย"}</td>
-                  <td className="text-center tabular-nums">{it.quantity}</td>
-                  <td className="whitespace-nowrap">{it.unit ?? "-"}</td>
-                  <td className="whitespace-nowrap">
-                    {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
-                  </td>
-                  <td className="text-center">
-                    <span className={cb.cls}>{cb.label}</span>
-                  </td>
-                  <td className="text-center tabular-nums">{it.acquired_year ?? "-"}</td>
-                  <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(it.price)}</td>
-                  <td className="text-center tabular-nums">{category?.useful_life_years ?? "-"}</td>
-                  <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(totals.annual)}</td>
-                  <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(totals.cumulative)}</td>
-                  <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(totals.net)}</td>
-                </tr>
-              );
-            })}
-            {filtered.length === 0 && (
+        {/* มือถือ/จอแคบ: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 14 คอลัมน์ที่เลื่อนดูยาก */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {pageRows.map(({ it, category, totals }, i) => {
+            const cb = conditionBadge(it.condition);
+            return (
+              <div key={it.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="mr-1.5 text-xs tabular-nums text-slate-400">
+                      {(currentPage - 1) * pageSize + i + 1}
+                    </span>
+                    <span className="font-medium text-slate-900">{it.name}</span>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {it.asset_code ?? "ยังไม่ติดป้าย"} · {category?.name ?? "-"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
+                    </p>
+                  </div>
+                  <span className={`${cb.cls} shrink-0`}>{cb.label}</span>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1.5 text-xs">
+                  <div>
+                    <p className="text-slate-400">จำนวน</p>
+                    <p className="tabular-nums text-slate-700">
+                      {it.quantity} {it.unit ?? ""}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">ปีที่ได้มา</p>
+                    <p className="tabular-nums text-slate-700">{it.acquired_year ?? "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">อายุใช้งาน (ปี)</p>
+                    <p className="tabular-nums text-slate-700">{category?.useful_life_years ?? "-"}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">ราคาทุน</p>
+                    <p className="tabular-nums text-slate-700">{formatBaht(it.price)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">ค่าเสื่อมสะสม</p>
+                    <p className="tabular-nums text-slate-700">{formatBaht(totals.cumulative)}</p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400">มูลค่าสุทธิ</p>
+                    <p className="font-medium tabular-nums text-navy-800">{formatBaht(totals.net)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {rowsWithTotals.length === 0 && <p className="table-empty">ไม่พบรายการ</p>}
+        </div>
+
+        {/* จอกว้าง: ตาราง — ลดระยะขอบเซลล์/ขนาดตัวหนังสือลงเหลือ text-xs ทั้งตาราง (เท่ากันทุกคอลัมน์
+            รวม badge สภาพ) เพราะมีถึง 13 คอลัมน์ ลดโอกาสล้นจอ/ต้องเลื่อนแนวนอนมากเกินไป */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="table-base text-xs">
+            <thead>
               <tr>
-                <td colSpan={14} className="table-empty">
-                  ไม่พบรายการ
-                </td>
+                <th className="px-2 py-2 text-center">ลำดับ</th>
+                <th className="px-2 py-2">รายการ</th>
+                <th className="px-2 py-2">หมวดหมู่</th>
+                <th className="whitespace-nowrap px-2 py-2">หมายเลขครุภัณฑ์</th>
+                <th className="whitespace-nowrap px-2 py-2 text-center">จำนวน/หน่วย</th>
+                <th className="whitespace-nowrap px-2 py-2">ที่ตั้ง</th>
+                <th className="px-2 py-2 text-center">สภาพ</th>
+                <th className="whitespace-nowrap px-2 py-2 text-center">ปีที่ได้มา</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">ราคาทุน (บาท)</th>
+                <th className="whitespace-nowrap px-2 py-2 text-center">อายุใช้งาน (ปี)</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">ค่าเสื่อม/ปี (บาท)</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">ค่าเสื่อมสะสม (บาท)</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">มูลค่าสุทธิ (บาท)</th>
               </tr>
+            </thead>
+            <tbody>
+              {pageRows.map(({ it, category, totals }, i) => {
+                const cb = conditionBadge(it.condition);
+                return (
+                  <tr key={it.id}>
+                    <td className="px-2 py-2 text-center tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
+                    <td className="max-w-[14rem] whitespace-normal break-words px-2 py-2 font-medium text-slate-900">
+                      {it.name}
+                    </td>
+                    <td className="px-2 py-2">{category?.name ?? "-"}</td>
+                    <td className="whitespace-nowrap px-2 py-2">{it.asset_code ?? "ยังไม่ติดป้าย"}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-center tabular-nums">
+                      {it.quantity} {it.unit ?? ""}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2">
+                      {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={cb.cls}>{cb.label}</span>
+                    </td>
+                    <td className="px-2 py-2 text-center tabular-nums">{it.acquired_year ?? "-"}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{formatBaht(it.price)}</td>
+                    <td className="px-2 py-2 text-center tabular-nums">{category?.useful_life_years ?? "-"}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{formatBaht(totals.annual)}</td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                      {formatBaht(totals.cumulative)}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{formatBaht(totals.net)}</td>
+                  </tr>
+                );
+              })}
+              {rowsWithTotals.length === 0 && (
+                <tr>
+                  <td colSpan={13} className="table-empty">
+                    ไม่พบรายการ
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {rowsWithTotals.length > 0 && (
+              <tfoot>
+                <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-900">
+                  <td colSpan={8} className="whitespace-nowrap px-2 py-2">
+                    รวม {rowsWithTotals.length.toLocaleString("th-TH")} รายการ
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                    {formatBaht(grandTotals.price)}
+                  </td>
+                  <td className="px-2 py-2"></td>
+                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                    {formatBaht(grandTotals.annual)}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                    {formatBaht(grandTotals.cumulative)}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                    {formatBaht(grandTotals.net)}
+                  </td>
+                </tr>
+              </tfoot>
             )}
-          </tbody>
-        </table>
+          </table>
+        </div>
       </div>
 
       {totalPages > 1 && (
