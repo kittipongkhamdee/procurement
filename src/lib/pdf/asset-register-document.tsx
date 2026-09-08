@@ -187,14 +187,14 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={{ flexDirection: "row" }}>
-          <View style={styles.photoBox} />
-          <View style={[styles.center, { flex: 1 }]}>
-            <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
-          </View>
           <View style={styles.photoBox}>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
             {data.photo_url && <Image src={data.photo_url} style={styles.photo} />}
           </View>
+          <View style={[styles.center, { flex: 1 }]}>
+            <Text style={styles.title}>{guard("ทะเบียนคุมทรัพย์สิน")}</Text>
+          </View>
+          <View style={styles.photoBox} />
         </View>
 
         <View style={styles.rightAlign}>
