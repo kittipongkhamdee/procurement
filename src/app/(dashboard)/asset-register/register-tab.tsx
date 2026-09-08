@@ -901,7 +901,74 @@ export function RegisterTab({
       </div>
 
       <div className="table-shell">
-        <table className="table-base">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 9 คอลัมน์ที่เลื่อนดูยาก (แพทเทิร์น
+            เดียวกับ project-reports/summary-tab) */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {pageRows.map((it) => {
+            const sb = statusBadge(it.status);
+            const cb = conditionBadge(it.condition);
+            return (
+              <div key={it.id} className="px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(it.id)}
+                    onChange={() => toggleSelected(it.id)}
+                    aria-label={`เลือก ${it.name} สำหรับพิมพ์สติกเกอร์`}
+                    className="mt-1 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-slate-900">{it.name}</span>
+                      <span className={cb.cls}>{cb.label}</span>
+                      <span className={sb.cls}>{sb.label}</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {it.asset_code ?? "-"} · {it.category_id ? (categoryName.get(it.category_id) ?? "-") : "-"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      จำนวน {it.quantity} {it.unit ?? ""} · ราคา {formatBaht(it.price)} บาท
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <a
+                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}
+                        target="_blank"
+                        className="btn-secondary btn-sm"
+                      >
+                        <PrinterIcon className="h-3.5 w-3.5" />
+                        พิมพ์
+                      </a>
+                      <a href={`/asset-register/${it.id}/tag`} target="_blank" className="btn-secondary btn-sm">
+                        <TagIcon className="h-3.5 w-3.5" />
+                        สติกเกอร์
+                      </a>
+                      <ItemModal
+                        item={it}
+                        canManage={canManage}
+                        categories={categories}
+                        buildings={buildings}
+                        units={units}
+                        budgetSources={budgetSources}
+                        acquisitionMethods={acquisitionMethods}
+                        itemTypes={itemTypes}
+                        rounds={rounds}
+                        defaultRoundId={defaultRoundId}
+                        onSaved={handleChanged}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && <p className="table-empty">ไม่พบรายการที่ตรงกับตัวกรอง</p>}
+        </div>
+
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="w-8"></th>
