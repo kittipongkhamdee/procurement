@@ -12,8 +12,6 @@ const SHEET_LABEL_SIZES: TagLabelSizes = {
   nameFontSize: 7,
   locationFontSize: 6.5,
   codeCharsPerLine: 20,
-  nameCharsPerLine: 28,
-  locationCharsPerLine: 30,
 };
 
 const styles = StyleSheet.create({
