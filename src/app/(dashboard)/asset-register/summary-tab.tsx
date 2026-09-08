@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatBaht } from "@/lib/thai";
 import { computeAssetDepreciation } from "@/lib/asset-depreciation";
-import { PrinterIcon } from "@/components/icons";
+import { ExcelFileIcon, PrinterIcon } from "@/components/icons";
 import { QrScanButton } from "./qr-scan-button";
 
 type Option = { id: string; name: string };
@@ -185,10 +185,16 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
           พบ <span className="font-semibold text-slate-900">{rowsWithTotals.length.toLocaleString("th-TH")}</span> รายการ
           จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
         </p>
-        <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
-          <PrinterIcon className="h-3.5 w-3.5" />
-          พิมพ์
-        </a>
+        <div className="flex items-center gap-2">
+          <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} className="btn-secondary btn-sm">
+            <ExcelFileIcon className="h-3.5 w-3.5" />
+            ส่งออก Excel
+          </a>
+          <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
+            <PrinterIcon className="h-3.5 w-3.5" />
+            พิมพ์
+          </a>
+        </div>
       </div>
 
       {/* การ์ดสรุปยอดรวม — แสดงทุกขนาดจอ ให้เห็นยอดรวมได้ทันทีโดยไม่ต้องเลื่อนตารางไปดูคอลัมน์ท้ายสุด
