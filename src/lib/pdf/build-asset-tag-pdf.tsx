@@ -16,14 +16,11 @@ export async function buildAssetTagPdfData(
 
   if (error || !item) return null;
 
-  const { data: schoolSettings } = await supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle();
-
   // ใช้ค่าเข้ารหัส QR เดียวกับใน PDF ทะเบียนคุมทรัพย์สิน (รหัสครุภัณฑ์ หรือ id ถ้ายังไม่มีรหัส) —
   // สแกนแล้ววางลงช่องค้นหาในหน้าทะเบียนทรัพย์สินเพื่อค้นรายการนี้ได้
   const qrUrl = await QRCode.toDataURL(item.asset_code || id, { width: 200, margin: 0 });
 
   const data: AssetTagPdfData = {
-    school_name: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
     name: item.name,
     asset_code: item.asset_code,
     building: item.building,

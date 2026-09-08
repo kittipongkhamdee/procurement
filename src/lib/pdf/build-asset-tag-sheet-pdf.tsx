@@ -11,14 +11,10 @@ export async function buildAssetTagSheetPdfData(
 ): Promise<{ items: AssetTagPdfData[]; fileLabel: string } | null> {
   if (ids.length === 0) return null;
 
-  const [{ data: rows, error }, { data: schoolSettings }] = await Promise.all([
-    supabase.from("asset_items").select("id, name, asset_code, building, floor, room").in("id", ids),
-    supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle(),
-  ]);
+  const { data: rows, error } = await supabase.from("asset_items").select("id, name, asset_code, building, floor, room").in("id", ids);
 
   if (error || !rows || rows.length === 0) return null;
 
-  const schoolName = schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา";
   const byId = new Map(rows.map((r) => [r.id, r]));
 
   // คงลำดับตาม ids ที่ผู้ใช้เลือก (ไม่ใช่ลำดับที่ฐานข้อมูลคืนมา) ให้ตรงกับที่เลือกไว้ในตาราง
@@ -28,7 +24,6 @@ export async function buildAssetTagSheetPdfData(
     if (!item) continue;
     const qrUrl = await QRCode.toDataURL(item.asset_code || id, { width: 200, margin: 0 });
     items.push({
-      school_name: schoolName,
       name: item.name,
       asset_code: item.asset_code,
       building: item.building,
