@@ -26,10 +26,15 @@ function acquireRowFor(item: {
   acquired_year: number | null;
   useful_life_years: number | null;
   depreciation_rate_percent: number | null;
+  doc_ref: string | null;
 }): AssetDepreciationRow {
   const unitPrice = item.price != null && item.quantity > 0 ? item.price / item.quantity : item.price;
   return {
     yearLabel: item.acquired_date ? formatShortThaiDate(item.acquired_date) : item.acquired_year != null ? String(item.acquired_year) : "-",
+    // "ที่เอกสาร" มีความหมายเฉพาะแถวรับเข้ารายการ (อ้างอิงเอกสารจัดซื้อ/รับบริจาคครั้งแรก) — แถว
+    // คำนวณค่าเสื่อมรายปี/รายเดือนที่ระบบสร้างเองไม่มีเอกสารอ้างอิง จึงปล่อยว่าง (ดู acquireRowFor
+    // เทียบกับ buildDepreciationScheduleByDate/ByYear ด้านล่างที่ไม่ส่ง docRef)
+    docRef: item.doc_ref,
     itemLabel: item.name,
     quantity: item.quantity,
     unit: item.unit,
@@ -87,6 +92,7 @@ function buildDepreciationScheduleByDate(item: {
     const yearBE = fiscalYearEndAD + 543;
     rows.push({
       yearLabel: `30/09/${yearBE}`,
+      docRef: null,
       itemLabel: `ค่าเสื่อมราคา ${periodMonths} เดือน`,
       quantity: null,
       unit: null,
@@ -132,6 +138,7 @@ function buildDepreciationScheduleByYear(item: {
     const net = item.price - cumulative;
     rows.push({
       yearLabel: String(year),
+      docRef: null,
       itemLabel: `ค่าเสื่อมราคา ณ 30 ก.ย. พ.ศ. ${year}`,
       quantity: null,
       unit: null,
@@ -161,6 +168,7 @@ function buildDepreciationSchedule(item: {
   acquired_year: number | null;
   useful_life_years: number | null;
   depreciation_rate_percent: number | null;
+  doc_ref: string | null;
 }): AssetDepreciationRow[] {
   const acquireRow = acquireRowFor(item);
 
@@ -203,7 +211,7 @@ export async function buildAssetRegisterPdfData(
   const { data: item, error } = await supabase
     .from("asset_items")
     .select(
-      "asset_code, sequence_no, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquisition_method_id, acquired_date, acquired_year, category_id, budget_source_id, photo_path",
+      "asset_code, sequence_no, doc_ref, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquisition_method_id, acquired_date, acquired_year, category_id, budget_source_id, photo_path",
     )
     .eq("id", id)
     .maybeSingle();
@@ -216,18 +224,24 @@ export async function buildAssetRegisterPdfData(
     ? (await supabase.storage.from("asset-photos").createSignedUrl(item.photo_path, 3600)).data?.signedUrl ?? null
     : null;
 
-  const [{ data: category }, { data: budgetSource }, { data: acquisitionMethod }, { data: schoolSettings }] = await Promise.all([
-    item.category_id
-      ? supabase.from("asset_categories").select("name, useful_life_years, depreciation_rate_percent").eq("id", item.category_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    item.budget_source_id
-      ? supabase.from("asset_budget_sources").select("name").eq("id", item.budget_source_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    item.acquisition_method_id
-      ? supabase.from("asset_acquisition_methods").select("name").eq("id", item.acquisition_method_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    supabase.from("proc_school_settings").select("school_name, education_area, school_address").eq("id", true).maybeSingle(),
-  ]);
+  const [{ data: category }, { data: budgetSource }, { data: acquisitionMethod }, { data: schoolSettings }, { data: repairRows }] =
+    await Promise.all([
+      item.category_id
+        ? supabase.from("asset_categories").select("name, useful_life_years, depreciation_rate_percent").eq("id", item.category_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      item.budget_source_id
+        ? supabase.from("asset_budget_sources").select("name").eq("id", item.budget_source_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      item.acquisition_method_id
+        ? supabase.from("asset_acquisition_methods").select("name").eq("id", item.acquisition_method_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from("proc_school_settings").select("school_name, education_area, school_address").eq("id", true).maybeSingle(),
+      supabase
+        .from("asset_repairs")
+        .select("repaired_date, description, amount, note")
+        .eq("item_id", id)
+        .order("repaired_date", { ascending: true }),
+    ]);
 
   const schedule = buildDepreciationSchedule({
     name: item.name,
@@ -238,7 +252,17 @@ export async function buildAssetRegisterPdfData(
     acquired_year: item.acquired_year,
     useful_life_years: category?.useful_life_years ?? null,
     depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
+    doc_ref: item.doc_ref,
   });
+
+  // ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 (ด้านหลัง) ตามแบบฟอร์มมาตรฐาน สพฐ.
+  const repairs = (repairRows ?? []).map((r, i) => ({
+    seq: i + 1,
+    dateLabel: formatShortThaiDate(r.repaired_date),
+    description: r.description,
+    amount: r.amount,
+    note: r.note,
+  }));
 
   const data: AssetRegisterPdfData = {
     asset_code: item.asset_code,
@@ -268,6 +292,7 @@ export async function buildAssetRegisterPdfData(
     depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
     photo_url: photoUrl,
     schedule,
+    repairs,
   };
 
   return { data, fileLabel: `ทะเบียนคุมทรัพย์สิน-${item.asset_code ?? item.name}` };

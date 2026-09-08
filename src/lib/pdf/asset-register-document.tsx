@@ -70,6 +70,13 @@ const styles = StyleSheet.create({
   colNet: { width: "8%", textAlign: "right" },
   colNote: { width: "8%" },
   cellLine: { fontSize: 11 },
+  // สไตล์ตารางหน้า 2 "ประวัติการซ่อมบำรุงรักษาทรัพย์สิน" — คอลัมน์รวมกัน 100% เหมือนกัน:
+  // ครั้งที่ 8% + วันเดือนปี 12% + รายการ 45% + จำนวนเงิน 15% + หมายเหตุ 20%
+  repairColSeq: { width: "8%", textAlign: "center" },
+  repairColDate: { width: "12%", textAlign: "center" },
+  repairColDesc: { width: "45%" },
+  repairColAmount: { width: "15%", textAlign: "right" },
+  repairColNote: { width: "20%" },
   // ไม่ใช้ fontWeight: "bold" — เจอบั๊กซ้ำๆ ว่าตัวอักษรตัวแรกของ Text ตัวหนาที่อยู่ในคอลัมน์กว้างแบบ
   // % (เช่น "รายการ", "อายุใช้งาน") โดนตัดหายไปเฉยๆ เฉพาะกรณีนี้ (Text ตัวหนาที่กว้างคงที่ เช่น ป้ายชื่อ
   // ในส่วนหัวเอกสาร หรือชื่อเรื่องใหญ่ที่กว้างอัตโนมัติ ไม่เจอปัญหานี้) ลองแก้ด้วยการเติมช่องว่างนำหน้า
@@ -80,6 +87,9 @@ const styles = StyleSheet.create({
 
 export type AssetDepreciationRow = {
   yearLabel: string;
+  // มีค่าเฉพาะแถวรับเข้ารายการแรก (อ้างอิงเอกสารจัดซื้อ/รับบริจาคครั้งแรก) แถวคำนวณค่าเสื่อมที่ระบบ
+  // สร้างเองไม่มีเอกสารอ้างอิงจึงเป็น null เสมอ
+  docRef: string | null;
   itemLabel: string;
   quantity: number | null;
   unit: string | null;
@@ -94,6 +104,14 @@ export type AssetDepreciationRow = {
   // ช่องว่างคั่นคำ ทำให้ระบบตัดบรรทัดอัตโนมัติของ react-pdf ตัดคำยาวๆ กลางคำไม่ได้ ล้นออกนอกช่องแคบๆ
   // ของคอลัมน์นี้แทน (ดู thai-pdf.ts) จึงต้องกำหนดจุดตัดบรรทัดเองให้สั้นพอ
   note: string[] | null;
+};
+
+export type AssetRepairPdfRow = {
+  seq: number;
+  dateLabel: string;
+  description: string;
+  amount: number | null;
+  note: string | null;
 };
 
 export type AssetRegisterPdfData = {
@@ -122,6 +140,7 @@ export type AssetRegisterPdfData = {
   depreciation_rate_percent: number | null;
   photo_url: string | null;
   schedule: AssetDepreciationRow[];
+  repairs: AssetRepairPdfRow[];
 };
 
 // react-pdf ตัดตัวอักษรตัวแรกของ Text ทิ้งเป็นบางครั้งแบบสุ่มเดา (เจอมาแล้วกับ "รายการ" -> "ายการ",
@@ -250,7 +269,7 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           {data.schedule.map((row, i) => (
             <View style={styles.tRow} key={i}>
               <Text style={[styles.cell, styles.colDate]}>{guard(row.yearLabel)}</Text>
-              <Text style={[styles.cell, styles.colDocRef]}>{guard("")}</Text>
+              <Text style={[styles.cell, styles.colDocRef]}>{guard(row.docRef ?? "")}</Text>
               <Text style={[styles.cell, styles.colItem]}>{guard(row.itemLabel)}</Text>
               <Text style={[styles.cell, styles.colQty]}>{guard(row.quantity ?? "")}</Text>
               <Text style={[styles.cell, styles.colUnit]}>{guard(row.unit ?? "")}</Text>
@@ -268,6 +287,34 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
                   </Text>
                 ))}
               </View>
+            </View>
+          ))}
+        </View>
+      </Page>
+
+      {/* หน้า 2 (ด้านหลัง) — ประวัติการซ่อมบำรุงรักษาทรัพย์สิน ตามแบบฟอร์มมาตรฐาน สพฐ.
+          (ครั้งที่/วันเดือนปี/รายการ/จำนวนเงิน/หมายเหตุ) แสดงเฉพาะรายการที่บันทึกไว้ในระบบแล้ว */}
+      <Page size="A4" orientation="landscape" style={styles.page}>
+        <Text style={{ textAlign: "right", marginBottom: 4 }}>{guard("(ด้านหลัง)")}</Text>
+        <View style={styles.center}>
+          <Text style={styles.title}>{guard("ประวัติการซ่อมบำรุงรักษาทรัพย์สิน")}</Text>
+        </View>
+
+        <View style={[styles.table, { marginTop: 8 }]}>
+          <View style={styles.tHeadRow}>
+            <HeadCell style={[styles.cell, styles.repairColSeq]} lines="ครั้งที่" />
+            <HeadCell style={[styles.cell, styles.repairColDate]} lines={["วัน เดือน", "ปี"]} />
+            <HeadCell style={[styles.cell, styles.repairColDesc]} lines="รายการ" />
+            <HeadCell style={[styles.cell, styles.repairColAmount]} lines={["จำนวน", "เงิน"]} />
+            <HeadCell style={[styles.cellLast, styles.repairColNote]} lines="หมายเหตุ" />
+          </View>
+          {data.repairs.map((r) => (
+            <View style={styles.tRow} key={r.seq}>
+              <Text style={[styles.cell, styles.repairColSeq]}>{guard(r.seq)}</Text>
+              <Text style={[styles.cell, styles.repairColDate]}>{guard(r.dateLabel)}</Text>
+              <Text style={[styles.cell, styles.repairColDesc]}>{guard(r.description)}</Text>
+              <Text style={[styles.cell, styles.repairColAmount]}>{guard(r.amount != null ? formatBaht(r.amount) : "")}</Text>
+              <Text style={[styles.cellLast, styles.repairColNote]}>{guard(r.note ?? "")}</Text>
             </View>
           ))}
         </View>

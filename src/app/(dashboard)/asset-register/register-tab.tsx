@@ -8,7 +8,14 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PencilIcon, PlusIcon, PrinterIcon } from "@/components/icons";
 import { compressPhotoFile } from "@/lib/image-resize";
-import { deleteAssetItem, generateAssetCode, updateAssetItemStatus, upsertAssetItem } from "./actions";
+import {
+  createAssetRepair,
+  deleteAssetItem,
+  deleteAssetRepair,
+  generateAssetCode,
+  updateAssetItemStatus,
+  upsertAssetItem,
+} from "./actions";
 
 async function uploadAssetPhoto(file: File): Promise<string> {
   const formData = new FormData();
@@ -40,6 +47,7 @@ type AssetItem = {
   unit: string | null;
   asset_code: string | null;
   sequence_no: string | null;
+  doc_ref: string | null;
   condition: string;
   note: string | null;
   acquired_date: string | null;
@@ -59,6 +67,14 @@ type AssetItem = {
 };
 
 type ItemType = Option & { category_id: string };
+
+type Repair = {
+  id: string;
+  repaired_date: string;
+  description: string;
+  amount: number | null;
+  note: string | null;
+};
 
 const ALL = "__all__";
 
@@ -121,6 +137,25 @@ function ItemModal({
   // ต้องเป็น state (ไม่ใช่ uncontrolled) เพื่อกรองตัวเลือก "ชนิดครุภัณฑ์" ตามหมวดหมู่ที่เลือกอยู่แบบ real-time
   const [categoryId, setCategoryId] = useState(item?.category_id ?? "");
   const [generatingCode, setGeneratingCode] = useState(false);
+  // ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 ของทะเบียนคุมทรัพย์สิน มีเฉพาะรายการที่
+  // บันทึกไว้แล้ว (id มีค่า) เท่านั้น เพราะผูกกับ item_id
+  const repairFormRef = useRef<HTMLFormElement>(null);
+  const [repairs, setRepairs] = useState<Repair[]>([]);
+  const [savingRepair, setSavingRepair] = useState(false);
+
+  async function loadRepairs() {
+    if (!item) {
+      setRepairs([]);
+      return;
+    }
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("asset_repairs")
+      .select("id, repaired_date, description, amount, note")
+      .eq("item_id", item.id)
+      .order("repaired_date", { ascending: true });
+    setRepairs(data ?? []);
+  }
 
   async function handleOpen() {
     setPhotoUrl(null);
@@ -130,10 +165,37 @@ function ItemModal({
     setRejecting(false);
     setRejectReason("");
     setCategoryId(item?.category_id ?? "");
+    await loadRepairs();
     if (item?.photo_path) {
       const supabase = createClient();
       const { data } = await supabase.storage.from("asset-photos").createSignedUrl(item.photo_path, 3600);
       if (data?.signedUrl) setPhotoUrl(data.signedUrl);
+    }
+  }
+
+  async function handleAddRepair(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!item) return;
+    setSavingRepair(true);
+    try {
+      await createAssetRepair(item.id, new FormData(e.currentTarget));
+      repairFormRef.current?.reset();
+      await loadRepairs();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSavingRepair(false);
+    }
+  }
+
+  async function handleDeleteRepair(id: string) {
+    const confirmed = await confirmDelete({ title: "ลบประวัติการซ่อมนี้?" });
+    if (!confirmed) return;
+    try {
+      await deleteAssetRepair(id);
+      await loadRepairs();
+    } catch (err) {
+      await toastError(errorMessage(err));
     }
   }
 
@@ -315,6 +377,10 @@ function ItemModal({
             <dd>{item.asset_code ?? "-"}</dd>
           </div>
           <div>
+            <dt className="text-slate-400">ที่เอกสาร</dt>
+            <dd>{item.doc_ref ?? "-"}</dd>
+          </div>
+          <div>
             <dt className="text-slate-400">ชื่อทรัพย์สิน</dt>
             <dd>{item.name}</dd>
           </div>
@@ -377,6 +443,10 @@ function ItemModal({
                   {generatingCode ? "กำลังสร้าง..." : "สร้างเลขอัตโนมัติ"}
                 </button>
               </div>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">ที่เอกสาร</label>
+              <input name="doc_ref" defaultValue={item?.doc_ref ?? ""} className="input" />
             </div>
             <div className="sm:col-span-2">
               <label className="label">ชื่อทรัพย์สิน</label>
@@ -528,6 +598,79 @@ function ItemModal({
         </form>
       )}
 
+      {/* ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 ของทะเบียนคุมทรัพย์สิน (ตามแบบฟอร์ม
+          มาตรฐาน สพฐ.) มีให้เฉพาะรายการที่บันทึกไว้ในระบบแล้วเท่านั้น (ผูกกับ item_id) */}
+      {item && (
+        <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+          <p className="text-sm font-semibold text-navy-900">ประวัติการซ่อมบำรุงรักษาทรัพย์สิน</p>
+          {repairs.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="table-base w-full">
+                <thead>
+                  <tr>
+                    <th>ครั้งที่</th>
+                    <th>วัน/เดือน/ปี</th>
+                    <th>รายการ</th>
+                    <th className="text-right">จำนวนเงิน</th>
+                    <th>หมายเหตุ</th>
+                    {canManage && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {repairs.map((r, i) => (
+                    <tr key={r.id}>
+                      <td>{i + 1}</td>
+                      <td>{formatThaiDate(r.repaired_date)}</td>
+                      <td>{r.description}</td>
+                      <td className="text-right">{r.amount != null ? formatBaht(r.amount) : "-"}</td>
+                      <td>{r.note ?? "-"}</td>
+                      {canManage && (
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteRepair(r.id)}
+                            className="text-xs text-red-600 hover:underline"
+                          >
+                            ลบ
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">ยังไม่มีประวัติการซ่อม</p>
+          )}
+          {canManage && (
+            <form ref={repairFormRef} onSubmit={handleAddRepair} className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+              <div>
+                <label className="label">วัน/เดือน/ปีที่ซ่อม</label>
+                <ThaiDatePicker name="repaired_date" defaultValue={null} />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label">รายการซ่อม</label>
+                <input name="description" required className="input" />
+              </div>
+              <div>
+                <label className="label">จำนวนเงิน</label>
+                <input name="amount" type="number" step="0.01" className="input" />
+              </div>
+              <div className="sm:col-span-3">
+                <label className="label">หมายเหตุ</label>
+                <input name="note" className="input" />
+              </div>
+              <div className="flex items-end">
+                <button type="submit" disabled={savingRepair} className="btn-secondary btn-sm w-full disabled:opacity-50">
+                  {savingRepair ? "กำลังบันทึก..." : "เพิ่มรายการซ่อม"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
       {item && canManage && item.status === "submitted" && (
         <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
           <p className="text-sm font-semibold text-navy-900">พิจารณารายการนี้</p>
@@ -600,7 +743,7 @@ export function RegisterTab({
     const { data } = await supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition, note, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
       )
       .order("created_at", { ascending: false });
     setItems((data as unknown as AssetItem[]) ?? []);
