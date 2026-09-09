@@ -35,6 +35,157 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_audit_inspectors: {
+        Row: {
+          audit_round_id: string
+          full_name_snapshot: string
+          id: string
+          role_in_committee: string | null
+          sort_order: number
+          user_id: string
+        }
+        Insert: {
+          audit_round_id: string
+          full_name_snapshot: string
+          id?: string
+          role_in_committee?: string | null
+          sort_order?: number
+          user_id: string
+        }
+        Update: {
+          audit_round_id?: string
+          full_name_snapshot?: string
+          id?: string
+          role_in_committee?: string | null
+          sort_order?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_audit_inspectors_audit_round_id_fkey"
+            columns: ["audit_round_id"]
+            isOneToOne: false
+            referencedRelation: "asset_audit_rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_audit_items: {
+        Row: {
+          actual_condition_id: string | null
+          actual_location: string | null
+          audit_round_id: string
+          book_condition_id: string
+          found: boolean | null
+          id: string
+          inspected_at: string | null
+          inspected_by: string | null
+          item_id: string
+          note: string | null
+        }
+        Insert: {
+          actual_condition_id?: string | null
+          actual_location?: string | null
+          audit_round_id: string
+          book_condition_id: string
+          found?: boolean | null
+          id?: string
+          inspected_at?: string | null
+          inspected_by?: string | null
+          item_id: string
+          note?: string | null
+        }
+        Update: {
+          actual_condition_id?: string | null
+          actual_location?: string | null
+          audit_round_id?: string
+          book_condition_id?: string
+          found?: boolean | null
+          id?: string
+          inspected_at?: string | null
+          inspected_by?: string | null
+          item_id?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_audit_items_actual_condition_id_fkey"
+            columns: ["actual_condition_id"]
+            isOneToOne: false
+            referencedRelation: "asset_conditions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_audit_items_audit_round_id_fkey"
+            columns: ["audit_round_id"]
+            isOneToOne: false
+            referencedRelation: "asset_audit_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_audit_items_book_condition_id_fkey"
+            columns: ["book_condition_id"]
+            isOneToOne: false
+            referencedRelation: "asset_conditions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_audit_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "asset_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_audit_rounds: {
+        Row: {
+          appointment_date: string | null
+          appointment_doc_ref: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string
+          fiscal_year: number
+          id: string
+          report_note: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["asset_audit_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_date?: string | null
+          appointment_doc_ref?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          fiscal_year: number
+          id?: string
+          report_note?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["asset_audit_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string | null
+          appointment_doc_ref?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          fiscal_year?: number
+          id?: string
+          report_note?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["asset_audit_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       asset_budget_sources: {
         Row: {
           id: string
@@ -2236,6 +2387,10 @@ export type Database = {
         Args: never
         Returns: Database["public"]["Enums"]["asset_user_role"]
       }
+      asset_is_audit_inspector: {
+        Args: { p_round_id: string }
+        Returns: boolean
+      }
       asset_is_staff: { Args: never; Returns: boolean }
       eval_response_belongs_to_published_form: {
         Args: { p_response_id: string }
@@ -2271,6 +2426,7 @@ export type Database = {
       proc_is_staff: { Args: never; Returns: boolean }
     }
     Enums: {
+      asset_audit_status: "draft" | "in_progress" | "submitted" | "acknowledged"
       asset_item_status: "draft" | "submitted" | "approved" | "rejected"
       asset_user_role: "teacher" | "supply" | "admin" | "director"
       plan_disbursement_status: "pending" | "approved" | "rejected"
@@ -2409,6 +2565,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      asset_audit_status: ["draft", "in_progress", "submitted", "acknowledged"],
       asset_item_status: ["draft", "submitted", "approved", "rejected"],
       asset_user_role: ["teacher", "supply", "admin", "director"],
       plan_disbursement_status: ["pending", "approved", "rejected"],

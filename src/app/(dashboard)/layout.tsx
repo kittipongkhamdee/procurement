@@ -45,6 +45,7 @@ const NAV_SECTIONS = [
       { href: "/contracts", label: "งานสัญญาจ้าง", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/deliveries", label: "บันทึกส่งมอบงาน", icon: <TruckIcon className={ICON_CLASS} /> },
       { href: "/asset-register", label: "ทะเบียนคุมทรัพย์สิน", icon: <BoxIcon className={ICON_CLASS} /> },
+      { href: "/asset-audits", label: "ตรวจสอบพัสดุประจำปี", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
     ],
   },
   {
