@@ -177,7 +177,9 @@ export async function saveAuditReportNote(roundId: string, formData: FormData) {
 // project-proposals/actions.ts): รองผู้อำนวยการรับทราบก่อน (submitted -> acknowledged_deputy)
 // แล้วส่งต่อให้ผู้อำนวยการรับทราบขั้นสุดท้าย (acknowledged_deputy -> acknowledged) — RLS
 // (asset_audit_rounds_ack_deputy / asset_audit_rounds_ack_director) เป็นด่านจริงที่บังคับลำดับ
-// ขั้นนี้อยู่แล้ว โค้ดฝั่งนี้แค่คืนข้อความ error ที่อ่านง่ายกว่าเวลาข้ามขั้นตอนหรือผิดสิทธิ์
+// ขั้นนี้สำหรับ role รองผู้อำนวยการ/ผู้อำนวยการ ส่วน admin มีสิทธิ์เขียนได้ทุกจุดอยู่แล้วผ่าน
+// asset_audit_rounds_write (asset_is_staff()) จึงยอมให้ admin ทำแทนได้ทั้ง 2 ขั้น (เผื่อทดสอบ/
+// ไม่ต้องสลับ role ไปมา) — เช็คจากสถานะปัจจุบันของรอบว่าต้องทำขั้นไหน แทนการเช็ค role อย่างเดียว
 export async function acknowledgeAuditReport(roundId: string) {
   const supabase = await createClient();
   const {
@@ -188,8 +190,12 @@ export async function acknowledgeAuditReport(roundId: string) {
     .select("role")
     .eq("user_id", user?.id ?? "")
     .maybeSingle();
+  const { data: round } = await supabase.from("asset_audit_rounds").select("status").eq("id", roundId).maybeSingle();
 
-  if (profile?.role === "deputy_director") {
+  const canAckDeputy = profile?.role === "deputy_director" || profile?.role === "admin";
+  const canAckDirector = profile?.role === "director" || profile?.role === "admin";
+
+  if (round?.status === "submitted" && canAckDeputy) {
     const { error } = await supabase
       .from("asset_audit_rounds")
       .update({
@@ -200,7 +206,7 @@ export async function acknowledgeAuditReport(roundId: string) {
       .eq("id", roundId)
       .eq("status", "submitted");
     if (error) throw new Error(error.message);
-  } else if (profile?.role === "director") {
+  } else if (round?.status === "acknowledged_deputy" && canAckDirector) {
     const { error } = await supabase
       .from("asset_audit_rounds")
       .update({ status: "acknowledged", acknowledged_by: user?.id ?? null, acknowledged_at: new Date().toISOString() })

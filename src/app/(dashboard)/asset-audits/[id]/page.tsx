@@ -689,8 +689,8 @@ export default function AssetAuditDetailPage() {
                 )}
               </div>
             )}
-            {((isDeputyDirector && round.status === "submitted") ||
-              (isDirector && round.status === "acknowledged_deputy")) && (
+            {(((isDeputyDirector || isAdmin) && round.status === "submitted") ||
+              ((isDirector || isAdmin) && round.status === "acknowledged_deputy")) && (
               <div className="flex flex-col items-start gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
@@ -699,7 +699,9 @@ export default function AssetAuditDetailPage() {
                   <div>
                     <p className="font-semibold text-amber-900">รอการรับทราบจากท่าน</p>
                     <p className="text-sm text-amber-700">
-                      รายงานผลการตรวจสอบพัสดุประจำปีนี้พร้อมให้{isDeputyDirector ? "รองผู้อำนวยการ" : "ผู้อำนวยการ"}รับทราบแล้ว
+                      รายงานผลการตรวจสอบพัสดุประจำปีนี้พร้อมให้{round.status === "submitted" ? "รองผู้อำนวยการ" : "ผู้อำนวยการ"}
+                      รับทราบแล้ว
+                      {isAdmin && <span className="block text-xs text-amber-600">(ผู้ดูแลระบบรับทราบแทนได้ด้วย)</span>}
                     </p>
                   </div>
                 </div>
