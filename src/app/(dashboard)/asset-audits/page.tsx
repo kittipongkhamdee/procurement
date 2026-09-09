@@ -121,6 +121,7 @@ function CreateAuditRoundModal({ profiles, onCreated }: { profiles: Profile[]; o
             <label className="label">ปีงบประมาณ (พ.ศ.)</label>
             <input
               type="number"
+              name="fiscal_year"
               value={fiscalYear}
               onChange={(e) => handleFiscalYearChange(Number(e.target.value))}
               required
