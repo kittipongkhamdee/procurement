@@ -140,6 +140,8 @@ export type Database = {
       }
       asset_audit_rounds: {
         Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
           appointment_date: string | null
           appointment_doc_ref: string | null
           created_at: string
@@ -155,6 +157,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
           appointment_date?: string | null
           appointment_doc_ref?: string | null
           created_at?: string
@@ -170,6 +174,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
           appointment_date?: string | null
           appointment_doc_ref?: string | null
           created_at?: string
@@ -2391,6 +2397,7 @@ export type Database = {
         Args: { p_round_id: string }
         Returns: boolean
       }
+      asset_is_director: { Args: never; Returns: boolean }
       asset_is_staff: { Args: never; Returns: boolean }
       eval_response_belongs_to_published_form: {
         Args: { p_response_id: string }

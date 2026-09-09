@@ -164,6 +164,29 @@ export async function saveAuditReportNote(roundId: string, formData: FormData) {
   revalidatePath(`${PATH}/${roundId}`);
 }
 
+export async function acknowledgeAuditReport(roundId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from("proc_profiles")
+    .select("role")
+    .eq("user_id", user?.id ?? "")
+    .maybeSingle();
+  if (profile?.role !== "director") {
+    throw new Error("เฉพาะผู้อำนวยการเท่านั้นที่รับทราบผลรายงานได้");
+  }
+
+  const { error } = await supabase
+    .from("asset_audit_rounds")
+    .update({ status: "acknowledged", acknowledged_by: user?.id ?? null, acknowledged_at: new Date().toISOString() })
+    .eq("id", roundId)
+    .eq("status", "submitted");
+  if (error) throw new Error(error.message);
+  revalidatePath(`${PATH}/${roundId}`);
+}
+
 export async function deleteAuditRound(roundId: string) {
   const { supabase } = await requireAssetStaff();
   const { data: round } = await supabase.from("asset_audit_rounds").select("status").eq("id", roundId).maybeSingle();

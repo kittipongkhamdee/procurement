@@ -17,7 +17,14 @@ import { formatThaiDate } from "@/lib/thai";
 import { buildExcelBuffer } from "@/lib/excel";
 import { ExcelFileIcon, PrinterIcon } from "@/components/icons";
 import { QrScanButton } from "../../asset-register/qr-scan-button";
-import { deleteAuditRound, reopenAuditRound, saveAuditReportNote, submitAuditReport, updateAuditItemResult } from "../actions";
+import {
+  acknowledgeAuditReport,
+  deleteAuditRound,
+  reopenAuditRound,
+  saveAuditReportNote,
+  submitAuditReport,
+  updateAuditItemResult,
+} from "../actions";
 
 const ALL = "__all__";
 const INSPECT_STATUS = {
@@ -37,6 +44,7 @@ type Round = {
   status: string;
   report_note: string | null;
   submitted_at: string | null;
+  acknowledged_at: string | null;
 };
 
 type Inspector = { user_id: string; full_name_snapshot: string; role_in_committee: string | null };
@@ -216,6 +224,7 @@ export default function AssetAuditDetailPage() {
 
   const isInspector = inspectors.some((i) => i.user_id === user?.userId);
   const canEditResults = (canManage || isInspector) && round?.status === "in_progress";
+  const isDirector = user?.role === "director";
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -357,6 +366,19 @@ export default function AssetAuditDetailPage() {
       formData.set("report_note", reportNote);
       await submitAuditReport(roundId, formData);
       await toastSuccess("ส่งรายงานผลการตรวจสอบเรียบร้อยแล้ว");
+      await reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAcknowledge() {
+    setSaving(true);
+    try {
+      await acknowledgeAuditReport(roundId);
+      await toastSuccess("รับทราบผลการตรวจสอบเรียบร้อยแล้ว");
       await reload();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -664,8 +686,18 @@ export default function AssetAuditDetailPage() {
                 )}
               </div>
             )}
+            {isDirector && round.status === "submitted" && (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={handleAcknowledge} disabled={saving} className="btn-primary btn-sm">
+                  รับทราบผลการตรวจสอบ
+                </button>
+              </div>
+            )}
             {round.submitted_at && (
               <p className="text-xs text-slate-500">ส่งรายงานเมื่อ {formatThaiDate(round.submitted_at)}</p>
+            )}
+            {round.acknowledged_at && (
+              <p className="text-xs text-slate-500">รับทราบผลเมื่อ {formatThaiDate(round.acknowledged_at)}</p>
             )}
           </div>
         )}
