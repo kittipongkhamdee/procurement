@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildExcelBuffer } from "@/lib/excel";
 import { contentDisposition } from "@/lib/http";
-import { CONDITION_LABEL, STATUS_LABEL, fetchAssetItemsForExport } from "@/lib/asset-register-export";
+import { STATUS_LABEL, fetchAssetItemsForExport } from "@/lib/asset-register-export";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     roundId: url.searchParams.get("round") ?? undefined,
     categoryId: url.searchParams.get("category") ?? undefined,
     status: url.searchParams.get("status") ?? undefined,
-    condition: url.searchParams.get("condition") ?? undefined,
+    conditionId: url.searchParams.get("condition") ?? undefined,
     search: url.searchParams.get("q") ?? undefined,
   });
 
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       quantity: r.quantity,
       unit: r.unit ?? "-",
       price: r.price,
-      condition: CONDITION_LABEL[r.condition] ?? r.condition,
+      condition: r.condition,
       status: STATUS_LABEL[r.status] ?? r.status,
     })),
   );

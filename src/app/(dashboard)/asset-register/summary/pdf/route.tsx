@@ -9,7 +9,7 @@ export async function GET(request: Request) {
 
   const data = await buildAssetSummaryPdfData(supabase, {
     categoryId: url.searchParams.get("category") ?? undefined,
-    condition: url.searchParams.get("condition") ?? undefined,
+    conditionId: url.searchParams.get("condition") ?? undefined,
     search: url.searchParams.get("q") ?? undefined,
   });
 

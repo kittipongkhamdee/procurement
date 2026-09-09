@@ -4,19 +4,13 @@ import { buildAssetSummaryPdfData } from "@/lib/pdf/build-asset-summary-pdf";
 import { buildExcelBuffer } from "@/lib/excel";
 import { contentDisposition } from "@/lib/http";
 
-const CONDITION_LABEL: Record<string, string> = {
-  usable: "ใช้งานได้",
-  damaged: "ชำรุด",
-  disposal: "จำหน่าย",
-};
-
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const supabase = await createClient();
 
   const data = await buildAssetSummaryPdfData(supabase, {
     categoryId: url.searchParams.get("category") ?? undefined,
-    condition: url.searchParams.get("condition") ?? undefined,
+    conditionId: url.searchParams.get("condition") ?? undefined,
     search: url.searchParams.get("q") ?? undefined,
   });
 
@@ -46,7 +40,7 @@ export async function GET(request: Request) {
       quantity: row.quantity,
       unit: row.unit ?? "-",
       location: row.location,
-      condition: CONDITION_LABEL[row.condition] ?? row.condition,
+      condition: row.condition,
       acquiredYear: row.acquiredYear ?? "-",
       price: row.price,
       usefulLifeYears: row.usefulLifeYears ?? "-",

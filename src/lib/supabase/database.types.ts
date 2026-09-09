@@ -107,6 +107,30 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_conditions: {
+        Row: {
+          badge_color: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          badge_color?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          badge_color?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       asset_item_types: {
         Row: {
           category_id: string
@@ -152,7 +176,7 @@ export type Database = {
           budget_source_id: string | null
           building: string
           category_id: string | null
-          condition: Database["public"]["Enums"]["asset_condition"]
+          condition_id: string
           created_at: string
           doc_ref: string | null
           floor: string | null
@@ -189,7 +213,7 @@ export type Database = {
           budget_source_id?: string | null
           building: string
           category_id?: string | null
-          condition: Database["public"]["Enums"]["asset_condition"]
+          condition_id: string
           created_at?: string
           doc_ref?: string | null
           floor?: string | null
@@ -226,7 +250,7 @@ export type Database = {
           budget_source_id?: string | null
           building?: string
           category_id?: string | null
-          condition?: Database["public"]["Enums"]["asset_condition"]
+          condition_id?: string
           created_at?: string
           doc_ref?: string | null
           floor?: string | null
@@ -274,6 +298,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "asset_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_items_condition_id_fkey"
+            columns: ["condition_id"]
+            isOneToOne: false
+            referencedRelation: "asset_conditions"
             referencedColumns: ["id"]
           },
           {
@@ -2240,7 +2271,6 @@ export type Database = {
       proc_is_staff: { Args: never; Returns: boolean }
     }
     Enums: {
-      asset_condition: "usable" | "damaged" | "disposal"
       asset_item_status: "draft" | "submitted" | "approved" | "rejected"
       asset_user_role: "teacher" | "supply" | "admin" | "director"
       plan_disbursement_status: "pending" | "approved" | "rejected"
@@ -2379,7 +2409,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      asset_condition: ["usable", "damaged", "disposal"],
       asset_item_status: ["draft", "submitted", "approved", "rejected"],
       asset_user_role: ["teacher", "supply", "admin", "director"],
       plan_disbursement_status: ["pending", "approved", "rejected"],
