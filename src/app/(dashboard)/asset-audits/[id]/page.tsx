@@ -206,6 +206,13 @@ export default function AssetAuditDetailPage() {
   const [search, setSearch] = useState("");
   const [reportNote, setReportNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
+
+  function updateFilter(setter: (v: string) => void, value: string) {
+    setter(value);
+    setPage(1);
+  }
 
   const isInspector = inspectors.some((i) => i.user_id === user?.userId);
   const canEditResults = (canManage || isInspector) && round?.status === "in_progress";
@@ -286,6 +293,10 @@ export default function AssetAuditDetailPage() {
   };
 
   const diffRows = rows.filter((r) => inspectStatus(r) === "diff" || inspectStatus(r) === "notFound");
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   async function handleExportDiff() {
     const buffer = await buildExcelBuffer(
@@ -434,7 +445,7 @@ export default function AssetAuditDetailPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                 <div>
                   <label className="label">หมวดหมู่</label>
-                  <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="input">
+                  <select value={categoryFilter} onChange={(e) => updateFilter(setCategoryFilter, e.target.value)} className="input">
                     <option value={ALL}>ทั้งหมด</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -445,7 +456,7 @@ export default function AssetAuditDetailPage() {
                 </div>
                 <div>
                   <label className="label">ผลตรวจนับ</label>
-                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input">
+                  <select value={statusFilter} onChange={(e) => updateFilter(setStatusFilter, e.target.value)} className="input">
                     <option value={ALL}>ทั้งหมด</option>
                     {Object.entries(INSPECT_STATUS).map(([k, v]) => (
                       <option key={k} value={k}>
@@ -457,8 +468,8 @@ export default function AssetAuditDetailPage() {
                 <div className="sm:col-span-2">
                   <label className="label">ค้นหา</label>
                   <div className="flex gap-2">
-                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่/สแกน QR" className="input" />
-                    <QrScanButton onScan={(value) => setSearch(value)} />
+                    <input value={search} onChange={(e) => updateFilter(setSearch, e.target.value)} placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่/สแกน QR" className="input" />
+                    <QrScanButton onScan={(value) => updateFilter(setSearch, value)} />
                   </div>
                 </div>
               </div>
@@ -483,7 +494,7 @@ export default function AssetAuditDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((r) => {
+                  {pageRows.map((r) => {
                     const st = inspectStatus(r);
                     const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
                     const bookCondition = conditionLookup.get(r.book_condition_id);
@@ -520,6 +531,32 @@ export default function AssetAuditDetailPage() {
                   )}
                 </tbody>
               </table>
+
+              {filteredRows.length > 0 && totalPages > 1 && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 px-4 py-3 text-sm">
+                  <span className="text-slate-500">
+                    หน้า {currentPage} จาก {totalPages} ({filteredRows.length.toLocaleString("th-TH")} รายการ)
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={currentPage <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      ก่อนหน้า
+                    </button>
+                    <button
+                      type="button"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      ถัดไป
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
