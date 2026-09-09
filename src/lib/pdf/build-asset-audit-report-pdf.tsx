@@ -30,17 +30,6 @@ export async function buildAssetAuditReportPdfData(
 
   if (!round) return null;
 
-  console.log(
-    "[audit-pdf-debug]",
-    roundId,
-    "total=",
-    auditItems?.length,
-    "foundFalseCount=",
-    (auditItems ?? []).filter((r) => r.found === false).length,
-    "notFoundItemIds=",
-    JSON.stringify((auditItems ?? []).filter((r) => r.found === false).map((r) => r.item_id)),
-  );
-
   const conditionLookup = new Map((conditions ?? []).map((c) => [c.id, c.name]));
 
   const itemIds = (auditItems ?? []).map((r) => r.item_id);
@@ -75,7 +64,8 @@ export async function buildAssetAuditReportPdfData(
         assetCode: it?.asset_code ?? null,
         bookConditionName: truncate(conditionLookup.get(r.book_condition_id) ?? "-", 14),
         resultLabel: truncate(RESULT_LABEL[resultKey], 16),
-        note: r.note,
+        // ตัดคำเช่นกัน (เจอบั๊กจริง: ปล่อยให้ขึ้นบรรทัดใหม่เองแล้วข้อความล้นออกนอกแถวทับแถวถัดไป)
+        note: r.note ? truncate(r.note, 26) : null,
       });
     }
   });
