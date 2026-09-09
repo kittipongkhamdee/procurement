@@ -17,16 +17,24 @@ const styles = StyleSheet.create({
   table: { marginTop: 4, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#111827" },
   tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   tRow: { flexDirection: "row" },
-  cell: { fontSize: 11, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
-  cellLast: { fontSize: 11, padding: 4, borderBottomWidth: 1, borderColor: "#111827" },
-  headLine: { fontSize: 11, fontWeight: "bold", textAlign: "center" },
-  // 3+22+10+13+13+39 = 100
-  colSeq: { width: "3%", textAlign: "center" },
-  colName: { width: "22%" },
-  colCode: { width: "10%" },
-  colBook: { width: "13%", textAlign: "center" },
-  colResult: { width: "13%", textAlign: "center" },
-  colNote: { width: "39%" },
+  // ตารางนี้มีหลายคอลัมน์แคบ (รหัสครุภัณฑ์/สภาพ) — ใช้ 9pt แยกจาก body 11pt (เหมือน
+  // asset-summary-document.tsx ที่ใช้ตัวเล็กกว่า body ในตารางความหนาแน่นสูง) กันข้อความไทยล้นคอลัมน์
+  // ทับกัน (เจอปัญหานี้จริงตอน 11pt — คอลัมน์รหัสครุภัณฑ์/สภาพตามบัญชีแคบเกินจนข้อความทับกัน)
+  cell: { fontSize: 9, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
+  cellLast: { fontSize: 9, padding: 4, borderBottomWidth: 1, borderColor: "#111827" },
+  headLine: { fontSize: 9, fontWeight: "bold", textAlign: "center" },
+  // 4+18+15+18+15+30 = 100
+  colSeq: { width: "4%", textAlign: "center" },
+  // ตัดคำเองล่วงหน้าเป็น string สั้นพอดี 1 บรรทัดก่อนส่งเข้า Text (ดู build-asset-audit-report-pdf.tsx)
+  // แทนการพึ่ง maxLines/textOverflow ของ react-pdf เอง — เคยลองแล้วเจอบั๊กจริง: ข้อความยาวที่ควรตัดด้วย
+  // "…" กลับหายไปทั้งเซลล์เฉยๆ แทนที่จะตัดคำ (ภาษาไทยไม่มีช่องว่างระหว่างคำให้ตัดวัดความกว้างได้แม่นยำ —
+  // เจอปัญหาคล้ายกันมาก่อนแล้วกับการตัดคำอัตโนมัติ จึงเลี่ยงไม่ใช้ maxLines/textOverflow กับข้อความไทยเลย)
+  // เหลือเฉพาะคอลัมน์หมายเหตุ (คอลัมน์สุดท้าย ไม่มีเพื่อนบ้านขวามือ) ที่ยอมให้ขึ้นบรรทัดใหม่ได้ตามปกติ
+  colName: { width: "18%" },
+  colCode: { width: "13%" },
+  colBook: { width: "18%", textAlign: "center" },
+  colResult: { width: "18%", textAlign: "center" },
+  colNote: { width: "29%" },
   signRow: { flexDirection: "row", justifyContent: "space-around", marginTop: 40 },
   signBox: { width: "45%", textAlign: "center" },
   signLine: { marginBottom: 4 },

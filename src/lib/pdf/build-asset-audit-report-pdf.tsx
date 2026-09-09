@@ -9,6 +9,13 @@ const RESULT_LABEL: Record<string, string> = {
   notFound: "ตรวจไม่พบ",
 };
 
+// ตัดคำเองเป็น string สั้นพอดี 1 บรรทัดก่อนส่งเข้า PDF แทนการพึ่ง maxLines/textOverflow ของ react-pdf
+// (เจอบั๊กจริง: ข้อความไทยยาวเกินคอลัมน์กลับหายไปทั้งเซลล์แทนที่จะตัดคำ ดู asset-audit-report-document.tsx)
+function truncate(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars - 1)}…`;
+}
+
 export async function buildAssetAuditReportPdfData(
   supabase: SupabaseClient<Database>,
   roundId: string,
@@ -51,10 +58,10 @@ export async function buildAssetAuditReportPdfData(
       const it = assetItemLookup.get(r.item_id);
       diffRows.push({
         seq: diffRows.length + 1,
-        name: it?.name ?? "-",
-        assetCode: it?.asset_code ?? null,
-        bookConditionName: conditionLookup.get(r.book_condition_id) ?? "-",
-        resultLabel: RESULT_LABEL[resultKey],
+        name: truncate(it?.name ?? "-", 18),
+        assetCode: it?.asset_code ? truncate(it.asset_code, 14) : null,
+        bookConditionName: truncate(conditionLookup.get(r.book_condition_id) ?? "-", 16),
+        resultLabel: truncate(RESULT_LABEL[resultKey], 16),
         note: r.note,
       });
     }
