@@ -44,6 +44,7 @@ type Round = {
   status: string;
   report_note: string | null;
   submitted_at: string | null;
+  deputy_acknowledged_at: string | null;
   acknowledged_at: string | null;
 };
 
@@ -75,6 +76,7 @@ function inspectStatus(row: AuditItemRow): keyof typeof INSPECT_STATUS {
 
 function statusBadge(status: string) {
   if (status === "submitted") return { cls: "badge-amber", label: "ส่งรายงานแล้ว" };
+  if (status === "acknowledged_deputy") return { cls: "badge-amber", label: "รองผู้อำนวยการรับทราบแล้ว" };
   if (status === "acknowledged") return { cls: "badge-emerald", label: "รับทราบผลแล้ว" };
   if (status === "in_progress") return { cls: "badge-slate", label: "กำลังตรวจนับ" };
   return { cls: "badge-slate", label: "แบบร่าง" };
@@ -225,6 +227,7 @@ export default function AssetAuditDetailPage() {
   const isInspector = inspectors.some((i) => i.user_id === user?.userId);
   const canEditResults = (canManage || isInspector) && round?.status === "in_progress";
   const isDirector = user?.role === "director";
+  const isDeputyDirector = user?.role === "deputy_director";
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -429,7 +432,7 @@ export default function AssetAuditDetailPage() {
             <PrinterIcon className="h-3.5 w-3.5" />
             พิมพ์รายงาน
           </a>
-          {canManage && round.status !== "submitted" && round.status !== "acknowledged" && (
+          {canManage && round.status !== "submitted" && round.status !== "acknowledged_deputy" && round.status !== "acknowledged" && (
             <button type="button" onClick={handleDeleteRound} className="btn-danger btn-sm">
               ลบรอบตรวจสอบ
             </button>
@@ -675,7 +678,7 @@ export default function AssetAuditDetailPage() {
                 <button type="button" onClick={handleSaveNote} disabled={saving} className="btn-secondary btn-sm">
                   บันทึกข้อเสนอแนะ
                 </button>
-                {round.status !== "submitted" && round.status !== "acknowledged" ? (
+                {round.status !== "submitted" && round.status !== "acknowledged_deputy" && round.status !== "acknowledged" ? (
                   <button type="button" onClick={handleSubmitReport} disabled={saving} className="btn-primary btn-sm">
                     ส่งรายงานผลการตรวจสอบ
                   </button>
@@ -686,18 +689,28 @@ export default function AssetAuditDetailPage() {
                 )}
               </div>
             )}
-            {isDirector && round.status === "submitted" && (
+            {isDeputyDirector && round.status === "submitted" && (
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={handleAcknowledge} disabled={saving} className="btn-primary btn-sm">
-                  รับทราบผลการตรวจสอบ
+                  รับทราบผลการตรวจสอบ (รองผู้อำนวยการ)
+                </button>
+              </div>
+            )}
+            {isDirector && round.status === "acknowledged_deputy" && (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={handleAcknowledge} disabled={saving} className="btn-primary btn-sm">
+                  รับทราบผลการตรวจสอบ (ผู้อำนวยการ)
                 </button>
               </div>
             )}
             {round.submitted_at && (
               <p className="text-xs text-slate-500">ส่งรายงานเมื่อ {formatThaiDate(round.submitted_at)}</p>
             )}
+            {round.deputy_acknowledged_at && (
+              <p className="text-xs text-slate-500">รองผู้อำนวยการรับทราบเมื่อ {formatThaiDate(round.deputy_acknowledged_at)}</p>
+            )}
             {round.acknowledged_at && (
-              <p className="text-xs text-slate-500">รับทราบผลเมื่อ {formatThaiDate(round.acknowledged_at)}</p>
+              <p className="text-xs text-slate-500">ผู้อำนวยการรับทราบเมื่อ {formatThaiDate(round.acknowledged_at)}</p>
             )}
           </div>
         )}

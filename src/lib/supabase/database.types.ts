@@ -146,6 +146,8 @@ export type Database = {
           appointment_doc_ref: string | null
           created_at: string
           created_by: string | null
+          deputy_acknowledged_at: string | null
+          deputy_acknowledged_by: string | null
           due_date: string
           fiscal_year: number
           id: string
@@ -163,6 +165,8 @@ export type Database = {
           appointment_doc_ref?: string | null
           created_at?: string
           created_by?: string | null
+          deputy_acknowledged_at?: string | null
+          deputy_acknowledged_by?: string | null
           due_date: string
           fiscal_year: number
           id?: string
@@ -180,6 +184,8 @@ export type Database = {
           appointment_doc_ref?: string | null
           created_at?: string
           created_by?: string | null
+          deputy_acknowledged_at?: string | null
+          deputy_acknowledged_by?: string | null
           due_date?: string
           fiscal_year?: number
           id?: string
@@ -2397,6 +2403,7 @@ export type Database = {
         Args: { p_round_id: string }
         Returns: boolean
       }
+      asset_is_deputy_director: { Args: never; Returns: boolean }
       asset_is_director: { Args: never; Returns: boolean }
       asset_is_staff: { Args: never; Returns: boolean }
       eval_response_belongs_to_published_form: {
@@ -2433,7 +2440,12 @@ export type Database = {
       proc_is_staff: { Args: never; Returns: boolean }
     }
     Enums: {
-      asset_audit_status: "draft" | "in_progress" | "submitted" | "acknowledged"
+      asset_audit_status:
+        | "draft"
+        | "in_progress"
+        | "submitted"
+        | "acknowledged_deputy"
+        | "acknowledged"
       asset_item_status: "draft" | "submitted" | "approved" | "rejected"
       asset_user_role: "teacher" | "supply" | "admin" | "director"
       plan_disbursement_status: "pending" | "approved" | "rejected"
@@ -2573,7 +2585,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      asset_audit_status: ["draft", "in_progress", "submitted", "acknowledged"],
+      asset_audit_status: [
+        "draft",
+        "in_progress",
+        "submitted",
+        "acknowledged_deputy",
+        "acknowledged",
+      ],
       asset_item_status: ["draft", "submitted", "approved", "rejected"],
       asset_user_role: ["teacher", "supply", "admin", "director"],
       plan_disbursement_status: ["pending", "approved", "rejected"],

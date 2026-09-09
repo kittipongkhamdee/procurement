@@ -151,7 +151,16 @@ export async function submitAuditReport(roundId: string, formData: FormData) {
 
 export async function reopenAuditRound(roundId: string) {
   const { supabase } = await requireAssetStaff();
-  const { error } = await supabase.from("asset_audit_rounds").update({ status: "in_progress" }).eq("id", roundId);
+  const { error } = await supabase
+    .from("asset_audit_rounds")
+    .update({
+      status: "in_progress",
+      deputy_acknowledged_by: null,
+      deputy_acknowledged_at: null,
+      acknowledged_by: null,
+      acknowledged_at: null,
+    })
+    .eq("id", roundId);
   if (error) throw new Error(error.message);
   revalidatePath(`${PATH}/${roundId}`);
 }
@@ -164,6 +173,11 @@ export async function saveAuditReportNote(roundId: string, formData: FormData) {
   revalidatePath(`${PATH}/${roundId}`);
 }
 
+// รับทราบผล 2 ระดับ คล้ายเห็นชอบ/อนุมัติโครงการ (endorseProposal/approveProposal ใน
+// project-proposals/actions.ts): รองผู้อำนวยการรับทราบก่อน (submitted -> acknowledged_deputy)
+// แล้วส่งต่อให้ผู้อำนวยการรับทราบขั้นสุดท้าย (acknowledged_deputy -> acknowledged) — RLS
+// (asset_audit_rounds_ack_deputy / asset_audit_rounds_ack_director) เป็นด่านจริงที่บังคับลำดับ
+// ขั้นนี้อยู่แล้ว โค้ดฝั่งนี้แค่คืนข้อความ error ที่อ่านง่ายกว่าเวลาข้ามขั้นตอนหรือผิดสิทธิ์
 export async function acknowledgeAuditReport(roundId: string) {
   const supabase = await createClient();
   const {
@@ -174,23 +188,36 @@ export async function acknowledgeAuditReport(roundId: string) {
     .select("role")
     .eq("user_id", user?.id ?? "")
     .maybeSingle();
-  if (profile?.role !== "director") {
-    throw new Error("เฉพาะผู้อำนวยการเท่านั้นที่รับทราบผลรายงานได้");
+
+  if (profile?.role === "deputy_director") {
+    const { error } = await supabase
+      .from("asset_audit_rounds")
+      .update({
+        status: "acknowledged_deputy",
+        deputy_acknowledged_by: user?.id ?? null,
+        deputy_acknowledged_at: new Date().toISOString(),
+      })
+      .eq("id", roundId)
+      .eq("status", "submitted");
+    if (error) throw new Error(error.message);
+  } else if (profile?.role === "director") {
+    const { error } = await supabase
+      .from("asset_audit_rounds")
+      .update({ status: "acknowledged", acknowledged_by: user?.id ?? null, acknowledged_at: new Date().toISOString() })
+      .eq("id", roundId)
+      .eq("status", "acknowledged_deputy");
+    if (error) throw new Error(error.message);
+  } else {
+    throw new Error("เฉพาะผู้อำนวยการหรือรองผู้อำนวยการเท่านั้นที่รับทราบผลรายงานได้");
   }
 
-  const { error } = await supabase
-    .from("asset_audit_rounds")
-    .update({ status: "acknowledged", acknowledged_by: user?.id ?? null, acknowledged_at: new Date().toISOString() })
-    .eq("id", roundId)
-    .eq("status", "submitted");
-  if (error) throw new Error(error.message);
   revalidatePath(`${PATH}/${roundId}`);
 }
 
 export async function deleteAuditRound(roundId: string) {
   const { supabase } = await requireAssetStaff();
   const { data: round } = await supabase.from("asset_audit_rounds").select("status").eq("id", roundId).maybeSingle();
-  if (round?.status === "submitted" || round?.status === "acknowledged") {
+  if (round?.status === "submitted" || round?.status === "acknowledged_deputy" || round?.status === "acknowledged") {
     throw new Error("ลบไม่ได้เพราะส่งรายงานผลการตรวจสอบไปแล้ว");
   }
   const { error } = await supabase.from("asset_audit_rounds").delete().eq("id", roundId);

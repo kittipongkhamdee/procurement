@@ -30,6 +30,7 @@ type Profile = { user_id: string; full_name: string; role: string };
 
 function statusBadge(status: string) {
   if (status === "submitted") return { cls: "badge-amber", label: "ส่งรายงานแล้ว" };
+  if (status === "acknowledged_deputy") return { cls: "badge-amber", label: "รองผู้อำนวยการรับทราบแล้ว" };
   if (status === "acknowledged") return { cls: "badge-emerald", label: "รับทราบผลแล้ว" };
   if (status === "in_progress") return { cls: "badge-slate", label: "กำลังตรวจนับ" };
   return { cls: "badge-slate", label: "แบบร่าง" };
