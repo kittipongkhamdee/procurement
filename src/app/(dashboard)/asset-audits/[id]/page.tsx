@@ -15,7 +15,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { errorMessage, toastError, toastSuccess, confirmDelete, confirmWarning } from "@/lib/swal";
 import { formatThaiDate } from "@/lib/thai";
 import { buildExcelBuffer } from "@/lib/excel";
-import { BellIcon, CheckIcon, ExcelFileIcon, PrinterIcon } from "@/components/icons";
+import { ArchiveIcon, BellIcon, CheckIcon, ChevronRightIcon, ExcelFileIcon, LightbulbIcon, PrinterIcon, UsersIcon } from "@/components/icons";
 import { QrScanButton } from "../../asset-register/qr-scan-button";
 import {
   acknowledgeAuditReport,
@@ -197,6 +197,263 @@ function ResultModal({
   );
 }
 
+// การ์ดพับ/กางได้ ใช้สำหรับหน้าสรุปข้อมูลของรองผู้อำนวยการ/ผู้อำนวยการ (ExecutiveOverview) —
+// กางเฉพาะหัวข้อที่คลิก กันหน้ายาวเกินไปเมื่อมีทั้งตารางรายการและข้อเสนอแนะในหน้าเดียว
+function AccordionSection({
+  title,
+  icon,
+  badge,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  badge?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="card !p-0 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-800/10 text-navy-800">{icon}</span>
+          <span className="font-semibold text-slate-900">{title}</span>
+          {badge}
+        </div>
+        <ChevronRightIcon className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && <div className="border-t border-slate-100 px-5 py-4">{children}</div>}
+    </div>
+  );
+}
+
+function AuditProgressBar({ inspected, total }: { inspected: number; total: number }) {
+  const pct = total > 0 ? Math.round((inspected / total) * 100) : 0;
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
+        <span>
+          ตรวจนับแล้ว {inspected.toLocaleString("th-TH")} จาก {total.toLocaleString("th-TH")} รายการ
+        </span>
+        <span className="font-semibold text-slate-700">{pct}%</span>
+      </div>
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-navy-800 transition-all" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// สเต็ปเปอร์แสดงลำดับขั้นส่ง/รับทราบผล (ส่งรายงาน -> รองผู้อำนวยการรับทราบ -> ผู้อำนวยการรับทราบ)
+// ให้ผู้บริหารเห็นภาพรวมว่าอยู่ขั้นไหนโดยไม่ต้องอ่านสถานะเป็นตัวหนังสือ
+function AcknowledgeTimeline({ round }: { round: Round }) {
+  const steps = [
+    { label: "ส่งรายงานผลการตรวจสอบ", at: round.submitted_at },
+    { label: "รองผู้อำนวยการรับทราบ", at: round.deputy_acknowledged_at },
+    { label: "ผู้อำนวยการรับทราบ", at: round.acknowledged_at },
+  ];
+  const currentIndex = steps.findIndex((s) => !s.at);
+
+  return (
+    <div>
+      <div className="flex items-center">
+        {steps.map((s, i) => {
+          const done = !!s.at;
+          const isCurrent = !done && i === currentIndex;
+          return (
+            <div key={s.label} className="contents">
+              <span
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
+                  done
+                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    : isCurrent
+                      ? "border-amber-400 bg-amber-50 text-amber-700"
+                      : "border-slate-200 bg-slate-50 text-slate-400"
+                }`}
+              >
+                {done ? <CheckIcon className="h-4 w-4" /> : i + 1}
+              </span>
+              {i < steps.length - 1 && (
+                <div className={`mx-1 h-0.5 flex-1 ${done ? "bg-emerald-400" : "bg-slate-200"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+        {steps.map((s) => (
+          <div key={s.label}>
+            <p className={`text-xs font-medium ${s.at ? "text-emerald-700" : "text-slate-400"}`}>{s.label}</p>
+            {s.at && <p className="text-[11px] text-slate-400">{formatThaiDate(s.at)}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// หน้าสรุปข้อมูลสำหรับรองผู้อำนวยการ/ผู้อำนวยการ (ไม่ใช่เจ้าหน้าที่พัสดุ/ผู้ตรวจสอบ) — แทนที่หน้าแท็บ
+// ตรวจนับแบบละเอียดที่ออกแบบมาสำหรับครู/เจ้าหน้าที่พัสดุ ด้วยภาพรวมสารสนเทศอ่านง่าย + การ์ดพับได้
+// ให้กดดูรายละเอียดเพิ่มเติมทีละส่วน (คณะผู้ตรวจสอบ/รายการผลต่าง/ข้อเสนอแนะ) แทนการยัดทุกอย่างไว้
+// หน้าเดียว
+function ExecutiveOverview({
+  round,
+  inspectors,
+  totals,
+  inspectedCount,
+  diffRows,
+  conditionLookup,
+  handleExportDiff,
+  canAcknowledgeNow,
+  acknowledgeRoleLabel,
+  saving,
+  handleAcknowledge,
+}: {
+  round: Round;
+  inspectors: Inspector[];
+  totals: { total: number; pending: number; match: number; diff: number; notFound: number };
+  inspectedCount: number;
+  diffRows: AuditItemRow[];
+  conditionLookup: Map<string, Condition>;
+  handleExportDiff: () => void;
+  canAcknowledgeNow: boolean;
+  acknowledgeRoleLabel: string;
+  saving: boolean;
+  handleAcknowledge: () => void;
+}) {
+  return (
+    <div className="mt-6 space-y-6">
+      {canAcknowledgeNow && (
+        <div className="flex flex-col items-start gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+              <BellIcon className="h-5 w-5 text-amber-700" />
+            </span>
+            <div>
+              <p className="font-semibold text-amber-900">รอการรับทราบจากท่าน</p>
+              <p className="text-sm text-amber-700">รายงานผลการตรวจสอบพัสดุประจำปีนี้พร้อมให้{acknowledgeRoleLabel}รับทราบแล้ว</p>
+            </div>
+          </div>
+          <button type="button" onClick={handleAcknowledge} disabled={saving} className="btn-primary w-full shrink-0 sm:w-auto">
+            <CheckIcon className="h-4 w-4" />
+            รับทราบผลการตรวจสอบ
+          </button>
+        </div>
+      )}
+
+      <div className="card">
+        <div className="card-title">ความคืบหน้าการดำเนินการ</div>
+        <AcknowledgeTimeline round={round} />
+      </div>
+
+      <div>
+        <div className="mb-3 text-sm font-semibold text-slate-700">ภาพรวมผลตรวจนับ</div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
+            <p className="stat-label">รายการทั้งหมด</p>
+            <p className="stat-value">{totals.total.toLocaleString("th-TH")}</p>
+          </div>
+          <div className="stat-card" style={{ "--accent": "#059669" } as React.CSSProperties}>
+            <p className="stat-label">พบตรงบัญชี</p>
+            <p className="stat-value">{totals.match.toLocaleString("th-TH")}</p>
+          </div>
+          <div className="stat-card" style={{ "--accent": "#d97706" } as React.CSSProperties}>
+            <p className="stat-label">สภาพต่างจากบัญชี</p>
+            <p className="stat-value">{totals.diff.toLocaleString("th-TH")}</p>
+          </div>
+          <div className="stat-card" style={{ "--accent": "#dc2626" } as React.CSSProperties}>
+            <p className="stat-label">ตรวจไม่พบ</p>
+            <p className="stat-value">{totals.notFound.toLocaleString("th-TH")}</p>
+          </div>
+        </div>
+        <div className="card mt-4">
+          <AuditProgressBar inspected={inspectedCount} total={totals.total} />
+        </div>
+      </div>
+
+      <AccordionSection title="คณะผู้ตรวจสอบพัสดุ" icon={<UsersIcon className="h-4 w-4" />} defaultOpen>
+        {inspectors.length > 0 ? (
+          <ul className="space-y-1.5 text-sm text-slate-700">
+            {inspectors.map((i) => (
+              <li key={i.user_id}>
+                {i.full_name_snapshot}
+                {i.role_in_committee && <span className="text-slate-400"> — {i.role_in_committee}</span>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-slate-400">ยังไม่ได้ระบุคณะผู้ตรวจสอบ</p>
+        )}
+      </AccordionSection>
+
+      <AccordionSection
+        title="รายการที่มีผลต่างจากบัญชี"
+        icon={<ArchiveIcon className="h-4 w-4" />}
+        badge={diffRows.length > 0 ? <span className="badge-amber">{diffRows.length} รายการ</span> : <span className="badge-emerald">ไม่พบผลต่าง</span>}
+      >
+        {diffRows.length > 0 && (
+          <div className="mb-3 flex justify-end">
+            <button type="button" onClick={handleExportDiff} className="btn-secondary btn-sm">
+              <ExcelFileIcon className="h-3.5 w-3.5" />
+              ส่งออก Excel
+            </button>
+          </div>
+        )}
+        <div className="table-shell">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>รหัสครุภัณฑ์</th>
+                <th>ชื่อทรัพย์สิน</th>
+                <th>สถานที่ตามทะเบียน</th>
+                <th className="text-center">สภาพตามบัญชี</th>
+                <th className="text-center">ผลตรวจนับ</th>
+                <th>หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diffRows.map((r) => {
+                const st = inspectStatus(r);
+                const bookCondition = conditionLookup.get(r.book_condition_id);
+                return (
+                  <tr key={r.id}>
+                    <td className="whitespace-nowrap">{r.asset_code ?? "ยังไม่ติดป้าย"}</td>
+                    <td>{r.name}</td>
+                    <td>{r.location}</td>
+                    <td className="text-center">
+                      <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                    </td>
+                    <td className="text-center">
+                      <span className={st === "diff" ? "badge-amber" : "badge-red"}>{INSPECT_STATUS[st]}</span>
+                    </td>
+                    <td>{r.note ?? "-"}</td>
+                  </tr>
+                );
+              })}
+              {diffRows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="table-empty">
+                    ยังไม่พบรายการที่มีผลต่างจากบัญชี
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </AccordionSection>
+
+      <AccordionSection title="สรุปผล/ข้อเสนอแนะ" icon={<LightbulbIcon className="h-4 w-4" />} defaultOpen>
+        <p className="whitespace-pre-wrap text-sm text-slate-700">{round.report_note || "ยังไม่มีข้อเสนอแนะจากเจ้าหน้าที่พัสดุ"}</p>
+      </AccordionSection>
+    </div>
+  );
+}
+
 export default function AssetAuditDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -228,6 +485,9 @@ export default function AssetAuditDetailPage() {
   const canEditResults = (canManage || isInspector) && round?.status === "in_progress";
   const isDirector = user?.role === "director";
   const isDeputyDirector = user?.role === "deputy_director";
+  // รองผู้อำนวยการ/ผู้อำนวยการที่ไม่ได้เป็นเจ้าหน้าที่พัสดุ/ผู้ตรวจสอบด้วย ไม่ต้องเห็นหน้าตรวจนับแบบ
+  // ละเอียดที่ครู/เจ้าหน้าที่พัสดุใช้ — ให้เห็นหน้าสรุปข้อมูลสารสนเทศที่อ่านง่ายกว่าแทน (ExecutiveOverview)
+  const isExecutiveViewer = (isDirector || isDeputyDirector) && !canManage && !isInspector;
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -413,6 +673,11 @@ export default function AssetAuditDetailPage() {
   }
 
   const sb = statusBadge(round.status);
+  const canAcknowledgeNow =
+    ((isDeputyDirector || isAdmin) && round.status === "submitted") ||
+    ((isDirector || isAdmin) && round.status === "acknowledged_deputy");
+  const acknowledgeRoleLabel = round.status === "submitted" ? "รองผู้อำนวยการ" : "ผู้อำนวยการ";
+  const inspectedCount = totals.match + totals.diff + totals.notFound;
 
   return (
     <div>
@@ -440,6 +705,22 @@ export default function AssetAuditDetailPage() {
         </div>
       </div>
 
+      {isExecutiveViewer ? (
+        <ExecutiveOverview
+          round={round}
+          inspectors={inspectors}
+          totals={totals}
+          inspectedCount={inspectedCount}
+          diffRows={diffRows}
+          conditionLookup={conditionLookup}
+          handleExportDiff={handleExportDiff}
+          canAcknowledgeNow={canAcknowledgeNow}
+          acknowledgeRoleLabel={acknowledgeRoleLabel}
+          saving={saving}
+          handleAcknowledge={handleAcknowledge}
+        />
+      ) : (
+        <>
       <p className="mt-2 text-sm text-slate-500">
         คณะผู้ตรวจสอบ: {inspectors.map((i) => i.full_name_snapshot).join(", ") || "-"}
       </p>
@@ -689,8 +970,7 @@ export default function AssetAuditDetailPage() {
                 )}
               </div>
             )}
-            {(((isDeputyDirector || isAdmin) && round.status === "submitted") ||
-              ((isDirector || isAdmin) && round.status === "acknowledged_deputy")) && (
+            {canAcknowledgeNow && (
               <div className="flex flex-col items-start gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
@@ -698,11 +978,7 @@ export default function AssetAuditDetailPage() {
                   </span>
                   <div>
                     <p className="font-semibold text-amber-900">รอการรับทราบจากท่าน</p>
-                    <p className="text-sm text-amber-700">
-                      รายงานผลการตรวจสอบพัสดุประจำปีนี้พร้อมให้{round.status === "submitted" ? "รองผู้อำนวยการ" : "ผู้อำนวยการ"}
-                      รับทราบแล้ว
-                      {isAdmin && <span className="block text-xs text-amber-600">(ผู้ดูแลระบบรับทราบแทนได้ด้วย)</span>}
-                    </p>
+                    <p className="text-sm text-amber-700">รายงานผลการตรวจสอบพัสดุประจำปีนี้พร้อมให้{acknowledgeRoleLabel}รับทราบแล้ว</p>
                   </div>
                 </div>
                 <button
@@ -728,6 +1004,8 @@ export default function AssetAuditDetailPage() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
