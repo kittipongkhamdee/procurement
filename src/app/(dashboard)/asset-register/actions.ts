@@ -35,8 +35,9 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
   const building = String(formData.get("building") ?? "").trim();
   const room = String(formData.get("room") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
-  if (!round_id || !building || !room || !name) {
-    throw new Error("กรอกข้อมูลให้ครบ (รอบสำรวจ/อาคาร/ห้อง/ชื่อทรัพย์สิน)");
+  const condition_id = String(formData.get("condition_id") ?? "");
+  if (!round_id || !building || !room || !name || !condition_id) {
+    throw new Error("กรอกข้อมูลให้ครบ (รอบสำรวจ/อาคาร/ห้อง/ชื่อทรัพย์สิน/สภาพ)");
   }
 
   // <ThaiDatePicker> (@/components/thai-date-picker) ส่งค่ามาเป็น ISO date (ค.ศ.) ผ่าน hidden input
@@ -57,7 +58,7 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
     unit: String(formData.get("unit") ?? "").trim() || null,
     asset_code: String(formData.get("asset_code") ?? "").trim() || null,
     doc_ref: String(formData.get("doc_ref") ?? "").trim() || null,
-    condition: String(formData.get("condition") ?? "usable") as "usable" | "damaged" | "disposal",
+    condition_id,
     acquired_date: acquiredDateIso,
     // เก็บปี พ.ศ. แยกไว้ด้วยเพื่อความเข้ากันได้ย้อนหลัง (ใช้อ้างอิงกับข้อมูลเก่าที่มีแต่ปี ไม่มีวันที่เต็ม)
     acquired_year: acquiredYearBE,
@@ -294,6 +295,42 @@ export async function toggleAssetBuildingActive(id: string, isActive: boolean) {
 export async function deleteAssetBuilding(id: string) {
   const { supabase } = await requireAssetStaff();
   const { error } = await supabase.from("asset_buildings").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+// ---------------- asset_conditions ----------------
+
+export async function createAssetCondition(formData: FormData) {
+  const { supabase } = await requireAssetStaff();
+  const name = String(formData.get("name") ?? "").trim();
+  const badge_color = String(formData.get("badge_color") ?? "").trim() || "slate";
+  if (!name) return;
+  const { error } = await supabase.from("asset_conditions").insert({ name, badge_color });
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function updateAssetCondition(id: string, formData: FormData) {
+  const { supabase } = await requireAssetStaff();
+  const name = String(formData.get("name") ?? "").trim();
+  const badge_color = String(formData.get("badge_color") ?? "").trim() || "slate";
+  if (!name) return;
+  const { error } = await supabase.from("asset_conditions").update({ name, badge_color }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function toggleAssetConditionActive(id: string, isActive: boolean) {
+  const { supabase } = await requireAssetStaff();
+  const { error } = await supabase.from("asset_conditions").update({ is_active: !isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath(PATH);
+}
+
+export async function deleteAssetCondition(id: string) {
+  const { supabase } = await requireAssetStaff();
+  const { error } = await supabase.from("asset_conditions").delete().eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath(PATH);
 }

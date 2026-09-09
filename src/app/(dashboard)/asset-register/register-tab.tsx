@@ -50,7 +50,7 @@ type AssetItem = {
   asset_code: string | null;
   sequence_no: string | null;
   doc_ref: string | null;
-  condition: string;
+  condition_id: string | null;
   acquired_date: string | null;
   acquired_year: number | null;
   budget_source_id: string | null;
@@ -113,10 +113,10 @@ function statusBadge(status: string) {
   return { cls: "badge-slate", label: "แบบร่าง" };
 }
 
-function conditionBadge(condition: string) {
-  if (condition === "usable") return { cls: "badge-emerald", label: "ใช้งานได้" };
-  if (condition === "damaged") return { cls: "badge-amber", label: "ชำรุด" };
-  return { cls: "badge-red", label: "จำหน่าย" };
+function conditionBadge(conditionId: string | null, conditionLookup: Map<string, { name: string; badge_color: string }>) {
+  const c = conditionId ? conditionLookup.get(conditionId) : null;
+  if (!c) return { cls: "badge-slate", label: "-" };
+  return { cls: `badge-${c.badge_color}`, label: c.name };
 }
 
 function ItemModal({
@@ -128,6 +128,7 @@ function ItemModal({
   budgetSources,
   acquisitionMethods,
   itemTypes,
+  conditions,
   rounds,
   defaultRoundId,
   onSaved,
@@ -140,6 +141,7 @@ function ItemModal({
   budgetSources: Option[];
   acquisitionMethods: Option[];
   itemTypes: ItemType[];
+  conditions: Option[];
   rounds: { id: string; year: number; name: string }[];
   defaultRoundId: string;
   onSaved: () => void;
@@ -495,10 +497,12 @@ function ItemModal({
             </div>
             <div>
               <label className="label">สภาพ</label>
-              <select name="condition" defaultValue={item?.condition ?? "usable"} className="input">
-                <option value="usable">ใช้งานได้</option>
-                <option value="damaged">ชำรุด</option>
-                <option value="disposal">จำหน่าย</option>
+              <select name="condition_id" defaultValue={item?.condition_id ?? conditions[0]?.id ?? ""} className="input">
+                {conditions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -730,6 +734,7 @@ export function RegisterTab({
   budgetSources,
   acquisitionMethods,
   itemTypes,
+  conditions,
   onChanged,
 }: {
   canManage: boolean;
@@ -740,6 +745,7 @@ export function RegisterTab({
   budgetSources: Option[];
   acquisitionMethods: Option[];
   itemTypes: ItemType[];
+  conditions: (Option & { badge_color: string })[];
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<AssetItem[] | null>(null);
@@ -783,7 +789,7 @@ export function RegisterTab({
     let query = supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition_id, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
         { count: "exact" },
       )
       .order("created_at", { ascending: false });
@@ -791,7 +797,7 @@ export function RegisterTab({
     if (roundFilter !== ALL) query = query.eq("round_id", roundFilter);
     if (categoryFilter !== ALL) query = query.eq("category_id", categoryFilter);
     if (statusFilter !== ALL) query = query.eq("status", statusFilter as "draft" | "submitted" | "approved" | "rejected");
-    if (conditionFilter !== ALL) query = query.eq("condition", conditionFilter as "usable" | "damaged" | "disposal");
+    if (conditionFilter !== ALL) query = query.eq("condition_id", conditionFilter);
     if (debouncedSearch) {
       // ค้นหาชื่อ/รหัสครุภัณฑ์/สถานที่ — คอมมาต้องตัดออกก่อนเพราะเป็นตัวคั่นเงื่อนไขใน .or() ของ
       // PostgREST อยู่แล้ว ถ้าเหลือในคำค้นจะทำให้ syntax ของ or-filter ผิด
@@ -834,6 +840,7 @@ export function RegisterTab({
   }
 
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
+  const conditionLookup = new Map(conditions.map((c) => [c.id, { name: c.name, badge_color: c.badge_color }]));
   const defaultRoundId = rounds.find((r) => r.is_open)?.id ?? rounds[0]?.id ?? "";
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -896,9 +903,11 @@ export function RegisterTab({
             <label className="label">สภาพ</label>
             <select value={conditionFilter} onChange={(e) => updateFilter(setConditionFilter, e.target.value)} className="input">
               <option value={ALL}>ทั้งหมด</option>
-              <option value="usable">ใช้งานได้</option>
-              <option value="damaged">ชำรุด</option>
-              <option value="disposal">จำหน่าย</option>
+              {conditions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -961,6 +970,7 @@ export function RegisterTab({
             budgetSources={budgetSources}
             acquisitionMethods={acquisitionMethods}
             itemTypes={itemTypes}
+            conditions={conditions}
             rounds={rounds}
             defaultRoundId={defaultRoundId}
             onSaved={handleChanged}
@@ -974,7 +984,7 @@ export function RegisterTab({
         <div className="divide-y divide-slate-100 md:hidden">
           {pageRows.map((it) => {
             const sb = statusBadge(it.status);
-            const cb = conditionBadge(it.condition);
+            const cb = conditionBadge(it.condition_id, conditionLookup);
             return (
               <div key={it.id} className="px-4 py-3">
                 <div className="flex items-start gap-2">
@@ -1022,6 +1032,7 @@ export function RegisterTab({
                         budgetSources={budgetSources}
                         acquisitionMethods={acquisitionMethods}
                         itemTypes={itemTypes}
+                        conditions={conditions}
                         rounds={rounds}
                         defaultRoundId={defaultRoundId}
                         onSaved={handleChanged}
@@ -1054,7 +1065,7 @@ export function RegisterTab({
           <tbody>
             {pageRows.map((it) => {
               const sb = statusBadge(it.status);
-              const cb = conditionBadge(it.condition);
+              const cb = conditionBadge(it.condition_id, conditionLookup);
               return (
                 <tr key={it.id}>
                   <td>
@@ -1104,6 +1115,7 @@ export function RegisterTab({
                         budgetSources={budgetSources}
                         acquisitionMethods={acquisitionMethods}
                         itemTypes={itemTypes}
+                        conditions={conditions}
                         rounds={rounds}
                         defaultRoundId={defaultRoundId}
                         onSaved={handleChanged}

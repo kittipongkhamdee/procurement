@@ -41,12 +41,6 @@ function guard(value: string | number | null | undefined): string {
   return ` ${t(value)}`;
 }
 
-const CONDITION_LABEL: Record<string, string> = {
-  usable: "ใช้งานได้",
-  damaged: "ชำรุด",
-  disposal: "จำหน่าย",
-};
-
 export type AssetSummaryRow = {
   seq: number;
   name: string;
@@ -114,7 +108,7 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
               <Text style={[styles.cell, styles.colQty]}>{guard(row.quantity)}</Text>
               <Text style={[styles.cell, styles.colUnit]}>{guard(row.unit ?? "-")}</Text>
               <Text style={[styles.cell, styles.colLocation]}>{guard(row.location)}</Text>
-              <Text style={[styles.cell, styles.colCondition]}>{guard(CONDITION_LABEL[row.condition] ?? row.condition)}</Text>
+              <Text style={[styles.cell, styles.colCondition]}>{guard(row.condition)}</Text>
               <Text style={[styles.cell, styles.colYear]}>{guard(row.acquiredYear ?? "-")}</Text>
               <Text style={[styles.cell, styles.colPrice]}>{guard(row.price != null ? formatBaht(row.price) : "-")}</Text>
               <Text style={[styles.cell, styles.colLife]}>{guard(row.usefulLifeYears ?? "-")}</Text>

@@ -23,7 +23,7 @@ type SummaryItem = {
   building: string;
   floor: string | null;
   room: string;
-  condition: string;
+  condition_id: string | null;
   acquired_date: string | null;
   acquired_year: number | null;
   price: number | null;
@@ -31,13 +31,14 @@ type SummaryItem = {
 
 const ALL = "__all__";
 
-function conditionBadge(condition: string) {
-  if (condition === "usable") return { cls: "badge-emerald", label: "ใช้งานได้" };
-  if (condition === "damaged") return { cls: "badge-amber", label: "ชำรุด" };
-  return { cls: "badge-red", label: "จำหน่าย" };
+function conditionBadge(conditionId: string | null, conditionLookup: Map<string, { name: string; badge_color: string }>) {
+  const c = conditionId ? conditionLookup.get(conditionId) : null;
+  if (!c) return { cls: "badge-slate", label: "-" };
+  return { cls: `badge-${c.badge_color}`, label: c.name };
 }
 
-export function SummaryTab({ categories }: { categories: Option[] }) {
+export function SummaryTab({ categories, conditions }: { categories: Option[]; conditions: (Option & { badge_color: string })[] }) {
+  const conditionLookup = new Map(conditions.map((c) => [c.id, { name: c.name, badge_color: c.badge_color }]));
   const [items, setItems] = useState<SummaryItem[] | null>(null);
   const [allCount, setAllCount] = useState(0);
   const [categoryLookup, setCategoryLookup] = useState<
@@ -65,11 +66,11 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
     const supabase = createClient();
     let query = supabase
       .from("asset_items")
-      .select("id, name, category_id, asset_code, quantity, unit, building, floor, room, condition, acquired_date, acquired_year, price")
+      .select("id, name, category_id, asset_code, quantity, unit, building, floor, room, condition_id, acquired_date, acquired_year, price")
       .order("created_at", { ascending: false });
 
     if (categoryFilter !== ALL) query = query.eq("category_id", categoryFilter);
-    if (conditionFilter !== ALL) query = query.eq("condition", conditionFilter as "usable" | "damaged" | "disposal");
+    if (conditionFilter !== ALL) query = query.eq("condition_id", conditionFilter);
     if (debouncedSearch) {
       const q = debouncedSearch.replace(/,/g, " ");
       const orParts = [`name.ilike.%${q}%`, `asset_code.ilike.%${q}%`, `building.ilike.%${q}%`, `room.ilike.%${q}%`];
@@ -160,9 +161,11 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
             <label className="label">สภาพ</label>
             <select value={conditionFilter} onChange={(e) => updateFilter(setConditionFilter, e.target.value)} className="input">
               <option value={ALL}>ทั้งหมด</option>
-              <option value="usable">ใช้งานได้</option>
-              <option value="damaged">ชำรุด</option>
-              <option value="disposal">จำหน่าย</option>
+              {conditions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="sm:col-span-2">
@@ -222,7 +225,7 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
         {/* มือถือ/จอแคบ: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 14 คอลัมน์ที่เลื่อนดูยาก */}
         <div className="divide-y divide-slate-100 md:hidden">
           {pageRows.map(({ it, category, totals }, i) => {
-            const cb = conditionBadge(it.condition);
+            const cb = conditionBadge(it.condition_id, conditionLookup);
             return (
               <div key={it.id} className="px-4 py-3">
                 <div className="flex items-start justify-between gap-2">
@@ -297,7 +300,7 @@ export function SummaryTab({ categories }: { categories: Option[] }) {
             </thead>
             <tbody>
               {pageRows.map(({ it, category, totals }, i) => {
-                const cb = conditionBadge(it.condition);
+                const cb = conditionBadge(it.condition_id, conditionLookup);
                 return (
                   <tr key={it.id}>
                     <td className="px-2 py-2 text-center tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>

@@ -5,7 +5,7 @@ export type AssetRegisterExportFilters = {
   roundId?: string;
   categoryId?: string;
   status?: string;
-  condition?: string;
+  conditionId?: string;
   search?: string;
 };
 
@@ -19,12 +19,6 @@ export type AssetRegisterExportRow = {
   price: number | null;
   condition: string;
   status: string;
-};
-
-export const CONDITION_LABEL: Record<string, string> = {
-  usable: "ใช้งานได้",
-  damaged: "ชำรุด",
-  disposal: "จำหน่าย",
 };
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -43,13 +37,13 @@ export async function fetchAssetItemsForExport(
 ): Promise<AssetRegisterExportRow[]> {
   let query = supabase
     .from("asset_items")
-    .select("category_id, building, floor, room, name, quantity, unit, asset_code, condition, price, status")
+    .select("category_id, building, floor, room, name, quantity, unit, asset_code, condition_id, price, status")
     .order("created_at", { ascending: false });
 
   if (filters.roundId) query = query.eq("round_id", filters.roundId);
   if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
   if (filters.status) query = query.eq("status", filters.status as "draft" | "submitted" | "approved" | "rejected");
-  if (filters.condition) query = query.eq("condition", filters.condition as "usable" | "damaged" | "disposal");
+  if (filters.conditionId) query = query.eq("condition_id", filters.conditionId);
   if (filters.search) {
     const q = filters.search.replace(/,/g, " ");
     const orParts = [`name.ilike.%${q}%`, `asset_code.ilike.%${q}%`, `building.ilike.%${q}%`, `room.ilike.%${q}%`];
@@ -59,12 +53,14 @@ export async function fetchAssetItemsForExport(
     query = query.or(orParts.join(","));
   }
 
-  const [{ data: items }, { data: categories }] = await Promise.all([
+  const [{ data: items }, { data: categories }, { data: conditions }] = await Promise.all([
     query,
     supabase.from("asset_categories").select("id, name"),
+    supabase.from("asset_conditions").select("id, name"),
   ]);
 
   const categoryLookup = new Map((categories ?? []).map((c) => [c.id, c.name]));
+  const conditionLookup = new Map((conditions ?? []).map((c) => [c.id, c.name]));
 
   return (items ?? []).map((it) => ({
     assetCode: it.asset_code,
@@ -76,7 +72,7 @@ export async function fetchAssetItemsForExport(
     quantity: it.quantity,
     unit: it.unit,
     price: it.price,
-    condition: it.condition,
+    condition: it.condition_id ? (conditionLookup.get(it.condition_id) ?? "-") : "-",
     status: it.status,
   }));
 }

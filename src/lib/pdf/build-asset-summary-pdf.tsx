@@ -6,7 +6,7 @@ import { AssetSummaryDocument, type AssetSummaryPdfData } from "./asset-summary-
 
 export type AssetSummaryFilters = {
   categoryId?: string;
-  condition?: string;
+  conditionId?: string;
   search?: string;
 };
 
@@ -16,19 +16,21 @@ export async function buildAssetSummaryPdfData(
 ): Promise<AssetSummaryPdfData> {
   let query = supabase
     .from("asset_items")
-    .select("name, category_id, asset_code, quantity, unit, building, floor, room, condition, acquired_date, acquired_year, price")
+    .select("name, category_id, asset_code, quantity, unit, building, floor, room, condition_id, acquired_date, acquired_year, price")
     .order("created_at", { ascending: false });
 
   if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
-  if (filters.condition) query = query.eq("condition", filters.condition as "usable" | "damaged" | "disposal");
+  if (filters.conditionId) query = query.eq("condition_id", filters.conditionId);
 
-  const [{ data: items }, { data: categories }, { data: schoolSettings }] = await Promise.all([
+  const [{ data: items }, { data: categories }, { data: conditions }, { data: schoolSettings }] = await Promise.all([
     query,
     supabase.from("asset_categories").select("id, name, useful_life_years, depreciation_rate_percent"),
+    supabase.from("asset_conditions").select("id, name"),
     supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle(),
   ]);
 
   const categoryLookup = new Map((categories ?? []).map((c) => [c.id, c]));
+  const conditionLookup = new Map((conditions ?? []).map((c) => [c.id, c.name]));
 
   // ค้นหาแบบเดียวกับแท็บสรุปรายการในเบราว์เซอร์ (ชื่อ/รหัสครุภัณฑ์/สถานที่) — filter ฝั่งนี้เพราะ
   // Supabase query builder ทำ OR ข้ามคอลัมน์แบบนี้ตรงๆ ไม่สะดวกเท่าทำใน JS หลัง fetch มาแล้ว
@@ -59,7 +61,7 @@ export async function buildAssetSummaryPdfData(
       quantity: it.quantity,
       unit: it.unit,
       location,
-      condition: it.condition,
+      condition: it.condition_id ? (conditionLookup.get(it.condition_id) ?? "-") : "-",
       acquiredYear: it.acquired_year,
       price: it.price,
       usefulLifeYears: category?.useful_life_years ?? null,
