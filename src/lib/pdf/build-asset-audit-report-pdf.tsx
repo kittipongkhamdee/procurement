@@ -58,9 +58,11 @@ export async function buildAssetAuditReportPdfData(
       const it = assetItemLookup.get(r.item_id);
       diffRows.push({
         seq: diffRows.length + 1,
-        name: truncate(it?.name ?? "-", 18),
-        assetCode: it?.asset_code ? truncate(it.asset_code, 14) : null,
-        bookConditionName: truncate(conditionLookup.get(r.book_condition_id) ?? "-", 16),
+        name: truncate(it?.name ?? "-", 16),
+        // รหัสครุภัณฑ์เป็นข้อมูลระบุตัวตนสำคัญของรายงานตรวจสอบ ไม่ตัดคำทิ้ง — ปล่อยให้ขึ้นบรรทัดใหม่ได้
+        // ตามปกติแทน (คอลัมน์นี้ทดสอบแล้วว่าขึ้นบรรทัดใหม่ได้ปลอดภัย ไม่ชนบั๊กทับซ้อนแบบ maxLines)
+        assetCode: it?.asset_code ?? null,
+        bookConditionName: truncate(conditionLookup.get(r.book_condition_id) ?? "-", 14),
         resultLabel: truncate(RESULT_LABEL[resultKey], 16),
         note: r.note,
       });

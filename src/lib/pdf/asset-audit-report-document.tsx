@@ -23,17 +23,18 @@ const styles = StyleSheet.create({
   cell: { fontSize: 9, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
   cellLast: { fontSize: 9, padding: 4, borderBottomWidth: 1, borderColor: "#111827" },
   headLine: { fontSize: 9, fontWeight: "bold", textAlign: "center" },
-  // 4+18+15+18+15+30 = 100
+  // 4+15+20+16+16+29 = 100
   colSeq: { width: "4%", textAlign: "center" },
   // ตัดคำเองล่วงหน้าเป็น string สั้นพอดี 1 บรรทัดก่อนส่งเข้า Text (ดู build-asset-audit-report-pdf.tsx)
   // แทนการพึ่ง maxLines/textOverflow ของ react-pdf เอง — เคยลองแล้วเจอบั๊กจริง: ข้อความยาวที่ควรตัดด้วย
   // "…" กลับหายไปทั้งเซลล์เฉยๆ แทนที่จะตัดคำ (ภาษาไทยไม่มีช่องว่างระหว่างคำให้ตัดวัดความกว้างได้แม่นยำ —
   // เจอปัญหาคล้ายกันมาก่อนแล้วกับการตัดคำอัตโนมัติ จึงเลี่ยงไม่ใช้ maxLines/textOverflow กับข้อความไทยเลย)
-  // เหลือเฉพาะคอลัมน์หมายเหตุ (คอลัมน์สุดท้าย ไม่มีเพื่อนบ้านขวามือ) ที่ยอมให้ขึ้นบรรทัดใหม่ได้ตามปกติ
-  colName: { width: "18%" },
-  colCode: { width: "13%" },
-  colBook: { width: "18%", textAlign: "center" },
-  colResult: { width: "18%", textAlign: "center" },
+  // ยกเว้นคอลัมน์รหัสครุภัณฑ์ (ข้อมูลระบุตัวตนสำคัญ ห้ามตัดทิ้ง) กับหมายเหตุ (คอลัมน์สุดท้าย ไม่มี
+  // เพื่อนบ้านขวามือ) ที่ยอมให้ขึ้นบรรทัดใหม่ได้ตามปกติแทน — ทดสอบแล้วว่าขึ้นบรรทัดใหม่ปลอดภัย ไม่ชนบั๊ก
+  colName: { width: "15%" },
+  colCode: { width: "20%" },
+  colBook: { width: "16%", textAlign: "center" },
+  colResult: { width: "16%", textAlign: "center" },
   colNote: { width: "29%" },
   signRow: { flexDirection: "row", justifyContent: "space-around", marginTop: 40 },
   signBox: { width: "45%", textAlign: "center" },
