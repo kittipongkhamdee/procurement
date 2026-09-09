@@ -30,6 +30,14 @@ export async function buildAssetAuditReportPdfData(
 
   if (!round) return null;
 
+  console.log(
+    "[audit-pdf-debug]",
+    roundId,
+    "auditItems.length =",
+    auditItems?.length,
+    JSON.stringify((auditItems ?? []).map((r) => ({ item_id: r.item_id, found: r.found, actual: r.actual_condition_id, book: r.book_condition_id }))),
+  );
+
   const conditionLookup = new Map((conditions ?? []).map((c) => [c.id, c.name]));
 
   const itemIds = (auditItems ?? []).map((r) => r.item_id);
