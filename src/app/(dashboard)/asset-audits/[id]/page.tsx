@@ -15,7 +15,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { errorMessage, toastError, toastSuccess, confirmDelete, confirmWarning } from "@/lib/swal";
 import { formatThaiDate } from "@/lib/thai";
 import { buildExcelBuffer } from "@/lib/excel";
-import { ExcelFileIcon, PrinterIcon } from "@/components/icons";
+import { BellIcon, CheckIcon, ExcelFileIcon, PrinterIcon } from "@/components/icons";
 import { QrScanButton } from "../../asset-register/qr-scan-button";
 import {
   acknowledgeAuditReport,
@@ -689,17 +689,28 @@ export default function AssetAuditDetailPage() {
                 )}
               </div>
             )}
-            {isDeputyDirector && round.status === "submitted" && (
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handleAcknowledge} disabled={saving} className="btn-primary btn-sm">
-                  รับทราบผลการตรวจสอบ (รองผู้อำนวยการ)
-                </button>
-              </div>
-            )}
-            {isDirector && round.status === "acknowledged_deputy" && (
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handleAcknowledge} disabled={saving} className="btn-primary btn-sm">
-                  รับทราบผลการตรวจสอบ (ผู้อำนวยการ)
+            {((isDeputyDirector && round.status === "submitted") ||
+              (isDirector && round.status === "acknowledged_deputy")) && (
+              <div className="flex flex-col items-start gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+                    <BellIcon className="h-5 w-5 text-amber-700" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-amber-900">รอการรับทราบจากท่าน</p>
+                    <p className="text-sm text-amber-700">
+                      รายงานผลการตรวจสอบพัสดุประจำปีนี้พร้อมให้{isDeputyDirector ? "รองผู้อำนวยการ" : "ผู้อำนวยการ"}รับทราบแล้ว
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAcknowledge}
+                  disabled={saving}
+                  className="btn-primary w-full shrink-0 sm:w-auto"
+                >
+                  <CheckIcon className="h-4 w-4" />
+                  รับทราบผลการตรวจสอบ
                 </button>
               </div>
             )}
