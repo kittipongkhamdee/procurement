@@ -58,12 +58,13 @@ export async function buildAssetAuditReportPdfData(
       const it = assetItemLookup.get(r.item_id);
       diffRows.push({
         seq: diffRows.length + 1,
-        name: truncate(it?.name ?? "-", 16),
-        // รหัสครุภัณฑ์เป็นข้อมูลระบุตัวตนสำคัญของรายงานตรวจสอบ ไม่ตัดคำทิ้ง — ปล่อยให้ขึ้นบรรทัดใหม่ได้
-        // ตามปกติแทน (คอลัมน์นี้ทดสอบแล้วว่าขึ้นบรรทัดใหม่ได้ปลอดภัย ไม่ชนบั๊กทับซ้อนแบบ maxLines)
+        name: truncate(it?.name ?? "-", 22),
+        // รหัสครุภัณฑ์เป็นข้อมูลระบุตัวตนสำคัญ ไม่ตัดคำทิ้ง — ปล่อยให้ขึ้นบรรทัดใหม่ได้ตามปกติแทน
+        // (คอลัมน์นี้ทดสอบแล้วว่าขึ้นบรรทัดใหม่ได้ปลอดภัย ไม่ชนบั๊กทับซ้อน) — ผลตรวจนับลองปล่อยให้ขึ้น
+        // บรรทัดใหม่ตามคำขอผู้ใช้แล้วเจอข้อความล้นทับคอลัมน์ข้างเคียงเมื่อคอลัมน์แคบ (12%) จึงตัดคำแทน
         assetCode: it?.asset_code ?? null,
-        bookConditionName: truncate(conditionLookup.get(r.book_condition_id) ?? "-", 14),
-        resultLabel: truncate(RESULT_LABEL[resultKey], 16),
+        bookConditionName: truncate(conditionLookup.get(r.book_condition_id) ?? "-", 12),
+        resultLabel: truncate(RESULT_LABEL[resultKey], 11),
         // ตัดคำเช่นกัน (เจอบั๊กจริง: ปล่อยให้ขึ้นบรรทัดใหม่เองแล้วข้อความล้นออกนอกแถวทับแถวถัดไป)
         note: r.note ? truncate(r.note, 26) : null,
       });

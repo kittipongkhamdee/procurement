@@ -23,18 +23,18 @@ const styles = StyleSheet.create({
   cell: { fontSize: 9, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
   cellLast: { fontSize: 9, padding: 4, borderBottomWidth: 1, borderColor: "#111827" },
   headLine: { fontSize: 9, fontWeight: "bold", textAlign: "center" },
-  // 5+14+20+16+16+29 = 100
+  // 5+20+20+14+12+29 = 100
   colSeq: { width: "5%", textAlign: "center" },
   // ตัดคำเองล่วงหน้าเป็น string สั้นพอดี 1 บรรทัดก่อนส่งเข้า Text เสมอ (ดู build-asset-audit-report-pdf.tsx)
   // แทนการพึ่ง maxLines/textOverflow หรือ auto-wrap ของ react-pdf เอง — เคยลองทั้งสองแบบแล้วเจอบั๊กจริง:
   // maxLines+ellipsis ทำข้อความหายไปทั้งเซลล์เฉยๆ แทนที่จะตัดคำ, ส่วน auto-wrap ปล่อยให้ขึ้นบรรทัดใหม่เอง
-  // (เคยใช้กับคอลัมน์นี้และหมายเหตุ) ก็เจอข้อความล้นทับแถวถัดไปเช่นกัน (ภาษาไทยไม่มีช่องว่างระหว่างคำให้
-  // วัดความกว้างตัดบรรทัดได้แม่นยำ) — เหลือเฉพาะคอลัมน์รหัสครุภัณฑ์ (ข้อมูลระบุตัวตนสำคัญ ห้ามตัดทิ้ง)
-  // ที่ยอมให้ขึ้นบรรทัดใหม่ได้ตามปกติ เพราะกว้างพอ (20%) ที่ยังไม่เจอปัญหาแม้เคยทดสอบด้วยรหัสยาวๆ แล้ว
-  colName: { width: "14%" },
+  // ก็เจอข้อความล้นทับแถวถัดไปได้ถ้าคอลัมน์แคบเกิน (ภาษาไทยไม่มีช่องว่างระหว่างคำให้วัดความกว้างตัด
+  // บรรทัดได้แม่นยำ) — คอลัมน์รหัสครุภัณฑ์ (ข้อมูลระบุตัวตนสำคัญ ห้ามตัดทิ้ง) และผลตรวจนับ (กว้างพอ
+  // สำหรับ 2 บรรทัดตามยาวสุด) ยอมให้ขึ้นบรรทัดใหม่ได้ตามปกติ ทดสอบแล้วว่าไม่ล้นทับคอลัมน์ข้างเคียง
+  colName: { width: "20%" },
   colCode: { width: "20%" },
-  colBook: { width: "16%", textAlign: "center" },
-  colResult: { width: "16%", textAlign: "center" },
+  colBook: { width: "14%", textAlign: "center" },
+  colResult: { width: "12%", textAlign: "center" },
   colNote: { width: "29%" },
   signRow: { flexDirection: "row", justifyContent: "space-around", marginTop: 40 },
   signBox: { width: "45%", textAlign: "center" },
