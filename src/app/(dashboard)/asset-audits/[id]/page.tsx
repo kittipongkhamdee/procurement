@@ -993,13 +993,10 @@ export default function AssetAuditDetailPage() {
               </div>
             )}
             {round.submitted_at && (
-              <p className="text-xs text-slate-500">ส่งรายงานเมื่อ {formatThaiDate(round.submitted_at)}</p>
-            )}
-            {round.deputy_acknowledged_at && (
-              <p className="text-xs text-slate-500">รองผู้อำนวยการรับทราบเมื่อ {formatThaiDate(round.deputy_acknowledged_at)}</p>
-            )}
-            {round.acknowledged_at && (
-              <p className="text-xs text-slate-500">ผู้อำนวยการรับทราบเมื่อ {formatThaiDate(round.acknowledged_at)}</p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                <p className="mb-3 text-sm font-semibold text-slate-700">สถานะการรับทราบผล</p>
+                <AcknowledgeTimeline round={round} />
+              </div>
             )}
           </div>
         )}
