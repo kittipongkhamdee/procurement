@@ -1284,6 +1284,7 @@ export default function AssetAuditDetailPage() {
                 <thead>
                   <tr>
                     <th className="w-14 text-center">ลำดับ</th>
+                    <th className="w-14"></th>
                     <th>รหัสครุภัณฑ์</th>
                     <th>ชื่อทรัพย์สิน</th>
                     <th>สถานที่ตามทะเบียน</th>
@@ -1299,6 +1300,9 @@ export default function AssetAuditDetailPage() {
                     return (
                       <tr key={r.id}>
                         <td className="text-center tabular-nums text-slate-500">{index + 1}</td>
+                        <td>
+                          <ItemThumbnail photoPath={r.photo_path} photoUrls={photoUrls} alt={r.name} size="sm" />
+                        </td>
                         <td className="whitespace-nowrap">{r.asset_code ?? "ยังไม่ติดป้าย"}</td>
                         <td>{r.name}</td>
                         <td>{r.location}</td>
@@ -1314,7 +1318,7 @@ export default function AssetAuditDetailPage() {
                   })}
                   {diffRows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="table-empty">
+                      <td colSpan={8} className="table-empty">
                         ยังไม่พบรายการที่มีผลต่างจากบัญชี
                       </td>
                     </tr>
