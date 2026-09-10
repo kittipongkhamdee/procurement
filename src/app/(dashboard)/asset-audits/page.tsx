@@ -14,9 +14,9 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PlusIcon } from "@/components/icons";
-import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { formatThaiDate } from "@/lib/thai";
-import { createAuditRound } from "./actions";
+import { createAuditRound, deleteAuditRound } from "./actions";
 
 type AuditRound = {
   id: string;
@@ -214,6 +214,18 @@ export default function AssetAuditsPage() {
     reload();
   }, [reload]);
 
+  async function handleDelete(round: AuditRound) {
+    const ok = await confirmDelete({ title: `ลบรอบตรวจสอบปีงบ ${round.fiscal_year}?` });
+    if (!ok) return;
+    try {
+      await deleteAuditRound(round.id);
+      await toastSuccess("ลบรอบตรวจสอบเรียบร้อยแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
   if (authLoading || loading) return <PageLoadingSkeleton />;
 
   return (
@@ -230,7 +242,38 @@ export default function AssetAuditsPage() {
       </div>
 
       <div className="table-shell mt-4">
-        <table className="table-base">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละรอบ แทนตารางกว้าง (แพทเทิร์นเดียวกับ
+            asset-register/register-tab.tsx) */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {rounds.map((r) => {
+            const sb = statusBadge(r.status);
+            return (
+              <div key={r.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-slate-900">ปีงบประมาณ {r.fiscal_year}</span>
+                  <span className={sb.cls}>{sb.label}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  เริ่มตรวจ {formatThaiDate(r.start_date)} · ครบกำหนด {formatThaiDate(r.due_date)}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Link href={`/asset-audits/${r.id}`} className="btn-secondary btn-sm">
+                    เปิดรอบตรวจสอบ
+                  </Link>
+                  {canManage && r.status !== "submitted" && r.status !== "acknowledged_deputy" && r.status !== "acknowledged" && (
+                    <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
+                      ลบ
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {rounds.length === 0 && <p className="table-empty">ยังไม่มีรอบตรวจสอบพัสดุ</p>}
+        </div>
+
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="whitespace-nowrap">ปีงบประมาณ</th>
@@ -252,9 +295,16 @@ export default function AssetAuditsPage() {
                     <span className={sb.cls}>{sb.label}</span>
                   </td>
                   <td className="whitespace-nowrap text-right">
-                    <Link href={`/asset-audits/${r.id}`} className="btn-secondary btn-sm">
-                      เปิดรอบตรวจสอบ
-                    </Link>
+                    <div className="flex justify-end gap-2">
+                      <Link href={`/asset-audits/${r.id}`} className="btn-secondary btn-sm">
+                        เปิดรอบตรวจสอบ
+                      </Link>
+                      {canManage && r.status !== "submitted" && r.status !== "acknowledged_deputy" && r.status !== "acknowledged" && (
+                        <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
+                          ลบ
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
