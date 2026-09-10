@@ -220,6 +220,36 @@ export async function acknowledgeAuditReport(roundId: string) {
   revalidatePath(`${PATH}/${roundId}`);
 }
 
+// ตรวจนับทีเดียวทั้งหมดในสถานที่หนึ่ง — ยืนยันว่ารายการที่ยังไม่ตรวจในสถานที่นั้น "พบตรงบัญชี" ทุกรายการ
+// (สภาพที่พบจริง = สภาพตามบัญชี, สถานที่ตามทะเบียน) ช่วยประหยัดเวลาแทนการเปิดทีละรายการเมื่อไปตรวจถึง
+// สถานที่นั้นแล้วพบครบตามทะเบียนจริง — ยังใช้ requireAuditAccess เดิม (staff หรือผู้ตรวจสอบที่ได้รับ
+// แต่งตั้ง) เพราะเป็นการบันทึกผลตรวจนับแบบเดียวกับ updateAuditItemResult เพียงแต่ทำหลายแถวพร้อมกัน
+export async function bulkConfirmAuditItems(roundId: string, items: { auditItemId: string; bookConditionId: string }[]) {
+  const { supabase, userId } = await requireAuditAccess(roundId);
+  if (items.length === 0) return;
+
+  const now = new Date().toISOString();
+  const results = await Promise.all(
+    items.map((it) =>
+      supabase
+        .from("asset_audit_items")
+        .update({
+          found: true,
+          actual_condition_id: it.bookConditionId,
+          actual_location: null,
+          note: null,
+          inspected_by: userId,
+          inspected_at: now,
+        })
+        .eq("id", it.auditItemId)
+        .eq("audit_round_id", roundId),
+    ),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw new Error(failed.error.message);
+  revalidatePath(`${PATH}/${roundId}`);
+}
+
 export async function deleteAuditRound(roundId: string) {
   const { supabase } = await requireAssetStaff();
   const { data: round } = await supabase.from("asset_audit_rounds").select("status").eq("id", roundId).maybeSingle();

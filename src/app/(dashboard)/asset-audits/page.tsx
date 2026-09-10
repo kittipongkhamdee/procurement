@@ -14,9 +14,9 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PlusIcon } from "@/components/icons";
-import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { formatThaiDate } from "@/lib/thai";
-import { createAuditRound } from "./actions";
+import { createAuditRound, deleteAuditRound } from "./actions";
 
 type AuditRound = {
   id: string;
@@ -214,6 +214,18 @@ export default function AssetAuditsPage() {
     reload();
   }, [reload]);
 
+  async function handleDelete(round: AuditRound) {
+    const ok = await confirmDelete({ title: `ลบรอบตรวจสอบปีงบ ${round.fiscal_year}?` });
+    if (!ok) return;
+    try {
+      await deleteAuditRound(round.id);
+      await toastSuccess("ลบรอบตรวจสอบเรียบร้อยแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
   if (authLoading || loading) return <PageLoadingSkeleton />;
 
   return (
@@ -252,9 +264,16 @@ export default function AssetAuditsPage() {
                     <span className={sb.cls}>{sb.label}</span>
                   </td>
                   <td className="whitespace-nowrap text-right">
-                    <Link href={`/asset-audits/${r.id}`} className="btn-secondary btn-sm">
-                      เปิดรอบตรวจสอบ
-                    </Link>
+                    <div className="flex justify-end gap-2">
+                      <Link href={`/asset-audits/${r.id}`} className="btn-secondary btn-sm">
+                        เปิดรอบตรวจสอบ
+                      </Link>
+                      {canManage && r.status !== "submitted" && r.status !== "acknowledged_deputy" && r.status !== "acknowledged" && (
+                        <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
+                          ลบ
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

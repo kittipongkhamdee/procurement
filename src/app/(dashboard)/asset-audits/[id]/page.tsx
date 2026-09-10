@@ -19,6 +19,7 @@ import { ArchiveIcon, BellIcon, CheckIcon, ChevronRightIcon, ExcelFileIcon, Ligh
 import { QrScanButton } from "../../asset-register/qr-scan-button";
 import {
   acknowledgeAuditReport,
+  bulkConfirmAuditItems,
   deleteAuditRound,
   reopenAuditRound,
   saveAuditReportNote,
@@ -469,6 +470,7 @@ export default function AssetAuditDetailPage() {
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<"count" | "diff" | "report">("count");
   const [categoryFilter, setCategoryFilter] = useState(ALL);
+  const [locationFilter, setLocationFilter] = useState(ALL);
   const [statusFilter, setStatusFilter] = useState(ALL);
   const [search, setSearch] = useState("");
   const [reportNote, setReportNote] = useState("");
@@ -545,8 +547,11 @@ export default function AssetAuditDetailPage() {
 
   const conditionLookup = new Map(conditions.map((c) => [c.id, c]));
 
+  const locations = Array.from(new Set(rows.map((r) => r.location).filter(Boolean))).sort((a, b) => a.localeCompare(b, "th"));
+
   const filteredRows = rows.filter((r) => {
     if (categoryFilter !== ALL && r.category_id !== categoryFilter) return false;
+    if (locationFilter !== ALL && r.location !== locationFilter) return false;
     if (statusFilter !== ALL && inspectStatus(r) !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -660,6 +665,29 @@ export default function AssetAuditDetailPage() {
     }
   }
 
+  async function handleBulkConfirmLocation() {
+    const pendingRows = filteredRows.filter((r) => inspectStatus(r) === "pending");
+    if (pendingRows.length === 0) return;
+    const ok = await confirmWarning({
+      title: `ยืนยันตรวจนับ ${pendingRows.length} รายการในสถานที่ "${locationFilter}" ว่าพบตรงบัญชีทั้งหมดหรือไม่?`,
+      confirmButtonText: "ยืนยันพบตรงบัญชีทั้งหมด",
+    });
+    if (!ok) return;
+    setSaving(true);
+    try {
+      await bulkConfirmAuditItems(
+        roundId,
+        pendingRows.map((r) => ({ auditItemId: r.id, bookConditionId: r.book_condition_id })),
+      );
+      await toastSuccess("ตรวจนับทั้งหมดในสถานที่นี้เรียบร้อยแล้ว");
+      await reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleDeleteRound() {
     const ok = await confirmDelete({ title: `ลบรอบตรวจสอบปีงบ ${round!.fiscal_year}?` });
     if (!ok) return;
@@ -748,7 +776,7 @@ export default function AssetAuditDetailPage() {
         {tab === "count" && (
           <div>
             <div className="card mb-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
                 <div>
                   <label className="label">หมวดหมู่</label>
                   <select value={categoryFilter} onChange={(e) => updateFilter(setCategoryFilter, e.target.value)} className="input">
@@ -756,6 +784,17 @@ export default function AssetAuditDetailPage() {
                     {categories.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">สถานที่</label>
+                  <select value={locationFilter} onChange={(e) => updateFilter(setLocationFilter, e.target.value)} className="input">
+                    <option value={ALL}>ทั้งหมด</option>
+                    {locations.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
                       </option>
                     ))}
                   </select>
@@ -780,6 +819,27 @@ export default function AssetAuditDetailPage() {
                 </div>
               </div>
             </div>
+
+            {locationFilter !== ALL && canEditResults && (
+              <div className="mb-4 flex flex-col items-start gap-3 rounded-xl border border-navy-800/20 bg-navy-800/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-700">
+                  ยังไม่ตรวจในสถานที่ &quot;{locationFilter}&quot; อีก{" "}
+                  <span className="font-semibold text-slate-900">
+                    {filteredRows.filter((r) => inspectStatus(r) === "pending").length.toLocaleString("th-TH")}
+                  </span>{" "}
+                  รายการ
+                </p>
+                <button
+                  type="button"
+                  onClick={handleBulkConfirmLocation}
+                  disabled={saving || filteredRows.every((r) => inspectStatus(r) !== "pending")}
+                  className="btn-primary btn-sm w-full shrink-0 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+                >
+                  <CheckIcon className="h-4 w-4" />
+                  ตรวจนับทั้งหมด (พบตรงบัญชี)
+                </button>
+              </div>
+            )}
 
             <p className="mb-3 text-sm text-slate-500">
               พบ <span className="font-semibold text-slate-900">{filteredRows.length.toLocaleString("th-TH")}</span> รายการ
