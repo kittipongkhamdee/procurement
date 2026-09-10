@@ -66,6 +66,7 @@ type AuditItemRow = {
   asset_code: string | null;
   category_id: string | null;
   location: string;
+  photo_path: string | null;
 };
 
 function inspectStatus(row: AuditItemRow): keyof typeof INSPECT_STATUS {
@@ -81,6 +82,24 @@ function statusBadge(status: string) {
   if (status === "acknowledged") return { cls: "badge-emerald", label: "รับทราบผลแล้ว" };
   if (status === "in_progress") return { cls: "badge-slate", label: "กำลังตรวจนับ" };
   return { cls: "badge-slate", label: "แบบร่าง" };
+}
+
+// รูปย่อทรัพย์สิน แสดงในการ์ดมือถือแท็บตรวจนับ ให้ผู้ตรวจนับเทียบรูปกับของจริงได้ง่ายขึ้นโดยไม่ต้อง
+// เปิดดูรายละเอียดทีละรายการ — placeholder ไอคอนกล่องถ้ายังไม่มีรูป (item ไม่ได้อัปโหลดรูปไว้)
+function ItemThumbnail({ photoPath, photoUrls, alt }: { photoPath: string | null; photoUrls: Map<string, string>; alt: string }) {
+  const url = photoPath ? photoUrls.get(photoPath) : null;
+  return (
+    <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt={alt} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-slate-300">
+          <ArchiveIcon className="h-6 w-6" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ResultModal({
@@ -208,6 +227,7 @@ function GroupedItemsTable({
   canEditResults,
   roundId,
   onSaved,
+  photoUrls,
 }: {
   rows: AuditItemRow[];
   conditions: Condition[];
@@ -215,6 +235,7 @@ function GroupedItemsTable({
   canEditResults: boolean;
   roundId: string;
   onSaved: () => void;
+  photoUrls: Map<string, string>;
 }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -277,21 +298,24 @@ function GroupedItemsTable({
                   const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
                   const bookCondition = conditionLookup.get(r.book_condition_id);
                   return (
-                    <div key={r.id} className={`px-4 py-3 ${items.length > 1 ? "bg-slate-50/30 pl-8" : ""}`}>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-slate-400">
-                          #{items.length > 1 ? `${groupIndex + 1}.${itemIndex + 1}` : groupIndex + 1}
-                        </span>
-                        <span className="font-medium text-slate-900">{items.length > 1 ? r.asset_code ?? "ยังไม่ติดป้าย" : r.name}</span>
+                    <div key={r.id} className={`flex items-start justify-between gap-3 px-4 py-3 ${items.length > 1 ? "bg-slate-50/30 pl-8" : ""}`}>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-slate-400">
+                            #{items.length > 1 ? `${groupIndex + 1}.${itemIndex + 1}` : groupIndex + 1}
+                          </span>
+                          <span className="font-medium text-slate-900">{items.length > 1 ? r.asset_code ?? "ยังไม่ติดป้าย" : r.name}</span>
+                        </div>
+                        {items.length === 1 && <p className="mt-0.5 text-xs text-slate-500">{r.asset_code ?? "ยังไม่ติดป้าย"}</p>}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                          <span className={stCls}>{INSPECT_STATUS[st]}</span>
+                        </div>
+                        <div className="mt-2">
+                          <ResultModal row={r} roundId={roundId} conditions={conditions} conditionLookup={conditionLookup} canEdit={canEditResults} onSaved={onSaved} />
+                        </div>
                       </div>
-                      {items.length === 1 && <p className="mt-0.5 text-xs text-slate-500">{r.asset_code ?? "ยังไม่ติดป้าย"}</p>}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
-                        <span className={stCls}>{INSPECT_STATUS[st]}</span>
-                      </div>
-                      <div className="mt-2">
-                        <ResultModal row={r} roundId={roundId} conditions={conditions} conditionLookup={conditionLookup} canEdit={canEditResults} onSaved={onSaved} />
-                      </div>
+                      <ItemThumbnail photoPath={r.photo_path} photoUrls={photoUrls} alt={r.name} />
                     </div>
                   );
                 })}
@@ -654,6 +678,7 @@ export default function AssetAuditDetailPage() {
   const [round, setRound] = useState<Round | null>(null);
   const [inspectors, setInspectors] = useState<Inspector[]>([]);
   const [rows, setRows] = useState<AuditItemRow[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Map<string, string>>(new Map());
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [tab, setTab] = useState<"count" | "diff" | "report">("count");
@@ -694,7 +719,7 @@ export default function AssetAuditDetailPage() {
     const itemIds = (auditItemsData ?? []).map((r) => r.item_id);
     const { data: assetItemsData } =
       itemIds.length > 0
-        ? await supabase.from("asset_items").select("id, name, asset_code, category_id, building, floor, room").in("id", itemIds)
+        ? await supabase.from("asset_items").select("id, name, asset_code, category_id, building, floor, room, photo_path").in("id", itemIds)
         : { data: [] };
     const assetItemLookup = new Map((assetItemsData ?? []).map((it) => [it.id, it]));
 
@@ -713,8 +738,23 @@ export default function AssetAuditDetailPage() {
         asset_code: it?.asset_code ?? null,
         category_id: it?.category_id ?? null,
         location,
+        photo_path: it?.photo_path ?? null,
       };
     });
+
+    // รูปทรัพย์สินเก็บใน private storage bucket ต้อง sign URL สดทุกครั้ง (แพทเทิร์นเดียวกับ
+    // purchase-requests/page.tsx) — ขอครั้งเดียวเป็น batch แทนการขอทีละรายการตอน render การ์ด
+    const photoPaths = Array.from(new Set((assetItemsData ?? []).map((it) => it.photo_path).filter((p): p is string => !!p)));
+    if (photoPaths.length > 0) {
+      const { data: signed } = await supabase.storage.from("asset-photos").createSignedUrls(photoPaths, 3600);
+      const map = new Map<string, string>();
+      signed?.forEach((s) => {
+        if (s.signedUrl && !s.error) map.set(s.path ?? "", s.signedUrl);
+      });
+      setPhotoUrls(map);
+    } else {
+      setPhotoUrls(new Map());
+    }
 
     setRound(roundData ?? null);
     setInspectors(inspectorsData ?? []);
@@ -1043,6 +1083,7 @@ export default function AssetAuditDetailPage() {
                 canEditResults={canEditResults}
                 roundId={roundId}
                 onSaved={reload}
+                photoUrls={photoUrls}
               />
             ) : (
               <div className="table-shell">
@@ -1054,28 +1095,31 @@ export default function AssetAuditDetailPage() {
                     const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
                     const bookCondition = conditionLookup.get(r.book_condition_id);
                     return (
-                      <div key={r.id} className="px-4 py-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-xs text-slate-400">#{(currentPage - 1) * pageSize + index + 1}</span>
-                          <span className="font-medium text-slate-900">{r.name}</span>
+                      <div key={r.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs text-slate-400">#{(currentPage - 1) * pageSize + index + 1}</span>
+                            <span className="font-medium text-slate-900">{r.name}</span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {r.asset_code ?? "ยังไม่ติดป้าย"} · {r.location}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                            <span className={stCls}>{INSPECT_STATUS[st]}</span>
+                          </div>
+                          <div className="mt-2">
+                            <ResultModal
+                              row={r}
+                              roundId={roundId}
+                              conditions={conditions}
+                              conditionLookup={conditionLookup}
+                              canEdit={canEditResults}
+                              onSaved={reload}
+                            />
+                          </div>
                         </div>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {r.asset_code ?? "ยังไม่ติดป้าย"} · {r.location}
-                        </p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
-                          <span className={stCls}>{INSPECT_STATUS[st]}</span>
-                        </div>
-                        <div className="mt-2">
-                          <ResultModal
-                            row={r}
-                            roundId={roundId}
-                            conditions={conditions}
-                            conditionLookup={conditionLookup}
-                            canEdit={canEditResults}
-                            onSaved={reload}
-                          />
-                        </div>
+                        <ItemThumbnail photoPath={r.photo_path} photoUrls={photoUrls} alt={r.name} />
                       </div>
                     );
                   })}
@@ -1183,19 +1227,22 @@ export default function AssetAuditDetailPage() {
                   const st = inspectStatus(r);
                   const bookCondition = conditionLookup.get(r.book_condition_id);
                   return (
-                    <div key={r.id} className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-slate-400">#{index + 1}</span>
-                        <span className="font-medium text-slate-900">{r.name}</span>
+                    <div key={r.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-slate-400">#{index + 1}</span>
+                          <span className="font-medium text-slate-900">{r.name}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {r.asset_code ?? "ยังไม่ติดป้าย"} · {r.location}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                          <span className={st === "diff" ? "badge-amber" : "badge-red"}>{INSPECT_STATUS[st]}</span>
+                        </div>
+                        {r.note && <p className="mt-1 text-xs text-slate-500">หมายเหตุ: {r.note}</p>}
                       </div>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {r.asset_code ?? "ยังไม่ติดป้าย"} · {r.location}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
-                        <span className={st === "diff" ? "badge-amber" : "badge-red"}>{INSPECT_STATUS[st]}</span>
-                      </div>
-                      {r.note && <p className="mt-1 text-xs text-slate-500">หมายเหตุ: {r.note}</p>}
+                      <ItemThumbnail photoPath={r.photo_path} photoUrls={photoUrls} alt={r.name} />
                     </div>
                   );
                 })}
