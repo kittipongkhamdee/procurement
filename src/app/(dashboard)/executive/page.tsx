@@ -49,12 +49,15 @@ function PendingGroup({ title, items }: { title: string; items: PendingRow[] }) 
         </p>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-          {items.map((it) => (
+          {items.map((it, i) => (
             <li key={it.id}>
               <Link href={it.href} className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-navy-950/[0.02]">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-slate-900">{it.primary}</p>
-                  {it.secondary && <p className="truncate text-xs text-slate-500">{it.secondary}</p>}
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <span className="mt-0.5 shrink-0 text-xs font-medium tabular-nums text-slate-400">{i + 1}.</span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-900">{it.primary}</p>
+                    {it.secondary && <p className="truncate text-xs text-slate-500">{it.secondary}</p>}
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {it.amount && <span className="text-sm tabular-nums text-slate-600">{it.amount}</span>}
