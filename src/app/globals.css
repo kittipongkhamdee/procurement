@@ -167,6 +167,10 @@ body {
     @apply px-4 py-3 align-middle text-slate-700;
   }
 
+  .table-base tfoot td {
+    @apply border-t border-slate-200 px-4 py-3 align-middle;
+  }
+
   .table-empty {
     @apply px-4 py-10 text-center text-sm text-slate-400;
   }
