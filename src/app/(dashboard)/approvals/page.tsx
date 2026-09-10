@@ -152,6 +152,17 @@ function ApprovalStatusCell({
       title={mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
     >
       <div className="space-y-4">
+        <div>
+          <div className="card-title">ขั้นตอนเสนอความเห็น / อนุมัติ</div>
+          <ApprovalTimeline steps={flowSteps} />
+          {approval.deputy_note && (
+            <p className="mt-2 text-sm text-slate-600">ความเห็น (รองผู้อำนวยการ): {approval.deputy_note}</p>
+          )}
+          {approval.approve_note && (
+            <p className="mt-1 text-sm text-slate-600">ความเห็น (ผู้อำนวยการ): {approval.approve_note}</p>
+          )}
+        </div>
+
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <div>
             <dt className="text-slate-400">เลขที่</dt>
@@ -203,17 +214,6 @@ function ApprovalStatusCell({
               </tr>
             </tbody>
           </table>
-        </div>
-
-        <div>
-          <div className="card-title">ขั้นตอนเสนอความเห็น / อนุมัติ</div>
-          <ApprovalTimeline steps={flowSteps} />
-          {approval.deputy_note && (
-            <p className="mt-2 text-sm text-slate-600">ความเห็น (รองผู้อำนวยการ): {approval.deputy_note}</p>
-          )}
-          {approval.approve_note && (
-            <p className="mt-1 text-sm text-slate-600">ความเห็น (ผู้อำนวยการ): {approval.approve_note}</p>
-          )}
         </div>
 
         {(mode === "deputy" || mode === "director") && (

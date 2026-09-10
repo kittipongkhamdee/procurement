@@ -208,6 +208,17 @@ export function ProposalDetailModal({
           </span>
         </div>
 
+        <div>
+          <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>
+          <ApprovalTimeline steps={flowSteps} />
+          {proposal.endorseNote && (
+            <p className="mt-2 text-sm text-slate-600">ความเห็น (เห็นชอบ): {proposal.endorseNote}</p>
+          )}
+          {proposal.approveNote && (
+            <p className="mt-1 text-sm text-slate-600">ความเห็น (อนุมัติ): {proposal.approveNote}</p>
+          )}
+        </div>
+
         {(() => {
           const approverOnly = (canEndorse || canApprove) && !isAdmin;
           const showWordFile = !!proposal.fileUrlWord && !approverOnly;
@@ -299,17 +310,6 @@ export function ProposalDetailModal({
         )}
 
         <div className="space-y-4 border-t border-slate-100 pt-4">
-          <div>
-            <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>
-            <ApprovalTimeline steps={flowSteps} />
-            {proposal.endorseNote && (
-              <p className="mt-2 text-sm text-slate-600">ความเห็น (เห็นชอบ): {proposal.endorseNote}</p>
-            )}
-            {proposal.approveNote && (
-              <p className="mt-1 text-sm text-slate-600">ความเห็น (อนุมัติ): {proposal.approveNote}</p>
-            )}
-          </div>
-
           {canEndorse && proposal.status === "รออนุมัติ" && (
             <button type="button" onClick={handleCancelEndorsement} className="btn-secondary btn-sm">
               ยกเลิกเห็นชอบ
