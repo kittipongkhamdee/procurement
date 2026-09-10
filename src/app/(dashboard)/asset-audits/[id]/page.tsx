@@ -5,7 +5,7 @@
 // แต่งตั้งในรอบนี้ (isInspector) — RLS (asset_audit_items_write) เป็นด่านจริง ฝั่งนี้แค่ซ่อน/แสดงปุ่ม
 // ให้สอดคล้องกัน ส่วนแท็บ "รายงานสรุป" (ส่งรายงาน/แก้ข้อเสนอแนะ) จำกัดเฉพาะ canManage เท่านั้น
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
@@ -195,6 +195,124 @@ function ResultModal({
         )}
       </div>
     </Modal>
+  );
+}
+
+// ตารางตรวจนับแบบจัดกลุ่มตาม "ชื่อทรัพย์สิน" — ใช้เมื่อกรองสถานที่แล้ว เพราะรายการซ้ำชนิดเดียวกันจำนวน
+// มาก (เช่น โต๊ะนักเรียน 30 ตัวในห้องเดียวกัน) ไม่ควรแสดงเป็น 30 แถวแยกกันเมื่อดูทีละสถานที่ — พับกลุ่ม
+// ไว้เป็นแถวเดียว (จำนวน + สรุปผลตรวจนับ) กดแถวเพื่อกางดู/แก้ไขผลตรวจนับรายชิ้นได้ตามเดิม
+function GroupedItemsTable({
+  rows,
+  conditions,
+  conditionLookup,
+  canEditResults,
+  roundId,
+  onSaved,
+}: {
+  rows: AuditItemRow[];
+  conditions: Condition[];
+  conditionLookup: Map<string, Condition>;
+  canEditResults: boolean;
+  roundId: string;
+  onSaved: () => void;
+}) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  function toggleGroup(name: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  const groups = new Map<string, AuditItemRow[]>();
+  for (const r of rows) {
+    const list = groups.get(r.name) ?? [];
+    list.push(r);
+    groups.set(r.name, list);
+  }
+  const groupEntries = Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0], "th"));
+
+  return (
+    <div className="table-shell">
+      <table className="table-base">
+        <thead>
+          <tr>
+            <th>ชื่อทรัพย์สิน / รหัสครุภัณฑ์</th>
+            <th className="text-center">สภาพตามบัญชี</th>
+            <th className="text-center">ผลตรวจนับ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {groupEntries.map(([name, items]) => {
+            const isOpen = expandedGroups.has(name) || items.length === 1;
+            const counts = {
+              pending: items.filter((r) => inspectStatus(r) === "pending").length,
+              match: items.filter((r) => inspectStatus(r) === "match").length,
+              diff: items.filter((r) => inspectStatus(r) === "diff").length,
+              notFound: items.filter((r) => inspectStatus(r) === "notFound").length,
+            };
+            return (
+              <Fragment key={name}>
+                {items.length > 1 && (
+                  <tr className="cursor-pointer bg-slate-50/60 hover:bg-slate-100" onClick={() => toggleGroup(name)}>
+                    <td>
+                      <span className="inline-flex items-center gap-2 font-medium text-slate-900">
+                        <ChevronRightIcon className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                        {name}
+                        <span className="badge-slate">{items.length.toLocaleString("th-TH")} รายการ</span>
+                      </span>
+                    </td>
+                    <td className="text-center text-slate-400">-</td>
+                    <td className="text-center">
+                      <div className="flex flex-wrap justify-center gap-1">
+                        {counts.match > 0 && <span className="badge-emerald">{counts.match} ตรง</span>}
+                        {counts.diff > 0 && <span className="badge-amber">{counts.diff} ต่าง</span>}
+                        {counts.notFound > 0 && <span className="badge-red">{counts.notFound} ไม่พบ</span>}
+                        {counts.pending > 0 && <span className="badge-slate">{counts.pending} ยังไม่ตรวจ</span>}
+                      </div>
+                    </td>
+                    <td></td>
+                  </tr>
+                )}
+                {isOpen &&
+                  items.map((r) => {
+                    const st = inspectStatus(r);
+                    const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
+                    const bookCondition = conditionLookup.get(r.book_condition_id);
+                    return (
+                      <tr key={r.id}>
+                        <td className={items.length > 1 ? "pl-8 text-slate-600" : ""}>
+                          {items.length > 1 ? r.asset_code ?? "ยังไม่ติดป้าย" : `${r.name} · ${r.asset_code ?? "ยังไม่ติดป้าย"}`}
+                        </td>
+                        <td className="text-center">
+                          <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                        </td>
+                        <td className="text-center">
+                          <span className={stCls}>{INSPECT_STATUS[st]}</span>
+                        </td>
+                        <td className="whitespace-nowrap text-right">
+                          <ResultModal row={r} roundId={roundId} conditions={conditions} conditionLookup={conditionLookup} canEdit={canEditResults} onSaved={onSaved} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </Fragment>
+            );
+          })}
+          {groupEntries.length === 0 && (
+            <tr>
+              <td colSpan={4} className="table-empty">
+                ไม่พบรายการที่ตรงกับตัวกรอง
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -847,83 +965,94 @@ export default function AssetAuditDetailPage() {
               {(totals.match + totals.diff + totals.notFound).toLocaleString("th-TH")} ยังไม่ตรวจ {totals.pending.toLocaleString("th-TH")}
             </p>
 
-            <div className="table-shell">
-              <table className="table-base">
-                <thead>
-                  <tr>
-                    <th>รหัสครุภัณฑ์</th>
-                    <th>ชื่อทรัพย์สิน</th>
-                    <th>สถานที่</th>
-                    <th className="text-center">สภาพตามบัญชี</th>
-                    <th className="text-center">ผลตรวจนับ</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageRows.map((r) => {
-                    const st = inspectStatus(r);
-                    const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
-                    const bookCondition = conditionLookup.get(r.book_condition_id);
-                    return (
-                      <tr key={r.id}>
-                        <td className="whitespace-nowrap">{r.asset_code ?? "ยังไม่ติดป้าย"}</td>
-                        <td>{r.name}</td>
-                        <td>{r.location}</td>
-                        <td className="text-center">
-                          <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
-                        </td>
-                        <td className="text-center">
-                          <span className={stCls}>{INSPECT_STATUS[st]}</span>
-                        </td>
-                        <td className="whitespace-nowrap text-right">
-                          <ResultModal
-                            row={r}
-                            roundId={roundId}
-                            conditions={conditions}
-                            conditionLookup={conditionLookup}
-                            canEdit={canEditResults}
-                            onSaved={reload}
-                          />
+            {locationFilter !== ALL ? (
+              <GroupedItemsTable
+                rows={filteredRows}
+                conditions={conditions}
+                conditionLookup={conditionLookup}
+                canEditResults={canEditResults}
+                roundId={roundId}
+                onSaved={reload}
+              />
+            ) : (
+              <div className="table-shell">
+                <table className="table-base">
+                  <thead>
+                    <tr>
+                      <th>รหัสครุภัณฑ์</th>
+                      <th>ชื่อทรัพย์สิน</th>
+                      <th>สถานที่</th>
+                      <th className="text-center">สภาพตามบัญชี</th>
+                      <th className="text-center">ผลตรวจนับ</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pageRows.map((r) => {
+                      const st = inspectStatus(r);
+                      const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
+                      const bookCondition = conditionLookup.get(r.book_condition_id);
+                      return (
+                        <tr key={r.id}>
+                          <td className="whitespace-nowrap">{r.asset_code ?? "ยังไม่ติดป้าย"}</td>
+                          <td>{r.name}</td>
+                          <td>{r.location}</td>
+                          <td className="text-center">
+                            <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                          </td>
+                          <td className="text-center">
+                            <span className={stCls}>{INSPECT_STATUS[st]}</span>
+                          </td>
+                          <td className="whitespace-nowrap text-right">
+                            <ResultModal
+                              row={r}
+                              roundId={roundId}
+                              conditions={conditions}
+                              conditionLookup={conditionLookup}
+                              canEdit={canEditResults}
+                              onSaved={reload}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {filteredRows.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="table-empty">
+                          ไม่พบรายการที่ตรงกับตัวกรอง
                         </td>
                       </tr>
-                    );
-                  })}
-                  {filteredRows.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="table-empty">
-                        ไม่พบรายการที่ตรงกับตัวกรอง
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                    )}
+                  </tbody>
+                </table>
 
-              {filteredRows.length > 0 && totalPages > 1 && (
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 px-4 py-3 text-sm">
-                  <span className="text-slate-500">
-                    หน้า {currentPage} จาก {totalPages} ({filteredRows.length.toLocaleString("th-TH")} รายการ)
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={currentPage <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      ก่อนหน้า
-                    </button>
-                    <button
-                      type="button"
-                      disabled={currentPage >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      ถัดไป
-                    </button>
+                {filteredRows.length > 0 && totalPages > 1 && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 px-4 py-3 text-sm">
+                    <span className="text-slate-500">
+                      หน้า {currentPage} จาก {totalPages} ({filteredRows.length.toLocaleString("th-TH")} รายการ)
+                    </span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={currentPage <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        ก่อนหน้า
+                      </button>
+                      <button
+                        type="button"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        ถัดไป
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
