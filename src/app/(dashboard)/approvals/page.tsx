@@ -12,6 +12,7 @@ import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess }
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { CheckIcon, ClipboardCheckIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
+import { ApprovalTimeline, PendingActionCallout, type FlowStep } from "@/components/approval-flow";
 import {
   deleteApproval,
   resetApprovalStatus,
@@ -100,6 +101,29 @@ function ApprovalStatusCell({
   const [submitting, setSubmitting] = useState(false);
   const status = mergedStatus(approval);
   const needsNote = choice === "ไม่ควร" || choice === "ไม่อนุมัติ";
+  const deputyDone = approval.deputy_decision !== null;
+  const flowSteps: FlowStep[] = [
+    { label: "บันทึกขออนุมัติ", state: "done", by: approval.requested_by_name },
+    {
+      label: "รองผู้อำนวยการเสนอความเห็น",
+      state: deputyDone ? "done" : "current",
+      by: approval.deputy_decided_by_name,
+      at: approval.deputy_decided_at,
+    },
+    {
+      label: "ผู้อำนวยการอนุมัติ",
+      state:
+        approval.status === "ไม่อนุมัติ"
+          ? "rejected"
+          : approval.status === "อนุมัติ"
+            ? "done"
+            : status === "รออนุมัติ"
+              ? "current"
+              : "pending",
+      by: approval.approved_by_name,
+      at: approval.approved_at,
+    },
+  ];
 
   async function handleSave() {
     if (!choice) return;
@@ -128,6 +152,17 @@ function ApprovalStatusCell({
       title={mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
     >
       <div className="space-y-4">
+        <div>
+          <div className="card-title">ขั้นตอนเสนอความเห็น / อนุมัติ</div>
+          <ApprovalTimeline steps={flowSteps} />
+          {approval.deputy_note && (
+            <p className="mt-2 text-sm text-slate-600">ความเห็น (รองผู้อำนวยการ): {approval.deputy_note}</p>
+          )}
+          {approval.approve_note && (
+            <p className="mt-1 text-sm text-slate-600">ความเห็น (ผู้อำนวยการ): {approval.approve_note}</p>
+          )}
+        </div>
+
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           <div>
             <dt className="text-slate-400">เลขที่</dt>
@@ -181,93 +216,74 @@ function ApprovalStatusCell({
           </table>
         </div>
 
-        {approval.deputy_decision !== null && (
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-            <p className="font-medium text-navy-900">
-              ความเห็นรองผู้อำนวยการ: {approval.deputy_decision === "ควร" ? "เห็นควรอนุมัติ" : "ไม่เห็นควรอนุมัติ"}
-            </p>
-            <p className="text-slate-500">
-              โดย {approval.deputy_decided_by_name ?? "-"} เมื่อ{" "}
-              {approval.deputy_decided_at ? formatThaiDate(approval.deputy_decided_at) : "-"}
-            </p>
-            {approval.deputy_note && <p className="mt-1 whitespace-pre-line">ความคิดเห็น: {approval.deputy_note}</p>}
-          </div>
-        )}
-
-        {(approval.status === "อนุมัติ" || approval.status === "ไม่อนุมัติ") && (
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-            <p className="font-medium text-navy-900">ผู้อำนวยการ: {approval.status}</p>
-            <p className="text-slate-500">
-              โดย {approval.approved_by_name ?? "-"} เมื่อ {approval.approved_at ? formatThaiDate(approval.approved_at) : "-"}
-            </p>
-            {approval.approve_note && <p className="mt-1 whitespace-pre-line">ความคิดเห็น: {approval.approve_note}</p>}
-          </div>
-        )}
-
-        {mode === "view" && approval.deputy_decision === null && approval.status === "รออนุมัติ" && (
-          <p className="text-sm text-slate-400">ยังไม่มีความเห็น</p>
-        )}
-
         {(mode === "deputy" || mode === "director") && (
-          <div className="space-y-3 border-t border-slate-100 pt-4">
-            <div className="flex gap-2">
-              {mode === "deputy" ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setChoice("ควร")}
-                    className={choice === "ควร" ? "btn-primary" : "btn-secondary"}
-                  >
-                    เห็นควรอนุมัติ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setChoice("ไม่ควร")}
-                    className={choice === "ไม่ควร" ? "btn-primary" : "btn-secondary"}
-                  >
-                    ไม่เห็นควรอนุมัติ
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setChoice("อนุมัติ")}
-                    className={choice === "อนุมัติ" ? "btn-primary" : "btn-secondary"}
-                  >
-                    อนุมัติ
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setChoice("ไม่อนุมัติ")}
-                    className={choice === "ไม่อนุมัติ" ? "btn-primary" : "btn-secondary"}
-                  >
-                    ไม่อนุมัติ
-                  </button>
-                </>
+          <PendingActionCallout
+            subtitle={
+              mode === "deputy"
+                ? "บันทึกขออนุมัตินี้รอให้ท่านเสนอความเห็นก่อนส่งต่อผู้อำนวยการ"
+                : "บันทึกขออนุมัตินี้รอให้ท่านพิจารณาอนุมัติ"
+            }
+          >
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                {mode === "deputy" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setChoice("ควร")}
+                      className={choice === "ควร" ? "btn-primary" : "btn-secondary"}
+                    >
+                      เห็นควรอนุมัติ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChoice("ไม่ควร")}
+                      className={choice === "ไม่ควร" ? "btn-primary" : "btn-secondary"}
+                    >
+                      ไม่เห็นควรอนุมัติ
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setChoice("อนุมัติ")}
+                      className={choice === "อนุมัติ" ? "btn-primary" : "btn-secondary"}
+                    >
+                      อนุมัติ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChoice("ไม่อนุมัติ")}
+                      className={choice === "ไม่อนุมัติ" ? "btn-primary" : "btn-secondary"}
+                    >
+                      ไม่อนุมัติ
+                    </button>
+                  </>
+                )}
+              </div>
+              {needsNote && (
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  required
+                  placeholder="กรอกความคิดเห็น (บังคับ)"
+                  rows={3}
+                  className="input w-full"
+                />
+              )}
+              {choice && (
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={submitting || (needsNote && !note.trim())}
+                  className="btn-primary w-full"
+                >
+                  {submitting ? "กำลังบันทึก..." : mode === "deputy" ? "บันทึก (เสนอผู้อำนวยการ)" : "บันทึก"}
+                </button>
               )}
             </div>
-            {needsNote && (
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                required
-                placeholder="กรอกความคิดเห็น (บังคับ)"
-                rows={3}
-                className="input w-full"
-              />
-            )}
-            {choice && (
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={submitting || (needsNote && !note.trim())}
-                className="btn-primary w-full"
-              >
-                {submitting ? "กำลังบันทึก..." : mode === "deputy" ? "บันทึก (เสนอผู้อำนวยการ)" : "บันทึก"}
-              </button>
-            )}
-          </div>
+          </PendingActionCallout>
         )}
 
         {((isAdmin || canApproveDeputy) && approval.deputy_decision !== null) ||

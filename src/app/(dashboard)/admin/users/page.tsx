@@ -18,9 +18,10 @@ const ROLE_LABELS: Record<string, string> = {
   finance_officer: "เจ้าหน้าที่การเงิน",
   teacher: "ครู",
   director: "ผู้อำนวยการ",
+  deputy_director: "รองผู้อำนวยการ",
 };
 
-const ROLES = ["admin", "supply_officer", "finance_officer", "teacher", "director"] as const;
+const ROLES = ["admin", "supply_officer", "finance_officer", "teacher", "director", "deputy_director"] as const;
 
 type AppUser = { user_id: string; email: string; full_name: string; position: string | null; role: string; status: string };
 
