@@ -222,13 +222,15 @@ export function GroupAllocationTab({
         <table className="table-base">
           <thead>
             <tr>
+              <th className="w-14 text-center">ลำดับ</th>
               <th>กลุ่มบริหารงาน</th>
               <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร (บาท)</th>
             </tr>
           </thead>
           <tbody>
-            {adminGroups.map((g) => (
+            {adminGroups.map((g, i) => (
               <tr key={g.id}>
+                <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                 <td className="font-medium text-slate-900">{g.name}</td>
                 <td className="whitespace-nowrap text-right">
                   {amountsEditing ? (
@@ -247,7 +249,7 @@ export function GroupAllocationTab({
             ))}
             {adminGroups.length === 0 && (
               <tr>
-                <td colSpan={2} className="table-empty">
+                <td colSpan={3} className="table-empty">
                   ยังไม่มีกลุ่มบริหารงาน
                 </td>
               </tr>
@@ -256,7 +258,9 @@ export function GroupAllocationTab({
           {adminGroups.length > 0 && (
             <tfoot>
               <tr>
-                <td className="text-right font-bold text-slate-700">รวมทั้งสิ้น</td>
+                <td colSpan={2} className="text-right font-bold text-slate-700">
+                  รวมทั้งสิ้น
+                </td>
                 <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
                   {formatBaht(groupTotal)}
                 </td>

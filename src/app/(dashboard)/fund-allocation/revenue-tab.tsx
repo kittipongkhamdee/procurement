@@ -64,6 +64,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
         <table className="table-base">
           <thead>
             <tr>
+              <th className="w-14 text-center">ลำดับ</th>
               <th>ประเภทรายรับ</th>
               <th className="whitespace-nowrap">ระดับชั้น</th>
               <th className="whitespace-nowrap text-right">นักเรียน(คน)</th>
@@ -72,7 +73,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
             </tr>
           </thead>
           <tbody>
-            {ITEM_DEFS.map((item) => {
+            {ITEM_DEFS.map((item, itemIndex) => {
               const grades = item.grades === "all" ? (["all"] as const) : item.grades;
               const itemTotal = computeItemTotal(item.grades, item.key, counts, rates);
               return (
@@ -83,6 +84,11 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
                     const rate = rates[rateKey(item.key, g as GradeKey)] ?? 0;
                     return (
                       <tr key={`${item.key}-${g}`}>
+                        {i === 0 && (
+                          <td rowSpan={grades.length} className="align-top text-center tabular-nums text-slate-400">
+                            {itemIndex + 1}
+                          </td>
+                        )}
                         {i === 0 && (
                           <td rowSpan={grades.length} className="align-top font-medium text-slate-900">
                             {item.label}
@@ -96,7 +102,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
                     );
                   })}
                   <tr className="bg-slate-50 font-semibold">
-                    <td colSpan={4} className="text-right text-slate-600">
+                    <td colSpan={5} className="text-right text-slate-600">
                       รวม {item.label}
                     </td>
                     <td className="whitespace-nowrap text-right tabular-nums text-navy-800">
@@ -107,6 +113,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
               );
             })}
             <tr>
+              <td className="text-center tabular-nums text-slate-400">{ITEM_DEFS.length + 1}</td>
               <td className="font-medium text-slate-900">เงินรายได้สถานศึกษา</td>
               <td className="whitespace-nowrap">-</td>
               <td className="whitespace-nowrap text-right tabular-nums text-slate-500">-</td>
@@ -116,7 +123,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={4} className="text-right font-bold text-slate-700">
+              <td colSpan={5} className="text-right font-bold text-slate-700">
                 รวมประมาณการรายรับทั้งสิ้น
               </td>
               <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">

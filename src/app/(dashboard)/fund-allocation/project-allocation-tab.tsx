@@ -507,6 +507,7 @@ export function ProjectAllocationTab({
             <table className="table-base">
               <thead>
                 <tr>
+                  <th className="w-14 text-center">ลำดับ</th>
                   {isAdmin && (
                     <th className="w-10 text-center">
                       <input
@@ -524,8 +525,9 @@ export function ProjectAllocationTab({
                 </tr>
               </thead>
               <tbody>
-                {filteredSourceRows.map((r) => (
+                {filteredSourceRows.map((r, i) => (
                   <tr key={r.id}>
+                    <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                     {isAdmin && (
                       <td className="text-center">
                         <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
@@ -541,14 +543,14 @@ export function ProjectAllocationTab({
                 ))}
                 {sourceRows !== null && filteredSourceRows.length === 0 && (
                   <tr>
-                    <td colSpan={isAdmin ? 5 : 4} className="table-empty">
+                    <td colSpan={isAdmin ? 6 : 5} className="table-empty">
                       ไม่พบโครงการในปีงบประมาณต้นทางที่เลือก
                     </td>
                   </tr>
                 )}
                 {sourceRows === null && (
                   <tr>
-                    <td colSpan={isAdmin ? 5 : 4} className="table-empty">
+                    <td colSpan={isAdmin ? 6 : 5} className="table-empty">
                       กำลังโหลด...
                     </td>
                   </tr>
@@ -615,6 +617,7 @@ export function ProjectAllocationTab({
                 <table className="table-base">
                   <thead>
                     <tr>
+                      <th className="w-14 text-center">ลำดับ</th>
                       <th>แหล่งเงิน</th>
                       <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร</th>
                       <th className="whitespace-nowrap text-right">งบร่างโครงการ</th>
@@ -622,8 +625,9 @@ export function ProjectAllocationTab({
                     </tr>
                   </thead>
                   <tbody>
-                    {sourceSummaryRows.map((r) => (
+                    {sourceSummaryRows.map((r, i) => (
                       <tr key={r.id}>
+                        <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                         <td className="font-medium text-slate-900">{r.label}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.allocated)}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.draftTotal)}</td>
@@ -638,7 +642,7 @@ export function ProjectAllocationTab({
                     ))}
                     {sourceSummaryRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="table-empty">
+                        <td colSpan={5} className="table-empty">
                           ยังไม่มีแหล่งงบประมาณ
                         </td>
                       </tr>
@@ -654,6 +658,7 @@ export function ProjectAllocationTab({
                 <table className="table-base">
                   <thead>
                     <tr>
+                      <th className="w-14 text-center">ลำดับ</th>
                       <th>กลุ่มบริหารงาน</th>
                       <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร</th>
                       <th className="whitespace-nowrap text-right">งบร่างโครงการ</th>
@@ -661,8 +666,9 @@ export function ProjectAllocationTab({
                     </tr>
                   </thead>
                   <tbody>
-                    {groupSummaryRows.map((r) => (
+                    {groupSummaryRows.map((r, i) => (
                       <tr key={r.id}>
+                        <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                         <td className="font-medium text-slate-900">{r.label}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.allocated)}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.draftTotal)}</td>
@@ -677,7 +683,7 @@ export function ProjectAllocationTab({
                     ))}
                     {groupSummaryRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="table-empty">
+                        <td colSpan={5} className="table-empty">
                           ยังไม่มีกลุ่มบริหารงาน
                         </td>
                       </tr>

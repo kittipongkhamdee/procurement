@@ -264,13 +264,14 @@ export function StudentRatesTab({ budgetYearId, isAdmin }: { budgetYearId: strin
           <table className="table-base">
             <thead>
               <tr>
+                <th className="w-14 text-center">ลำดับ</th>
                 <th>รายการ</th>
                 <th className="whitespace-nowrap">ระดับชั้น</th>
                 <th className="whitespace-nowrap text-right">บาท/คน/ปี</th>
               </tr>
             </thead>
             <tbody>
-              {ITEM_DEFS.map((item) => {
+              {ITEM_DEFS.map((item, itemIndex) => {
                 const grades = item.grades === "all" ? (["all"] as const) : item.grades;
                 return (
                   <Fragment key={item.key}>
@@ -281,6 +282,11 @@ export function StudentRatesTab({ budgetYearId, isAdmin }: { budgetYearId: strin
                       const draft = rateDrafts[key];
                       return (
                         <tr key={key}>
+                          {i === 0 && (
+                            <td rowSpan={grades.length} className="align-top text-center tabular-nums text-slate-400">
+                              {itemIndex + 1}
+                            </td>
+                          )}
                           {i === 0 && (
                             <td rowSpan={grades.length} className="align-top font-medium text-slate-900">
                               {item.label}
