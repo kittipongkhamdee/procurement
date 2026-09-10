@@ -102,7 +102,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
                     );
                   })}
                   <tr className="bg-slate-50 font-semibold">
-                    <td colSpan={5} className="text-right text-slate-600">
+                    <td colSpan={5} className="break-words text-right text-slate-600">
                       รวม {item.label}
                     </td>
                     <td className="whitespace-nowrap text-right tabular-nums text-navy-800">
@@ -123,7 +123,7 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={5} className="text-right font-bold text-slate-700">
+              <td colSpan={5} className="break-words text-right font-bold text-slate-700">
                 รวมประมาณการรายรับทั้งสิ้น
               </td>
               <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">

@@ -144,7 +144,7 @@ export function GroupAllocationTab({
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2} className="text-right font-bold text-slate-700">
+              <td colSpan={2} className="break-words text-right font-bold text-slate-700">
                 รวมประมาณการรายรับทั้งสิ้น
               </td>
               <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
@@ -258,7 +258,7 @@ export function GroupAllocationTab({
           {adminGroups.length > 0 && (
             <tfoot>
               <tr>
-                <td colSpan={2} className="text-right font-bold text-slate-700">
+                <td colSpan={2} className="break-words text-right font-bold text-slate-700">
                   รวมทั้งสิ้น
                 </td>
                 <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
