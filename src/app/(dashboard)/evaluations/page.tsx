@@ -142,7 +142,49 @@ export default function EvaluationsPage() {
       )}
 
       <div className="table-shell">
-        <table className="table-base">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว (แพทเทิร์นเดียวกับ asset-register/register-tab.tsx) */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {forms.map((f, i) => (
+            <div key={f.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <Link href={`/evaluations/${f.id}`} className="min-w-0 break-words font-medium text-navy-800 hover:underline">
+                  <span className="text-xs text-slate-400">#{i + 1}</span> {f.title}
+                </Link>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-500">{f.project_name ?? "-"}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {isAdmin || f.created_by === user?.userId ? (
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(f)}
+                    disabled={togglingId === f.id}
+                    className={`${f.status === "published" ? "badge-emerald" : "badge-navy"} disabled:cursor-not-allowed disabled:opacity-50`}
+                    title={
+                      f.status === "published"
+                        ? "คลิกเพื่อปิดรับคำตอบ"
+                        : f.status === "draft"
+                          ? "คลิกเพื่อเผยแพร่และเปิดรับคำตอบ"
+                          : "คลิกเพื่อเปิดรับคำตอบอีกครั้ง"
+                    }
+                  >
+                    {STATUS_LABELS[f.status] ?? f.status}
+                  </button>
+                ) : (
+                  <span className={f.status === "published" ? "badge-emerald" : "badge-navy"}>
+                    {STATUS_LABELS[f.status] ?? f.status}
+                  </span>
+                )}
+                <Link href={`/evaluations/${f.id}`} className="btn-secondary btn-sm">
+                  ดูผลสรุป
+                </Link>
+              </div>
+            </div>
+          ))}
+          {forms.length === 0 && <p className="table-empty">ยังไม่มีแบบประเมิน</p>}
+        </div>
+
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="w-16 whitespace-nowrap px-3 text-center">ลำดับที่</th>
@@ -213,7 +255,24 @@ export default function EvaluationsPage() {
             <CreateTemplateModal createTemplate={createTemplate} />
           </div>
           <div className="table-shell">
-            <table className="table-base">
+            {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว */}
+            <div className="divide-y divide-slate-100 md:hidden">
+              {templates.map((t) => (
+                <div key={t.id} className="px-4 py-3">
+                  <p className="break-words font-medium text-slate-900">{t.title}</p>
+                  <p className="mt-0.5 break-words text-xs text-slate-500">{t.description ?? "-"}</p>
+                  <div className="mt-2">
+                    <Link href={`/evaluations/${t.id}/edit`} className="btn-secondary btn-sm">
+                      แก้ไข
+                    </Link>
+                  </div>
+                </div>
+              ))}
+              {templates.length === 0 && <p className="table-empty">ยังไม่มี template</p>}
+            </div>
+
+            {/* จอกว้าง md ขึ้นไป: ตาราง */}
+            <table className="hidden table-base md:table">
               <thead>
                 <tr>
                   <th>ชื่อ Template</th>

@@ -480,7 +480,80 @@ export default function ApprovalsPage() {
       ) : (
         <div className="table-shell">
           {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
-          <table className="table-base">
+
+          {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว (แพทเทิร์นเดียวกับ asset-register/register-tab.tsx) */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {approvals.map((a, index) => {
+              const status = mergedStatus(a);
+              let mode: DecisionMode = "view";
+              if (canApproveDeputy && status === "รอเสนอ") mode = "deputy";
+              else if (canApproveDirector && status === "รออนุมัติ") mode = "director";
+              const isOwnerOrAdmin = isAdmin || (!!user && a.created_by === user.userId);
+              const editableState = isEditableState(a);
+              return (
+                <div key={a.id} className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-slate-400">#{index + 1}</span>
+                    <span className="font-medium text-slate-900">{a.doc_number ?? "-"}</span>
+                    <span className="text-xs text-slate-500">{formatThaiDate(a.doc_date)}</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {a.plan_projects?.name ?? "-"} · {a.activity_name ?? "-"}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-700">ผู้รับผิดชอบ: {a.requested_by_name ?? "-"}</p>
+                  <p className="mt-1 text-sm font-semibold tabular-nums text-red-600">
+                    {formatBaht(Number(a.requested_amount))} บาท
+                  </p>
+                  <div className="mt-2">
+                    <ApprovalStatusCell
+                      approval={a}
+                      mode={mode}
+                      isAdmin={isAdmin}
+                      canApproveDeputy={canApproveDeputy}
+                      canApproveDirector={canApproveDirector}
+                      onSubmitDeputy={submitDeputyDecision}
+                      onSubmitDirector={submitDirectorDecision}
+                      onResetDeputy={handleResetDeputyDecision}
+                      onResetStatus={handleResetStatus}
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <a
+                      href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
+                      target="_blank"
+                      className="btn-secondary btn-sm"
+                    >
+                      PDF
+                    </a>
+                    {isOwnerOrAdmin &&
+                      (editableState ? (
+                        <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
+                          แก้ไข
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          title="แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)"
+                          onClick={() => toastError("แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)")}
+                          className="btn-secondary btn-sm cursor-not-allowed opacity-50"
+                        >
+                          แก้ไข
+                        </button>
+                      ))}
+                    {isOwnerOrAdmin && editableState && (
+                      <button type="button" onClick={() => handleDelete(a.id)} className="btn-danger btn-sm">
+                        ลบ
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {approvals.length === 0 && <p className="table-empty">ยังไม่มีข้อมูล</p>}
+          </div>
+
+          {/* จอกว้าง md ขึ้นไป: ตาราง */}
+          <table className="hidden table-base md:table">
             <thead>
               <tr>
                 <th>#</th>

@@ -109,95 +109,170 @@ export function ProposalsTable({
   onChanged?: () => void;
 }) {
   return (
-    <table className="table-base min-w-0">
-      <thead>
-        <tr>
-          <th className="w-10 text-center">#</th>
-          <th>ชื่อโครงการ</th>
-          <th className="whitespace-nowrap">กลุ่มบริหาร</th>
-          <th className="whitespace-nowrap">ผู้เสนอ</th>
-          <th className="whitespace-nowrap text-right">งบประมาณ</th>
-          <th className="whitespace-nowrap text-center">สถานะ</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
+    <>
+      {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว (แพทเทิร์นเดียวกับ asset-register/register-tab.tsx) */}
+      <div className="divide-y divide-slate-100 md:hidden">
         {rows.map((r, i) => {
           const canEdit = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
           return (
-            <tr key={r.id}>
-              <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
-              <td className="min-w-[10rem] max-w-[16rem] break-words font-medium text-slate-900">{r.name}</td>
-              <td className="whitespace-nowrap">{r.adminGroup}</td>
-              <td className="whitespace-nowrap">{r.proposerName ?? "-"}</td>
-              <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budgetAmount)}</td>
-              <td className="whitespace-nowrap text-center">
-                <span className={`${statusBadgeClass(r.status)} !text-sm`}>{r.status}</span>
-              </td>
-              <td className="text-right">
-                <div className="flex justify-end gap-2">
-                  {canEdit && (
-                    <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
-                      <ProposalForm
-                        action={updateProposal.bind(null, r.id)}
-                        budgetYearId=""
-                        adminGroups={adminGroups}
-                        budgetSources={budgetSources}
-                        teachers={teachers}
-                        strategies={strategies}
-                        standards={standards}
-                        submitLabel="บันทึกการแก้ไข"
-                        successMessage="บันทึกการแก้ไขเรียบร้อยแล้ว"
-                        onSuccess={onChanged}
-                        initial={{
-                          name: r.name,
-                          standard: r.standard,
-                          strategyAlignment: r.strategyAlignment,
-                          adminGroupId: r.adminGroupId,
-                          responsible: r.responsible,
-                          objectives: r.objectives,
-                          activities: r.activities.map((a) => ({
-                            name: a.name,
-                            responsible: a.responsible,
-                            budget: String(a.budget),
-                          })),
-                          budgetAmount: r.budgetAmount,
-                          budgetSourceId: r.budgetSourceId,
-                          fileUrlWordPath: r.fileUrlWordPath,
-                          fileUrlPdfPath: r.fileUrlPdfPath,
-                          indicatorsQuantity: r.indicatorsQuantity,
-                          indicatorsQuality: r.indicatorsQuality,
-                        }}
-                      />
-                    </Modal>
-                  )}
-                  <ProposalDetailModal
-                    proposal={r}
-                    isAdmin={isAdmin}
-                    canEndorse={canEndorse}
-                    canApprove={canApprove}
-                    canDelete={canEdit}
-                    endorseProposal={endorseProposal}
-                    cancelEndorsement={cancelEndorsement}
-                    approveProposal={approveProposal}
-                    resetProposalStatus={resetProposalStatus}
-                    deleteProposal={deleteProposal}
-                    deleteProposalFile={deleteProposalFile}
-                    onChanged={onChanged}
-                  />
-                </div>
-              </td>
-            </tr>
+            <div key={r.id} className="px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-400">#{i + 1}</span>
+                <span className="break-words font-medium text-slate-900">{r.name}</span>
+                <span className={statusBadgeClass(r.status)}>{r.status}</span>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {r.adminGroup} · {r.proposerName ?? "-"}
+              </p>
+              <p className="mt-1 text-sm tabular-nums text-slate-700">{formatBaht(r.budgetAmount)} บาท</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {canEdit && (
+                  <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
+                    <ProposalForm
+                      action={updateProposal.bind(null, r.id)}
+                      budgetYearId=""
+                      adminGroups={adminGroups}
+                      budgetSources={budgetSources}
+                      teachers={teachers}
+                      strategies={strategies}
+                      standards={standards}
+                      submitLabel="บันทึกการแก้ไข"
+                      successMessage="บันทึกการแก้ไขเรียบร้อยแล้ว"
+                      onSuccess={onChanged}
+                      initial={{
+                        name: r.name,
+                        standard: r.standard,
+                        strategyAlignment: r.strategyAlignment,
+                        adminGroupId: r.adminGroupId,
+                        responsible: r.responsible,
+                        objectives: r.objectives,
+                        activities: r.activities.map((a) => ({
+                          name: a.name,
+                          responsible: a.responsible,
+                          budget: String(a.budget),
+                        })),
+                        budgetAmount: r.budgetAmount,
+                        budgetSourceId: r.budgetSourceId,
+                        fileUrlWordPath: r.fileUrlWordPath,
+                        fileUrlPdfPath: r.fileUrlPdfPath,
+                        indicatorsQuantity: r.indicatorsQuantity,
+                        indicatorsQuality: r.indicatorsQuality,
+                      }}
+                    />
+                  </Modal>
+                )}
+                <ProposalDetailModal
+                  proposal={r}
+                  isAdmin={isAdmin}
+                  canEndorse={canEndorse}
+                  canApprove={canApprove}
+                  canDelete={canEdit}
+                  endorseProposal={endorseProposal}
+                  cancelEndorsement={cancelEndorsement}
+                  approveProposal={approveProposal}
+                  resetProposalStatus={resetProposalStatus}
+                  deleteProposal={deleteProposal}
+                  deleteProposalFile={deleteProposalFile}
+                  onChanged={onChanged}
+                />
+              </div>
+            </div>
           );
         })}
-        {rows.length === 0 && (
+        {rows.length === 0 && <p className="table-empty">ยังไม่มีข้อเสนอโครงการ</p>}
+      </div>
+
+      {/* จอกว้าง md ขึ้นไป: ตาราง */}
+      <table className="hidden table-base min-w-0 md:table">
+        <thead>
           <tr>
-            <td colSpan={7} className="table-empty">
-              ยังไม่มีข้อเสนอโครงการ
-            </td>
+            <th className="w-10 text-center">#</th>
+            <th>ชื่อโครงการ</th>
+            <th className="whitespace-nowrap">กลุ่มบริหาร</th>
+            <th className="whitespace-nowrap">ผู้เสนอ</th>
+            <th className="whitespace-nowrap text-right">งบประมาณ</th>
+            <th className="whitespace-nowrap text-center">สถานะ</th>
+            <th></th>
           </tr>
-        )}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const canEdit = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
+            return (
+              <tr key={r.id}>
+                <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
+                <td className="min-w-[10rem] max-w-[16rem] break-words font-medium text-slate-900">{r.name}</td>
+                <td className="whitespace-nowrap">{r.adminGroup}</td>
+                <td className="whitespace-nowrap">{r.proposerName ?? "-"}</td>
+                <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budgetAmount)}</td>
+                <td className="whitespace-nowrap text-center">
+                  <span className={`${statusBadgeClass(r.status)} !text-sm`}>{r.status}</span>
+                </td>
+                <td className="text-right">
+                  <div className="flex justify-end gap-2">
+                    {canEdit && (
+                      <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
+                        <ProposalForm
+                          action={updateProposal.bind(null, r.id)}
+                          budgetYearId=""
+                          adminGroups={adminGroups}
+                          budgetSources={budgetSources}
+                          teachers={teachers}
+                          strategies={strategies}
+                          standards={standards}
+                          submitLabel="บันทึกการแก้ไข"
+                          successMessage="บันทึกการแก้ไขเรียบร้อยแล้ว"
+                          onSuccess={onChanged}
+                          initial={{
+                            name: r.name,
+                            standard: r.standard,
+                            strategyAlignment: r.strategyAlignment,
+                            adminGroupId: r.adminGroupId,
+                            responsible: r.responsible,
+                            objectives: r.objectives,
+                            activities: r.activities.map((a) => ({
+                              name: a.name,
+                              responsible: a.responsible,
+                              budget: String(a.budget),
+                            })),
+                            budgetAmount: r.budgetAmount,
+                            budgetSourceId: r.budgetSourceId,
+                            fileUrlWordPath: r.fileUrlWordPath,
+                            fileUrlPdfPath: r.fileUrlPdfPath,
+                            indicatorsQuantity: r.indicatorsQuantity,
+                            indicatorsQuality: r.indicatorsQuality,
+                          }}
+                        />
+                      </Modal>
+                    )}
+                    <ProposalDetailModal
+                      proposal={r}
+                      isAdmin={isAdmin}
+                      canEndorse={canEndorse}
+                      canApprove={canApprove}
+                      canDelete={canEdit}
+                      endorseProposal={endorseProposal}
+                      cancelEndorsement={cancelEndorsement}
+                      approveProposal={approveProposal}
+                      resetProposalStatus={resetProposalStatus}
+                      deleteProposal={deleteProposal}
+                      deleteProposalFile={deleteProposalFile}
+                      onChanged={onChanged}
+                    />
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+          {rows.length === 0 && (
+            <tr>
+              <td colSpan={7} className="table-empty">
+                ยังไม่มีข้อเสนอโครงการ
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </>
   );
 }
