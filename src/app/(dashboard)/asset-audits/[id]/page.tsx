@@ -240,6 +240,7 @@ function GroupedItemsTable({
       <table className="table-base">
         <thead>
           <tr>
+            <th className="w-14 text-center">ลำดับ</th>
             <th>ชื่อทรัพย์สิน / รหัสครุภัณฑ์</th>
             <th className="text-center">สภาพตามบัญชี</th>
             <th className="text-center">ผลตรวจนับ</th>
@@ -247,7 +248,7 @@ function GroupedItemsTable({
           </tr>
         </thead>
         <tbody>
-          {groupEntries.map(([name, items]) => {
+          {groupEntries.map(([name, items], groupIndex) => {
             const isOpen = expandedGroups.has(name) || items.length === 1;
             const counts = {
               pending: items.filter((r) => inspectStatus(r) === "pending").length,
@@ -259,6 +260,7 @@ function GroupedItemsTable({
               <Fragment key={name}>
                 {items.length > 1 && (
                   <tr className="cursor-pointer bg-slate-50/60 hover:bg-slate-100" onClick={() => toggleGroup(name)}>
+                    <td className="text-center tabular-nums text-slate-500">{groupIndex + 1}</td>
                     <td>
                       <span className="inline-flex items-center gap-2 font-medium text-slate-900">
                         <ChevronRightIcon className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`} />
@@ -279,12 +281,15 @@ function GroupedItemsTable({
                   </tr>
                 )}
                 {isOpen &&
-                  items.map((r) => {
+                  items.map((r, itemIndex) => {
                     const st = inspectStatus(r);
                     const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
                     const bookCondition = conditionLookup.get(r.book_condition_id);
                     return (
                       <tr key={r.id}>
+                        <td className="text-center tabular-nums text-slate-500">
+                          {items.length > 1 ? `${groupIndex + 1}.${itemIndex + 1}` : groupIndex + 1}
+                        </td>
                         <td className={items.length > 1 ? "pl-8 text-slate-600" : ""}>
                           {items.length > 1 ? r.asset_code ?? "ยังไม่ติดป้าย" : `${r.name} · ${r.asset_code ?? "ยังไม่ติดป้าย"}`}
                         </td>
@@ -305,7 +310,7 @@ function GroupedItemsTable({
           })}
           {groupEntries.length === 0 && (
             <tr>
-              <td colSpan={4} className="table-empty">
+              <td colSpan={5} className="table-empty">
                 ไม่พบรายการที่ตรงกับตัวกรอง
               </td>
             </tr>
@@ -979,6 +984,7 @@ export default function AssetAuditDetailPage() {
                 <table className="table-base">
                   <thead>
                     <tr>
+                      <th className="w-14 text-center">ลำดับ</th>
                       <th>รหัสครุภัณฑ์</th>
                       <th>ชื่อทรัพย์สิน</th>
                       <th>สถานที่</th>
@@ -988,12 +994,13 @@ export default function AssetAuditDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageRows.map((r) => {
+                    {pageRows.map((r, index) => {
                       const st = inspectStatus(r);
                       const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
                       const bookCondition = conditionLookup.get(r.book_condition_id);
                       return (
                         <tr key={r.id}>
+                          <td className="text-center tabular-nums text-slate-500">{(currentPage - 1) * pageSize + index + 1}</td>
                           <td className="whitespace-nowrap">{r.asset_code ?? "ยังไม่ติดป้าย"}</td>
                           <td>{r.name}</td>
                           <td>{r.location}</td>
@@ -1018,7 +1025,7 @@ export default function AssetAuditDetailPage() {
                     })}
                     {filteredRows.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="table-empty">
+                        <td colSpan={7} className="table-empty">
                           ไม่พบรายการที่ตรงกับตัวกรอง
                         </td>
                       </tr>
@@ -1071,6 +1078,7 @@ export default function AssetAuditDetailPage() {
               <table className="table-base">
                 <thead>
                   <tr>
+                    <th className="w-14 text-center">ลำดับ</th>
                     <th>รหัสครุภัณฑ์</th>
                     <th>ชื่อทรัพย์สิน</th>
                     <th>สถานที่ตามทะเบียน</th>
@@ -1080,11 +1088,12 @@ export default function AssetAuditDetailPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {diffRows.map((r) => {
+                  {diffRows.map((r, index) => {
                     const st = inspectStatus(r);
                     const bookCondition = conditionLookup.get(r.book_condition_id);
                     return (
                       <tr key={r.id}>
+                        <td className="text-center tabular-nums text-slate-500">{index + 1}</td>
                         <td className="whitespace-nowrap">{r.asset_code ?? "ยังไม่ติดป้าย"}</td>
                         <td>{r.name}</td>
                         <td>{r.location}</td>
@@ -1100,7 +1109,7 @@ export default function AssetAuditDetailPage() {
                   })}
                   {diffRows.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="table-empty">
+                      <td colSpan={7} className="table-empty">
                         ยังไม่พบรายการที่มีผลต่างจากบัญชี
                       </td>
                     </tr>
