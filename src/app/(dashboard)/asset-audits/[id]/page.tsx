@@ -237,7 +237,72 @@ function GroupedItemsTable({
 
   return (
     <div className="table-shell">
-      <table className="table-base">
+      {/* มือถือ/จอแคบกว่า md: การ์ดกลุ่ม+รายการ แทนตารางกว้างที่เลื่อนดูยาก */}
+      <div className="divide-y divide-slate-100 md:hidden">
+        {groupEntries.map(([name, items], groupIndex) => {
+          const isOpen = expandedGroups.has(name) || items.length === 1;
+          const counts = {
+            pending: items.filter((r) => inspectStatus(r) === "pending").length,
+            match: items.filter((r) => inspectStatus(r) === "match").length,
+            diff: items.filter((r) => inspectStatus(r) === "diff").length,
+            notFound: items.filter((r) => inspectStatus(r) === "notFound").length,
+          };
+          return (
+            <Fragment key={name}>
+              {items.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(name)}
+                  className="flex w-full items-start justify-between gap-2 bg-slate-50/60 px-4 py-3 text-left"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-slate-400">#{groupIndex + 1}</span>
+                      <span className="font-medium text-slate-900">{name}</span>
+                      <span className="badge-slate">{items.length.toLocaleString("th-TH")} รายการ</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {counts.match > 0 && <span className="badge-emerald">{counts.match} ตรง</span>}
+                      {counts.diff > 0 && <span className="badge-amber">{counts.diff} ต่าง</span>}
+                      {counts.notFound > 0 && <span className="badge-red">{counts.notFound} ไม่พบ</span>}
+                      {counts.pending > 0 && <span className="badge-slate">{counts.pending} ยังไม่ตรวจ</span>}
+                    </div>
+                  </div>
+                  <ChevronRightIcon className={`mt-1 h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                </button>
+              )}
+              {isOpen &&
+                items.map((r, itemIndex) => {
+                  const st = inspectStatus(r);
+                  const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
+                  const bookCondition = conditionLookup.get(r.book_condition_id);
+                  return (
+                    <div key={r.id} className={`px-4 py-3 ${items.length > 1 ? "bg-slate-50/30 pl-8" : ""}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-slate-400">
+                          #{items.length > 1 ? `${groupIndex + 1}.${itemIndex + 1}` : groupIndex + 1}
+                        </span>
+                        <span className="font-medium text-slate-900">{items.length > 1 ? r.asset_code ?? "ยังไม่ติดป้าย" : r.name}</span>
+                      </div>
+                      {items.length === 1 && <p className="mt-0.5 text-xs text-slate-500">{r.asset_code ?? "ยังไม่ติดป้าย"}</p>}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                        <span className={stCls}>{INSPECT_STATUS[st]}</span>
+                      </div>
+                      <div className="mt-2">
+                        <ResultModal row={r} roundId={roundId} conditions={conditions} conditionLookup={conditionLookup} canEdit={canEditResults} onSaved={onSaved} />
+                      </div>
+                    </div>
+                  );
+                })}
+            </Fragment>
+          );
+        })}
+        {groupEntries.length === 0 && <p className="table-empty">ไม่พบรายการที่ตรงกับตัวกรอง</p>}
+      </div>
+
+      {/* จอกว้าง md ขึ้นไป: ตาราง */}
+      <table className="hidden table-base md:table">
         <thead>
           <tr>
             <th className="w-14 text-center">ลำดับ</th>
@@ -981,7 +1046,44 @@ export default function AssetAuditDetailPage() {
               />
             ) : (
               <div className="table-shell">
-                <table className="table-base">
+                {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 7 คอลัมน์ที่เลื่อนดูยาก
+                    (แพทเทิร์นเดียวกับ asset-register/register-tab.tsx) */}
+                <div className="divide-y divide-slate-100 md:hidden">
+                  {pageRows.map((r, index) => {
+                    const st = inspectStatus(r);
+                    const stCls = st === "match" ? "badge-emerald" : st === "pending" ? "badge-slate" : st === "diff" ? "badge-amber" : "badge-red";
+                    const bookCondition = conditionLookup.get(r.book_condition_id);
+                    return (
+                      <div key={r.id} className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-slate-400">#{(currentPage - 1) * pageSize + index + 1}</span>
+                          <span className="font-medium text-slate-900">{r.name}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {r.asset_code ?? "ยังไม่ติดป้าย"} · {r.location}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                          <span className={stCls}>{INSPECT_STATUS[st]}</span>
+                        </div>
+                        <div className="mt-2">
+                          <ResultModal
+                            row={r}
+                            roundId={roundId}
+                            conditions={conditions}
+                            conditionLookup={conditionLookup}
+                            canEdit={canEditResults}
+                            onSaved={reload}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {filteredRows.length === 0 && <p className="table-empty">ไม่พบรายการที่ตรงกับตัวกรอง</p>}
+                </div>
+
+                {/* จอกว้าง md ขึ้นไป: ตาราง */}
+                <table className="hidden table-base md:table">
                   <thead>
                     <tr>
                       <th className="w-14 text-center">ลำดับ</th>
@@ -1075,7 +1177,33 @@ export default function AssetAuditDetailPage() {
               </button>
             </div>
             <div className="table-shell">
-              <table className="table-base">
+              {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว */}
+              <div className="divide-y divide-slate-100 md:hidden">
+                {diffRows.map((r, index) => {
+                  const st = inspectStatus(r);
+                  const bookCondition = conditionLookup.get(r.book_condition_id);
+                  return (
+                    <div key={r.id} className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-slate-400">#{index + 1}</span>
+                        <span className="font-medium text-slate-900">{r.name}</span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {r.asset_code ?? "ยังไม่ติดป้าย"} · {r.location}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className={`badge-${bookCondition?.badge_color ?? "slate"}`}>{bookCondition?.name ?? "-"}</span>
+                        <span className={st === "diff" ? "badge-amber" : "badge-red"}>{INSPECT_STATUS[st]}</span>
+                      </div>
+                      {r.note && <p className="mt-1 text-xs text-slate-500">หมายเหตุ: {r.note}</p>}
+                    </div>
+                  );
+                })}
+                {diffRows.length === 0 && <p className="table-empty">ยังไม่พบรายการที่มีผลต่างจากบัญชี</p>}
+              </div>
+
+              {/* จอกว้าง md ขึ้นไป: ตาราง */}
+              <table className="hidden table-base md:table">
                 <thead>
                   <tr>
                     <th className="w-14 text-center">ลำดับ</th>
