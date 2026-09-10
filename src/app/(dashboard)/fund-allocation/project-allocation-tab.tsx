@@ -504,9 +504,40 @@ export function ProjectAllocationTab({
           </div>
 
           <div className="table-shell mt-3">
-            <table className="table-base">
+            {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว */}
+            <div className="divide-y divide-slate-100 md:hidden">
+              {filteredSourceRows.map((r, i) => (
+                <div key={r.id} className="flex items-start gap-3 px-4 py-3">
+                  {isAdmin && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(r.id)}
+                      onChange={() => toggleSelected(r.id)}
+                      aria-label={`เลือก ${r.name}`}
+                      className="mt-1 shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs text-slate-400">#{i + 1}</span>{" "}
+                    <span className="break-words font-medium text-slate-900">{r.name}</span>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {r.adminGroup} · {r.budgetSource}
+                    </p>
+                    <p className="mt-1 text-sm tabular-nums text-slate-700">{formatBaht(r.budget)} บาท</p>
+                  </div>
+                </div>
+              ))}
+              {sourceRows !== null && filteredSourceRows.length === 0 && (
+                <p className="table-empty">ไม่พบโครงการในปีงบประมาณต้นทางที่เลือก</p>
+              )}
+              {sourceRows === null && <p className="table-empty">กำลังโหลด...</p>}
+            </div>
+
+            {/* จอกว้าง md ขึ้นไป: ตาราง */}
+            <table className="hidden table-base md:table">
               <thead>
                 <tr>
+                  <th className="w-14 text-center">ลำดับ</th>
                   {isAdmin && (
                     <th className="w-10 text-center">
                       <input
@@ -524,8 +555,9 @@ export function ProjectAllocationTab({
                 </tr>
               </thead>
               <tbody>
-                {filteredSourceRows.map((r) => (
+                {filteredSourceRows.map((r, i) => (
                   <tr key={r.id}>
+                    <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                     {isAdmin && (
                       <td className="text-center">
                         <input type="checkbox" checked={selectedIds.has(r.id)} onChange={() => toggleSelected(r.id)} />
@@ -541,14 +573,14 @@ export function ProjectAllocationTab({
                 ))}
                 {sourceRows !== null && filteredSourceRows.length === 0 && (
                   <tr>
-                    <td colSpan={isAdmin ? 5 : 4} className="table-empty">
+                    <td colSpan={isAdmin ? 6 : 5} className="table-empty">
                       ไม่พบโครงการในปีงบประมาณต้นทางที่เลือก
                     </td>
                   </tr>
                 )}
                 {sourceRows === null && (
                   <tr>
-                    <td colSpan={isAdmin ? 5 : 4} className="table-empty">
+                    <td colSpan={isAdmin ? 6 : 5} className="table-empty">
                       กำลังโหลด...
                     </td>
                   </tr>
@@ -612,9 +644,35 @@ export function ProjectAllocationTab({
             <div>
               <div className="card-title mb-2 text-sm font-bold text-navy-800">เทียบตามแหล่งงบประมาณ</div>
               <div className="table-shell">
-                <table className="table-base">
+                {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว */}
+                <div className="divide-y divide-slate-100 md:hidden">
+                  {sourceSummaryRows.map((r, i) => (
+                    <div key={r.id} className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 break-words font-medium text-slate-900">
+                          <span className="text-xs text-slate-400">#{i + 1}</span> {r.label}
+                        </span>
+                        <span
+                          className={`shrink-0 tabular-nums font-semibold ${
+                            Math.abs(r.diff) < 0.005 ? "text-emerald-700" : "text-red-600"
+                          }`}
+                        >
+                          {formatBaht(r.diff)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        จัดสรร {formatBaht(r.allocated)} · ร่างโครงการ {formatBaht(r.draftTotal)}
+                      </p>
+                    </div>
+                  ))}
+                  {sourceSummaryRows.length === 0 && <p className="table-empty">ยังไม่มีแหล่งงบประมาณ</p>}
+                </div>
+
+                {/* จอกว้าง md ขึ้นไป: ตาราง */}
+                <table className="hidden table-base md:table">
                   <thead>
                     <tr>
+                      <th className="w-14 text-center">ลำดับ</th>
                       <th>แหล่งเงิน</th>
                       <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร</th>
                       <th className="whitespace-nowrap text-right">งบร่างโครงการ</th>
@@ -622,8 +680,9 @@ export function ProjectAllocationTab({
                     </tr>
                   </thead>
                   <tbody>
-                    {sourceSummaryRows.map((r) => (
+                    {sourceSummaryRows.map((r, i) => (
                       <tr key={r.id}>
+                        <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                         <td className="font-medium text-slate-900">{r.label}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.allocated)}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.draftTotal)}</td>
@@ -638,7 +697,7 @@ export function ProjectAllocationTab({
                     ))}
                     {sourceSummaryRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="table-empty">
+                        <td colSpan={5} className="table-empty">
                           ยังไม่มีแหล่งงบประมาณ
                         </td>
                       </tr>
@@ -651,9 +710,35 @@ export function ProjectAllocationTab({
             <div>
               <div className="card-title mb-2 text-sm font-bold text-navy-800">เทียบตามกลุ่มบริหารงาน</div>
               <div className="table-shell">
-                <table className="table-base">
+                {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว */}
+                <div className="divide-y divide-slate-100 md:hidden">
+                  {groupSummaryRows.map((r, i) => (
+                    <div key={r.id} className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="min-w-0 break-words font-medium text-slate-900">
+                          <span className="text-xs text-slate-400">#{i + 1}</span> {r.label}
+                        </span>
+                        <span
+                          className={`shrink-0 tabular-nums font-semibold ${
+                            Math.abs(r.diff) < 0.005 ? "text-emerald-700" : "text-red-600"
+                          }`}
+                        >
+                          {formatBaht(r.diff)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        จัดสรร {formatBaht(r.allocated)} · ร่างโครงการ {formatBaht(r.draftTotal)}
+                      </p>
+                    </div>
+                  ))}
+                  {groupSummaryRows.length === 0 && <p className="table-empty">ยังไม่มีกลุ่มบริหารงาน</p>}
+                </div>
+
+                {/* จอกว้าง md ขึ้นไป: ตาราง */}
+                <table className="hidden table-base md:table">
                   <thead>
                     <tr>
+                      <th className="w-14 text-center">ลำดับ</th>
                       <th>กลุ่มบริหารงาน</th>
                       <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร</th>
                       <th className="whitespace-nowrap text-right">งบร่างโครงการ</th>
@@ -661,8 +746,9 @@ export function ProjectAllocationTab({
                     </tr>
                   </thead>
                   <tbody>
-                    {groupSummaryRows.map((r) => (
+                    {groupSummaryRows.map((r, i) => (
                       <tr key={r.id}>
+                        <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                         <td className="font-medium text-slate-900">{r.label}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.allocated)}</td>
                         <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.draftTotal)}</td>
@@ -677,7 +763,7 @@ export function ProjectAllocationTab({
                     ))}
                     {groupSummaryRows.length === 0 && (
                       <tr>
-                        <td colSpan={4} className="table-empty">
+                        <td colSpan={5} className="table-empty">
                           ยังไม่มีกลุ่มบริหารงาน
                         </td>
                       </tr>
@@ -744,7 +830,131 @@ export function ProjectAllocationTab({
             </div>
 
             <div className="table-shell mt-2">
-              <table className="table-base">
+              {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว */}
+              <div className="divide-y divide-slate-100 md:hidden">
+                {filteredDraftRows.map((r, i) => {
+                  const isSaving = savingId === r.id;
+                  const isEditing = editingRowId === r.id;
+                  const isAcquiring = acquiringId === r.id;
+                  const lockedByOther = !isEditing && !!r.editingByName;
+                  return (
+                    <div key={r.id} className="px-4 py-3">
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editDraft?.name ?? ""}
+                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+                            disabled={isSaving}
+                            className="input w-full font-medium text-slate-900 disabled:bg-slate-100"
+                          />
+                          <select
+                            value={editDraft?.adminGroupId ?? ""}
+                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, adminGroupId: e.target.value } : prev))}
+                            disabled={isSaving}
+                            className="input disabled:bg-slate-100"
+                          >
+                            <option value="">ไม่ระบุกลุ่มบริหาร</option>
+                            {adminGroups.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={editDraft?.budgetSourceId ?? ""}
+                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, budgetSourceId: e.target.value } : prev))}
+                            disabled={isSaving}
+                            className="input disabled:bg-slate-100"
+                          >
+                            <option value="">ไม่ระบุแหล่งงบประมาณ</option>
+                            {budgetSources.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={editDraft?.budget ?? ""}
+                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, budget: e.target.value } : prev))}
+                            disabled={isSaving}
+                            className="input text-right disabled:bg-slate-100"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => cancelEditDraft(r)}
+                              disabled={isSaving}
+                              className="btn-secondary btn-sm flex-1 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              ยกเลิก
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => saveEditDraft(r)}
+                              disabled={isSaving}
+                              className="btn-primary btn-sm flex-1 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="min-w-0 break-words font-medium text-slate-900">
+                              <span className="text-xs text-slate-400">#{i + 1}</span> {r.name}
+                            </span>
+                            <span className="shrink-0 tabular-nums">{formatBaht(r.budget)}</span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-slate-500">
+                            {adminGroups.find((g) => g.id === r.adminGroupId)?.name ?? "ไม่ระบุ"} ·{" "}
+                            {budgetSources.find((s) => s.id === r.budgetSourceId)?.name ?? "ไม่ระบุ"}
+                          </p>
+                          {lockedByOther ? (
+                            <p className="mt-2 text-xs text-amber-700">กำลังแก้ไขโดย {r.editingByName}</p>
+                          ) : (
+                            <div className="mt-2 flex gap-2">
+                              {canEditDraft && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditDraft(r)}
+                                  disabled={editingRowId !== null || isAcquiring}
+                                  className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  {isAcquiring ? "กำลังเปิด..." : "แก้ไข"}
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteDraft(r)}
+                                  disabled={isSaving || editingRowId !== null}
+                                  className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                  ลบ
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+                {draftRows !== null && filteredDraftRows.length === 0 && (
+                  <p className="table-empty">
+                    {draftRows.length === 0
+                      ? 'ยังไม่มีร่างโครงการ — คัดลอกจากปีเดิมด้านบน หรือกด "+ เพิ่มร่างโครงการ"'
+                      : "ไม่พบร่างโครงการตามตัวกรองที่เลือก"}
+                  </p>
+                )}
+              </div>
+
+              {/* จอกว้าง md ขึ้นไป: ตาราง */}
+              <table className="hidden table-base md:table">
                 <thead>
                   <tr>
                     <th className="w-12 text-center">#</th>

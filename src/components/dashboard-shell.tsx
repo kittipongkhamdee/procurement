@@ -378,7 +378,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="flex-1 bg-slate-100 p-4 pb-24 print:bg-white print:p-0 lg:p-6 lg:pb-6">{children}</main>
+        <main className="min-w-0 flex-1 bg-slate-100 p-4 pb-24 print:bg-white print:p-0 lg:p-6 lg:pb-6">{children}</main>
       </div>
 
       <nav

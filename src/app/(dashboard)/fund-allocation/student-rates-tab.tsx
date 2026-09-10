@@ -261,16 +261,56 @@ export function StudentRatesTab({ budgetYearId, isAdmin }: { budgetYearId: strin
           &quot;แก้ไข&quot; ก่อนจึงจะเปลี่ยนค่าได้
         </p>
         <div className="table-shell">
-          <table className="table-base">
+          {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละรายการ พร้อมย่อยตามระดับชั้น */}
+          <div className="divide-y divide-slate-100 md:hidden">
+            {ITEM_DEFS.map((item, itemIndex) => {
+              const grades = item.grades === "all" ? (["all"] as const) : item.grades;
+              return (
+                <div key={item.key} className="px-4 py-3">
+                  <p className="break-words font-medium text-slate-900">
+                    <span className="text-xs text-slate-400">#{itemIndex + 1}</span> {item.label}
+                  </p>
+                  <div className="mt-2 space-y-2">
+                    {grades.map((g) => {
+                      const isAll = g === "all";
+                      const key = rateKey(item.key, g as GradeKey);
+                      const rate = rates[key] ?? 0;
+                      const draft = rateDrafts[key];
+                      return (
+                        <div key={key} className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-slate-600">{isAll ? "นักเรียนทั้งหมด" : GRADE_LABELS[g as GradeKey]}</span>
+                          {ratesEditing ? (
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={draft ?? rate}
+                              onChange={(e) => setRateDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
+                              className="input w-28 text-right"
+                            />
+                          ) : (
+                            <span className="tabular-nums text-sm">{formatBaht(rate)}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* จอกว้าง md ขึ้นไป: ตาราง */}
+          <table className="hidden table-base md:table">
             <thead>
               <tr>
+                <th className="w-14 text-center">ลำดับ</th>
                 <th>รายการ</th>
                 <th className="whitespace-nowrap">ระดับชั้น</th>
                 <th className="whitespace-nowrap text-right">บาท/คน/ปี</th>
               </tr>
             </thead>
             <tbody>
-              {ITEM_DEFS.map((item) => {
+              {ITEM_DEFS.map((item, itemIndex) => {
                 const grades = item.grades === "all" ? (["all"] as const) : item.grades;
                 return (
                   <Fragment key={item.key}>
@@ -281,6 +321,11 @@ export function StudentRatesTab({ budgetYearId, isAdmin }: { budgetYearId: strin
                       const draft = rateDrafts[key];
                       return (
                         <tr key={key}>
+                          {i === 0 && (
+                            <td rowSpan={grades.length} className="align-top text-center tabular-nums text-slate-400">
+                              {itemIndex + 1}
+                            </td>
+                          )}
                           {i === 0 && (
                             <td rowSpan={grades.length} className="align-top font-medium text-slate-900">
                               {item.label}

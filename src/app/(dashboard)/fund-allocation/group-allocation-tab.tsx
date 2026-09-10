@@ -125,7 +125,24 @@ export function GroupAllocationTab({
     <div>
       <div className="card-title mb-2 text-base font-bold text-navy-800">สรุปรวมรายรับแต่ละรายการ</div>
       <div className="table-shell mb-6">
-        <table className="table-base">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว (แพทเทิร์นเดียวกับ asset-register/register-tab.tsx) */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {itemTotals.map((item, i) => (
+            <div key={item.key} className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="min-w-0 break-words font-medium text-slate-900">
+                <span className="text-xs text-slate-400">#{i + 1}</span> {item.label}
+              </span>
+              <span className="shrink-0 tabular-nums">{formatBaht(item.total)}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-3 font-bold text-slate-700">
+            <span className="break-words">รวมประมาณการรายรับทั้งสิ้น</span>
+            <span className="shrink-0 tabular-nums text-navy-800">{formatBaht(revenueGrandTotal)}</span>
+          </div>
+        </div>
+
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="w-14 text-center">ลำดับ</th>
@@ -144,7 +161,7 @@ export function GroupAllocationTab({
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={2} className="text-right font-bold text-slate-700">
+              <td colSpan={2} className="break-words text-right font-bold text-slate-700">
                 รวมประมาณการรายรับทั้งสิ้น
               </td>
               <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
@@ -157,7 +174,22 @@ export function GroupAllocationTab({
 
       <div className="card-title mb-2 text-base font-bold text-navy-800">งบประมาณจัดทำโครงการ</div>
       <div className="table-shell mb-6">
-        <table className="table-base">
+        <div className="divide-y divide-slate-100 md:hidden">
+          {projectRows.map((r, i) => (
+            <div key={r.label} className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="min-w-0 break-words font-medium text-slate-900">
+                <span className="text-xs text-slate-400">#{i + 1}</span> {r.label}
+              </span>
+              <span className="shrink-0 tabular-nums">{formatBaht(r.amount)}</span>
+            </div>
+          ))}
+          <div className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-3 font-bold text-slate-700">
+            <span>รวม</span>
+            <span className="shrink-0 tabular-nums text-navy-800">{formatBaht(projectTotal)} บาท</span>
+          </div>
+        </div>
+
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="w-14 text-center">ลำดับ</th>
@@ -219,16 +251,48 @@ export function GroupAllocationTab({
         &quot;งบประมาณจัดทำโครงการ&quot; ด้านบน — ต้องกด &quot;แก้ไข&quot; ก่อนจึงจะเปลี่ยนค่าได้
       </p>
       <div className="table-shell">
-        <table className="table-base">
+        <div className="divide-y divide-slate-100 md:hidden">
+          {adminGroups.map((g, i) => (
+            <div key={g.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <span className="min-w-0 break-words font-medium text-slate-900">
+                <span className="text-xs text-slate-400">#{i + 1}</span> {g.name}
+              </span>
+              <div className="shrink-0">
+                {amountsEditing ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={amountDrafts[g.id] ?? amounts[g.id] ?? 0}
+                    onChange={(e) => setAmountDrafts((prev) => ({ ...prev, [g.id]: e.target.value }))}
+                    className="input w-32 text-right"
+                  />
+                ) : (
+                  <span className="tabular-nums">{formatBaht(amounts[g.id] ?? 0)}</span>
+                )}
+              </div>
+            </div>
+          ))}
+          {adminGroups.length === 0 && <p className="table-empty">ยังไม่มีกลุ่มบริหารงาน</p>}
+          {adminGroups.length > 0 && (
+            <div className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-3 font-bold text-slate-700">
+              <span>รวมทั้งสิ้น</span>
+              <span className="shrink-0 tabular-nums text-navy-800">{formatBaht(groupTotal)}</span>
+            </div>
+          )}
+        </div>
+
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
+              <th className="w-14 text-center">ลำดับ</th>
               <th>กลุ่มบริหารงาน</th>
               <th className="whitespace-nowrap text-right">งบประมาณที่จัดสรร (บาท)</th>
             </tr>
           </thead>
           <tbody>
-            {adminGroups.map((g) => (
+            {adminGroups.map((g, i) => (
               <tr key={g.id}>
+                <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                 <td className="font-medium text-slate-900">{g.name}</td>
                 <td className="whitespace-nowrap text-right">
                   {amountsEditing ? (
@@ -247,7 +311,7 @@ export function GroupAllocationTab({
             ))}
             {adminGroups.length === 0 && (
               <tr>
-                <td colSpan={2} className="table-empty">
+                <td colSpan={3} className="table-empty">
                   ยังไม่มีกลุ่มบริหารงาน
                 </td>
               </tr>
@@ -256,7 +320,9 @@ export function GroupAllocationTab({
           {adminGroups.length > 0 && (
             <tfoot>
               <tr>
-                <td className="text-right font-bold text-slate-700">รวมทั้งสิ้น</td>
+                <td colSpan={2} className="break-words text-right font-bold text-slate-700">
+                  รวมทั้งสิ้น
+                </td>
                 <td className="whitespace-nowrap text-right text-base font-bold text-navy-800 tabular-nums">
                   {formatBaht(groupTotal)}
                 </td>
