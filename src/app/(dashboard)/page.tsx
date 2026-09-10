@@ -427,30 +427,34 @@ export default function DashboardPage() {
           <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-3 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">งบประมาณแยกตามประเภทเงิน</div>
-              <ConcentricHalfGauges
-                rings={bySource.map((s, i) => ({
-                  percent: pct(s.spent, s.budget),
-                  color: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length],
-                }))}
-              />
-              <div className="mt-2 space-y-2.5 text-sm print:mt-1 print:space-y-2">
-                {bySource.map((s, i) => {
-                  const spentPct = pct(s.spent, s.budget);
-                  return (
-                    <div key={s.id} className="flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                        style={{ background: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length] }}
-                      />
-                      <span className="min-w-0 flex-1 truncate text-slate-600">{s.name}</span>
-                      <span className="shrink-0 tabular-nums text-slate-400">{formatBaht(s.budget)} บาท</span>
-                      <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-slate-900">
-                        {spentPct.toFixed(1)}%
-                      </span>
-                    </div>
-                  );
-                })}
-                {bySource.length === 0 && <p className="table-empty">ยังไม่มีแหล่งเงินงบประมาณ</p>}
+              <div className="sm:flex sm:items-center sm:gap-6">
+                <div className="shrink-0">
+                  <ConcentricHalfGauges
+                    rings={bySource.map((s, i) => ({
+                      percent: pct(s.spent, s.budget),
+                      color: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length],
+                    }))}
+                  />
+                </div>
+                <div className="mt-2 min-w-0 flex-1 space-y-2.5 text-sm sm:mt-0 print:mt-1 print:space-y-2">
+                  {bySource.map((s, i) => {
+                    const spentPct = pct(s.spent, s.budget);
+                    return (
+                      <div key={s.id} className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                          style={{ background: SOURCE_RING_COLORS[i % SOURCE_RING_COLORS.length] }}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-slate-600">{s.name}</span>
+                        <span className="shrink-0 tabular-nums text-slate-400">{formatBaht(s.budget)} บาท</span>
+                        <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-slate-900">
+                          {spentPct.toFixed(1)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {bySource.length === 0 && <p className="table-empty">ยังไม่มีแหล่งเงินงบประมาณ</p>}
+                </div>
               </div>
             </div>
 
