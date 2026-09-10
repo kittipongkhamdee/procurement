@@ -242,7 +242,38 @@ export default function AssetAuditsPage() {
       </div>
 
       <div className="table-shell mt-4">
-        <table className="table-base">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละรอบ แทนตารางกว้าง (แพทเทิร์นเดียวกับ
+            asset-register/register-tab.tsx) */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {rounds.map((r) => {
+            const sb = statusBadge(r.status);
+            return (
+              <div key={r.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-slate-900">ปีงบประมาณ {r.fiscal_year}</span>
+                  <span className={sb.cls}>{sb.label}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  เริ่มตรวจ {formatThaiDate(r.start_date)} · ครบกำหนด {formatThaiDate(r.due_date)}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Link href={`/asset-audits/${r.id}`} className="btn-secondary btn-sm">
+                    เปิดรอบตรวจสอบ
+                  </Link>
+                  {canManage && r.status !== "submitted" && r.status !== "acknowledged_deputy" && r.status !== "acknowledged" && (
+                    <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
+                      ลบ
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {rounds.length === 0 && <p className="table-empty">ยังไม่มีรอบตรวจสอบพัสดุ</p>}
+        </div>
+
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="whitespace-nowrap">ปีงบประมาณ</th>
