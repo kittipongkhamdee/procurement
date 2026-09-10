@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, type ReactNode } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from "react";
 
 export type ModalHandle = { close: () => void };
 
@@ -15,13 +15,21 @@ export const Modal = forwardRef<
     closeOnSubmit?: boolean;
     /** ขยายความกว้างสูงสุดของ popup — ใช้กับฟอร์มที่มีเนื้อหาเยอะ/มีตาราง เช่น เสนอโครงการ, รายงานโครงการ (ค่าเริ่มต้น max-w-2xl) */
     wide?: boolean;
+    /** เปิด popup อัตโนมัติทันทีตอน mount — ใช้กับลิงก์ลัดจากหน้า "ผู้บริหาร" (เช่น
+     * /project-proposals?open=<id>) ที่ต้องการพาผู้ใช้เข้าไปยังป็อปอัปรายการนั้นตรงๆ */
+    defaultOpen?: boolean;
   }
->(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit, wide }, forwardedRef) {
+>(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit, wide, defaultOpen }, forwardedRef) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useImperativeHandle(forwardedRef, () => ({
     close: () => ref.current?.close(),
   }));
+
+  useEffect(() => {
+    if (defaultOpen) ref.current?.showModal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

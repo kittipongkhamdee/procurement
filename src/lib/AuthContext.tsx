@@ -23,6 +23,7 @@ const ROLE_LABELS: Record<string, string> = {
   finance_officer: "เจ้าหน้าที่การเงิน",
   teacher: "ครู",
   director: "ผู้อำนวยการ",
+  deputy_director: "รองผู้อำนวยการ",
 };
 
 type AuthContextValue = {

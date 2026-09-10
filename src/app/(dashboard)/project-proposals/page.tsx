@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
@@ -60,6 +61,9 @@ type ProposalRow = {
 
 export default function ProjectProposalsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
+  // ลิงก์ลัดจากหน้า "ผู้บริหาร" (/project-proposals?open=<id>) — เปิดป็อปอัปรายละเอียดของรายการนี้
+  // อัตโนมัติให้เลย ไม่ต้องไล่หาในตาราง
+  const autoOpenId = useSearchParams().get("open");
   const [rows, setRows] = useState<ProposalRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentYear, setCurrentYear] = useState<{ id: string } | null>(null);
@@ -283,6 +287,7 @@ export default function ProjectProposalsPage() {
           deleteProposalFile={deleteProposalFile}
           updateProposal={updateProposal}
           onChanged={reload}
+          autoOpenId={autoOpenId}
         />
       </div>
     </div>

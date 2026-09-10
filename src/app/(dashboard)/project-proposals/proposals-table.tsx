@@ -88,6 +88,7 @@ export function ProposalsTable({
   deleteProposalFile,
   updateProposal,
   onChanged,
+  autoOpenId,
 }: {
   rows: ProposalRow[];
   isAdmin: boolean;
@@ -107,6 +108,8 @@ export function ProposalsTable({
   deleteProposalFile: typeof deleteProposalFileAction;
   updateProposal: typeof updateProposalAction;
   onChanged?: () => void;
+  /** เปิดป็อปอัปรายละเอียดของรายการนี้อัตโนมัติ — มาจากลิงก์ลัดหน้า "ผู้บริหาร" (?open=<id>) */
+  autoOpenId?: string | null;
 }) {
   return (
     <>
@@ -174,6 +177,7 @@ export function ProposalsTable({
                   deleteProposal={deleteProposal}
                   deleteProposalFile={deleteProposalFile}
                   onChanged={onChanged}
+                  defaultOpen={r.id === autoOpenId}
                 />
               </div>
             </div>
@@ -258,6 +262,7 @@ export function ProposalsTable({
                       deleteProposal={deleteProposal}
                       deleteProposalFile={deleteProposalFile}
                       onChanged={onChanged}
+                      defaultOpen={r.id === autoOpenId}
                     />
                   </div>
                 </td>

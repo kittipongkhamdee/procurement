@@ -79,6 +79,7 @@ export function ProposalDetailModal({
   deleteProposal,
   deleteProposalFile,
   onChanged,
+  defaultOpen,
 }: {
   proposal: Proposal;
   isAdmin: boolean;
@@ -92,6 +93,8 @@ export function ProposalDetailModal({
   deleteProposal: typeof deleteProposalAction;
   deleteProposalFile: typeof deleteProposalFileAction;
   onChanged?: () => void;
+  /** เปิดป็อปอัปนี้อัตโนมัติตอนโหลดหน้า — ใช้กับลิงก์ลัดจากหน้า "ผู้บริหาร" (/project-proposals?open=<id>) */
+  defaultOpen?: boolean;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [endorseNote, setEndorseNote] = useState("");
@@ -199,7 +202,7 @@ export function ProposalDetailModal({
   ];
 
   return (
-    <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm">
+    <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm" defaultOpen={defaultOpen}>
       <div className="grid grid-cols-1 gap-4 text-left">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className={statusBadgeClass(proposal.status)}>{proposal.status}</span>
