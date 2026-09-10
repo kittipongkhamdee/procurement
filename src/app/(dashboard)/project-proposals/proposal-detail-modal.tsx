@@ -3,8 +3,8 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
+import { ApprovalTimeline, PendingActionCallout, type FlowStep } from "@/components/approval-flow";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import { formatThaiDate } from "@/lib/thai";
 import type {
   approveProposal as approveProposalAction,
   cancelEndorsement as cancelEndorsementAction,
@@ -174,6 +174,30 @@ export function ProposalDetailModal({
     }
   }
 
+  const endorseRejected = proposal.status === "ไม่เห็นชอบ";
+  const approveRejected = proposal.status === "ไม่อนุมัติ";
+  const flowSteps: FlowStep[] = [
+    { label: "เสนอโครงการ", state: "done", by: proposal.proposerName },
+    {
+      label: "เห็นชอบ (รองผู้อำนวยการ)",
+      state: endorseRejected ? "rejected" : proposal.endorsedByName ? "done" : "current",
+      by: proposal.endorsedByName,
+      at: proposal.endorsedAt,
+    },
+    {
+      label: "อนุมัติ (ผู้อำนวยการ)",
+      state: approveRejected
+        ? "rejected"
+        : proposal.status === "อนุมัติแล้ว"
+          ? "done"
+          : proposal.status === "รออนุมัติ"
+            ? "current"
+            : "pending",
+      by: proposal.approvedByName,
+      at: proposal.approvedAt,
+    },
+  ];
+
   return (
     <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm">
       <div className="grid grid-cols-1 gap-4 text-left">
@@ -274,140 +298,140 @@ export function ProposalDetailModal({
           </div>
         )}
 
-        <div className="border-t border-slate-100 pt-4">
-          <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>
-
-          {proposal.endorsedByName && (
-            <p className="mb-2 text-sm text-slate-600">
-              เห็นชอบโดย {proposal.endorsedByName} เมื่อ {formatThaiDate(proposal.endorsedAt)}
-              {proposal.endorseNote ? ` — ${proposal.endorseNote}` : ""}
-            </p>
-          )}
-          {proposal.approvedByName && (
-            <p className="mb-2 text-sm text-slate-600">
-              อนุมัติโดย {proposal.approvedByName} เมื่อ {formatThaiDate(proposal.approvedAt)}
-              {proposal.approveNote ? ` — ${proposal.approveNote}` : ""}
-            </p>
-          )}
+        <div className="space-y-4 border-t border-slate-100 pt-4">
+          <div>
+            <div className="card-title">ขั้นตอนเห็นชอบ / อนุมัติ</div>
+            <ApprovalTimeline steps={flowSteps} />
+            {proposal.endorseNote && (
+              <p className="mt-2 text-sm text-slate-600">ความเห็น (เห็นชอบ): {proposal.endorseNote}</p>
+            )}
+            {proposal.approveNote && (
+              <p className="mt-1 text-sm text-slate-600">ความเห็น (อนุมัติ): {proposal.approveNote}</p>
+            )}
+          </div>
 
           {canEndorse && proposal.status === "รออนุมัติ" && (
-            <button type="button" onClick={handleCancelEndorsement} className="btn-secondary btn-sm mb-2">
+            <button type="button" onClick={handleCancelEndorsement} className="btn-secondary btn-sm">
               ยกเลิกเห็นชอบ
             </button>
           )}
 
           {canEndorse && proposal.status === "รอเห็นชอบ" && (
-            <div className="grid grid-cols-1 gap-2">
-              {endorseRejecting && (
-                <textarea
-                  value={endorseNote}
-                  onChange={(e) => setEndorseNote(e.target.value)}
-                  rows={2}
-                  placeholder="ระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข (จำเป็น)"
-                  className="input"
-                  autoFocus
-                />
-              )}
-              <div className="flex flex-wrap gap-3">
-                {endorseRejecting ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleEndorse("ไม่เห็นชอบ")}
-                      className="btn-danger flex-1 py-3 text-base"
-                    >
-                      ยืนยันไม่เห็นชอบ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEndorseRejecting(false);
-                        setEndorseNote("");
-                      }}
-                      className="btn-secondary flex-1 py-3 text-base"
-                    >
-                      ยกเลิก
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleEndorse("เห็นชอบ")}
-                      className="btn-primary flex-1 py-3 text-base"
-                    >
-                      เห็นชอบ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEndorseRejecting(true)}
-                      className="btn-danger flex-1 py-3 text-base"
-                    >
-                      ไม่เห็นชอบ
-                    </button>
-                  </>
+            <PendingActionCallout subtitle="ข้อเสนอโครงการนี้รอให้ท่านพิจารณาเห็นชอบก่อนส่งต่อผู้อำนวยการ">
+              <div className="grid grid-cols-1 gap-2">
+                {endorseRejecting && (
+                  <textarea
+                    value={endorseNote}
+                    onChange={(e) => setEndorseNote(e.target.value)}
+                    rows={2}
+                    placeholder="ระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข (จำเป็น)"
+                    className="input"
+                    autoFocus
+                  />
                 )}
+                <div className="flex flex-wrap gap-3">
+                  {endorseRejecting ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleEndorse("ไม่เห็นชอบ")}
+                        className="btn-danger flex-1 py-3 text-base"
+                      >
+                        ยืนยันไม่เห็นชอบ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEndorseRejecting(false);
+                          setEndorseNote("");
+                        }}
+                        className="btn-secondary flex-1 py-3 text-base"
+                      >
+                        ยกเลิก
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleEndorse("เห็นชอบ")}
+                        className="btn-primary flex-1 py-3 text-base"
+                      >
+                        เห็นชอบ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEndorseRejecting(true)}
+                        className="btn-danger flex-1 py-3 text-base"
+                      >
+                        ไม่เห็นชอบ
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            </PendingActionCallout>
           )}
 
           {canApprove && proposal.status === "รออนุมัติ" && (
-            <div className="grid grid-cols-1 gap-2">
-              {approveRejecting && (
-                <textarea
-                  value={approveNote}
-                  onChange={(e) => setApproveNote(e.target.value)}
-                  rows={2}
-                  placeholder="ระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข (จำเป็น)"
-                  className="input"
-                  autoFocus
-                />
-              )}
-              <div className="flex flex-wrap gap-3">
-                {approveRejecting ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleApprove("ไม่อนุมัติ")}
-                      className="btn-danger flex-1 py-3 text-base"
-                    >
-                      ยืนยันไม่อนุมัติ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setApproveRejecting(false);
-                        setApproveNote("");
-                      }}
-                      className="btn-secondary flex-1 py-3 text-base"
-                    >
-                      ยกเลิก
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleApprove("อนุมัติแล้ว")}
-                      className="btn-primary flex-1 py-3 text-base"
-                    >
-                      อนุมัติ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setApproveRejecting(true)}
-                      className="btn-danger flex-1 py-3 text-base"
-                    >
-                      ไม่อนุมัติ
-                    </button>
-                  </>
+            <PendingActionCallout subtitle="ข้อเสนอโครงการนี้ผ่านการเห็นชอบแล้ว รอให้ท่านพิจารณาอนุมัติ">
+              <div className="grid grid-cols-1 gap-2">
+                {approveRejecting && (
+                  <textarea
+                    value={approveNote}
+                    onChange={(e) => setApproveNote(e.target.value)}
+                    rows={2}
+                    placeholder="ระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข (จำเป็น)"
+                    className="input"
+                    autoFocus
+                  />
                 )}
+                <div className="flex flex-wrap gap-3">
+                  {approveRejecting ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleApprove("ไม่อนุมัติ")}
+                        className="btn-danger flex-1 py-3 text-base"
+                      >
+                        ยืนยันไม่อนุมัติ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setApproveRejecting(false);
+                          setApproveNote("");
+                        }}
+                        className="btn-secondary flex-1 py-3 text-base"
+                      >
+                        ยกเลิก
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleApprove("อนุมัติแล้ว")}
+                        className="btn-primary flex-1 py-3 text-base"
+                      >
+                        อนุมัติ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApproveRejecting(true)}
+                        className="btn-danger flex-1 py-3 text-base"
+                      >
+                        ไม่อนุมัติ
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            </PendingActionCallout>
           )}
 
           {isAdmin && !["รอเห็นชอบ"].includes(proposal.status) && (
-            <button type="button" onClick={handleReset} className="btn-secondary btn-sm mt-2">
+            <button type="button" onClick={handleReset} className="btn-secondary btn-sm">
               ย้อนเป็นรอเห็นชอบ
             </button>
           )}
