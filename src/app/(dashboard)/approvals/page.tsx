@@ -5,6 +5,7 @@
 // (พิมพ์ PDF) ยังคงเป็น Server Component เดิม ไม่แตะ — ใช้งานไม่บ่อยเท่าหน้ารายการนี้
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
@@ -84,6 +85,7 @@ function ApprovalStatusCell({
   onSubmitDirector,
   onResetDeputy,
   onResetStatus,
+  defaultOpen,
 }: {
   approval: Approval;
   mode: DecisionMode;
@@ -94,6 +96,8 @@ function ApprovalStatusCell({
   onSubmitDirector: (id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) => Promise<void>;
   onResetDeputy: (id: string) => void;
   onResetStatus: (id: string) => void;
+  /** เปิดป็อปอัปนี้อัตโนมัติ — ใช้กับลิงก์ลัดจากหน้า "ผู้บริหาร" (/approvals?open=<id>) */
+  defaultOpen?: boolean;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [choice, setChoice] = useState<"ควร" | "ไม่ควร" | "อนุมัติ" | "ไม่อนุมัติ" | null>(null);
@@ -150,6 +154,7 @@ function ApprovalStatusCell({
       trigger={status}
       triggerClassName={`${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
       title={mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
+      defaultOpen={defaultOpen}
     >
       <div className="space-y-4">
         <div>
@@ -308,6 +313,8 @@ function ApprovalStatusCell({
 
 export default function ApprovalsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
+  // ลิงก์ลัดจากหน้า "ผู้บริหาร" (/approvals?open=<id>) — เปิดป็อปอัปสถานะของรายการนี้อัตโนมัติ
+  const autoOpenId = useSearchParams().get("open");
   const [approvals, setApprovals] = useState<Approval[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signedPdfUrls, setSignedPdfUrls] = useState<Map<string, string>>(new Map());
@@ -515,6 +522,7 @@ export default function ApprovalsPage() {
                       onSubmitDirector={submitDirectorDecision}
                       onResetDeputy={handleResetDeputyDecision}
                       onResetStatus={handleResetStatus}
+                      defaultOpen={a.id === autoOpenId}
                     />
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -602,6 +610,7 @@ export default function ApprovalsPage() {
                         onSubmitDirector={submitDirectorDecision}
                         onResetDeputy={handleResetDeputyDecision}
                         onResetStatus={handleResetStatus}
+                        defaultOpen={a.id === autoOpenId}
                       />
                     </td>
                     <td className="text-right">

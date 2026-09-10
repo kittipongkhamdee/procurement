@@ -46,19 +46,21 @@ const DISABLED_HREFS = new Set([
 
 export function DashboardShell({
   baseNavSections,
+  executiveSection,
   adminSection,
   dateLabel,
   logoutAction,
   children,
 }: {
   baseNavSections: NavSection[];
+  executiveSection: NavSection;
   adminSection: NavSection;
   dateLabel: string;
   logoutAction: (formData: FormData) => void | Promise<void>;
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin, roleLabel, displayName, avatarUrl, loading, pendingApproval } = useAuth();
+  const { user, isAdmin, roleLabel, displayName, avatarUrl, loading, pendingApproval } = useAuth();
   const { schoolName, logoUrl } = useSchoolSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -103,12 +105,14 @@ export function DashboardShell({
     });
   }
 
-  // เมนู "ผู้ดูแลระบบ" โผล่เฉพาะแอดมิน — กรองฝั่ง client จาก context (หน้า /admin/users และ
-  // /settings ยังเช็คสิทธิ์ฝั่ง server ของตัวเองอยู่แล้ว การซ่อนเมนูเป็นแค่เรื่องการแสดงผล)
-  const navSections = useMemo(
-    () => (isAdmin ? [...baseNavSections, adminSection] : baseNavSections),
-    [baseNavSections, adminSection, isAdmin],
-  );
+  // เมนู "ผู้บริหาร" โผล่เฉพาะแอดมิน/รองผู้อำนวยการ/ผู้อำนวยการ วางไว้บนสุดก่อน "แดชบอร์ด" เสมอ —
+  // เมนู "ผู้ดูแลระบบ" โผล่เฉพาะแอดมิน — ทั้งสองกรองฝั่ง client จาก context (หน้าปลายทางยังเช็คสิทธิ์
+  // ฝั่ง server/RLS ของตัวเองอยู่แล้ว การซ่อนเมนูเป็นแค่เรื่องการแสดงผล)
+  const showExecutive = isAdmin || user?.role === "deputy_director" || user?.role === "director";
+  const navSections = useMemo(() => {
+    const sections = showExecutive ? [executiveSection, ...baseNavSections] : baseNavSections;
+    return isAdmin ? [...sections, adminSection] : sections;
+  }, [baseNavSections, executiveSection, adminSection, isAdmin, showExecutive]);
   const initial = displayName ? displayName.trim().charAt(0) : "?";
 
   const allItems = useMemo(
@@ -186,10 +190,10 @@ export function DashboardShell({
         </div>
 
         <nav className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-3 py-4">
-          {navSections.map((section) => {
+          {navSections.map((section, sectionIndex) => {
             const sectionCollapsed = !!section.heading && !openSections.has(section.heading);
             return (
-            <div key={section.heading ?? "root"}>
+            <div key={`${section.heading ?? "root"}-${sectionIndex}`}>
               {section.heading && (
                 <button
                   type="button"

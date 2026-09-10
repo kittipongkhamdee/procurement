@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, type ReactNode } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from "react";
 
 export type ModalHandle = { close: () => void };
 
@@ -15,13 +15,31 @@ export const Modal = forwardRef<
     closeOnSubmit?: boolean;
     /** ขยายความกว้างสูงสุดของ popup — ใช้กับฟอร์มที่มีเนื้อหาเยอะ/มีตาราง เช่น เสนอโครงการ, รายงานโครงการ (ค่าเริ่มต้น max-w-2xl) */
     wide?: boolean;
+    /** เปิด popup อัตโนมัติทันทีตอน mount — ใช้กับลิงก์ลัดจากหน้า "ผู้บริหาร" (เช่น
+     * /project-proposals?open=<id>) ที่ต้องการพาผู้ใช้เข้าไปยังป็อปอัปรายการนั้นตรงๆ */
+    defaultOpen?: boolean;
   }
->(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit, wide }, forwardedRef) {
+>(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit, wide, defaultOpen }, forwardedRef) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useImperativeHandle(forwardedRef, () => ({
     close: () => ref.current?.close(),
   }));
+
+  useEffect(() => {
+    if (!defaultOpen || !ref.current) return;
+    // แต่ละแถวมักเรนเดอร์ 2 ชุด (การ์ดมือถือ md:hidden + ตารางจอกว้าง hidden md:table) —
+    // ถ้าเรียก showModal() ทั้งคู่พร้อมกัน dialog ที่อยู่ใต้ ancestor display:none จะกลาย
+    // เป็น modal ที่มองไม่เห็นแต่ยังแย่ง top layer ไปบล็อกการคลิก/กดปิด popup ที่มองเห็นอยู่ —
+    // ไล่เช็ค ancestor ก่อนว่าถูกซ่อนอยู่หรือไม่ ถ้าซ่อนอยู่ก็ไม่ต้องเปิด dialog นี้
+    let el: HTMLElement | null = ref.current.parentElement;
+    while (el) {
+      if (getComputedStyle(el).display === "none") return;
+      el = el.parentElement;
+    }
+    ref.current.showModal();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
