@@ -61,7 +61,53 @@ export function RevenueTab({ budgetYearId }: { budgetYearId: string }) {
       </p>
 
       <div className="table-shell">
-        <table className="table-base">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละประเภทรายรับ พร้อมย่อยตามระดับชั้น */}
+        <div className="divide-y divide-slate-100 md:hidden">
+          {ITEM_DEFS.map((item, itemIndex) => {
+            const grades = item.grades === "all" ? (["all"] as const) : item.grades;
+            const itemTotal = computeItemTotal(item.grades, item.key, counts, rates);
+            return (
+              <div key={item.key} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 break-words font-medium text-slate-900">
+                    <span className="text-xs text-slate-400">#{itemIndex + 1}</span> {item.label}
+                  </span>
+                  <span className="shrink-0 tabular-nums font-semibold text-navy-800">{formatBaht(itemTotal)}</span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {grades.map((g) => {
+                    const isAll = g === "all";
+                    const count = itemGradeCount(item.key, g, counts);
+                    const rate = rates[rateKey(item.key, g as GradeKey)] ?? 0;
+                    return (
+                      <div key={g} className="flex items-center justify-between gap-3 text-xs text-slate-500">
+                        <span>{isAll ? "นักเรียนทั้งหมด" : GRADE_LABELS[g as GradeKey]}</span>
+                        <span className="tabular-nums">
+                          {count} × {formatBaht(rate)} = {formatBaht(count * rate)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-medium text-slate-900">
+                <span className="text-xs text-slate-400">#{ITEM_DEFS.length + 1}</span> เงินรายได้สถานศึกษา
+              </span>
+              <span className="shrink-0 tabular-nums font-semibold text-navy-800">{formatBaht(schoolIncome)}</span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 bg-slate-50 px-4 py-3 font-bold text-slate-700">
+            <span className="break-words">รวมประมาณการรายรับทั้งสิ้น</span>
+            <span className="shrink-0 tabular-nums text-navy-800">{formatBaht(grandTotal)}</span>
+          </div>
+        </div>
+
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="w-14 text-center">ลำดับ</th>
