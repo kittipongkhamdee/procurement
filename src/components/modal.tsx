@@ -27,7 +27,17 @@ export const Modal = forwardRef<
   }));
 
   useEffect(() => {
-    if (defaultOpen) ref.current?.showModal();
+    if (!defaultOpen || !ref.current) return;
+    // แต่ละแถวมักเรนเดอร์ 2 ชุด (การ์ดมือถือ md:hidden + ตารางจอกว้าง hidden md:table) —
+    // ถ้าเรียก showModal() ทั้งคู่พร้อมกัน dialog ที่อยู่ใต้ ancestor display:none จะกลาย
+    // เป็น modal ที่มองไม่เห็นแต่ยังแย่ง top layer ไปบล็อกการคลิก/กดปิด popup ที่มองเห็นอยู่ —
+    // ไล่เช็ค ancestor ก่อนว่าถูกซ่อนอยู่หรือไม่ ถ้าซ่อนอยู่ก็ไม่ต้องเปิด dialog นี้
+    let el: HTMLElement | null = ref.current.parentElement;
+    while (el) {
+      if (getComputedStyle(el).display === "none") return;
+      el = el.parentElement;
+    }
+    ref.current.showModal();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
