@@ -3,7 +3,6 @@ import { AuthProvider } from "@/lib/AuthContext";
 import { DashboardShell } from "@/components/dashboard-shell";
 import {
   ArchiveIcon,
-  BellIcon,
   BoxIcon,
   ClipboardCheckIcon,
   FileSignatureIcon,
@@ -61,13 +60,6 @@ const NAV_SECTIONS = [
   },
 ];
 
-// เมนู "ผู้บริหาร" โผล่เฉพาะแอดมิน/รองผู้อำนวยการ/ผู้อำนวยการ (กรองฝั่ง DashboardShell) วางไว้บนสุด
-// ก่อน "แดชบอร์ด" เสมอ — ศูนย์รวมทางลัด/รายการรอดำเนินการจากทุกกระบวนการในระบบ
-const EXECUTIVE_SECTION = {
-  heading: null,
-  items: [{ href: "/executive", label: "ผู้บริหาร", icon: <BellIcon className={ICON_CLASS} /> }],
-};
-
 const ADMIN_SECTION = {
   heading: "ผู้ดูแลระบบ",
   items: [
@@ -102,7 +94,6 @@ export default function DashboardLayout({
     <AuthProvider>
       <DashboardShell
         baseNavSections={NAV_SECTIONS}
-        executiveSection={EXECUTIVE_SECTION}
         adminSection={ADMIN_SECTION}
         dateLabel={dateLabel}
         logoutAction={logout}

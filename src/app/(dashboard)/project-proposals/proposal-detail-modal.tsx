@@ -80,6 +80,8 @@ export function ProposalDetailModal({
   deleteProposalFile,
   onChanged,
   defaultOpen,
+  trigger,
+  triggerClassName,
 }: {
   proposal: Proposal;
   isAdmin: boolean;
@@ -95,6 +97,10 @@ export function ProposalDetailModal({
   onChanged?: () => void;
   /** เปิดป็อปอัปนี้อัตโนมัติตอนโหลดหน้า — ใช้กับลิงก์ลัดจากหน้า "ผู้บริหาร" (/project-proposals?open=<id>) */
   defaultOpen?: boolean;
+  /** ปุ่ม/องค์ประกอบที่กดเพื่อเปิดป็อปอัป — ค่าเริ่มต้นเป็นปุ่ม "ดูรายละเอียด" ธรรมดา หน้า "ผู้บริหาร"
+   * ใช้ทั้งแถวรายการเป็น trigger แทน เพื่อฝัง popup นี้ไว้ในหน้าตัวเองโดยไม่ต้องเปลี่ยนหน้าไปมา */
+  trigger?: ReactNode;
+  triggerClassName?: string;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [endorseNote, setEndorseNote] = useState("");
@@ -202,7 +208,13 @@ export function ProposalDetailModal({
   ];
 
   return (
-    <Modal ref={modalRef} title={proposal.name} trigger="ดูรายละเอียด" triggerClassName="btn-secondary btn-sm" defaultOpen={defaultOpen}>
+    <Modal
+      ref={modalRef}
+      title={proposal.name}
+      trigger={trigger ?? "ดูรายละเอียด"}
+      triggerClassName={triggerClassName ?? "btn-secondary btn-sm"}
+      defaultOpen={defaultOpen}
+    >
       <div className="grid grid-cols-1 gap-4 text-left">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className={statusBadgeClass(proposal.status)}>{proposal.status}</span>
