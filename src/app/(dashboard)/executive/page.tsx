@@ -2,8 +2,14 @@
 
 // หน้า "ผู้บริหาร" — ทางลัด/ศูนย์แจ้งเตือนรวมสำหรับ แอดมิน/รองผู้อำนวยการ/ผู้อำนวยการ รวมรายการที่
 // รอการพิจารณาจากผู้ใช้คนนี้จากทุกกระบวนการ 2 ขั้น (รองผู้อำนวยการ -> ผู้อำนวยการ) ในระบบไว้ที่เดียว
-// แทนที่ต้องไล่เปิดทีละเมนู — กดแต่ละรายการพาตรงไปหน้า/ป็อปอัปที่กดดำเนินการได้เลย (ผ่าน ?open=<id>
-// ที่ /project-proposals และ /approvals รองรับใหม่ ส่วน /asset-audits/[id] ลิงก์ตรงได้อยู่แล้ว)
+//
+// เสนอโครงการ/บันทึกขออนุมัติ: popup พิจารณา (ProposalDetailModal / ApprovalStatusCell) ฝังอยู่ใน
+// หน้านี้โดยตรง (ใช้ทั้งแถวรายการเป็น trigger ของ Modal เดิม ผ่าน prop trigger/triggerClassName ที่
+// เพิ่มให้ทั้งสอง component) — กดรายการ ทำงานในป็อปอัปเสร็จ ก็อยู่ที่หน้านี้ต่อเลย ไม่ต้องเปลี่ยนหน้า
+// ไปมาเหมือนเดิม (ก่อนหน้านี้ลิงก์ไป /project-proposals?open=<id> และ /approvals?open=<id> ทำให้ผู้ใช้
+// ต้องกดย้อนกลับมาหน้า "ผู้บริหาร" เองทุกครั้งหลังทำรายการเสร็จ)
+// ตรวจสอบพัสดุประจำปี: ยังคงลิงก์ไปหน้ารายละเอียดรอบตรวจสอบ (/asset-audits/[id]) เหมือนเดิม เพราะเป็น
+// หน้าเต็มหลายแท็บ ไม่ใช่ popup ที่ฝังกลับมาได้ง่ายๆ
 //
 // สิทธิ์เห็นรายการแต่ละหมวดอ้างอิงกลไกเดียวกับหน้าเดิมของหมวดนั้นเป๊ะๆ (ไม่ได้คิดใหม่):
 // - เสนอโครงการ/บันทึกขออนุมัติ ใช้กลไกเดียวกันทั้งคู่ (คนละหน้าแต่เช็คแบบเดียวกัน): ป้าย
@@ -18,51 +24,119 @@ import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { formatThaiDate } from "@/lib/thai";
+import { toastError, toastSuccess, errorMessage, confirmWarning } from "@/lib/swal";
 import { BellIcon, BoxIcon, ChevronRightIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
+import { ProposalDetailModal } from "../project-proposals/proposal-detail-modal";
+import {
+  approveProposal,
+  cancelEndorsement,
+  deleteProposal,
+  deleteProposalFile,
+  endorseProposal,
+  resetProposalStatus,
+} from "../project-proposals/actions";
+import { ApprovalStatusCell, type Approval, type DecisionMode } from "../approvals/page";
+import {
+  resetApprovalStatus,
+  resetDeputyDecision,
+  updateApprovalStatus,
+  updateDeputyDecision,
+} from "../approvals/actions";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
-type ProposalItem = { id: string; name: string; budgetAmount: number; createdAt: string };
-type ApprovalItem = {
+type ActivityRow = { name: string; responsible: string[]; budget: number };
+type ProposalItem = {
   id: string;
-  docNumber: string | null;
-  activityName: string | null;
-  projectName: string | null;
-  requestedAmount: number;
-  docDate: string;
+  name: string;
+  proposerName: string | null;
+  createdBy: string | null;
+  adminGroup: string;
+  budgetSource: string;
+  standard: string | null;
+  responsible: string[];
+  strategyAlignment: string | null;
+  fileUrlWord: string | null;
+  fileUrlPdf: string | null;
+  activities: ActivityRow[];
+  budgetAmount: number;
+  status: string;
+  endorsedByName: string | null;
+  endorsedAt: string | null;
+  endorseNote: string | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
+  approveNote: string | null;
+  createdAt: string;
 };
 type AuditRoundItem = { id: string; fiscalYear: number; dueDate: string };
 type PendingRow = { id: string; href: string; primary: string; secondary?: string; amount?: string };
 
-function PendingGroup({ title, items }: { title: string; items: PendingRow[] }) {
+/** เนื้อหาแถวรายการ (เลขลำดับ + ชื่อ/รายละเอียด + จำนวนเงิน) — ใช้ร่วมกันทั้งแถวแบบลิงก์ (asset-audits)
+ * และแถวที่เป็น trigger เปิด popup ฝังในหน้า (proposals/approvals) ให้หน้าตาเหมือนกันทุกจุด */
+function RowContent({
+  index,
+  primary,
+  secondary,
+  amount,
+}: {
+  index: number;
+  primary: string;
+  secondary?: string;
+  amount?: string;
+}) {
+  return (
+    <>
+      <div className="flex min-w-0 items-start gap-2.5">
+        <span className="mt-0.5 shrink-0 text-xs font-medium tabular-nums text-slate-400">{index + 1}.</span>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-slate-900">{primary}</p>
+          {secondary && <p className="truncate text-xs text-slate-500">{secondary}</p>}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {amount && <span className="text-sm tabular-nums text-slate-600">{amount}</span>}
+        <ChevronRightIcon className="h-4 w-4 text-slate-300" />
+      </div>
+    </>
+  );
+}
+
+const ROW_TRIGGER_CLASS =
+  "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-navy-950/[0.02]";
+
+function EmptyRow() {
+  return (
+    <p className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-3 text-sm text-slate-400">
+      ไม่มีรายการรอดำเนินการ
+    </p>
+  );
+}
+
+function GroupHeader({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <p className="text-sm font-semibold text-slate-700">{title}</p>
+      {count > 0 && <span className="badge-amber">{count} รายการ</span>}
+    </div>
+  );
+}
+
+/** หมวดที่ยังลิงก์ไปหน้าปลายทาง (ตรวจสอบพัสดุประจำปี — หน้าเต็มหลายแท็บ ไม่ฝัง popup) */
+function LinkPendingGroup({ title, items }: { title: string; items: PendingRow[] }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
-        <p className="text-sm font-semibold text-slate-700">{title}</p>
-        {items.length > 0 && <span className="badge-amber">{items.length} รายการ</span>}
-      </div>
+      <GroupHeader title={title} count={items.length} />
       {items.length === 0 ? (
-        <p className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-3 text-sm text-slate-400">
-          ไม่มีรายการรอดำเนินการ
-        </p>
+        <EmptyRow />
       ) : (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
           {items.map((it, i) => (
             <li key={it.id}>
-              <Link href={it.href} className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-navy-950/[0.02]">
-                <div className="flex min-w-0 items-start gap-2.5">
-                  <span className="mt-0.5 shrink-0 text-xs font-medium tabular-nums text-slate-400">{i + 1}.</span>
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-slate-900">{it.primary}</p>
-                    {it.secondary && <p className="truncate text-xs text-slate-500">{it.secondary}</p>}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {it.amount && <span className="text-sm tabular-nums text-slate-600">{it.amount}</span>}
-                  <ChevronRightIcon className="h-4 w-4 text-slate-300" />
-                </div>
+              <Link href={it.href} className={ROW_TRIGGER_CLASS}>
+                <RowContent index={i} primary={it.primary} secondary={it.secondary} amount={it.amount} />
               </Link>
             </li>
           ))}
@@ -101,14 +175,131 @@ function CategoryCard({
   );
 }
 
+function ProposalPendingGroup({
+  title,
+  items,
+  isAdmin,
+  canActDeputy,
+  canActDirector,
+  currentUserId,
+  onChanged,
+}: {
+  title: string;
+  items: ProposalItem[];
+  isAdmin: boolean;
+  canActDeputy: boolean;
+  canActDirector: boolean;
+  currentUserId: string | null;
+  onChanged: () => void;
+}) {
+  return (
+    <div>
+      <GroupHeader title={title} count={items.length} />
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+          {items.map((p, i) => (
+            <li key={p.id}>
+              <ProposalDetailModal
+                proposal={p}
+                isAdmin={isAdmin}
+                canEndorse={canActDeputy}
+                canApprove={canActDirector}
+                canDelete={p.status === "รอเห็นชอบ" && (isAdmin || p.createdBy === currentUserId)}
+                endorseProposal={endorseProposal}
+                cancelEndorsement={cancelEndorsement}
+                approveProposal={approveProposal}
+                resetProposalStatus={resetProposalStatus}
+                deleteProposal={deleteProposal}
+                deleteProposalFile={deleteProposalFile}
+                onChanged={onChanged}
+                trigger={
+                  <RowContent
+                    index={i}
+                    primary={p.name}
+                    secondary={`เสนอเมื่อ ${formatThaiDate(p.createdAt)}`}
+                    amount={`${formatBaht(p.budgetAmount)} บาท`}
+                  />
+                }
+                triggerClassName={ROW_TRIGGER_CLASS}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ApprovalPendingGroup({
+  title,
+  items,
+  mode,
+  isAdmin,
+  canActDeputy,
+  canActDirector,
+  onSubmitDeputy,
+  onSubmitDirector,
+  onResetDeputy,
+  onResetStatus,
+}: {
+  title: string;
+  items: Approval[];
+  mode: DecisionMode;
+  isAdmin: boolean;
+  canActDeputy: boolean;
+  canActDirector: boolean;
+  onSubmitDeputy: (id: string, decision: "ควร" | "ไม่ควร", note?: string) => Promise<void>;
+  onSubmitDirector: (id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) => Promise<void>;
+  onResetDeputy: (id: string) => void;
+  onResetStatus: (id: string) => void;
+}) {
+  return (
+    <div>
+      <GroupHeader title={title} count={items.length} />
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+          {items.map((a, i) => (
+            <li key={a.id}>
+              <ApprovalStatusCell
+                approval={a}
+                mode={mode}
+                isAdmin={isAdmin}
+                canApproveDeputy={canActDeputy}
+                canApproveDirector={canActDirector}
+                onSubmitDeputy={onSubmitDeputy}
+                onSubmitDirector={onSubmitDirector}
+                onResetDeputy={onResetDeputy}
+                onResetStatus={onResetStatus}
+                trigger={
+                  <RowContent
+                    index={i}
+                    primary={a.plan_projects?.name ?? a.activity_name ?? a.doc_number ?? "-"}
+                    secondary={`เลขที่ ${a.doc_number ?? "-"} · ${formatThaiDate(a.doc_date)}`}
+                    amount={`${formatBaht(Number(a.requested_amount))} บาท`}
+                  />
+                }
+                triggerClassName={ROW_TRIGGER_CLASS}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export default function ExecutivePage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
 
   const [proposalsToEndorse, setProposalsToEndorse] = useState<ProposalItem[]>([]);
   const [proposalsToApprove, setProposalsToApprove] = useState<ProposalItem[]>([]);
-  const [approvalsToDeputy, setApprovalsToDeputy] = useState<ApprovalItem[]>([]);
-  const [approvalsToDirector, setApprovalsToDirector] = useState<ApprovalItem[]>([]);
+  const [approvalsToDeputy, setApprovalsToDeputy] = useState<Approval[]>([]);
+  const [approvalsToDirector, setApprovalsToDirector] = useState<Approval[]>([]);
   const [roundsToAckDeputy, setRoundsToAckDeputy] = useState<AuditRoundItem[]>([]);
   const [roundsToAckDirector, setRoundsToAckDirector] = useState<AuditRoundItem[]>([]);
 
@@ -152,14 +343,18 @@ export default function ExecutivePage() {
       deputy || director
         ? supabase
             .from("plan_project_proposals")
-            .select("id, name, budget_amount, status, created_at")
+            .select(
+              "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, budget_amount, status, file_url_word, file_url_pdf, created_at, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+            )
             .in("status", [deputy ? "รอเห็นชอบ" : "", director ? "รออนุมัติ" : ""].filter(Boolean))
             .order("created_at", { ascending: true })
         : Promise.resolve({ data: [] }),
       deputy || director
         ? supabase
             .from("proc_approvals")
-            .select("id, doc_number, activity_name, requested_amount, status, deputy_decision, doc_date, plan_projects(name)")
+            .select(
+              "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
+            )
             .order("doc_date", { ascending: true })
         : Promise.resolve({ data: [] }),
       ackDeputy || ackDirector
@@ -176,45 +371,76 @@ export default function ExecutivePage() {
         : Promise.resolve({ data: [] }),
     ]);
 
-    const toProposalItem = (p: { id: string; name: string; budget_amount: number; created_at: string }): ProposalItem => ({
+    const proposalRows = (proposals ?? []) as unknown as {
+      id: string;
+      name: string;
+      proposer_name: string | null;
+      created_by: string | null;
+      standard: string | null;
+      responsible: string[] | null;
+      strategy_alignment: string | null;
+      activities: ActivityRow[] | null;
+      budget_amount: number;
+      status: string;
+      file_url_word: string | null;
+      file_url_pdf: string | null;
+      created_at: string;
+      endorsed_by_name: string | null;
+      endorsed_at: string | null;
+      endorse_note: string | null;
+      approved_by_name: string | null;
+      approved_at: string | null;
+      approve_note: string | null;
+      plan_admin_groups: { name: string } | null;
+      plan_budget_sources: { name: string } | null;
+    }[];
+
+    // เซ็นลิงก์ไฟล์โครงการ (Word/PDF) เป็น batch เดียว ให้เปิดอ่านประกอบการตัดสินใจได้ในป็อปอัป
+    // (มิเรอร์แพทเทิร์นเดียวกับ project-proposals/page.tsx)
+    const filePaths = proposalRows.flatMap((p) => [p.file_url_word, p.file_url_pdf]).filter((p): p is string => !!p);
+    const signedFileUrls = new Map<string, string>();
+    if (filePaths.length > 0) {
+      const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(filePaths, 3600);
+      signed?.forEach((s) => {
+        if (s.signedUrl && !s.error) signedFileUrls.set(s.path ?? "", s.signedUrl);
+      });
+    }
+
+    const toProposalItem = (p: (typeof proposalRows)[number]): ProposalItem => ({
       id: p.id,
       name: p.name,
+      proposerName: p.proposer_name,
+      createdBy: p.created_by,
+      adminGroup: p.plan_admin_groups?.name ?? "-",
+      budgetSource: p.plan_budget_sources?.name ?? "-",
+      standard: p.standard,
+      responsible: p.responsible ?? [],
+      strategyAlignment: p.strategy_alignment,
+      fileUrlWord: p.file_url_word ? (signedFileUrls.get(p.file_url_word) ?? null) : null,
+      fileUrlPdf: p.file_url_pdf ? (signedFileUrls.get(p.file_url_pdf) ?? null) : null,
+      activities: p.activities ?? [],
       budgetAmount: Number(p.budget_amount),
+      status: p.status,
+      endorsedByName: p.endorsed_by_name,
+      endorsedAt: p.endorsed_at,
+      endorseNote: p.endorse_note,
+      approvedByName: p.approved_by_name,
+      approvedAt: p.approved_at,
+      approveNote: p.approve_note,
       createdAt: p.created_at,
     });
-    setProposalsToEndorse((proposals ?? []).filter((p) => p.status === "รอเห็นชอบ").map(toProposalItem));
-    setProposalsToApprove((proposals ?? []).filter((p) => p.status === "รออนุมัติ").map(toProposalItem));
+    setProposalsToEndorse(proposalRows.filter((p) => p.status === "รอเห็นชอบ").map(toProposalItem));
+    setProposalsToApprove(proposalRows.filter((p) => p.status === "รออนุมัติ").map(toProposalItem));
 
-    const approvalRows = (approvals ?? []) as unknown as {
-      id: string;
-      doc_number: string | null;
-      activity_name: string | null;
-      requested_amount: number;
-      status: string;
-      deputy_decision: string | null;
-      doc_date: string;
-      plan_projects: { name: string } | null;
-    }[];
-    const toApprovalItem = (r: (typeof approvalRows)[number]): ApprovalItem => ({
-      id: r.id,
-      docNumber: r.doc_number,
-      activityName: r.activity_name,
-      projectName: r.plan_projects?.name ?? null,
-      requestedAmount: Number(r.requested_amount),
-      docDate: r.doc_date,
-    });
+    const approvalRows = (approvals ?? []) as unknown as Approval[];
     setApprovalsToDeputy(
       deputy
-        ? approvalRows
-            .filter((r) => r.deputy_decision === null && r.status !== "อนุมัติ" && r.status !== "ไม่อนุมัติ")
-            .map(toApprovalItem)
+        ? approvalRows.filter((r) => r.deputy_decision === null && r.status !== "อนุมัติ" && r.status !== "ไม่อนุมัติ")
         : [],
     );
     setApprovalsToDirector(
       director
-        ? approvalRows
-            .filter((r) => r.deputy_decision !== null && r.status !== "อนุมัติ" && r.status !== "ไม่อนุมัติ")
-            .map(toApprovalItem)
+        ? approvalRows.filter((r) => r.deputy_decision !== null && r.status !== "อนุมัติ" && r.status !== "ไม่อนุมัติ")
         : [],
     );
 
@@ -236,6 +462,52 @@ export default function ExecutivePage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
+
+  async function submitDeputyDecision(id: string, decision: "ควร" | "ไม่ควร", note?: string) {
+    try {
+      await updateDeputyDecision(id, decision, note);
+      await toastSuccess("บันทึกความเห็นของรองผู้อำนวยการแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+      throw err;
+    }
+  }
+
+  async function submitDirectorDecision(id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) {
+    try {
+      await updateApprovalStatus(id, decision, note);
+      await toastSuccess(`บันทึกสถานะ "${decision}" แล้ว`);
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+      throw err;
+    }
+  }
+
+  async function handleResetDeputyDecision(id: string) {
+    const ok = await confirmWarning({ title: "ย้อนความเห็นของรองผู้อำนวยการกลับเป็นค่าว่าง?" });
+    if (!ok) return;
+    try {
+      await resetDeputyDecision(id);
+      await toastSuccess("ย้อนความเห็นแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleResetStatus(id: string) {
+    const ok = await confirmWarning({ title: 'ย้อนสถานะกลับเป็น "รออนุมัติ"?' });
+    if (!ok) return;
+    try {
+      await resetApprovalStatus(id);
+      await toastSuccess("ย้อนสถานะแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
 
   if (authLoading) return <PageLoadingSkeleton />;
 
@@ -271,7 +543,7 @@ export default function ExecutivePage() {
           <p className="font-semibold text-amber-900">
             {grandTotal > 0 ? `มีรายการรอดำเนินการทั้งหมด ${grandTotal.toLocaleString("th-TH")} รายการ` : "ไม่มีรายการรอดำเนินการ"}
           </p>
-          <p className="text-sm text-amber-700">กดที่รายการด้านล่างเพื่อเข้าไปดำเนินการได้ทันที</p>
+          <p className="text-sm text-amber-700">กดที่รายการด้านล่างเพื่อพิจารณาได้ทันที (ไม่ต้องเปลี่ยนหน้า)</p>
         </div>
       </div>
 
@@ -279,27 +551,25 @@ export default function ExecutivePage() {
         {(canActDeputy || canActDirector) && (
           <CategoryCard icon={<LightbulbIcon className="h-4 w-4" />} title="เสนอโครงการ" totalCount={proposalTotal}>
             {canActDeputy && (
-              <PendingGroup
+              <ProposalPendingGroup
                 title="รอเห็นชอบ (รองผู้อำนวยการ)"
-                items={proposalsToEndorse.map((p) => ({
-                  id: p.id,
-                  href: `/project-proposals?open=${p.id}`,
-                  primary: p.name,
-                  secondary: `เสนอเมื่อ ${formatThaiDate(p.createdAt)}`,
-                  amount: `${formatBaht(p.budgetAmount)} บาท`,
-                }))}
+                items={proposalsToEndorse}
+                isAdmin={isAdmin}
+                canActDeputy={canActDeputy}
+                canActDirector={canActDirector}
+                currentUserId={user?.userId ?? null}
+                onChanged={reload}
               />
             )}
             {canActDirector && (
-              <PendingGroup
+              <ProposalPendingGroup
                 title="รออนุมัติ (ผู้อำนวยการ)"
-                items={proposalsToApprove.map((p) => ({
-                  id: p.id,
-                  href: `/project-proposals?open=${p.id}`,
-                  primary: p.name,
-                  secondary: `เสนอเมื่อ ${formatThaiDate(p.createdAt)}`,
-                  amount: `${formatBaht(p.budgetAmount)} บาท`,
-                }))}
+                items={proposalsToApprove}
+                isAdmin={isAdmin}
+                canActDeputy={canActDeputy}
+                canActDirector={canActDirector}
+                currentUserId={user?.userId ?? null}
+                onChanged={reload}
               />
             )}
           </CategoryCard>
@@ -308,27 +578,31 @@ export default function ExecutivePage() {
         {(canActDeputy || canActDirector) && (
           <CategoryCard icon={<ClipboardCheckIcon className="h-4 w-4" />} title="บันทึกขออนุมัติ" totalCount={approvalTotal}>
             {canActDeputy && (
-              <PendingGroup
+              <ApprovalPendingGroup
                 title="รอเสนอความเห็น (รองผู้อำนวยการ)"
-                items={approvalsToDeputy.map((a) => ({
-                  id: a.id,
-                  href: `/approvals?open=${a.id}`,
-                  primary: a.projectName ?? a.activityName ?? a.docNumber ?? "-",
-                  secondary: `เลขที่ ${a.docNumber ?? "-"} · ${formatThaiDate(a.docDate)}`,
-                  amount: `${formatBaht(a.requestedAmount)} บาท`,
-                }))}
+                items={approvalsToDeputy}
+                mode="deputy"
+                isAdmin={isAdmin}
+                canActDeputy={canActDeputy}
+                canActDirector={canActDirector}
+                onSubmitDeputy={submitDeputyDecision}
+                onSubmitDirector={submitDirectorDecision}
+                onResetDeputy={handleResetDeputyDecision}
+                onResetStatus={handleResetStatus}
               />
             )}
             {canActDirector && (
-              <PendingGroup
+              <ApprovalPendingGroup
                 title="รออนุมัติ (ผู้อำนวยการ)"
-                items={approvalsToDirector.map((a) => ({
-                  id: a.id,
-                  href: `/approvals?open=${a.id}`,
-                  primary: a.projectName ?? a.activityName ?? a.docNumber ?? "-",
-                  secondary: `เลขที่ ${a.docNumber ?? "-"} · ${formatThaiDate(a.docDate)}`,
-                  amount: `${formatBaht(a.requestedAmount)} บาท`,
-                }))}
+                items={approvalsToDirector}
+                mode="director"
+                isAdmin={isAdmin}
+                canActDeputy={canActDeputy}
+                canActDirector={canActDirector}
+                onSubmitDeputy={submitDeputyDecision}
+                onSubmitDirector={submitDirectorDecision}
+                onResetDeputy={handleResetDeputyDecision}
+                onResetStatus={handleResetStatus}
               />
             )}
           </CategoryCard>
@@ -337,7 +611,7 @@ export default function ExecutivePage() {
         {(canAckDeputyAudit || canAckDirectorAudit) && (
           <CategoryCard icon={<BoxIcon className="h-4 w-4" />} title="ตรวจสอบพัสดุประจำปี" totalCount={auditTotal}>
             {canAckDeputyAudit && (
-              <PendingGroup
+              <LinkPendingGroup
                 title="รอรับทราบ (รองผู้อำนวยการ)"
                 items={roundsToAckDeputy.map((r) => ({
                   id: r.id,
@@ -348,7 +622,7 @@ export default function ExecutivePage() {
               />
             )}
             {canAckDirectorAudit && (
-              <PendingGroup
+              <LinkPendingGroup
                 title="รอรับทราบ (ผู้อำนวยการ)"
                 items={roundsToAckDirector.map((r) => ({
                   id: r.id,

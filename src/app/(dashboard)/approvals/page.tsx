@@ -4,7 +4,7 @@
 // ฯลฯ — ดู /root/.claude/plans) หน้า /approvals/new (ฟอร์มสร้างใหม่) และ /approvals/[id]/pdf
 // (พิมพ์ PDF) ยังคงเป็น Server Component เดิม ไม่แตะ — ใช้งานไม่บ่อยเท่าหน้ารายการนี้
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -26,7 +26,7 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
-type Approval = {
+export type Approval = {
   id: string;
   created_by: string | null;
   doc_number: string | null;
@@ -49,7 +49,7 @@ type Approval = {
 
 /** สถานะรวมของบันทึก — รองผู้อำนวยการเสนอความเห็นแล้ว (ไม่ว่าเห็นควรหรือไม่) จะเลื่อนสถานะเป็น
  * "รออนุมัติ" เสมอ (ส่งต่อให้ผู้อำนวยการตัดสินใจ ความเห็นของรองผู้อำนวยการเป็นข้อมูลประกอบเท่านั้น) */
-function mergedStatus(a: Approval): "รอเสนอ" | "รออนุมัติ" | "อนุมัติ" | "ไม่อนุมัติ" {
+export function mergedStatus(a: Approval): "รอเสนอ" | "รออนุมัติ" | "อนุมัติ" | "ไม่อนุมัติ" {
   if (a.status === "อนุมัติ") return "อนุมัติ";
   if (a.status === "ไม่อนุมัติ") return "ไม่อนุมัติ";
   if (a.deputy_decision !== null) return "รออนุมัติ";
@@ -71,11 +71,12 @@ function isEditableState(a: Approval) {
   return a.deputy_decision === null;
 }
 
-type DecisionMode = "deputy" | "director" | "view";
+export type DecisionMode = "deputy" | "director" | "view";
 
 /** ป้ายสถานะ + popup รายละเอียด/พิจารณาอนุมัติ — เนื้อหาและปุ่มในนั้นเปลี่ยนตามบทบาทผู้ใช้กับ
- * สถานะปัจจุบันของรายการ (mode คำนวณจากผู้เรียกใช้) */
-function ApprovalStatusCell({
+ * สถานะปัจจุบันของรายการ (mode คำนวณจากผู้เรียกใช้) — export ไว้ให้หน้า "ผู้บริหาร" เรียกใช้ตรงๆ
+ * (ฝัง popup นี้ในหน้าตัวเองแทนการลิงก์ไป /approvals?open=<id> เพื่อไม่ต้องเปลี่ยนหน้าไปมา) */
+export function ApprovalStatusCell({
   approval,
   mode,
   isAdmin,
@@ -86,6 +87,8 @@ function ApprovalStatusCell({
   onResetDeputy,
   onResetStatus,
   defaultOpen,
+  trigger,
+  triggerClassName,
 }: {
   approval: Approval;
   mode: DecisionMode;
@@ -98,6 +101,10 @@ function ApprovalStatusCell({
   onResetStatus: (id: string) => void;
   /** เปิดป็อปอัปนี้อัตโนมัติ — ใช้กับลิงก์ลัดจากหน้า "ผู้บริหาร" (/approvals?open=<id>) */
   defaultOpen?: boolean;
+  /** ปุ่ม/องค์ประกอบที่กดเพื่อเปิดป็อปอัป — ค่าเริ่มต้นเป็นป้ายสถานะ หน้า "ผู้บริหาร" ใช้ทั้งแถว
+   * รายการเป็น trigger แทน เพื่อฝัง popup นี้ไว้ในหน้าตัวเองโดยไม่ต้องเปลี่ยนหน้าไปมา */
+  trigger?: ReactNode;
+  triggerClassName?: string;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [choice, setChoice] = useState<"ควร" | "ไม่ควร" | "อนุมัติ" | "ไม่อนุมัติ" | null>(null);
@@ -151,8 +158,8 @@ function ApprovalStatusCell({
   return (
     <Modal
       ref={modalRef}
-      trigger={status}
-      triggerClassName={`${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
+      trigger={trigger ?? status}
+      triggerClassName={triggerClassName ?? `${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
       title={mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
       defaultOpen={defaultOpen}
     >
