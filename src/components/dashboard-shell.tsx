@@ -46,21 +46,19 @@ const DISABLED_HREFS = new Set([
 
 export function DashboardShell({
   baseNavSections,
-  executiveSection,
   adminSection,
   dateLabel,
   logoutAction,
   children,
 }: {
   baseNavSections: NavSection[];
-  executiveSection: NavSection;
   adminSection: NavSection;
   dateLabel: string;
   logoutAction: (formData: FormData) => void | Promise<void>;
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, isAdmin, roleLabel, displayName, avatarUrl, loading, pendingApproval } = useAuth();
+  const { isAdmin, roleLabel, displayName, avatarUrl, loading, pendingApproval } = useAuth();
   const { schoolName, logoUrl } = useSchoolSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -105,14 +103,11 @@ export function DashboardShell({
     });
   }
 
-  // เมนู "ผู้บริหาร" โผล่เฉพาะแอดมิน/รองผู้อำนวยการ/ผู้อำนวยการ วางไว้บนสุดก่อน "แดชบอร์ด" เสมอ —
-  // เมนู "ผู้ดูแลระบบ" โผล่เฉพาะแอดมิน — ทั้งสองกรองฝั่ง client จาก context (หน้าปลายทางยังเช็คสิทธิ์
+  // เมนู "ผู้ดูแลระบบ" โผล่เฉพาะแอดมิน — กรองฝั่ง client จาก context (หน้าปลายทางยังเช็คสิทธิ์
   // ฝั่ง server/RLS ของตัวเองอยู่แล้ว การซ่อนเมนูเป็นแค่เรื่องการแสดงผล)
-  const showExecutive = isAdmin || user?.role === "deputy_director" || user?.role === "director";
   const navSections = useMemo(() => {
-    const sections = showExecutive ? [executiveSection, ...baseNavSections] : baseNavSections;
-    return isAdmin ? [...sections, adminSection] : sections;
-  }, [baseNavSections, executiveSection, adminSection, isAdmin, showExecutive]);
+    return isAdmin ? [...baseNavSections, adminSection] : baseNavSections;
+  }, [baseNavSections, adminSection, isAdmin]);
   const initial = displayName ? displayName.trim().charAt(0) : "?";
 
   const allItems = useMemo(

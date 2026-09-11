@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSchoolSettings } from "@/lib/school-settings";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { PrinterIcon } from "@/components/icons";
+import { PendingActionsPanel } from "./pending-actions-panel";
 
 const SUMMARY_LABELS = [
   "จัดซื้อจัดจ้าง",
@@ -336,6 +337,8 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      <PendingActionsPanel />
 
       {!currentYear ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">

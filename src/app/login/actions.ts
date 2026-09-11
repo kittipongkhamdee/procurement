@@ -16,23 +16,10 @@ export async function login(formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(translateAuthError(error.message))}`);
-  }
-
-  // รองผู้อำนวยการ/ผู้อำนวยการ เข้าสู่ระบบแล้วพาไปหน้า "ผู้บริหาร" เป็นหน้าแรกแทนแดชบอร์ด เพราะเป็น
-  // หน้าที่รวมรายการรอดำเนินการที่เกี่ยวข้องกับบทบาทนี้โดยตรง (แอดมินยังเข้าแดชบอร์ดตามเดิม เพราะ
-  // แอดมินใช้งานหลายเมนูไม่ได้ผูกกับบทบาทเดียว)
-  const { data: profile } = await supabase
-    .from("proc_profiles")
-    .select("role")
-    .eq("user_id", data.user!.id)
-    .maybeSingle();
-
-  if (profile?.role === "deputy_director" || profile?.role === "director") {
-    redirect("/executive");
   }
 
   redirect("/");

@@ -1,13 +1,15 @@
 "use client";
 
-// หน้า "ผู้บริหาร" — ทางลัด/ศูนย์แจ้งเตือนรวมสำหรับ แอดมิน/รองผู้อำนวยการ/ผู้อำนวยการ รวมรายการที่
-// รอการพิจารณาจากผู้ใช้คนนี้จากทุกกระบวนการ 2 ขั้น (รองผู้อำนวยการ -> ผู้อำนวยการ) ในระบบไว้ที่เดียว
+// แผงรายการรอดำเนินการสำหรับผู้บริหาร (แอดมิน/รองผู้อำนวยการ/ผู้อำนวยการ) — เดิมเป็นหน้าแยก
+// "/executive" ย้ายมาฝังในหน้าแดชบอร์ด ("/") ตรงนี้แทนตามที่ผู้ใช้ขอ ให้เห็นทุกอย่างในหน้าเดียว
+// ไม่ต้องมีเมนู/หัวข้อ "ผู้บริหาร" แยกอีกต่อหนึ่ง (ผู้ใช้ที่ไม่มีสิทธิ์ไม่เห็นแผงนี้เลย — component
+// เช็คสิทธิ์แล้ว return null เอง)
 //
-// เสนอโครงการ/บันทึกขออนุมัติ: popup พิจารณา (ProposalDetailModal / ApprovalStatusCell) ฝังอยู่ใน
-// หน้านี้โดยตรง (ใช้ทั้งแถวรายการเป็น trigger ของ Modal เดิม ผ่าน prop trigger/triggerClassName ที่
-// เพิ่มให้ทั้งสอง component) — กดรายการ ทำงานในป็อปอัปเสร็จ ก็อยู่ที่หน้านี้ต่อเลย ไม่ต้องเปลี่ยนหน้า
-// ไปมาเหมือนเดิม (ก่อนหน้านี้ลิงก์ไป /project-proposals?open=<id> และ /approvals?open=<id> ทำให้ผู้ใช้
-// ต้องกดย้อนกลับมาหน้า "ผู้บริหาร" เองทุกครั้งหลังทำรายการเสร็จ)
+// popup พิจารณาเห็นชอบ/อนุมัติ (ProposalDetailModal / ApprovalStatusCell) ฝังอยู่ในแผงนี้โดยตรง
+// (ใช้ทั้งแถวรายการเป็น trigger ของ Modal เดิม) — กดรายการ ทำงานในป็อปอัปเสร็จ ก็อยู่หน้าเดิมต่อเลย
+// แต่ละหัวข้อการ์ดมีลิงก์ "ดูเมนูทั้งหมด" ไปหน้าเมนูจริงของหมวดนั้นด้วย เผื่อต้องการดูรายการที่ไม่ได้
+// อยู่ในสถานะรอดำเนินการ (เช่น รายการที่อนุมัติแล้ว)
+//
 // ตรวจสอบพัสดุประจำปี: ยังคงลิงก์ไปหน้ารายละเอียดรอบตรวจสอบ (/asset-audits/[id]) เหมือนเดิม เพราะเป็น
 // หน้าเต็มหลายแท็บ ไม่ใช่ popup ที่ฝังกลับมาได้ง่ายๆ
 //
@@ -22,11 +24,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { formatThaiDate } from "@/lib/thai";
 import { toastError, toastSuccess, errorMessage, confirmWarning } from "@/lib/swal";
 import { BellIcon, BoxIcon, ChevronRightIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
-import { ProposalDetailModal } from "../project-proposals/proposal-detail-modal";
+import { ProposalDetailModal } from "./project-proposals/proposal-detail-modal";
 import {
   approveProposal,
   cancelEndorsement,
@@ -34,14 +35,9 @@ import {
   deleteProposalFile,
   endorseProposal,
   resetProposalStatus,
-} from "../project-proposals/actions";
-import { ApprovalStatusCell, type Approval, type DecisionMode } from "../approvals/page";
-import {
-  resetApprovalStatus,
-  resetDeputyDecision,
-  updateApprovalStatus,
-  updateDeputyDecision,
-} from "../approvals/actions";
+} from "./project-proposals/actions";
+import { ApprovalStatusCell, type Approval, type DecisionMode } from "./approvals/page";
+import { resetApprovalStatus, resetDeputyDecision, updateApprovalStatus, updateDeputyDecision } from "./approvals/actions";
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -150,11 +146,13 @@ function CategoryCard({
   icon,
   title,
   totalCount,
+  menuHref,
   children,
 }: {
   icon: React.ReactNode;
   title: string;
   totalCount: number;
+  menuHref: string;
   children: React.ReactNode;
 }) {
   return (
@@ -165,10 +163,13 @@ function CategoryCard({
         </span>
         <span className="font-semibold text-slate-900">{title}</span>
         {totalCount > 0 ? (
-          <span className="badge-amber ml-auto">{totalCount} รอดำเนินการ</span>
+          <span className="badge-amber">{totalCount} รอดำเนินการ</span>
         ) : (
-          <span className="badge-emerald ml-auto">ไม่มีค้าง</span>
+          <span className="badge-emerald">ไม่มีค้าง</span>
         )}
+        <Link href={menuHref} className="ml-auto shrink-0 text-sm font-medium text-navy-700 hover:underline">
+          ดูเมนูทั้งหมด →
+        </Link>
       </div>
       <div className="space-y-4">{children}</div>
     </div>
@@ -292,7 +293,7 @@ function ApprovalPendingGroup({
   );
 }
 
-export default function ExecutivePage() {
+export function PendingActionsPanel() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
 
@@ -509,17 +510,7 @@ export default function ExecutivePage() {
     }
   }
 
-  if (authLoading) return <PageLoadingSkeleton />;
-
-  if (!allowed) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
-        หน้านี้สำหรับผู้ดูแลระบบ รองผู้อำนวยการ และผู้อำนวยการเท่านั้น
-      </div>
-    );
-  }
-
-  if (loading) return <PageLoadingSkeleton />;
+  if (authLoading || !allowed || loading) return null;
 
   const proposalTotal = proposalsToEndorse.length + proposalsToApprove.length;
   const approvalTotal = approvalsToDeputy.length + approvalsToDirector.length;
@@ -527,15 +518,8 @@ export default function ExecutivePage() {
   const grandTotal = proposalTotal + approvalTotal + auditTotal;
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">ผู้บริหาร</h1>
-          <p className="page-subtitle">ทางลัดและรายการที่รอการพิจารณาจากท่าน รวมจากทุกกระบวนการในระบบ</p>
-        </div>
-      </div>
-
-      <div className="mb-6 flex flex-col items-start gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
+    <div className="mb-6 print:hidden">
+      <div className="mb-4 flex flex-col items-start gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
           <BellIcon className="h-5 w-5 text-amber-700" />
         </span>
@@ -549,7 +533,12 @@ export default function ExecutivePage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {(canActDeputy || canActDirector) && (
-          <CategoryCard icon={<LightbulbIcon className="h-4 w-4" />} title="เสนอโครงการ" totalCount={proposalTotal}>
+          <CategoryCard
+            icon={<LightbulbIcon className="h-4 w-4" />}
+            title="เสนอโครงการ"
+            totalCount={proposalTotal}
+            menuHref="/project-proposals"
+          >
             {canActDeputy && (
               <ProposalPendingGroup
                 title="รอเห็นชอบ (รองผู้อำนวยการ)"
@@ -576,7 +565,12 @@ export default function ExecutivePage() {
         )}
 
         {(canActDeputy || canActDirector) && (
-          <CategoryCard icon={<ClipboardCheckIcon className="h-4 w-4" />} title="บันทึกขออนุมัติ" totalCount={approvalTotal}>
+          <CategoryCard
+            icon={<ClipboardCheckIcon className="h-4 w-4" />}
+            title="บันทึกขออนุมัติ"
+            totalCount={approvalTotal}
+            menuHref="/approvals"
+          >
             {canActDeputy && (
               <ApprovalPendingGroup
                 title="รอเสนอความเห็น (รองผู้อำนวยการ)"
@@ -609,7 +603,12 @@ export default function ExecutivePage() {
         )}
 
         {(canAckDeputyAudit || canAckDirectorAudit) && (
-          <CategoryCard icon={<BoxIcon className="h-4 w-4" />} title="ตรวจสอบพัสดุประจำปี" totalCount={auditTotal}>
+          <CategoryCard
+            icon={<BoxIcon className="h-4 w-4" />}
+            title="ตรวจสอบพัสดุประจำปี"
+            totalCount={auditTotal}
+            menuHref="/asset-audits"
+          >
             {canAckDeputyAudit && (
               <LinkPendingGroup
                 title="รอรับทราบ (รองผู้อำนวยการ)"
