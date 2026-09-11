@@ -92,16 +92,21 @@ function RowContent({
           {secondary && <p className="truncate text-xs text-slate-500">{secondary}</p>}
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2.5">
         {amount && <span className="text-sm tabular-nums text-slate-600">{amount}</span>}
-        <ChevronRightIcon className="h-4 w-4 text-slate-300" />
+        <span className="inline-flex items-center gap-1 rounded-full bg-navy-800 px-2.5 py-1 text-xs font-semibold text-white">
+          พิจารณา
+          <ChevronRightIcon className="h-3.5 w-3.5" />
+        </span>
       </div>
     </>
   );
 }
 
+// พื้นหลังสีอ่อนเป็นค่าเริ่มต้น (ไม่ใช่สีขาวเฉยๆ) + เส้นขอบซ้ายสีเหลืองอำพัน ให้รู้สึกว่าแถวนี้
+// "กดได้"/"รอดำเนินการ" ตั้งแต่แรกเห็น ไม่ต้องพึ่ง hover อย่างเดียว (จอสัมผัสไม่มี hover state)
 const ROW_TRIGGER_CLASS =
-  "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-navy-950/[0.02]";
+  "flex w-full items-center justify-between gap-3 border-l-4 border-amber-400 bg-amber-50/40 px-3 py-2.5 text-left transition-colors hover:bg-amber-50 active:bg-amber-100";
 
 function EmptyRow() {
   return (
@@ -128,7 +133,7 @@ function LinkPendingGroup({ title, items }: { title: string; items: PendingRow[]
       {items.length === 0 ? (
         <EmptyRow />
       ) : (
-        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
           {items.map((it, i) => (
             <li key={it.id}>
               <Link href={it.href} className={ROW_TRIGGER_CLASS}>
@@ -199,7 +204,7 @@ function ProposalPendingGroup({
       {items.length === 0 ? (
         <EmptyRow />
       ) : (
-        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
           {items.map((p, i) => (
             <li key={p.id}>
               <ProposalDetailModal
@@ -262,7 +267,7 @@ function ApprovalPendingGroup({
       {items.length === 0 ? (
         <EmptyRow />
       ) : (
-        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
           {items.map((a, i) => (
             <li key={a.id}>
               <ApprovalStatusCell
