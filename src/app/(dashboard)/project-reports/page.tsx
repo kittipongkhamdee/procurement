@@ -122,8 +122,8 @@ export default function ProjectReportsPage() {
       <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
 
-        {/* มือถือ: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
-        <div className="divide-y divide-slate-100 sm:hidden">
+        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
+        <div className="divide-y divide-slate-100 md:hidden">
           {reports.map((r, i) => {
             const canManage = isAdmin || (user && r.uploaded_by === user.userId);
             const photoRefs = r.photo_refs ?? [];
@@ -167,8 +167,8 @@ export default function ProjectReportsPage() {
           {reports.length === 0 && <p className="table-empty">ยังไม่มีข้อมูล</p>}
         </div>
 
-        {/* จอกว้าง: ตาราง */}
-        <table className="hidden table-base sm:table">
+        {/* จอกว้าง md ขึ้นไป: ตาราง */}
+        <table className="hidden table-base md:table">
           <thead>
             <tr>
               <th className="w-10 text-center">#</th>

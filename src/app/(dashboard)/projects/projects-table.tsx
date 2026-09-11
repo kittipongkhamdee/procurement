@@ -238,8 +238,8 @@ export function ProjectsTable({
         </button>
       </div>
 
-      {/* มือถือ: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
-      <div className="divide-y divide-slate-100 sm:hidden">
+      {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
+      <div className="divide-y divide-slate-100 md:hidden">
         {pageRows.map((r, i) => {
           const isOpen = expanded.has(r.id);
           return (
@@ -282,8 +282,8 @@ export function ProjectsTable({
         )}
       </div>
 
-      {/* จอกว้าง: ตาราง */}
-      <table className="hidden table-base sm:table">
+      {/* จอกว้าง md ขึ้นไป: ตาราง */}
+      <table className="hidden table-base md:table">
         <thead>
           <tr>
             <th className="w-10 text-center">#</th>
