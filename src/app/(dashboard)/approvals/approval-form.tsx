@@ -9,8 +9,11 @@ type ProjectOption = { id: string; name: string; budget: number; approvedSoFar: 
 type ActivityOption = { id: string; project_id: string; name: string | null };
 type AdminGroupOption = { id: string; name: string };
 type TeacherOption = { id: string; name: string; is_active: boolean };
-const ITEM_ROW_COUNT = 15;
+// จำนวนแถวสูงสุดที่เทมเพลต PDF หน้า 2 รองรับ (ดู itemRowsY ใน src/lib/pdf-overlay/render-approval-pdf.ts
+// — แถวเกินจำนวนนี้จะถูกตัดทิ้งไม่พิมพ์ลง PDF)
+const MAX_ITEM_ROWS = 29;
 type ItemRow = { name: string; qty: string; unitPrice: string; note: string };
+const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unitPrice: "", note: "" };
 
 const SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
 
@@ -21,7 +24,7 @@ function emptySummaryRows(): SummaryRow[] {
 }
 
 function emptyItemRows(): ItemRow[] {
-  return Array.from({ length: ITEM_ROW_COUNT }, () => ({ name: "", qty: "", unitPrice: "", note: "" }));
+  return [{ ...EMPTY_ITEM_ROW }];
 }
 
 function formatBaht(n: number) {
@@ -56,14 +59,15 @@ function initialSummaryRows(initial?: ApprovalFormInitial): SummaryRow[] {
 
 function initialItemRows(initial?: ApprovalFormInitial): ItemRow[] {
   if (!initial) return emptyItemRows();
-  const rows = initial.items.map((item) => ({
-    name: item.name ?? "",
-    qty: item.qty != null ? String(item.qty) : "",
-    unitPrice: item.unit_price != null ? String(item.unit_price) : "",
-    note: item.note ?? "",
-  }));
-  while (rows.length < ITEM_ROW_COUNT) rows.push({ name: "", qty: "", unitPrice: "", note: "" });
-  return rows;
+  const rows = initial.items
+    .filter((item) => item.name || item.qty != null || item.unit_price != null || item.note)
+    .map((item) => ({
+      name: item.name ?? "",
+      qty: item.qty != null ? String(item.qty) : "",
+      unitPrice: item.unit_price != null ? String(item.unit_price) : "",
+      note: item.note ?? "",
+    }));
+  return rows.length > 0 ? rows : emptyItemRows();
 }
 
 export function ApprovalForm({
@@ -119,6 +123,14 @@ export function ApprovalForm({
 
   function updateItemRow(index: number, patch: Partial<ItemRow>) {
     setItemRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function addItemRow() {
+    setItemRows((prev) => (prev.length >= MAX_ITEM_ROWS ? prev : [...prev, { ...EMPTY_ITEM_ROW }]));
+  }
+
+  function removeItemRow(index: number) {
+    setItemRows((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -336,6 +348,7 @@ export function ApprovalForm({
                 <th className="w-28 px-2 py-2">ราคา/หน่วย</th>
                 <th className="w-28 px-2 py-2">จำนวนเงิน</th>
                 <th className="w-32 px-2 py-2">หมายเหตุ</th>
+                <th className="w-10 px-2 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -356,6 +369,18 @@ export function ApprovalForm({
                     <td className="px-2 py-1">
                       <input value={row.note} onChange={(e) => updateItemRow(i, { note: e.target.value })} className="input w-full" />
                     </td>
+                    <td className="px-2 py-1 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeItemRow(i)}
+                        disabled={itemRows.length <= 1}
+                        title="ลบแถวนี้"
+                        aria-label="ลบแถวนี้"
+                        className="text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -366,11 +391,19 @@ export function ApprovalForm({
                   รวมทั้งหมด
                 </td>
                 <td className="px-2 py-2 text-right font-bold text-emerald-700">{formatBaht(itemsGrandTotal)}</td>
-                <td />
+                <td colSpan={2} />
               </tr>
             </tfoot>
           </table>
         </div>
+        <button
+          type="button"
+          onClick={addItemRow}
+          disabled={itemRows.length >= MAX_ITEM_ROWS}
+          className="btn-secondary btn-sm mt-3 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          + เพิ่มรายการ
+        </button>
       </section>
 
       <div className="flex justify-end gap-3">
