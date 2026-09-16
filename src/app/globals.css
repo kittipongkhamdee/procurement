@@ -29,12 +29,10 @@ html {
   --color-gold-100: #faf3e0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ทั้งระบบไม่มีจุดไหนออกแบบรองรับ Dark Mode จริงจัง (การ์ด/อินพุตทุกที่ยังใช้พื้นหลังสีขาว/สว่างตายตัว)
+   เดิมมี media query สลับ --foreground เป็นสีขาวเกือบสนิทตาม prefers-color-scheme ของเครื่องผู้ใช้ ทำให้
+   ตัวอักษรที่ไม่ได้ระบุสีเจาะจง (เช่น text-slate-900) กลายเป็นสีขาวบนพื้นหลังสีขาวของการ์ด มองแทบไม่เห็น
+   เวลาเปิด Dark Mode ระดับ OS/เบราว์เซอร์ — ตัดออก บังคับใช้โทนสว่างเสมอ */
 
 body {
   background: var(--background);
