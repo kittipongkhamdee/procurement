@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { CheckIcon, ClipboardCheckIcon } from "@/components/icons";
+import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ApprovalTimeline, PendingActionCallout, type FlowStep } from "@/components/approval-flow";
 import {
@@ -155,10 +155,22 @@ export function ApprovalStatusCell({
     }
   }
 
+  // ป้ายสถานะที่ผู้ใช้คนนี้ต้อง "พิจารณา" จริงๆ (mode ไม่ใช่ view) ให้เพิ่มไอคอนลูกศรต่อท้าย บอกชัดว่า
+  // กดเข้าไปได้ ไม่ใช่แค่ป้ายแสดงสถานะเฉยๆ — โหมด view (แค่ดูรายละเอียด) ใช้ป้ายเรียบเหมือนเดิม
+  const actionable = mode !== "view";
+  const defaultTrigger = actionable ? (
+    <span className="inline-flex items-center gap-1">
+      {status}
+      <ChevronRightIcon className="h-3 w-3" />
+    </span>
+  ) : (
+    status
+  );
+
   return (
     <Modal
       ref={modalRef}
-      trigger={trigger ?? status}
+      trigger={trigger ?? defaultTrigger}
       triggerClassName={triggerClassName ?? `${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
       title={mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
       defaultOpen={defaultOpen}
