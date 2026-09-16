@@ -20,6 +20,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
+import { uploadFileToSupabaseWithProgress } from "@/lib/storage/client-upload";
 import { uploadDocument, deleteDocument, updateDocument } from "./actions";
 
 const BUCKET = "procurement-files";
@@ -48,20 +49,61 @@ async function resolveUrls(
   return result;
 }
 
+/** แถบแสดง % ความคืบหน้าการอัปโหลด — progress เป็น null หมายถึงกำลังทำงานอยู่แต่ยังไม่รู้ %
+ * (เช่น ปลายทาง Google Drive ที่ยังไม่รองรับ progress จริง) แสดงแบบ indeterminate แทน */
+function UploadProgressBar({ progress }: { progress: number | null }) {
+  return (
+    <div className="sm:col-span-3">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full bg-navy-700 transition-all ${progress === null ? "w-1/3 animate-pulse" : ""}`}
+          style={progress === null ? undefined : { width: `${progress}%` }}
+        />
+      </div>
+      <p className="mt-1 text-xs text-slate-500">{progress === null ? "กำลังอัปโหลด..." : `กำลังอัปโหลด... ${progress}%`}</p>
+    </div>
+  );
+}
+
 /** แก้ไขรายการเดิม — เปลี่ยนชื่อไฟล์ได้เสมอ, ถ้าเดิมเป็นลิงก์ภายนอกแก้ลิงก์ได้, ถ้าเดิมเป็นไฟล์ที่
  * อัปโหลดไว้เลือกไฟล์ใหม่แทนที่ของเดิมได้ (ไม่เลือก = แก้แค่ชื่อ) — เป็น component แยกระดับ module
  * (ไม่ใช่ inline ใน DocumentsPage) กัน lint "สร้าง component ระหว่าง render" */
-function EditDocumentModal({ doc, onChanged }: { doc: DocumentRow; onChanged: () => void }) {
+function EditDocumentModal({
+  doc,
+  storageProvider,
+  onChanged,
+}: {
+  doc: DocumentRow;
+  storageProvider: "supabase" | "google_drive";
+  onChanged: () => void;
+}) {
   const modalRef = useRef<ModalHandle>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const isLink = isExternalLink(doc.file_url);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (submitting) return;
     const formData = new FormData(e.currentTarget);
+    const file = formData.get("file") as File | null;
+    const hasNewFile = !!file && file.size > 0;
     setSubmitting(true);
+    if (hasNewFile) setProgress(storageProvider === "supabase" ? 0 : null);
     try {
+      // ไฟล์ที่เลือกจริง (ไม่ใช่ลิงก์) และปลายทางเป็น Supabase Storage — อัปโหลดตรงจากเบราว์เซอร์เพื่อ
+      // ให้แสดง % ความคืบหน้าได้จริง แล้วค่อยเรียก server action แค่บันทึกแถวอ้างอิง (ไม่อัปโหลดซ้ำ)
+      if (file && file.size > 0 && !isLink && storageProvider === "supabase") {
+        const ext = file.name.split(".").pop();
+        const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+        const uploadResult = await uploadFileToSupabaseWithProgress("procurement-files", path, file, setProgress);
+        if (uploadResult?.error) {
+          await toastError(uploadResult.error);
+          return;
+        }
+        formData.set("uploaded_ref", path);
+        formData.delete("file");
+      }
       const result = await updateDocument(doc.id, formData);
       if (result?.error) {
         await toastError(result.error);
@@ -74,6 +116,7 @@ function EditDocumentModal({ doc, onChanged }: { doc: DocumentRow; onChanged: ()
       await toastError(errorMessage(err));
     } finally {
       setSubmitting(false);
+      setProgress(null);
     }
   }
 
@@ -95,6 +138,7 @@ function EditDocumentModal({ doc, onChanged }: { doc: DocumentRow; onChanged: ()
             <input type="file" name="file" className="input w-full" />
           </div>
         )}
+        {submitting && <UploadProgressBar progress={progress} />}
         <button type="submit" disabled={submitting} className="btn-primary w-full disabled:opacity-50">
           {submitting ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
         </button>
@@ -110,11 +154,13 @@ export default function DocumentsPage() {
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
   const [signedProjectFileUrls, setSignedProjectFileUrls] = useState<Map<string, string>>(new Map());
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [storageProvider, setStorageProvider] = useState<"supabase" | "google_drive">("supabase");
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: docs, error }, { data: proposals }] = await Promise.all([
+    const [{ data: docs, error }, { data: proposals }, { data: providerSetting }] = await Promise.all([
       supabase
         .from("proc_documents")
         .select("id, file_name, file_url, created_at")
@@ -124,9 +170,11 @@ export default function DocumentsPage() {
         .select("id, name, file_url_word, file_url_pdf, approved_at")
         .eq("status", "อนุมัติแล้ว")
         .order("approved_at", { ascending: false }),
+      supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
     ]);
     if (error) setError(error.message);
     setDocuments(docs ?? []);
+    setStorageProvider(providerSetting?.value === "google_drive" ? "google_drive" : "supabase");
 
     const files = (proposals ?? []).filter((p) => p.file_url_word || p.file_url_pdf);
     setProjectFiles(files);
@@ -155,8 +203,25 @@ export default function DocumentsPage() {
     if (uploading) return; // กันกดซ้ำระหว่างกำลังอัปโหลด/บันทึกอยู่
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const file = formData.get("file") as File | null;
+    const link = String(formData.get("link") ?? "").trim();
+    const hasFile = !!file && file.size > 0;
     setUploading(true);
+    if (hasFile && !link) setUploadProgress(storageProvider === "supabase" ? 0 : null);
     try {
+      // มีไฟล์จริง (ไม่ใช่ลิงก์) และปลายทางเป็น Supabase Storage — อัปโหลดตรงจากเบราว์เซอร์เพื่อให้
+      // แสดง % ความคืบหน้าได้จริง แล้วค่อยเรียก server action แค่บันทึกแถวอ้างอิง (ไม่อัปโหลดซ้ำ)
+      if (hasFile && !link && storageProvider === "supabase" && file) {
+        const ext = file.name.split(".").pop();
+        const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+        const uploadResult = await uploadFileToSupabaseWithProgress("procurement-files", path, file, setUploadProgress);
+        if (uploadResult?.error) {
+          await toastError(uploadResult.error);
+          return;
+        }
+        formData.set("uploaded_ref", path);
+        formData.delete("file");
+      }
       const result = await uploadDocument(formData);
       if (result?.error) {
         await toastError(result.error);
@@ -169,6 +234,7 @@ export default function DocumentsPage() {
       await toastError(errorMessage(err));
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -276,6 +342,7 @@ export default function DocumentsPage() {
             placeholder="หรือวางลิงก์ภายนอก เช่น https://drive.google.com/..."
             className="input sm:col-span-3"
           />
+          {uploading && <UploadProgressBar progress={uploadProgress} />}
           <button type="submit" disabled={uploading} className="btn-primary sm:col-span-3 disabled:opacity-50">
             {uploading ? "กำลังบันทึก..." : "บันทึก"}
           </button>
@@ -325,7 +392,7 @@ export default function DocumentsPage() {
                     )}
                   </td>
                   <td className="text-right">
-                    <EditDocumentModal doc={d} onChanged={reload} />
+                    <EditDocumentModal doc={d} storageProvider={storageProvider} onChanged={reload} />
                   </td>
                   <td className="text-right">
                     <button

@@ -21,6 +21,9 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
   // วางลิงก์ภายนอกแทนการอัปโหลดไฟล์ (เช่น แชร์ลิงก์จาก Google Drive ของตัวเอง) — เมื่อไฟล์ต้นทาง
   // เปลี่ยนแปลง ไม่ต้องมาลบ/อัปโหลดใหม่ในระบบนี้ เพราะระบบแค่เก็บลิงก์ไว้ ไม่ได้เก็บไฟล์เอง
   const link = String(formData.get("link") ?? "").trim();
+  // ไฟล์ถูกอัปโหลดตรงจาก browser ไปยัง Supabase Storage มาแล้ว (ดู client-upload.ts — ทำแบบนี้เพื่อให้
+  // แสดง % ความคืบหน้าได้จริง) แอ็กชันนี้แค่บันทึกแถวอ้างอิงไฟล์ที่อัปโหลดเสร็จแล้ว ไม่ต้องอัปโหลดซ้ำ
+  const uploadedRef = String(formData.get("uploaded_ref") ?? "").trim();
 
   if (link) {
     if (!isExternalLink(link)) return { error: "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://" };
@@ -29,6 +32,17 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
     const { error } = await supabase.from("proc_documents").insert({
       file_name: fileName,
       file_url: link,
+      uploaded_by: user?.id ?? null,
+    });
+    if (error) return { error: error.message };
+    revalidatePath("/documents");
+    return {};
+  }
+
+  if (uploadedRef) {
+    const { error } = await supabase.from("proc_documents").insert({
+      file_name: fileName || uploadedRef.split("/").pop() || "เอกสาร",
+      file_url: uploadedRef,
       uploaded_by: user?.id ?? null,
     });
     if (error) return { error: error.message };
@@ -64,6 +78,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
 
   const link = String(formData.get("link") ?? "").trim();
   const file = formData.get("file") as File | null;
+  const uploadedRef = String(formData.get("uploaded_ref") ?? "").trim();
 
   const { data: current, error: fetchError } = await supabase
     .from("proc_documents")
@@ -79,6 +94,16 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
     const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: link }).eq("id", id);
     if (error) return { error: error.message };
+    revalidatePath("/documents");
+    return {};
+  }
+
+  // ไฟล์ใหม่ถูกอัปโหลดตรงจาก browser ไปยัง Supabase Storage มาแล้ว (ดู client-upload.ts) — แค่บันทึก
+  // แถวให้ชี้ไปไฟล์ใหม่ ไม่ต้องอัปโหลดซ้ำ
+  if (uploadedRef) {
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: uploadedRef }).eq("id", id);
+    if (error) return { error: error.message };
+    if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
     revalidatePath("/documents");
     return {};
   }
