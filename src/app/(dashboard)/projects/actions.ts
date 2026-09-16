@@ -116,17 +116,22 @@ async function findProjectBlockingLabels(supabase: Awaited<ReturnType<typeof cre
   return labels;
 }
 
-export async function deleteProject(projectId: string) {
+// คืนค่า { error } แทนการ throw — ข้อความ error ที่ throw จาก Server Action ถูก Next.js ปิดบัง
+// (redact) ในโปรดักชัน ฝั่ง client จะเห็นแค่ "Minified React error #441" อ่านไม่รู้เรื่อง แทนข้อความ
+// จริงที่ตั้งใจให้ผู้ใช้เห็น (พิสูจน์แล้วจาก Vercel runtime logs — server throw ข้อความไทยถูกต้อง
+// แต่ client ไม่เคยได้รับ) จึงต้องส่งข้อความ error กลับเป็นค่า return ปกติแทน
+export async function deleteProject(projectId: string): Promise<{ error?: string }> {
   const supabase = await requireAdmin();
 
   const blockingLabels = await findProjectBlockingLabels(supabase, projectId);
   if (blockingLabels.length > 0) {
-    throw new Error(`ลบไม่ได้ เพราะโครงการนี้มี${blockingLabels.join(", ")}อ้างอิงอยู่ กรุณาลบรายการที่เกี่ยวข้องก่อน`);
+    return { error: `ลบไม่ได้ เพราะโครงการนี้มี${blockingLabels.join(", ")}อ้างอิงอยู่ กรุณาลบรายการที่เกี่ยวข้องก่อน` };
   }
 
   const { error } = await supabase.from("plan_projects").delete().eq("id", projectId);
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath("/projects");
+  return {};
 }
 
 export async function createActivity(projectId: string, formData: FormData) {

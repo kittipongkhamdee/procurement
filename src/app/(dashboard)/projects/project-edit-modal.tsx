@@ -92,7 +92,11 @@ export function ProjectEditModal({
     });
     if (!ok) return;
     try {
-      await deleteProject(projectId);
+      const result = await deleteProject(projectId);
+      if (result?.error) {
+        await toastError(result.error);
+        return;
+      }
       await toastSuccess("ลบโครงการเรียบร้อยแล้ว");
       onChanged?.();
       modalRef.current?.close();
