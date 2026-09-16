@@ -92,11 +92,46 @@ export async function updateProjectBudget(projectId: string, budget: number) {
   revalidatePath("/fund-allocation");
 }
 
-export async function deleteProject(projectId: string) {
+// ตารางอื่นที่อ้างอิง plan_projects.id ด้วย FK แบบ NO ACTION (ห้ามลบถ้ายังมีแถวอ้างอิงอยู่) — เช็คก่อน
+// ลบจริงแล้วโยน error ข้อความไทยที่บอกสาเหตุชัดเจน แทนปล่อยให้ Postgres โยน foreign key violation ดิบๆ
+// ออกไป ซึ่งฝั่ง client แสดงเป็น "Minified React error" ที่อ่านไม่รู้เรื่อง
+async function findProjectBlockingLabels(supabase: Awaited<ReturnType<typeof createClient>>, projectId: string) {
+  const [purchaseRequests, contracts, approvals, allowanceDisbursements, projectDisbursements, projectReports] =
+    await Promise.all([
+      supabase.from("proc_purchase_requests").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_contracts").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_approvals").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_allowance_disbursements").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_project_disbursements").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_project_reports").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+    ]);
+
+  const labels: string[] = [];
+  if ((purchaseRequests.count ?? 0) > 0) labels.push("ใบขอซื้อ/ขอจ้าง");
+  if ((contracts.count ?? 0) > 0) labels.push("สัญญา");
+  if ((approvals.count ?? 0) > 0) labels.push("บันทึกขออนุมัติ");
+  if ((allowanceDisbursements.count ?? 0) > 0) labels.push("การเบิกค่าตอบแทน");
+  if ((projectDisbursements.count ?? 0) > 0) labels.push("การเบิกจ่ายโครงการ");
+  if ((projectReports.count ?? 0) > 0) labels.push("รายงานผลโครงการ");
+  return labels;
+}
+
+// คืนค่า { error } แทนการ throw — ข้อความ error ที่ throw จาก Server Action ถูก Next.js ปิดบัง
+// (redact) ในโปรดักชัน ฝั่ง client จะเห็นแค่ "Minified React error #441" อ่านไม่รู้เรื่อง แทนข้อความ
+// จริงที่ตั้งใจให้ผู้ใช้เห็น (พิสูจน์แล้วจาก Vercel runtime logs — server throw ข้อความไทยถูกต้อง
+// แต่ client ไม่เคยได้รับ) จึงต้องส่งข้อความ error กลับเป็นค่า return ปกติแทน
+export async function deleteProject(projectId: string): Promise<{ error?: string }> {
   const supabase = await requireAdmin();
+
+  const blockingLabels = await findProjectBlockingLabels(supabase, projectId);
+  if (blockingLabels.length > 0) {
+    return { error: `ลบไม่ได้ เพราะโครงการนี้มี${blockingLabels.join(", ")}อ้างอิงอยู่ กรุณาลบรายการที่เกี่ยวข้องก่อน` };
+  }
+
   const { error } = await supabase.from("plan_projects").delete().eq("id", projectId);
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
   revalidatePath("/projects");
+  return {};
 }
 
 export async function createActivity(projectId: string, formData: FormData) {
