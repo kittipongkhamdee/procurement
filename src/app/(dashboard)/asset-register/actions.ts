@@ -7,6 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_ASSET_CODE_TEMPLATE, renderNumberTemplate } from "@/lib/format-template";
 
 const PATH = "/asset-register";
 
@@ -230,9 +231,14 @@ export async function deleteAssetItemType(id: string) {
 }
 
 // ---------------- กำหนดเลขครุภัณฑ์อัตโนมัติ ----------------
-// รูปแบบ: [อักษรย่อโรงเรียน] [รหัสประเภท].[รหัสชนิด] / [เลขลำดับ 3 หลัก] / [ปีงบประมาณ พ.ศ. 2 หลักท้าย]
-// เช่น "ต.บ.ว. 20.01 / 005 / 69" — เลขลำดับนับแยกตามหมวดหมู่+ชนิด+ปีงบประมาณ (ปีของ acquired_date
-// ที่เลือกในฟอร์ม ถ้ายังไม่เลือกใช้ปีงบประมาณปัจจุบัน) เริ่มนับ 001 ใหม่ทุกปีงบประมาณ
+// รูปแบบเริ่มต้น (แอดมินปรับเองได้ที่หน้าตั้งค่าระบบ ผ่าน proc_app_settings key "asset_code_template"):
+// "{prefix} {type_code}.{item_code} / {seq:3} / {yy}" เช่น "ต.บ.ว. 20.01 / 005 / 69" — ตัวแปรที่ใช้ได้:
+// {prefix} อักษรย่อโรงเรียน, {type_code} รหัสหมวดหมู่, {item_code} รหัสชนิดครุภัณฑ์, {seq}/{seq:N} เลข
+// ลำดับ (ใส่ :N เพื่อเติม 0 นำหน้าให้ครบ N หลัก), {yy}/{yyyy} ปีงบประมาณ พ.ศ. 2/4 หลัก — เลขลำดับนับ
+// แยกตามหมวดหมู่+ชนิด+ปีงบประมาณเสมอ (ปีของ acquired_date ที่เลือกในฟอร์ม ถ้ายังไม่เลือกใช้ปีงบประมาณ
+// ปัจจุบัน) เริ่มนับ 1 ใหม่ทุกปีงบประมาณ ไม่ว่าจะปรับรูปแบบการแสดงผลเป็นแบบใดก็ตาม (ค่าเริ่มต้น
+// DEFAULT_ASSET_CODE_TEMPLATE อยู่ที่ src/lib/format-template.ts เพราะไฟล์นี้มี "use server" ที่บังคับ
+// ทุก export ต้องเป็น async function เท่านั้น export ค่าคงที่ตรงๆ จากไฟล์นี้ไม่ได้)
 export async function generateAssetCode(
   categoryId: string,
   itemTypeId: string,
@@ -240,10 +246,11 @@ export async function generateAssetCode(
 ): Promise<string> {
   const { supabase } = await requireAssetStaff();
 
-  const [{ data: category }, { data: itemType }, { data: settings }] = await Promise.all([
+  const [{ data: category }, { data: itemType }, { data: settings }, { data: templateSetting }] = await Promise.all([
     supabase.from("asset_categories").select("type_code").eq("id", categoryId).maybeSingle(),
     supabase.from("asset_item_types").select("code").eq("id", itemTypeId).maybeSingle(),
     supabase.from("proc_school_settings").select("asset_code_prefix").eq("id", true).maybeSingle(),
+    supabase.from("proc_app_settings").select("value").eq("key", "asset_code_template").maybeSingle(),
   ]);
 
   if (!category?.type_code) throw new Error("หมวดหมู่นี้ยังไม่ได้ตั้งรหัสประเภท (ไปตั้งค่าที่แท็บข้อมูลหลัก)");
@@ -251,7 +258,6 @@ export async function generateAssetCode(
   if (!settings?.asset_code_prefix) throw new Error("ยังไม่ได้ตั้งอักษรย่อโรงเรียน (ไปตั้งค่าที่หน้าตั้งค่าระบบ)");
 
   const yearBE = acquiredDateIso ? Number(acquiredDateIso.slice(0, 4)) + 543 : new Date().getFullYear() + 543;
-  const yy = String(yearBE % 100).padStart(2, "0");
 
   const { count } = await supabase
     .from("asset_items")
@@ -260,9 +266,16 @@ export async function generateAssetCode(
     .eq("item_type_id", itemTypeId)
     .eq("acquired_year", yearBE);
 
-  const seq = String((count ?? 0) + 1).padStart(3, "0");
+  const template = templateSetting?.value?.trim() || DEFAULT_ASSET_CODE_TEMPLATE;
 
-  return `${settings.asset_code_prefix} ${category.type_code}.${itemType.code} / ${seq} / ${yy}`;
+  return renderNumberTemplate(template, {
+    prefix: settings.asset_code_prefix,
+    type_code: category.type_code,
+    item_code: itemType.code,
+    seq: (count ?? 0) + 1,
+    yy: String(yearBE % 100).padStart(2, "0"),
+    yyyy: yearBE,
+  });
 }
 
 // ---------------- asset_buildings ----------------

@@ -21,7 +21,10 @@ import { AiExtractionToggle } from "./ai-extraction-toggle";
 import { StorageProviderToggle } from "./storage-provider-toggle";
 import { SchoolBrandingForm } from "./school-branding-form";
 import { ApprovalTemplateForm } from "./approval-template-form";
+import { ApprovalDocNumberForm } from "./approval-doc-number-form";
+import { AssetCodeTemplateForm } from "./asset-code-template-form";
 import { CloseIcon } from "@/components/icons";
+import { DEFAULT_ASSET_CODE_TEMPLATE } from "@/lib/format-template";
 import {
   createAdminGroup,
   createBudgetSource,
@@ -35,6 +38,8 @@ import {
   removeApprovalTemplate,
   removeSchoolLogo,
   setAiExtractionEnabled,
+  setApprovalDocNumberFormat,
+  setAssetCodeTemplate,
   setCurrentBudgetYear,
   setGeminiApiKey,
   setGeminiModel,
@@ -74,6 +79,9 @@ type SettingsData = {
   schoolAddress: string | null;
   assetCodePrefix: string | null;
   hasCustomApprovalTemplate: boolean;
+  approvalDocNumberPrefix: string;
+  approvalDocNumberSeparator: string;
+  assetCodeTemplate: string;
 };
 
 export default function SettingsPage() {
@@ -96,6 +104,7 @@ export default function SettingsPage() {
       { data: storageProviderSetting },
       { data: schoolSettings },
       { data: templateFiles },
+      { data: numberFormatSettings },
     ] = await Promise.all([
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
       supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
@@ -114,6 +123,10 @@ export default function SettingsPage() {
         .eq("id", true)
         .maybeSingle(),
       supabase.storage.from("procurement-documents").list("templates"),
+      supabase
+        .from("proc_app_settings")
+        .select("key, value")
+        .in("key", ["approval_doc_number_prefix", "approval_doc_number_separator", "asset_code_template"]),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -122,6 +135,8 @@ export default function SettingsPage() {
       list.push(m.group_id);
       groupIdsByUser.set(m.user_id, list);
     }
+
+    const numberFormatMap = new Map((numberFormatSettings ?? []).map((s) => [s.key, s.value]));
 
     setData({
       budgetYears: budgetYears ?? [],
@@ -141,6 +156,9 @@ export default function SettingsPage() {
       schoolAddress: schoolSettings?.school_address ?? null,
       assetCodePrefix: schoolSettings?.asset_code_prefix ?? null,
       hasCustomApprovalTemplate: (templateFiles ?? []).some((f) => f.name === "approval-template.pdf"),
+      approvalDocNumberPrefix: numberFormatMap.get("approval_doc_number_prefix") ?? "",
+      approvalDocNumberSeparator: numberFormatMap.get("approval_doc_number_separator") || "/",
+      assetCodeTemplate: numberFormatMap.get("asset_code_template") || DEFAULT_ASSET_CODE_TEMPLATE,
     });
   }, []);
 
@@ -254,6 +272,27 @@ export default function SettingsPage() {
               onChanged={reload}
             />
           </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">รูปแบบเลขที่หนังสือ (บันทึกขออนุมัติ)</div>
+          <p className="mb-3 text-sm text-slate-500">
+            เลขลำดับยังรีเซ็ตใหม่ทุกปีงบประมาณเหมือนเดิม ปรับได้แค่คำนำหน้ากับตัวคั่นระหว่างลำดับกับปีงบประมาณ
+          </p>
+          <ApprovalDocNumberForm
+            prefix={data.approvalDocNumberPrefix}
+            separator={data.approvalDocNumberSeparator}
+            setApprovalDocNumberFormat={setApprovalDocNumberFormat}
+            onChanged={reload}
+          />
+        </div>
+
+        <div className="card">
+          <div className="card-title">รูปแบบเลขครุภัณฑ์</div>
+          <p className="mb-3 text-sm text-slate-500">
+            เลขลำดับยังนับแยกตามหมวดหมู่+ชนิดครุภัณฑ์+ปีงบประมาณเหมือนเดิม กำหนดได้แค่รูปแบบการแสดงผล
+          </p>
+          <AssetCodeTemplateForm template={data.assetCodeTemplate} setAssetCodeTemplate={setAssetCodeTemplate} onChanged={reload} />
         </div>
 
         <div className="card">

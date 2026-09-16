@@ -47,21 +47,43 @@ function thaiFiscalYear(isoDate: string): number {
   return gregorianFiscalYear + 543;
 }
 
-/** เลขที่หนังสือถัดไปของปีงบประมาณนั้น รูปแบบ "<ลำดับ>/<ปีงบประมาณ>" — นับจากจำนวนเลขสูงสุดที่ยัง
- * มีอยู่จริงในตาราง proc_approvals ของปีงบประมาณนั้นแล้ว +1 (ถ้าลบบันทึกที่มีเลขสูงสุดออก เลขถัดไป
- * จะย้อนกลับมาใช้เลขนั้นซ้ำได้ตามที่ผู้ใช้ต้องการ) */
+const DEFAULT_APPROVAL_DOC_NUMBER_SEPARATOR = "/";
+
+/** คำนำหน้า/ตัวคั่นเลขที่หนังสือ — แอดมินปรับเองได้ที่หน้าตั้งค่าระบบ (proc_app_settings keys
+ * "approval_doc_number_prefix"/"approval_doc_number_separator") รูปแบบเลขยังคงเป็น
+ * "<คำนำหน้า><ลำดับ><ตัวคั่น><ปีงบประมาณ>" เสมอ ปรับได้แค่คำนำหน้ากับตัวคั่น ไม่ปรับลำดับ/การรีเซ็ต
+ * รายปีงบประมาณ (ยังคงพฤติกรรมเดิมเป๊ะถ้าไม่ได้ตั้งค่าอะไรไว้ — ค่าเริ่มต้น prefix ว่าง, separator "/") */
+async function getApprovalDocNumberFormat(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data } = await supabase
+    .from("proc_app_settings")
+    .select("key, value")
+    .in("key", ["approval_doc_number_prefix", "approval_doc_number_separator"]);
+  const map = new Map((data ?? []).map((r) => [r.key, r.value]));
+  const prefix = map.get("approval_doc_number_prefix") ?? "";
+  const separator = map.get("approval_doc_number_separator")?.trim() || DEFAULT_APPROVAL_DOC_NUMBER_SEPARATOR;
+  return { prefix, separator };
+}
+
+/** เลขที่หนังสือถัดไปของปีงบประมาณนั้น รูปแบบ "<คำนำหน้า><ลำดับ><ตัวคั่น><ปีงบประมาณ>" — นับจากจำนวน
+ * เลขสูงสุดที่ยังมีอยู่จริงในตาราง proc_approvals ของปีงบประมาณนั้นแล้ว +1 (ถ้าลบบันทึกที่มีเลขสูงสุด
+ * ออก เลขถัดไปจะย้อนกลับมาใช้เลขนั้นซ้ำได้ตามที่ผู้ใช้ต้องการ) */
 async function nextDocNumber(supabase: Awaited<ReturnType<typeof createClient>>, docDate: string) {
   const fiscalYear = thaiFiscalYear(docDate);
-  const suffix = `/${fiscalYear}`;
+  const { prefix, separator } = await getApprovalDocNumberFormat(supabase);
+  const suffix = `${separator}${fiscalYear}`;
   const { data } = await supabase.from("proc_approvals").select("doc_number").ilike("doc_number", `%${suffix}`);
 
   let maxSeq = 0;
   (data ?? []).forEach((row) => {
-    const n = parseInt(String(row.doc_number ?? "").split("/")[0], 10);
+    const raw = String(row.doc_number ?? "");
+    if (!raw.endsWith(suffix)) return;
+    let body = raw.slice(0, raw.length - suffix.length);
+    if (prefix && body.startsWith(prefix)) body = body.slice(prefix.length);
+    const n = parseInt(body, 10);
     if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
   });
 
-  return `${maxSeq + 1}${suffix}`;
+  return `${prefix}${maxSeq + 1}${suffix}`;
 }
 
 async function generatePdf(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string) {

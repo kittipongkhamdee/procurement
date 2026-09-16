@@ -316,3 +316,46 @@ export async function removeSchoolLogo() {
   if (error) throw new Error(error.message);
   revalidatePath("/settings");
 }
+
+// รูปแบบเลขที่หนังสือบันทึกขออนุมัติ — แอดมินปรับได้แค่คำนำหน้ากับตัวคั่น (ไม่ปรับลำดับ/การรีเซ็ต
+// รายปีงบประมาณ ยังทำงานแบบเดิมเสมอ ดู nextDocNumber ใน approvals/actions.ts) คืนค่า { error } แทน
+// การ throw เพราะ Next.js ปิดบังข้อความ error ที่ throw จาก Server Action ในโปรดักชัน (ดูคอมเมนต์
+// เดียวกันในไฟล์ projects/actions.ts)
+export async function setApprovalDocNumberFormat(formData: FormData): Promise<{ error?: string }> {
+  const supabase = await requireAdmin();
+  const prefix = String(formData.get("approval_doc_number_prefix") ?? "");
+  const separator = String(formData.get("approval_doc_number_separator") ?? "").trim() || "/";
+
+  const { error: e1 } = await supabase
+    .from("proc_app_settings")
+    .upsert({ key: "approval_doc_number_prefix", value: prefix, updated_at: new Date().toISOString() });
+  if (e1) return { error: e1.message };
+
+  const { error: e2 } = await supabase
+    .from("proc_app_settings")
+    .upsert({ key: "approval_doc_number_separator", value: separator, updated_at: new Date().toISOString() });
+  if (e2) return { error: e2.message };
+
+  revalidatePath("/settings");
+  return {};
+}
+
+// รูปแบบเลขครุภัณฑ์แบบเต็มด้วยตัวแปร — แอดมินกำหนดรูปแบบการแสดงผลได้อิสระ แต่การนับลำดับยังคงแยกตาม
+// หมวดหมู่+ชนิดครุภัณฑ์+ปีงบประมาณเหมือนเดิมเสมอ (ดู generateAssetCode ใน asset-register/actions.ts)
+// ตัวแปรที่ใช้ได้: {prefix} {type_code} {item_code} {seq}/{seq:N} {yy} {yyyy}
+export async function setAssetCodeTemplate(formData: FormData): Promise<{ error?: string }> {
+  const supabase = await requireAdmin();
+  const template = String(formData.get("asset_code_template") ?? "").trim();
+  if (!template) return { error: "กรุณาระบุรูปแบบเลขครุภัณฑ์" };
+  if (!/\{seq(:\d+)?\}/.test(template)) {
+    return { error: "รูปแบบต้องมีตัวแปร {seq} หรือ {seq:จำนวนหลัก} เสมอ เพื่อให้เลขครุภัณฑ์ไม่ซ้ำกัน" };
+  }
+
+  const { error } = await supabase
+    .from("proc_app_settings")
+    .upsert({ key: "asset_code_template", value: template, updated_at: new Date().toISOString() });
+  if (error) return { error: error.message };
+
+  revalidatePath("/settings");
+  return {};
+}
