@@ -12,7 +12,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
   }
 
-  const buffer = await renderApprovalPdfBuffer(result.data);
+  const buffer = await renderApprovalPdfBuffer(supabase, result.data);
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

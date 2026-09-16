@@ -20,6 +20,7 @@ import { GeminiKeyForm } from "./gemini-key-form";
 import { AiExtractionToggle } from "./ai-extraction-toggle";
 import { StorageProviderToggle } from "./storage-provider-toggle";
 import { SchoolBrandingForm } from "./school-branding-form";
+import { ApprovalTemplateForm } from "./approval-template-form";
 import { CloseIcon } from "@/components/icons";
 import {
   createAdminGroup,
@@ -31,6 +32,7 @@ import {
   deleteBudgetSource,
   deleteTeacher,
   deleteUserGroup,
+  removeApprovalTemplate,
   removeSchoolLogo,
   setAiExtractionEnabled,
   setCurrentBudgetYear,
@@ -46,6 +48,7 @@ import {
   updateAdminGroupName,
   updateTeacherName,
   updateUserGroupName,
+  uploadApprovalTemplate,
   uploadSchoolLogo,
 } from "./actions";
 
@@ -70,6 +73,7 @@ type SettingsData = {
   educationArea: string | null;
   schoolAddress: string | null;
   assetCodePrefix: string | null;
+  hasCustomApprovalTemplate: boolean;
 };
 
 export default function SettingsPage() {
@@ -91,6 +95,7 @@ export default function SettingsPage() {
       { data: aiExtractionEnabledSetting },
       { data: storageProviderSetting },
       { data: schoolSettings },
+      { data: templateFiles },
     ] = await Promise.all([
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
       supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
@@ -108,6 +113,7 @@ export default function SettingsPage() {
         .select("school_name, logo_url, education_area, school_address, asset_code_prefix")
         .eq("id", true)
         .maybeSingle(),
+      supabase.storage.from("procurement-documents").list("templates"),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -134,6 +140,7 @@ export default function SettingsPage() {
       educationArea: schoolSettings?.education_area ?? null,
       schoolAddress: schoolSettings?.school_address ?? null,
       assetCodePrefix: schoolSettings?.asset_code_prefix ?? null,
+      hasCustomApprovalTemplate: (templateFiles ?? []).some((f) => f.name === "approval-template.pdf"),
     });
   }, []);
 
@@ -228,6 +235,22 @@ export default function SettingsPage() {
               setSchoolName={setSchoolName}
               uploadSchoolLogo={uploadSchoolLogo}
               removeSchoolLogo={removeSchoolLogo}
+              onChanged={reload}
+            />
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">เทมเพลต PDF บันทึกขออนุมัติ</div>
+            <p className="mb-4 text-sm text-slate-500">
+              เอกสาร &quot;บันทึกขออนุมัติ&quot; ({"/approvals"}) สร้างโดยเขียนข้อมูลทับลงบนไฟล์เทมเพลต PDF นี้โดยตรง
+              (ไม่ใช่การวาดเอกสารขึ้นใหม่ทั้งหมด) อัปโหลดไฟล์ใหม่ทับได้เองที่นี่โดยไม่ต้องรอแก้โค้ด
+            </p>
+            <ApprovalTemplateForm
+              hasCustomTemplate={data.hasCustomApprovalTemplate}
+              uploadApprovalTemplate={uploadApprovalTemplate}
+              removeApprovalTemplate={removeApprovalTemplate}
               onChanged={reload}
             />
           </div>
