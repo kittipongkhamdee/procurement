@@ -12,14 +12,15 @@
 // อัปโหลด/ลบไฟล์ยังคงเป็น server action เดิม (uploadDocument/deleteDocument) เพราะต้องเรียก Google
 // Drive API ด้วย service account ซึ่งทำได้แค่ฝั่ง server เท่านั้น
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isDriveRef, driveFileId, driveViewUrl, isExternalLink } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
-import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
-import { uploadDocument, deleteDocument } from "./actions";
+import { Modal, type ModalHandle } from "@/components/modal";
+import { uploadDocument, deleteDocument, updateDocument } from "./actions";
 
 const BUCKET = "procurement-files";
 
@@ -45,6 +46,61 @@ async function resolveUrls(
     });
   }
   return result;
+}
+
+/** แก้ไขรายการเดิม — เปลี่ยนชื่อไฟล์ได้เสมอ, ถ้าเดิมเป็นลิงก์ภายนอกแก้ลิงก์ได้, ถ้าเดิมเป็นไฟล์ที่
+ * อัปโหลดไว้เลือกไฟล์ใหม่แทนที่ของเดิมได้ (ไม่เลือก = แก้แค่ชื่อ) — เป็น component แยกระดับ module
+ * (ไม่ใช่ inline ใน DocumentsPage) กัน lint "สร้าง component ระหว่าง render" */
+function EditDocumentModal({ doc, onChanged }: { doc: DocumentRow; onChanged: () => void }) {
+  const modalRef = useRef<ModalHandle>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const isLink = isExternalLink(doc.file_url);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (submitting) return;
+    const formData = new FormData(e.currentTarget);
+    setSubmitting(true);
+    try {
+      const result = await updateDocument(doc.id, formData);
+      if (result?.error) {
+        await toastError(result.error);
+        return;
+      }
+      await toastSuccess("บันทึกการแก้ไขแล้ว");
+      onChanged();
+      modalRef.current?.close();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal ref={modalRef} trigger="แก้ไข" triggerClassName="text-xs font-medium text-navy-800 hover:underline" title="แก้ไขเอกสาร">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="label">ชื่อไฟล์เอกสาร</label>
+          <input name="file_name" defaultValue={doc.file_name} required className="input w-full" />
+        </div>
+        {isLink ? (
+          <div>
+            <label className="label">ลิงก์ภายนอก</label>
+            <input type="url" name="link" defaultValue={doc.file_url} required className="input w-full" />
+          </div>
+        ) : (
+          <div>
+            <label className="label">แทนที่ไฟล์ (ไม่เลือก = ใช้ไฟล์เดิม)</label>
+            <input type="file" name="file" className="input w-full" />
+          </div>
+        )}
+        <button type="submit" disabled={submitting} className="btn-primary w-full disabled:opacity-50">
+          {submitting ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+        </button>
+      </form>
+    </Modal>
+  );
 }
 
 export default function DocumentsPage() {
@@ -116,8 +172,10 @@ export default function DocumentsPage() {
     }
   }
 
-  async function handleDelete(id: string, ref: string) {
+  async function handleDelete(id: string, ref: string, name: string) {
     if (deletingId) return; // กันกดซ้ำระหว่างกำลังลบอยู่
+    const ok = await confirmDelete({ title: `ลบเอกสาร "${name}"?` });
+    if (!ok) return;
     setDeletingId(id);
     try {
       const result = await deleteDocument(id, ref);
@@ -236,6 +294,7 @@ export default function DocumentsPage() {
                 <th>วันที่เพิ่ม</th>
                 <th></th>
                 <th></th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -266,9 +325,12 @@ export default function DocumentsPage() {
                     )}
                   </td>
                   <td className="text-right">
+                    <EditDocumentModal doc={d} onChanged={reload} />
+                  </td>
+                  <td className="text-right">
                     <button
                       type="button"
-                      onClick={() => handleDelete(d.id, d.file_url)}
+                      onClick={() => handleDelete(d.id, d.file_url, d.file_name)}
                       disabled={deletingId === d.id}
                       className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
                     >
@@ -279,7 +341,7 @@ export default function DocumentsPage() {
               ))}
               {documents.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="table-empty">
+                  <td colSpan={5} className="table-empty">
                     ยังไม่มีข้อมูล
                   </td>
                 </tr>

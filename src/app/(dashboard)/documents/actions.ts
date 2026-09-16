@@ -54,6 +54,54 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
   return {};
 }
 
+// แก้ไขรายการเดิม — เปลี่ยนชื่อไฟล์ได้เสมอ และถ้าเดิมเป็นลิงก์ภายนอกก็แก้ลิงก์ได้ ถ้าเดิมเป็นไฟล์
+// ที่อัปโหลดไว้ก็อัปโหลดไฟล์ใหม่แทนที่ไฟล์เดิมได้ (ลบไฟล์เก่าออกจาก storage หลังอัปโหลดไฟล์ใหม่สำเร็จ)
+export async function updateDocument(id: string, formData: FormData): Promise<{ error?: string }> {
+  const supabase = await createClient();
+
+  const fileName = String(formData.get("file_name") ?? "").trim();
+  if (!fileName) return { error: "กรุณาระบุชื่อไฟล์เอกสาร" };
+
+  const link = String(formData.get("link") ?? "").trim();
+  const file = formData.get("file") as File | null;
+
+  const { data: current, error: fetchError } = await supabase
+    .from("proc_documents")
+    .select("file_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchError) return { error: fetchError.message };
+  if (!current) return { error: "ไม่พบรายการนี้" };
+
+  if (link) {
+    if (!isExternalLink(link)) return { error: "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://" };
+    // ถ้าของเดิมเป็นไฟล์ที่ระบบอัปโหลดไว้ (ไม่ใช่ลิงก์) แล้วเปลี่ยนมาใช้ลิงก์แทน ลบไฟล์เก่าออกจาก storage ด้วย
+    if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: link }).eq("id", id);
+    if (error) return { error: error.message };
+    revalidatePath("/documents");
+    return {};
+  }
+
+  if (file && file.size > 0) {
+    const ext = file.name.split(".").pop();
+    const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+    const ref = await uploadToStorage(supabase, { file, bucket: BUCKET, path });
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: ref }).eq("id", id);
+    if (error) return { error: error.message };
+    // ลบไฟล์เก่าหลังอัปโหลด/บันทึกไฟล์ใหม่สำเร็จแล้วเท่านั้น กันกรณีบันทึกไม่สำเร็จแล้วไฟล์เก่าหายไปด้วย
+    if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
+    revalidatePath("/documents");
+    return {};
+  }
+
+  // ไม่ได้เปลี่ยนไฟล์/ลิงก์ — แก้แค่ชื่อ
+  const { error } = await supabase.from("proc_documents").update({ file_name: fileName }).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/documents");
+  return {};
+}
+
 export async function deleteDocument(id: string, ref: string): Promise<{ error?: string }> {
   const supabase = await createClient();
   // ลิงก์ภายนอกที่ผู้ใช้วางเอง ระบบไม่ได้เป็นเจ้าของไฟล์ ไม่ต้อง (และลบไม่ได้) เรียก deleteFromStorage
