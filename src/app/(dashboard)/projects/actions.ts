@@ -92,8 +92,38 @@ export async function updateProjectBudget(projectId: string, budget: number) {
   revalidatePath("/fund-allocation");
 }
 
+// ตารางอื่นที่อ้างอิง plan_projects.id ด้วย FK แบบ NO ACTION (ห้ามลบถ้ายังมีแถวอ้างอิงอยู่) — เช็คก่อน
+// ลบจริงแล้วโยน error ข้อความไทยที่บอกสาเหตุชัดเจน แทนปล่อยให้ Postgres โยน foreign key violation ดิบๆ
+// ออกไป ซึ่งฝั่ง client แสดงเป็น "Minified React error" ที่อ่านไม่รู้เรื่อง
+async function findProjectBlockingLabels(supabase: Awaited<ReturnType<typeof createClient>>, projectId: string) {
+  const [purchaseRequests, contracts, approvals, allowanceDisbursements, projectDisbursements, projectReports] =
+    await Promise.all([
+      supabase.from("proc_purchase_requests").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_contracts").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_approvals").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_allowance_disbursements").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_project_disbursements").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_project_reports").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+    ]);
+
+  const labels: string[] = [];
+  if ((purchaseRequests.count ?? 0) > 0) labels.push("ใบขอซื้อ/ขอจ้าง");
+  if ((contracts.count ?? 0) > 0) labels.push("สัญญา");
+  if ((approvals.count ?? 0) > 0) labels.push("บันทึกขออนุมัติ");
+  if ((allowanceDisbursements.count ?? 0) > 0) labels.push("การเบิกค่าตอบแทน");
+  if ((projectDisbursements.count ?? 0) > 0) labels.push("การเบิกจ่ายโครงการ");
+  if ((projectReports.count ?? 0) > 0) labels.push("รายงานผลโครงการ");
+  return labels;
+}
+
 export async function deleteProject(projectId: string) {
   const supabase = await requireAdmin();
+
+  const blockingLabels = await findProjectBlockingLabels(supabase, projectId);
+  if (blockingLabels.length > 0) {
+    throw new Error(`ลบไม่ได้ เพราะโครงการนี้มี${blockingLabels.join(", ")}อ้างอิงอยู่ กรุณาลบรายการที่เกี่ยวข้องก่อน`);
+  }
+
   const { error } = await supabase.from("plan_projects").delete().eq("id", projectId);
   if (error) throw new Error(error.message);
   revalidatePath("/projects");
