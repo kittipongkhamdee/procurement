@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isDriveRef, driveFileId, driveViewUrl } from "@/lib/storage/ref";
+import { isDriveRef, driveFileId, driveViewUrl, isExternalLink } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
@@ -34,6 +34,7 @@ async function resolveUrls(
   const supabasePaths: string[] = [];
   for (const ref of refs) {
     if (!ref) continue;
+    if (isExternalLink(ref)) continue; // ลิงก์ภายนอกใช้ตรงๆ ไม่ต้อง resolve
     if (isDriveRef(ref)) result.set(ref, driveViewUrl(driveFileId(ref)));
     else supabasePaths.push(ref);
   }
@@ -186,11 +187,21 @@ export default function DocumentsPage() {
 
       <div className="card mb-6">
         <h2 className="card-title">เพิ่มไฟล์ใหม่</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          เลือกได้ 2 แบบ — อัปโหลดไฟล์เข้าระบบ หรือวางลิงก์ภายนอก (เช่น ลิงก์แชร์ไฟล์จาก Google Drive
+          ของตัวเอง) ถ้าใช้ลิงก์ เมื่อแก้ไขไฟล์ต้นทางภายหลังไม่ต้องมาลบ/อัปโหลดใหม่ในระบบนี้
+        </p>
         <form onSubmit={handleUpload} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <input name="file_name" placeholder="ชื่อไฟล์เอกสาร (ไม่ระบุ = ใช้ชื่อไฟล์เดิม)" className="input sm:col-span-2" />
-          <input type="file" name="file" required className="input" />
+          <input name="file_name" placeholder="ชื่อไฟล์เอกสาร (ไม่ระบุ = ใช้ชื่อไฟล์เดิม เว้นแต่วางลิงก์ต้องระบุ)" className="input sm:col-span-2" />
+          <input type="file" name="file" className="input" />
+          <input
+            type="url"
+            name="link"
+            placeholder="หรือวางลิงก์ภายนอก เช่น https://drive.google.com/..."
+            className="input sm:col-span-3"
+          />
           <button type="submit" className="btn-primary sm:col-span-3">
-            อัปโหลด
+            บันทึก
           </button>
         </form>
       </div>
@@ -215,7 +226,16 @@ export default function DocumentsPage() {
                   <td className="font-medium text-slate-900">{d.file_name}</td>
                   <td>{formatThaiDate(d.created_at)}</td>
                   <td className="text-right">
-                    {signedUrls.get(d.file_url) ? (
+                    {isExternalLink(d.file_url) ? (
+                      <a
+                        href={d.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-navy-800 hover:underline"
+                      >
+                        เปิดลิงก์
+                      </a>
+                    ) : signedUrls.get(d.file_url) ? (
                       <a
                         href={signedUrls.get(d.file_url)}
                         target="_blank"

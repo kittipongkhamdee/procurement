@@ -4,6 +4,13 @@ export function isDriveRef(ref: string): boolean {
   return ref.startsWith(GDRIVE_PREFIX);
 }
 
+/** ลิงก์ภายนอกที่ผู้ใช้วางเองตรงๆ (เช่น ลิงก์แชร์ Google Drive ของตัวเอง) แทนการอัปโหลดไฟล์เข้าระบบ —
+ * ต่างจาก isDriveRef ที่หมายถึงไฟล์ที่ระบบอัปโหลดขึ้น Google Drive เองผ่าน service account ลิงก์แบบนี้
+ * ระบบไม่ได้เป็นเจ้าของไฟล์ จึงไม่มีสิทธิ์ลบ/สร้าง signed URL ให้ — เปิดตรงๆ ตามลิงก์ที่ผู้ใช้ให้ไว้เลย */
+export function isExternalLink(ref: string): boolean {
+  return ref.startsWith("http://") || ref.startsWith("https://");
+}
+
 export function driveFileId(ref: string): string {
   return ref.slice(GDRIVE_PREFIX.length);
 }
