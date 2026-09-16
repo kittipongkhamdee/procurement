@@ -53,6 +53,8 @@ export default function DocumentsPage() {
   const [signedUrls, setSignedUrls] = useState<Map<string, string>>(new Map());
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>([]);
   const [signedProjectFileUrls, setSignedProjectFileUrls] = useState<Map<string, string>>(new Map());
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -94,24 +96,40 @@ export default function DocumentsPage() {
 
   async function handleUpload(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (uploading) return; // กันกดซ้ำระหว่างกำลังอัปโหลด/บันทึกอยู่
     const form = e.currentTarget;
     const formData = new FormData(form);
+    setUploading(true);
     try {
-      await uploadDocument(formData);
-      await toastSuccess("อัปโหลดไฟล์เรียบร้อยแล้ว");
+      const result = await uploadDocument(formData);
+      if (result?.error) {
+        await toastError(result.error);
+        return;
+      }
+      await toastSuccess("บันทึกเรียบร้อยแล้ว");
       form.reset();
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
+    } finally {
+      setUploading(false);
     }
   }
 
   async function handleDelete(id: string, ref: string) {
+    if (deletingId) return; // กันกดซ้ำระหว่างกำลังลบอยู่
+    setDeletingId(id);
     try {
-      await deleteDocument(id, ref);
+      const result = await deleteDocument(id, ref);
+      if (result?.error) {
+        await toastError(result.error);
+        return;
+      }
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -200,8 +218,8 @@ export default function DocumentsPage() {
             placeholder="หรือวางลิงก์ภายนอก เช่น https://drive.google.com/..."
             className="input sm:col-span-3"
           />
-          <button type="submit" className="btn-primary sm:col-span-3">
-            บันทึก
+          <button type="submit" disabled={uploading} className="btn-primary sm:col-span-3 disabled:opacity-50">
+            {uploading ? "กำลังบันทึก..." : "บันทึก"}
           </button>
         </form>
       </div>
@@ -251,9 +269,10 @@ export default function DocumentsPage() {
                     <button
                       type="button"
                       onClick={() => handleDelete(d.id, d.file_url)}
-                      className="text-xs font-medium text-red-600 hover:underline"
+                      disabled={deletingId === d.id}
+                      className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
                     >
-                      ลบ
+                      {deletingId === d.id ? "กำลังลบ..." : "ลบ"}
                     </button>
                   </td>
                 </tr>
