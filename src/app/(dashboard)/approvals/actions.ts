@@ -70,7 +70,7 @@ async function generatePdf(supabase: Awaited<ReturnType<typeof createClient>>, a
   try {
     const pdfResult = await buildApprovalPdfData(supabase, approvalId);
     if (pdfResult) {
-      const buffer = await renderApprovalPdfBuffer(pdfResult.data);
+      const buffer = await renderApprovalPdfBuffer(supabase, pdfResult.data);
       const path = `approvals/${approvalId}.pdf`;
       const { error: uploadError } = await supabase.storage
         .from(PDF_BUCKET)

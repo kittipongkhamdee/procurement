@@ -2,8 +2,27 @@ import fs from "node:fs";
 import path from "node:path";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 import { formatBaht } from "@/lib/thai";
 import type { ApprovalPdfData } from "./approval-types";
+
+// เทมเพลต PDF ที่ผู้ดูแลระบบอัปโหลดเองภายหลังผ่านหน้าตั้งค่า (ดู uploadApprovalTemplate ใน
+// settings/actions.ts) เก็บที่ path นี้ใน bucket เดิมที่ใช้เก็บ PDF บันทึกขออนุมัติอยู่แล้ว — ถ้ายังไม่
+// เคยอัปโหลด (หรืออัปโหลดล้มเหลว) จะ fallback ไปใช้ไฟล์เทมเพลตเริ่มต้นที่ bundle มากับโค้ดแทน
+// คำเตือนสำคัญ: พิกัด x/y ของทุกช่องด้านล่างคำนวณมาให้ตรงกับตำแหน่งช่องกรอกในเทมเพลตไฟล์ปัจจุบันเท่านั้น
+// ถ้าอัปโหลดเทมเพลตที่หน้าตา/ตำแหน่งช่องต่างไปจากเดิม ข้อความที่เขียนทับจะไม่ตรงช่อง ต้องแจ้งให้แก้
+// พิกัดในไฟล์นี้ใหม่ให้ตรงกับเทมเพลตที่เปลี่ยน
+export const APPROVAL_TEMPLATE_BUCKET = "procurement-documents";
+export const APPROVAL_TEMPLATE_PATH = "templates/approval-template.pdf";
+
+async function loadTemplateBytes(supabase: SupabaseClient<Database>): Promise<Buffer> {
+  const { data, error } = await supabase.storage.from(APPROVAL_TEMPLATE_BUCKET).download(APPROVAL_TEMPLATE_PATH);
+  if (!error && data) {
+    return Buffer.from(await data.arrayBuffer());
+  }
+  return fs.readFileSync(path.join(process.cwd(), "src/lib/pdf-overlay/approval-template.pdf"));
+}
 
 const BLACK = rgb(0, 0, 0);
 const PAGE_H = 841.92;
@@ -230,8 +249,8 @@ function checkmark(page: PDFPage, x0: number, yBottom: number) {
   page.drawLine({ start: p2, end: p3, thickness: 1.1, color: BLACK });
 }
 
-export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
-  const templateBytes = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf-overlay/approval-template.pdf"));
+export async function renderApprovalPdfBuffer(supabase: SupabaseClient<Database>, data: ApprovalPdfData): Promise<Buffer> {
+  const templateBytes = await loadTemplateBytes(supabase);
   const sarabunLight = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf/fonts/Sarabun-Light.ttf"));
   const sarabunBold = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf/fonts/Sarabun-Bold.ttf"));
 

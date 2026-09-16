@@ -270,6 +270,35 @@ export async function uploadSchoolLogo(formData: FormData) {
 }
 
 
+// เทมเพลต PDF "บันทึกขออนุมัติ" — เก็บใน bucket procurement-documents (private เดิมที่ใช้เก็บ PDF
+// บันทึกขออนุมัติอยู่แล้ว) แทน bucket โลโก้ที่เป็น public เพราะไม่จำเป็นต้องเข้าถึงจากภายนอก อัปโหลดทับ
+// path คงที่เสมอ (upsert) — ระบบจะไปใช้ไฟล์นี้แทนไฟล์เทมเพลตเริ่มต้นที่ bundle มากับโค้ดทันทีที่อัปโหลด
+// สำเร็จ (ดู loadTemplateBytes ใน src/lib/pdf-overlay/render-approval-pdf.ts)
+//
+// ข้อจำกัดสำคัญที่ต้องแจ้งผู้ใช้เสมอ: ตำแหน่ง x/y ที่เขียนข้อความทับในเทมเพลตถูกคำนวณมาให้ตรงกับ
+// เทมเพลตไฟล์ปัจจุบันเท่านั้น ถ้าอัปโหลดเทมเพลตที่ตำแหน่งช่องกรอกต่างไปจากเดิม ข้อความจะไม่ตรงช่อง
+// ต้องขอให้แก้พิกัดในโค้ดใหม่ให้ตรงกับเทมเพลตที่เปลี่ยน (เหมาะกับกรณีแก้เทมเพลตเดิมเล็กน้อย เช่น
+// เปลี่ยนคำ/โลโก้ โดยไม่ขยับตำแหน่งช่องกรอก)
+export async function uploadApprovalTemplate(formData: FormData) {
+  const supabase = await requireAdmin();
+  const file = formData.get("template") as File | null;
+  if (!file || file.size === 0) throw new Error("กรุณาเลือกไฟล์เทมเพลต PDF");
+  if (file.type !== "application/pdf") throw new Error("รองรับเฉพาะไฟล์ PDF เท่านั้น");
+
+  const { error } = await supabase.storage
+    .from("procurement-documents")
+    .upload("templates/approval-template.pdf", file, { upsert: true, contentType: "application/pdf" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
+export async function removeApprovalTemplate() {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.storage.from("procurement-documents").remove(["templates/approval-template.pdf"]);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+}
+
 export async function removeSchoolLogo() {
   const supabase = await requireAdmin();
   // path จริงบน storage ไม่รู้นามสกุลไฟล์ล่วงหน้า (อัปโหลดทับ path เดิมได้หลายนามสกุล) จึง list

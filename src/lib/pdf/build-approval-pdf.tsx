@@ -96,6 +96,6 @@ export async function buildApprovalPdfData(
   return { data, fileLabel: `อนุมัติ-${approval.doc_date}` };
 }
 
-export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
-  return renderOverlayPdfBuffer(data);
+export async function renderApprovalPdfBuffer(supabase: SupabaseClient<Database>, data: ApprovalPdfData): Promise<Buffer> {
+  return renderOverlayPdfBuffer(supabase, data);
 }
