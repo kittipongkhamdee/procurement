@@ -58,6 +58,51 @@ function pct(part: number, total: number) {
   return (part / total) * 100;
 }
 
+function PieChart({ values, colors, size = 150 }: { values: number[]; colors: string[]; size?: number }) {
+  const total = values.reduce((sum, v) => sum + v, 0);
+  const r = size / 2;
+  if (total <= 0) {
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="ยังไม่มีรายจ่าย">
+        <circle cx={r} cy={r} r={r - 1} fill="#e2e8f0" />
+        <text x={r} y={r + 4} textAnchor="middle" fontSize="12" fill="#64748b">
+          ยังไม่มีรายจ่าย
+        </text>
+      </svg>
+    );
+  }
+  const nonZero = values.filter((v) => v > 0).length;
+  const startAngles = values.map(
+    (_, i) => -Math.PI / 2 + (values.slice(0, i).reduce((sum, v) => sum + v, 0) / total) * Math.PI * 2,
+  );
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="สัดส่วนงบที่ใช้แยกตามประเภทรายจ่าย">
+      {values.map((v, i) => {
+        if (v <= 0) return null;
+        const color = colors[i % colors.length];
+        if (nonZero === 1) return <circle key={i} cx={r} cy={r} r={r - 1} fill={color} />;
+        const sweep = (v / total) * Math.PI * 2;
+        const start = startAngles[i];
+        const end = start + sweep;
+        const x1 = r + (r - 1) * Math.cos(start);
+        const y1 = r + (r - 1) * Math.sin(start);
+        const x2 = r + (r - 1) * Math.cos(end);
+        const y2 = r + (r - 1) * Math.sin(end);
+        const largeArc = sweep > Math.PI ? 1 : 0;
+        return (
+          <path
+            key={i}
+            d={`M ${r} ${r} L ${x1} ${y1} A ${r - 1} ${r - 1} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+            fill={color}
+            stroke="#fff"
+            strokeWidth={1.5}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 // วงแหวนไล่เฉดสีค่าเดียว (ไม่ใช่โดนัทหลายสัดส่วน) — ใช้กับ "การใช้งบประมาณโดยรวม" แทนโดนัท 2 สัดส่วนเดิม
 // เพราะเบิกจ่ายจริงมักเป็นสัดส่วนน้อยมากเทียบกับงบทั้งหมด (เช่น 0.0%) ทำให้ arc สีที่สองในโดนัทบางจน
 // มองไม่เห็น วงแหวนนี้โชว์แค่ % เบิกจ่ายแล้วค่าเดียวเป็นเส้นไล่เฉดสีปลายมน อ่านง่ายกว่า
@@ -466,32 +511,22 @@ export default function DashboardPage() {
               <p className="mb-4 text-xs text-slate-400">
                 รวมจ่ายทั้งหมด <b className="font-semibold tabular-nums text-slate-700">{formatBaht(expenseTotal)}</b> บาท
               </p>
-              <div className="flex items-end gap-3 border-b border-slate-100 pb-0" style={{ height: 140 }}>
-                {SUMMARY_DISPLAY_LABELS.map((label, i) => {
-                  const maxTotal = Math.max(...expenseTotals, 1);
-                  const barHeightPct = Math.max(pct(expenseTotals[i], maxTotal), expenseTotals[i] > 0 ? 4 : 0);
-                  return (
-                    <div key={label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
-                      <span className="mb-1 whitespace-nowrap text-[11px] font-semibold tabular-nums text-slate-700">
-                        {formatBaht(expenseTotals[i])}
+              <div className="sm:flex sm:items-center sm:gap-6">
+                <div className="flex shrink-0 justify-center">
+                  <PieChart values={expenseTotals} colors={CAT_COLORS} />
+                </div>
+                <div className="mt-3 min-w-0 flex-1 space-y-2.5 text-sm sm:mt-0 print:mt-1 print:space-y-2">
+                  {SUMMARY_DISPLAY_LABELS.map((label, i) => (
+                    <div key={label} className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: CAT_COLORS[i] }} />
+                      <span className="min-w-0 flex-1 truncate text-slate-600">{label}</span>
+                      <span className="shrink-0 tabular-nums text-slate-400">{formatBaht(expenseTotals[i])} บาท</span>
+                      <span className="w-14 shrink-0 text-right font-semibold tabular-nums text-slate-900">
+                        {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
                       </span>
-                      <div
-                        className="w-full max-w-[38px] rounded-t-md"
-                        style={{ height: `${barHeightPct}%`, background: CAT_COLORS[i] }}
-                      />
                     </div>
-                  );
-                })}
-              </div>
-              <div className="mt-2 flex gap-3">
-                {SUMMARY_DISPLAY_LABELS.map((label, i) => (
-                  <div key={label} className="min-w-0 flex-1 text-center text-[10.5px] leading-tight text-slate-500">
-                    {label}
-                    <b className="block text-[10px] font-bold text-slate-700">
-                      {pct(expenseTotals[i], expenseTotal).toFixed(1)}%
-                    </b>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
