@@ -103,52 +103,65 @@ function PieChart({ values, colors, size = 150 }: { values: number[]; colors: st
   );
 }
 
-// วงแหวนไล่เฉดสีค่าเดียว (ไม่ใช่โดนัทหลายสัดส่วน) — ใช้กับ "การใช้งบประมาณโดยรวม" แทนโดนัท 2 สัดส่วนเดิม
-// เพราะเบิกจ่ายจริงมักเป็นสัดส่วนน้อยมากเทียบกับงบทั้งหมด (เช่น 0.0%) ทำให้ arc สีที่สองในโดนัทบางจน
-// มองไม่เห็น วงแหวนนี้โชว์แค่ % เบิกจ่ายแล้วค่าเดียวเป็นเส้นไล่เฉดสีปลายมน อ่านง่ายกว่า
-function GradientRing({
-  percent,
-  gradientFrom,
-  gradientTo,
-  centerLabel,
-  gradientId,
-}: {
-  percent: number;
-  gradientFrom: string;
-  gradientTo: string;
-  centerLabel: string;
-  gradientId: string;
-}) {
-  const clamped = Math.min(Math.max(percent, 0), 100);
-  const circumference = 2 * Math.PI * 50;
-  const offset = circumference - (clamped / 100) * circumference;
+// แถบพื้นหลัง 3 ช่วง (0-50 / 50-80 / 80-100%) เป็นเกณฑ์อ่านระดับ, แถบเขียวคือ % เบิกจ่ายจริง,
+// เส้นตั้งคือเป้าตามสัดส่วนเวลาที่ผ่านไปของปีงบประมาณ — วาดเป็น SVG ให้สียังออกตอนพิมพ์
+const BULLET_BANDS = [
+  { to: 50, color: "#eef1f5" },
+  { to: 80, color: "#e2e8f0" },
+  { to: 100, color: "#cbd5e1" },
+];
+
+function BulletChart({ value, target }: { value: number; target: number | null }) {
+  const clamp = (n: number) => Math.min(Math.max(n, 0), 100);
+  const v = clamp(value);
   return (
-    <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={centerLabel}>
-      <defs>
-        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={gradientFrom} />
-          <stop offset="100%" stopColor={gradientTo} />
-        </linearGradient>
-      </defs>
-      <g style={{ transform: "rotate(-90deg)", transformOrigin: "60px 60px" }}>
-        <circle cx="60" cy="60" r="50" fill="none" stroke="#eef1f5" strokeWidth="14" />
-        <circle
-          cx="60"
-          cy="60"
-          r="50"
-          fill="none"
-          stroke={`url(#${gradientId})`}
-          strokeWidth="14"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
-      </g>
-      <text x="60" y="66" textAnchor="middle" fontSize="22" fontWeight="800" fill="#0c2447">
-        {clamped.toFixed(1)}%
-      </text>
-    </svg>
+    <div>
+      <svg
+        width="100%"
+        height="32"
+        viewBox="0 0 100 32"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`เบิกจ่ายแล้ว ${v.toFixed(1)}%${target !== null ? ` เป้าตามเวลา ${clamp(target).toFixed(1)}%` : ""}`}
+      >
+        {BULLET_BANDS.map((b, i) => {
+          const from = i === 0 ? 0 : BULLET_BANDS[i - 1].to;
+          return <rect key={b.to} x={from} y={0} width={b.to - from} height={32} fill={b.color} />;
+        })}
+        <rect x={0} y={10} width={v} height={12} fill={GOOD} />
+        {target !== null && (
+          <line
+            x1={clamp(target)}
+            x2={clamp(target)}
+            y1={3}
+            y2={29}
+            stroke="#0c2447"
+            strokeWidth={3}
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+      </svg>
+      <div className="relative mt-1 h-4 text-[11px] tabular-nums text-slate-400">
+        {[0, 25, 50, 75, 100].map((t) => (
+          <span
+            key={t}
+            className="absolute"
+            style={{ left: `${t}%`, transform: t === 0 ? "none" : t === 100 ? "translateX(-100%)" : "translateX(-50%)" }}
+          >
+            {t}%
+          </span>
+        ))}
+      </div>
+    </div>
   );
+}
+
+// ปีงบประมาณ พ.ศ. Y เริ่ม 1 ต.ค. ของปี Y-1 ถึง 30 ก.ย. ของปี Y
+function fiscalYearElapsedPct(yearBE: number, now: Date): number {
+  const yearCE = yearBE - 543;
+  const start = new Date(yearCE - 1, 9, 1).getTime();
+  const end = new Date(yearCE, 9, 1).getTime();
+  return Math.min(Math.max(((now.getTime() - start) / (end - start)) * 100, 0), 100);
 }
 
 // เกจครึ่งวงกลมซ้อนกันหลายชั้น — แต่ละชั้นเป็นวงอิสระของตัวเอง (ไม่แบ่งเส้นรอบวงเดียวกัน) ใช้กับ
@@ -204,6 +217,7 @@ export default function DashboardPage() {
   const { schoolName, logoUrl } = useSchoolSettings();
   const [loading, setLoading] = useState(true);
   const [currentYear, setCurrentYear] = useState<{ id: string; year: number } | null>(null);
+  const [fiscalElapsedPct, setFiscalElapsedPct] = useState<number | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [adminGroups, setAdminGroups] = useState<GroupItem[]>([]);
   const [budgetSources, setBudgetSources] = useState<GroupItem[]>([]);
@@ -223,6 +237,7 @@ export default function DashboardPage() {
 
     const year = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
     setCurrentYear(year ? { id: year.id, year: year.year } : null);
+    setFiscalElapsedPct(year ? fiscalYearElapsedPct(year.year, new Date()) : null);
     setAdminGroups(adminGroupsData ?? []);
     setBudgetSources(budgetSourcesData ?? []);
 
@@ -448,26 +463,31 @@ export default function DashboardPage() {
 
             <div className="card">
               <div className="card-title">การใช้งบประมาณโดยรวม</div>
-              <div className="flex items-center gap-4 print:gap-3">
-                <GradientRing
-                  percent={pct(totalSpent, totalBudget)}
-                  gradientFrom="#34d399"
-                  gradientTo={GOOD}
-                  centerLabel="เบิกจ่ายแล้ว"
-                  gradientId="budget-usage-ring"
-                />
-                <div className="min-w-0 flex-1 space-y-2 text-sm print:space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">เบิกจ่ายแล้ว</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalSpent)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: WARN }} />
-                    <span className="min-w-0 flex-1 truncate text-slate-600">คงเหลือ</span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalRemaining)}</span>
-                  </div>
+              <div className="mb-3 flex items-baseline gap-2">
+                <span className="text-2xl font-extrabold tabular-nums text-navy-900">
+                  {pct(totalSpent, totalBudget).toFixed(1)}%
+                </span>
+                <span className="text-sm text-slate-500">เบิกจ่ายแล้วจากงบทั้งหมด</span>
+              </div>
+              <BulletChart value={pct(totalSpent, totalBudget)} target={fiscalElapsedPct} />
+              <div className="mt-4 space-y-2 text-sm print:mt-2 print:space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
+                  <span className="min-w-0 flex-1 truncate text-slate-600">เบิกจ่ายแล้ว</span>
+                  <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalSpent)}</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-sm border border-slate-300 bg-slate-100" />
+                  <span className="min-w-0 flex-1 truncate text-slate-600">คงเหลือ</span>
+                  <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalRemaining)}</span>
+                </div>
+                {fiscalElapsedPct !== null && (
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-0.5 shrink-0 bg-navy-900" />
+                    <span className="min-w-0 flex-1 truncate text-slate-600">เป้าตามเวลาที่ผ่านไปของปีงบประมาณ</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{fiscalElapsedPct.toFixed(1)}%</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
