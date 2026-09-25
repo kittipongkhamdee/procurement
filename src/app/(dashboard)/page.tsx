@@ -103,6 +103,52 @@ function PieChart({ values, colors, size = 150 }: { values: number[]; colors: st
   );
 }
 
+// แถบ 100% stacked หนึ่งแถว — แสดงจำนวนโครงการในแต่ละช่วงเมื่อช่วงกว้างพอให้อ่านได้
+function StatusStackRow({
+  label,
+  total,
+  counts,
+  bold = false,
+}: {
+  label: string;
+  total: number;
+  counts: { completed: number; inProgress: number; notStarted: number };
+  bold?: boolean;
+}) {
+  const segments = [
+    { value: counts.completed, color: GOOD, text: "#ffffff", name: "เสร็จสิ้น" },
+    { value: counts.inProgress, color: INPROGRESS, text: "#064e3b", name: "กำลังดำเนินการ" },
+    { value: counts.notStarted, color: NEUTRAL, text: "#334155", name: "ยังไม่ดำเนินการ" },
+  ];
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span
+        className={`w-28 shrink-0 truncate sm:w-36 ${bold ? "font-semibold text-slate-900" : "text-slate-600"}`}
+        title={label}
+      >
+        {label}
+      </span>
+      <div className="flex h-5 min-w-0 flex-1 overflow-hidden rounded bg-slate-100">
+        {segments.map((s) => {
+          const width = pct(s.value, total);
+          if (width <= 0) return null;
+          return (
+            <span
+              key={s.name}
+              className="flex items-center justify-center text-[11px] font-semibold tabular-nums"
+              style={{ width: `${width}%`, background: s.color, color: s.text }}
+              title={`${s.name} ${s.value} โครงการ (${width.toFixed(1)}%)`}
+            >
+              {width >= 12 ? s.value : ""}
+            </span>
+          );
+        })}
+      </div>
+      <span className="w-8 shrink-0 text-right tabular-nums text-slate-400">{total}</span>
+    </div>
+  );
+}
+
 // แถบพื้นหลัง 3 ช่วง (0-50 / 50-80 / 80-100%) เป็นเกณฑ์อ่านระดับ, แถบเขียวคือ % เบิกจ่ายจริง,
 // เส้นตั้งคือเป้าตามสัดส่วนเวลาที่ผ่านไปของปีงบประมาณ — วาดเป็น SVG ให้สียังออกตอนพิมพ์
 const BULLET_BANDS = [
@@ -313,14 +359,16 @@ export default function DashboardPage() {
     const totalRemaining = totalBudget - totalSpent;
     const totalActivities = projects.reduce((s, p) => s + p.activityCount, 0);
 
-    let completed = 0;
-    let inProgress = 0;
-    let notStarted = 0;
-    for (const p of projects) {
-      if (completedProjectIds.has(p.id)) completed++;
-      else if ((approvedByProject.get(p.id) ?? 0) > 0) inProgress++;
-      else notStarted++;
-    }
+    const countStatuses = (list: ProjectRow[]) => {
+      const counts = { completed: 0, inProgress: 0, notStarted: 0 };
+      for (const p of list) {
+        if (completedProjectIds.has(p.id)) counts.completed++;
+        else if ((approvedByProject.get(p.id) ?? 0) > 0) counts.inProgress++;
+        else counts.notStarted++;
+      }
+      return counts;
+    };
+    const { completed, inProgress, notStarted } = countStatuses(projects);
 
     const bySource = budgetSources.map((s) => {
       const inSource = projects.filter((p) => p.budgetSourceId === s.id);
@@ -333,7 +381,7 @@ export default function DashboardPage() {
       const inGroup = projects.filter((p) => p.adminGroupId === g.id);
       const budget = inGroup.reduce((sum, p) => sum + p.budget, 0);
       const spent = inGroup.reduce((sum, p) => sum + (approvedByProject.get(p.id) ?? 0), 0);
-      return { id: g.id, name: g.name, budget, spent, remaining: budget - spent };
+      return { id: g.id, name: g.name, budget, spent, remaining: budget - spent, projectCount: inGroup.length, ...countStatuses(inGroup) };
     });
 
     const expenseTotal = expenseTotals.reduce((s, v) => s + v, 0);
@@ -434,10 +482,13 @@ export default function DashboardPage() {
           <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 print:mt-4 print:grid-cols-2 print:gap-3">
             <div className="card">
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
-              <div className="flex h-4 overflow-hidden rounded-full bg-slate-100 print:h-3.5">
-                <span style={{ width: `${pct(completed, projectCount)}%`, background: GOOD }} />
-                <span style={{ width: `${pct(inProgress, projectCount)}%`, background: INPROGRESS }} />
-                <span style={{ width: `${pct(notStarted, projectCount)}%`, background: NEUTRAL }} />
+              <div className="space-y-2.5 print:space-y-2">
+                <StatusStackRow label="ทั้งหมด" total={projectCount} counts={{ completed, inProgress, notStarted }} bold />
+                {byGroup
+                  .filter((g) => g.projectCount > 0)
+                  .map((g) => (
+                    <StatusStackRow key={g.id} label={g.name} total={g.projectCount} counts={g} />
+                  ))}
               </div>
               <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm print:mt-3 print:gap-x-4">
                 <span className="inline-flex items-center gap-2">
