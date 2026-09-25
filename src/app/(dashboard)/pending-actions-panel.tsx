@@ -108,6 +108,9 @@ function RowContent({
 const ROW_TRIGGER_CLASS =
   "flex w-full items-center justify-between gap-3 border-l-4 border-amber-400 bg-amber-50/40 px-3 py-2.5 text-left transition-colors hover:bg-amber-50 active:bg-amber-100";
 
+// การ์ดหมวดที่ไม่มีงานค้างถูกซ่อน — ปรับจำนวนคอลัมน์ตามการ์ดที่เหลือให้เต็มแถวพอดี
+const LG_GRID_COLS: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3" };
+
 function EmptyRow() {
   return (
     <p className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-3 text-sm text-slate-400">
@@ -546,6 +549,12 @@ export function PendingActionsPanel() {
 
   if (authLoading || !allowed || loading) return null;
 
+  const visibleCardCount = [
+    (canActDeputy || canActDirector) && proposalTotal > 0,
+    (canActDeputy || canActDirector) && approvalTotal > 0,
+    (canAckDeputyAudit || canAckDirectorAudit) && auditTotal > 0,
+  ].filter(Boolean).length;
+
   const popupLines = [
     { count: proposalsToEndorse.length, text: "เสนอโครงการ รอเห็นชอบ" },
     { count: proposalsToApprove.length, text: "เสนอโครงการ รออนุมัติ" },
@@ -607,12 +616,14 @@ export function PendingActionsPanel() {
           <p className="font-semibold text-amber-900">
             {grandTotal > 0 ? `มีรายการรอดำเนินการทั้งหมด ${grandTotal.toLocaleString("th-TH")} รายการ` : "ไม่มีรายการรอดำเนินการ"}
           </p>
-          <p className="text-sm text-amber-700">กดที่รายการด้านล่างเพื่อพิจารณาได้ทันที (ไม่ต้องเปลี่ยนหน้า)</p>
+          {grandTotal > 0 && (
+            <p className="text-sm text-amber-700">กดที่รายการด้านล่างเพื่อพิจารณาได้ทันที (ไม่ต้องเปลี่ยนหน้า)</p>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {(canActDeputy || canActDirector) && (
+      <div className={`grid grid-cols-1 gap-6 ${LG_GRID_COLS[visibleCardCount] ?? "lg:grid-cols-3"}`}>
+        {(canActDeputy || canActDirector) && proposalTotal > 0 && (
           <CategoryCard
             icon={<LightbulbIcon className="h-4 w-4" />}
             title="เสนอโครงการ"
@@ -644,7 +655,7 @@ export function PendingActionsPanel() {
           </CategoryCard>
         )}
 
-        {(canActDeputy || canActDirector) && (
+        {(canActDeputy || canActDirector) && approvalTotal > 0 && (
           <CategoryCard
             icon={<ClipboardCheckIcon className="h-4 w-4" />}
             title="บันทึกขออนุมัติ"
@@ -682,7 +693,7 @@ export function PendingActionsPanel() {
           </CategoryCard>
         )}
 
-        {(canAckDeputyAudit || canAckDirectorAudit) && (
+        {(canAckDeputyAudit || canAckDirectorAudit) && auditTotal > 0 && (
           <CategoryCard
             icon={<BoxIcon className="h-4 w-4" />}
             title="ตรวจสอบพัสดุประจำปี"
