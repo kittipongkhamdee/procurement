@@ -20,7 +20,7 @@
 //   asset-audits/actions.ts ทุกประการ
 // แอดมิน (isAdmin) เห็น/ทำแทนได้ทุกหมวดเหมือนหน้าอื่นๆ ในระบบ
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -318,6 +318,8 @@ export function PendingActionsPanel() {
 
   const role = user?.role ?? "";
   const allowed = isAdmin || role === "deputy_director" || role === "director";
+  const isExecutive = role === "deputy_director" || role === "director";
+  const loginPopupRef = useRef<HTMLDialogElement>(null);
 
   const reload = useCallback(async () => {
     if (authLoading || !allowed) return;
@@ -469,6 +471,33 @@ export function PendingActionsPanel() {
     reload();
   }, [reload]);
 
+  const proposalTotal = proposalsToEndorse.length + proposalsToApprove.length;
+  const approvalTotal = approvalsToDeputy.length + approvalsToDirector.length;
+  const auditTotal = roundsToAckDeputy.length + roundsToAckDirector.length;
+  const grandTotal = proposalTotal + approvalTotal + auditTotal;
+
+  // เด้งครั้งแรกหลังเข้าสู่ระบบ (?welcome=1 จาก login action) และครั้งแรกของแต่ละ session เบราว์เซอร์
+  // เผื่อผู้ใช้ค้างล็อกอินไว้นานโดยไม่ได้เข้าสู่ระบบใหม่
+  useEffect(() => {
+    if (authLoading || loading || !isExecutive || !user) return;
+    const params = new URLSearchParams(window.location.search);
+    const justLoggedIn = params.get("welcome") === "1";
+    if (justLoggedIn) {
+      params.delete("welcome");
+      const qs = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+    }
+    const storageKey = `pending-login-popup:${user.userId}`;
+    let shownThisSession = false;
+    try {
+      shownThisSession = sessionStorage.getItem(storageKey) === "1";
+      sessionStorage.setItem(storageKey, "1");
+    } catch {
+      // sessionStorage ใช้ไม่ได้ (เช่น private mode บางเบราว์เซอร์) — อาศัยแค่ ?welcome=1
+    }
+    if (grandTotal > 0 && (justLoggedIn || !shownThisSession)) loginPopupRef.current?.showModal();
+  }, [authLoading, loading, isExecutive, user, grandTotal]);
+
   async function submitDeputyDecision(id: string, decision: "ควร" | "ไม่ควร", note?: string) {
     try {
       await updateDeputyDecision(id, decision, note);
@@ -517,13 +546,59 @@ export function PendingActionsPanel() {
 
   if (authLoading || !allowed || loading) return null;
 
-  const proposalTotal = proposalsToEndorse.length + proposalsToApprove.length;
-  const approvalTotal = approvalsToDeputy.length + approvalsToDirector.length;
-  const auditTotal = roundsToAckDeputy.length + roundsToAckDirector.length;
-  const grandTotal = proposalTotal + approvalTotal + auditTotal;
+  const popupLines = [
+    { count: proposalsToEndorse.length, text: "เสนอโครงการ รอเห็นชอบ" },
+    { count: proposalsToApprove.length, text: "เสนอโครงการ รออนุมัติ" },
+    { count: approvalsToDeputy.length, text: "บันทึกขออนุมัติ รอเสนอความเห็น" },
+    { count: approvalsToDirector.length, text: "บันทึกขออนุมัติ รออนุมัติ" },
+    { count: roundsToAckDeputy.length + roundsToAckDirector.length, text: "ตรวจสอบพัสดุประจำปี รอรับทราบ" },
+  ].filter((l) => l.count > 0);
 
   return (
-    <div className="mb-6 print:hidden">
+    <div id="pending-actions" className="mb-6 scroll-mt-4 print:hidden">
+      <dialog
+        ref={loginPopupRef}
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border-0 bg-white p-0 text-left shadow-2xl backdrop:bg-navy-950/60"
+        onClick={(e) => {
+          if (e.target === loginPopupRef.current) loginPopupRef.current?.close();
+        }}
+      >
+        <div className="p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-100">
+              <BellIcon className="h-5 w-5 text-amber-700" />
+            </span>
+            <div>
+              <h2 className="text-lg font-bold text-navy-900">มีงานรอพิจารณา</h2>
+              <p className="text-sm text-slate-500">ทั้งหมด {grandTotal.toLocaleString("th-TH")} รายการ</p>
+            </div>
+          </div>
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+            {popupLines.map((l) => (
+              <li key={l.text} className="flex items-center justify-between gap-3 border-l-4 border-amber-400 bg-amber-50/40 px-3 py-2.5 text-sm">
+                <span className="text-slate-700">{l.text}</span>
+                <span className="badge-amber shrink-0">{l.count} รายการ</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-5 flex justify-end gap-2">
+            <button type="button" className="btn-secondary" onClick={() => loginPopupRef.current?.close()}>
+              ปิด
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                loginPopupRef.current?.close();
+                document.getElementById("pending-actions")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              ไปพิจารณา
+            </button>
+          </div>
+        </div>
+      </dialog>
+
       <div className="mb-4 flex flex-col items-start gap-3 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
           <BellIcon className="h-5 w-5 text-amber-700" />

@@ -22,7 +22,8 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(translateAuthError(error.message))}`);
   }
 
-  redirect("/");
+  // welcome=1 บอกแดชบอร์ดว่าเพิ่งเข้าสู่ระบบ ให้เด้ง popup แจ้งงานรอพิจารณาของผู้บริหาร
+  redirect("/?welcome=1");
 }
 
 export async function logout() {
