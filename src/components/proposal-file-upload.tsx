@@ -3,7 +3,10 @@
 import { useRef, useState } from "react";
 import { displayNameForRef } from "@/lib/storage/ref";
 import { UploadIcon } from "@/components/icons";
+import { uploadFileDirect } from "@/lib/storage/client-upload";
 
+// ต้องตรงกับ PATH_PREFIX ใน /api/proposal-file-upload (ใช้ตรวจ ref ตอนลบ) และนโยบาย storage ของโฟลเดอร์นี้
+const PATH_PREFIX = "project-proposals";
 const UPLOAD_ENDPOINT = "/api/proposal-file-upload";
 
 export function ProposalFileUpload({
@@ -40,28 +43,9 @@ export function ProposalFileUpload({
     setFileName(file.name);
 
     try {
-      const formData = new FormData();
-      formData.set("file", file);
-
-      const ref = await new Promise<string>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", UPLOAD_ENDPOINT);
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable) setProgress(Math.round((ev.loaded / ev.total) * 100));
-        };
-        xhr.onload = () => {
-          let body: { ref?: string; error?: string } = {};
-          try {
-            body = JSON.parse(xhr.responseText);
-          } catch {
-            // ignore parse error, handled below
-          }
-          if (xhr.status >= 200 && xhr.status < 300 && body.ref) resolve(body.ref);
-          else reject(new Error(body.error || "อัปโหลดไฟล์ไม่สำเร็จ"));
-        };
-        xhr.onerror = () => reject(new Error("อัปโหลดไฟล์ไม่สำเร็จ"));
-        xhr.send(formData);
-      });
+      const uploaded = await uploadFileDirect(file, { pathPrefix: PATH_PREFIX, onProgress: setProgress, finalize: true });
+      if (!uploaded.ref) throw new Error(uploaded.error || "อัปโหลดไฟล์ไม่สำเร็จ");
+      const ref = uploaded.ref;
 
       setPath(ref);
       setIsNew(true);

@@ -22,11 +22,11 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { uploadFileToDriveSessionWithProgress, uploadFileToSupabaseWithProgress } from "@/lib/storage/client-upload";
+import { startDriveUpload } from "@/lib/storage/direct-upload-actions";
 import {
   uploadDocument,
   deleteDocument,
   updateDocument,
-  startDocumentDriveUpload,
   moveDocument,
   backfillDocumentFileTypes,
 } from "./actions";
@@ -92,7 +92,7 @@ async function uploadDocumentFileDirect(
   const ext = file.name.split(".").pop();
   const name = `${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
   if (storageProvider === "google_drive") {
-    const session = await startDocumentDriveUpload(name, file.type, file.size);
+    const session = await startDriveUpload(name, file.type, file.size);
     if (!session.uploadUrl) return { error: session.error ?? "เปิดการอัปโหลดไป Google Drive ไม่สำเร็จ" };
     const uploaded = await uploadFileToDriveSessionWithProgress(session.uploadUrl, file, onProgress);
     if (!uploaded.fileId) return { error: uploaded.error };

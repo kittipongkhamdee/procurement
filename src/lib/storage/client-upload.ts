@@ -10,7 +10,10 @@
 // session ด้วย service account ให้ แล้ว browser PUT ไฟล์ไปที่ session URL ตรงๆ
 
 import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/lib/supabase/database.types";
+import { finalizeDriveUpload, startDriveUpload } from "./direct-upload-actions";
+import { encodeDriveRef } from "./ref";
 
 function fetchWithProgress(onProgress: (percent: number) => void): typeof fetch {
   return (input, init) =>
@@ -85,4 +88,38 @@ export function uploadFileToDriveSessionWithProgress(
     xhr.onerror = () => resolve({ error: "อัปโหลดไป Google Drive ไม่สำเร็จ (การเชื่อมต่อขัดข้อง)" });
     xhr.send(file);
   });
+}
+
+/** อัปโหลดไฟล์ตรงจากเบราว์เซอร์ไปปลายทางที่ตั้งค่าไว้ (Supabase Storage หรือ Google Drive) โดยไม่ส่งไฟล์
+ * ผ่าน Vercel — คืน ref ที่บันทึกลงฐานข้อมูลได้เลย (พาธใน bucket procurement-files หรือ gdrive:<id>)
+ * `finalize` = ตั้งสิทธิ์อ่านไฟล์บน Drive ทันทีหลังอัปโหลดเสร็จ (ใช้เมื่อไม่มี server action บันทึกแถวตามมา) */
+export async function uploadFileDirect(
+  file: File,
+  opts: { pathPrefix: string; onProgress: (percent: number) => void; finalize?: boolean },
+): Promise<{ ref?: string; error?: string }> {
+  const ext = file.name.split(".").pop();
+  const name = `${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+
+  const { data: providerSetting } = await createClient()
+    .from("proc_app_settings")
+    .select("value")
+    .eq("key", "storage_provider")
+    .maybeSingle();
+
+  if (providerSetting?.value === "google_drive") {
+    const session = await startDriveUpload(name, file.type, file.size);
+    if (!session.uploadUrl) return { error: session.error ?? "เปิดการอัปโหลดไป Google Drive ไม่สำเร็จ" };
+    const uploaded = await uploadFileToDriveSessionWithProgress(session.uploadUrl, file, opts.onProgress);
+    if (!uploaded.fileId) return { error: uploaded.error };
+    if (opts.finalize) {
+      const finalized = await finalizeDriveUpload(uploaded.fileId);
+      if (finalized.error) return { error: finalized.error };
+    }
+    return { ref: encodeDriveRef(uploaded.fileId) };
+  }
+
+  const path = `${opts.pathPrefix}/${name}`;
+  const uploaded = await uploadFileToSupabaseWithProgress("procurement-files", path, file, opts.onProgress);
+  if (uploaded.error) return { error: uploaded.error };
+  return { ref: path };
 }

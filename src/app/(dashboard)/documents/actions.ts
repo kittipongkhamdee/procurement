@@ -1,37 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
-import { driveFinalizeUpload, driveGetMeta, driveStartResumableUpload } from "@/lib/storage/google-drive";
+import { driveFinalizeUpload, driveGetMeta } from "@/lib/storage/google-drive";
 import { extensionFromMime, fileExtension, stripKnownExtension } from "@/lib/file-type";
 import { driveFileId, isDriveRef, isExternalLink } from "@/lib/storage/ref";
 
 const BUCKET = "procurement-files";
-
-// ปลายทาง Google Drive: browser อัปโหลดไฟล์ตรงไป Drive เอง ไม่ส่งผ่าน Server Action — Vercel ตัด
-// request ที่ใหญ่เกิน ~4.5MB ทิ้งด้วย 413 ก่อนโค้ดในแอ็กชันจะได้ทำงาน (ผู้ใช้เห็นแค่ "An unexpected
-// response was received from the server")
-export async function startDocumentDriveUpload(
-  fileName: string,
-  mimeType: string,
-  size: number,
-): Promise<{ uploadUrl?: string; error?: string }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "กรุณาเข้าสู่ระบบใหม่" };
-  const origin = (await headers()).get("origin");
-  if (!origin) return { error: "ไม่สามารถระบุที่มาของคำขอได้" };
-  try {
-    const uploadUrl = await driveStartResumableUpload(supabase, { fileName, mimeType, size, origin });
-    return { uploadUrl };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "เปิดการอัปโหลดไป Google Drive ไม่สำเร็จ" };
-  }
-}
 
 async function finalizeIfDrive(
   supabase: Awaited<ReturnType<typeof createClient>>,
