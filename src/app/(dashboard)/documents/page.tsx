@@ -472,8 +472,8 @@ export default function DocumentsPage() {
                   <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                   <td className="font-medium text-slate-900">
                     <div className="flex items-center gap-2">
-                      <FileTypeBadge doc={d} />
                       <span>{d.file_name}</span>
+                      <FileTypeBadge doc={d} />
                     </div>
                   </td>
                   <td className="whitespace-nowrap">{d.category ?? <span className="text-slate-400">-</span>}</td>
