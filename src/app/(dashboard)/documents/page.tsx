@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isDriveRef, driveFileId, driveViewUrl, encodeDriveRef, isExternalLink } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
-import { fileExtension, fileTypeBadge } from "@/lib/file-type";
+import { fileExtension, fileTypeBadge, stripKnownExtension } from "@/lib/file-type";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
@@ -288,7 +288,7 @@ export default function DocumentsPage() {
         }
         formData.set("uploaded_ref", uploaded.ref);
         formData.set("file_type", fileExtension(file.name) ?? "");
-        if (!String(formData.get("file_name") ?? "").trim()) formData.set("file_name", file.name);
+        if (!String(formData.get("file_name") ?? "").trim()) formData.set("file_name", stripKnownExtension(file.name, fileExtension(file.name)));
       }
       formData.delete("file");
       const result = await uploadDocument(formData);
@@ -424,7 +424,7 @@ export default function DocumentsPage() {
           ของตัวเอง) ถ้าใช้ลิงก์ เมื่อแก้ไขไฟล์ต้นทางภายหลังไม่ต้องมาลบ/อัปโหลดใหม่ในระบบนี้
         </p>
         <form onSubmit={handleUpload} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <input name="file_name" placeholder="ชื่อไฟล์เอกสาร (ไม่ระบุ = ใช้ชื่อไฟล์เดิม เว้นแต่วางลิงก์ต้องระบุ)" className="input sm:col-span-2" />
+          <input name="file_name" placeholder="ชื่อไฟล์เอกสาร ไม่ต้องใส่นามสกุล (ไม่ระบุ = ใช้ชื่อไฟล์เดิม เว้นแต่วางลิงก์ต้องระบุ)" className="input sm:col-span-2" />
           <input
             name="category"
             list={CATEGORY_DATALIST_ID}

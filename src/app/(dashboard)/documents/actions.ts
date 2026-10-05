@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
 import { driveFinalizeUpload, driveGetMeta, driveStartResumableUpload } from "@/lib/storage/google-drive";
-import { extensionFromMime, fileExtension } from "@/lib/file-type";
+import { extensionFromMime, fileExtension, stripKnownExtension } from "@/lib/file-type";
 import { driveFileId, isDriveRef, isExternalLink } from "@/lib/storage/ref";
 
 const BUCKET = "procurement-files";
@@ -110,7 +110,7 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
     const finalizeError = await finalizeIfDrive(supabase, uploadedRef);
     if (finalizeError) return { error: finalizeError };
     return insertDocument(supabase, {
-      file_name: fileName || "เอกสาร",
+      file_name: stripKnownExtension(fileName, readFileType(formData)) || "เอกสาร",
       file_url: uploadedRef,
       file_type: readFileType(formData),
       category: readCategory(formData),
@@ -126,7 +126,7 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
   const ref = await uploadToStorage(supabase, { file, bucket: BUCKET, path });
 
   return insertDocument(supabase, {
-    file_name: fileName || file.name,
+    file_name: stripKnownExtension(fileName || file.name, fileExtension(file.name)),
     file_url: ref,
     file_type: fileExtension(file.name),
     category: readCategory(formData),
@@ -149,11 +149,13 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
 
   const { data: current, error: fetchError } = await supabase
     .from("proc_documents")
-    .select("file_url")
+    .select("file_url, file_type")
     .eq("id", id)
     .maybeSingle();
   if (fetchError) return { error: fetchError.message };
   if (!current) return { error: "ไม่พบรายการนี้" };
+  // ชื่อที่เก็บไม่มีนามสกุล (ป้ายประเภทไฟล์แสดงแทน) — ตัดออกถ้าผู้ใช้พิมพ์นามสกุลต่อท้ายมาเอง
+  const nameFor = (ext: string | null) => stripKnownExtension(fileName, ext) || fileName;
 
   if (link) {
     if (!isExternalLink(link)) return { error: "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://" };
@@ -170,7 +172,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
   if (uploadedRef) {
     const finalizeError = await finalizeIfDrive(supabase, uploadedRef);
     if (finalizeError) return { error: finalizeError };
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: uploadedRef, file_type: readFileType(formData) }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: nameFor(readFileType(formData)), category, file_url: uploadedRef, file_type: readFileType(formData) }).eq("id", id);
     if (error) return { error: error.message };
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
     revalidatePath("/documents");
@@ -181,7 +183,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
     const ext = file.name.split(".").pop();
     const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
     const ref = await uploadToStorage(supabase, { file, bucket: BUCKET, path });
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: ref, file_type: fileExtension(file.name) }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: nameFor(fileExtension(file.name)), category, file_url: ref, file_type: fileExtension(file.name) }).eq("id", id);
     if (error) return { error: error.message };
     // ลบไฟล์เก่าหลังอัปโหลด/บันทึกไฟล์ใหม่สำเร็จแล้วเท่านั้น กันกรณีบันทึกไม่สำเร็จแล้วไฟล์เก่าหายไปด้วย
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
@@ -190,7 +192,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
   }
 
   // ไม่ได้เปลี่ยนไฟล์/ลิงก์ — แก้แค่ชื่อ
-  const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category }).eq("id", id);
+  const { error } = await supabase.from("proc_documents").update({ file_name: nameFor(current.file_type), category }).eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/documents");
   return {};

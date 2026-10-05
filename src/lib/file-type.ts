@@ -61,3 +61,12 @@ export function fileTypeBadge(ext: string | null, externalUrl?: string): Badge {
   }
   return { label: externalUrl ? "ลิงก์" : "ไฟล์", className: OTHER_CLASS };
 }
+
+/** ตัดนามสกุลท้ายชื่อออกเฉพาะเมื่อตรงกับประเภทไฟล์จริง (เช่น "รายงาน.docx" + docx → "รายงาน") —
+ * ไม่ตัดมั่วๆ จากจุดท้ายชื่อ กันชื่ออย่าง "แผน v1.2" โดนตัดผิด ป้ายประเภทไฟล์แสดงนามสกุลแทนอยู่แล้ว */
+export function stripKnownExtension(name: string, ext: string | null | undefined): string {
+  if (!ext) return name;
+  const suffix = `.${ext.toLowerCase()}`;
+  if (name.toLowerCase().endsWith(suffix) && name.length > suffix.length) return name.slice(0, -suffix.length).trimEnd();
+  return name;
+}
