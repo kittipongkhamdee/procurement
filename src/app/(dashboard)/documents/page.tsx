@@ -16,16 +16,31 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { isDriveRef, driveFileId, driveViewUrl, encodeDriveRef, isExternalLink } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
+import { fileExtension, fileTypeBadge } from "@/lib/file-type";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { uploadFileToDriveSessionWithProgress, uploadFileToSupabaseWithProgress } from "@/lib/storage/client-upload";
-import { uploadDocument, deleteDocument, updateDocument, startDocumentDriveUpload, moveDocument } from "./actions";
+import {
+  uploadDocument,
+  deleteDocument,
+  updateDocument,
+  startDocumentDriveUpload,
+  moveDocument,
+  backfillDocumentFileTypes,
+} from "./actions";
 
 const BUCKET = "procurement-files";
 
-type DocumentRow = { id: string; file_name: string; file_url: string; category: string | null; created_at: string };
+type DocumentRow = {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type: string | null;
+  category: string | null;
+  created_at: string;
+};
 
 const CATEGORY_DATALIST_ID = "document-categories";
 type ProjectFile = { id: string; name: string; file_url_word: string | null; file_url_pdf: string | null };
@@ -122,6 +137,7 @@ function EditDocumentModal({
           return;
         }
         formData.set("uploaded_ref", uploaded.ref);
+        formData.set("file_type", fileExtension(file.name) ?? "");
       }
       formData.delete("file");
       const result = await updateDocument(doc.id, formData);
@@ -177,6 +193,15 @@ function EditDocumentModal({
   );
 }
 
+function FileTypeBadge({ doc }: { doc: DocumentRow }) {
+  const badge = fileTypeBadge(doc.file_type, isExternalLink(doc.file_url) ? doc.file_url : undefined);
+  return (
+    <span className={`inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-sm font-semibold leading-none ${badge.className}`}>
+      {badge.label}
+    </span>
+  );
+}
+
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<DocumentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -186,6 +211,8 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const backfillTriedRef = useRef(false);
+  const reloadRef = useRef<(() => void) | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [storageProvider, setStorageProvider] = useState<"supabase" | "google_drive">("supabase");
 
@@ -194,7 +221,7 @@ export default function DocumentsPage() {
     const [{ data: docs, error }, { data: proposals }, { data: providerSetting }] = await Promise.all([
       supabase
         .from("proc_documents")
-        .select("id, file_name, file_url, category, created_at")
+        .select("id, file_name, file_url, file_type, category, created_at")
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false }),
       supabase
@@ -206,6 +233,14 @@ export default function DocumentsPage() {
     ]);
     if (error) setError(error.message);
     setDocuments(docs ?? []);
+    if (!backfillTriedRef.current && (docs ?? []).some((d) => !d.file_type && isDriveRef(d.file_url))) {
+      backfillTriedRef.current = true;
+      backfillDocumentFileTypes()
+        .then(({ updated }) => {
+          if (updated > 0) reloadRef.current?.();
+        })
+        .catch(() => {});
+    }
     setStorageProvider(providerSetting?.value === "google_drive" ? "google_drive" : "supabase");
 
     const files = (proposals ?? []).filter((p) => p.file_url_word || p.file_url_pdf);
@@ -224,6 +259,10 @@ export default function DocumentsPage() {
     setSignedUrls(docUrls);
     setSignedProjectFileUrls(projectFileUrls);
   }, []);
+
+  useEffect(() => {
+    reloadRef.current = reload;
+  }, [reload]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -248,6 +287,7 @@ export default function DocumentsPage() {
           return;
         }
         formData.set("uploaded_ref", uploaded.ref);
+        formData.set("file_type", fileExtension(file.name) ?? "");
         if (!String(formData.get("file_name") ?? "").trim()) formData.set("file_name", file.name);
       }
       formData.delete("file");
@@ -430,7 +470,12 @@ export default function DocumentsPage() {
               {documents.map((d, i) => (
                 <tr key={d.id}>
                   <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
-                  <td className="font-medium text-slate-900">{d.file_name}</td>
+                  <td className="font-medium text-slate-900">
+                    <div className="flex items-center gap-2">
+                      <FileTypeBadge doc={d} />
+                      <span>{d.file_name}</span>
+                    </div>
+                  </td>
                   <td className="whitespace-nowrap">{d.category ?? <span className="text-slate-400">-</span>}</td>
                   <td className="whitespace-nowrap">{formatThaiDate(d.created_at)}</td>
                   <td className="whitespace-nowrap text-center">

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
-import { driveFinalizeUpload, driveStartResumableUpload } from "@/lib/storage/google-drive";
+import { driveFinalizeUpload, driveGetMeta, driveStartResumableUpload } from "@/lib/storage/google-drive";
+import { extensionFromMime, fileExtension } from "@/lib/file-type";
 import { driveFileId, isDriveRef, isExternalLink } from "@/lib/storage/ref";
 
 const BUCKET = "procurement-files";
@@ -47,7 +48,7 @@ async function finalizeIfDrive(
 
 async function insertDocument(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  row: { file_name: string; file_url: string; category: string | null; uploaded_by: string | null },
+  row: { file_name: string; file_url: string; file_type: string | null; category: string | null; uploaded_by: string | null },
 ): Promise<{ error?: string }> {
   // รายการใหม่ต่อท้ายลำดับเดิมเสมอ (ผู้ใช้เลื่อนขึ้น/ลงเองได้ภายหลัง)
   const { data: last } = await supabase
@@ -62,6 +63,11 @@ async function insertDocument(
   if (error) return { error: error.message };
   revalidatePath("/documents");
   return {};
+}
+
+// นามสกุลไฟล์ต้นฉบับ (client ส่งมาเพราะ ref ของ Google Drive ไม่มีนามสกุลติดมา)
+function readFileType(formData: FormData): string | null {
+  return fileExtension(`.${String(formData.get("file_type") ?? "").trim()}`);
 }
 
 function readCategory(formData: FormData): string | null {
@@ -94,6 +100,7 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
     return insertDocument(supabase, {
       file_name: fileName,
       file_url: link,
+      file_type: null,
       category: readCategory(formData),
       uploaded_by: user?.id ?? null,
     });
@@ -105,6 +112,7 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
     return insertDocument(supabase, {
       file_name: fileName || "เอกสาร",
       file_url: uploadedRef,
+      file_type: readFileType(formData),
       category: readCategory(formData),
       uploaded_by: user?.id ?? null,
     });
@@ -120,6 +128,7 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
   return insertDocument(supabase, {
     file_name: fileName || file.name,
     file_url: ref,
+    file_type: fileExtension(file.name),
     category: readCategory(formData),
     uploaded_by: user?.id ?? null,
   });
@@ -150,7 +159,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
     if (!isExternalLink(link)) return { error: "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://" };
     // ถ้าของเดิมเป็นไฟล์ที่ระบบอัปโหลดไว้ (ไม่ใช่ลิงก์) แล้วเปลี่ยนมาใช้ลิงก์แทน ลบไฟล์เก่าออกจาก storage ด้วย
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: link }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: link, file_type: null }).eq("id", id);
     if (error) return { error: error.message };
     revalidatePath("/documents");
     return {};
@@ -161,7 +170,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
   if (uploadedRef) {
     const finalizeError = await finalizeIfDrive(supabase, uploadedRef);
     if (finalizeError) return { error: finalizeError };
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: uploadedRef }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: uploadedRef, file_type: readFileType(formData) }).eq("id", id);
     if (error) return { error: error.message };
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
     revalidatePath("/documents");
@@ -172,7 +181,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
     const ext = file.name.split(".").pop();
     const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
     const ref = await uploadToStorage(supabase, { file, bucket: BUCKET, path });
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: ref }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: ref, file_type: fileExtension(file.name) }).eq("id", id);
     if (error) return { error: error.message };
     // ลบไฟล์เก่าหลังอัปโหลด/บันทึกไฟล์ใหม่สำเร็จแล้วเท่านั้น กันกรณีบันทึกไม่สำเร็จแล้วไฟล์เก่าหายไปด้วย
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
@@ -220,4 +229,28 @@ export async function moveDocument(id: string, direction: "up" | "down"): Promis
   if (failed?.error) return { error: failed.error.message };
   revalidatePath("/documents");
   return {};
+}
+
+// เติมประเภทไฟล์ให้รายการเก่าที่อยู่บน Google Drive แต่ชื่อที่ตั้งไว้ไม่มีนามสกุล — ถามชื่อ/ชนิดไฟล์
+// จาก Drive ครั้งเดียวแล้วบันทึกไว้ (หน้าเว็บเรียกเฉพาะตอนยังมีรายการที่ไม่มี file_type)
+export async function backfillDocumentFileTypes(): Promise<{ updated: number }> {
+  const supabase = await createClient();
+  const { data: rows } = await supabase
+    .from("proc_documents")
+    .select("id, file_url")
+    .is("file_type", null)
+    .like("file_url", "gdrive:%");
+  let updated = 0;
+  for (const row of rows ?? []) {
+    try {
+      const meta = await driveGetMeta(supabase, driveFileId(row.file_url));
+      const ext = fileExtension(meta.name) ?? extensionFromMime(meta.mimeType);
+      if (!ext) continue;
+      const { error } = await supabase.from("proc_documents").update({ file_type: ext }).eq("id", row.id);
+      if (!error) updated++;
+    } catch {
+      // ไฟล์อาจถูกลบจาก Drive ไปแล้ว — ข้ามไป แสดงเป็นป้าย "ไฟล์" ทั่วไป
+    }
+  }
+  return { updated };
 }

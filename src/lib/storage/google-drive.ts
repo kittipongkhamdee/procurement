@@ -115,6 +115,18 @@ export async function driveFinalizeUpload(supabase: SupabaseServerClient, fileId
   });
 }
 
+export async function driveGetMeta(
+  supabase: SupabaseServerClient,
+  fileId: string,
+): Promise<{ name?: string; mimeType?: string }> {
+  const { auth } = await getDriveClient(supabase);
+  const res = await auth.request<{ name?: string; mimeType?: string }>({
+    url: `${DRIVE_API}/files/${fileId}`,
+    params: { ...SUPPORTS_ALL_DRIVES, fields: "name, mimeType" },
+  });
+  return res.data;
+}
+
 export async function driveDelete(supabase: SupabaseServerClient, fileId: string): Promise<void> {
   const { auth } = await getDriveClient(supabase);
   try {

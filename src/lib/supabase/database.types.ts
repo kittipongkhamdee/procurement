@@ -1932,6 +1932,7 @@ export type Database = {
           category: string | null
           created_at: string
           file_name: string
+          file_type: string | null
           file_url: string
           id: string
           sort_order: number | null
@@ -1941,6 +1942,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           file_name: string
+          file_type?: string | null
           file_url: string
           id?: string
           sort_order?: number | null
@@ -1950,6 +1952,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           file_name?: string
+          file_type?: string | null
           file_url?: string
           id?: string
           sort_order?: number | null
