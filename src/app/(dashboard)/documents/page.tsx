@@ -196,7 +196,7 @@ function EditDocumentModal({
 function FileTypeBadge({ doc }: { doc: DocumentRow }) {
   const badge = fileTypeBadge(doc.file_type, isExternalLink(doc.file_url) ? doc.file_url : undefined);
   return (
-    <span className={`inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-sm font-semibold leading-none ${badge.className}`}>
+    <span className={`inline-flex shrink-0 items-center rounded border px-1 py-0.5 text-[11px] font-semibold leading-none ${badge.className}`}>
       {badge.label}
     </span>
   );
