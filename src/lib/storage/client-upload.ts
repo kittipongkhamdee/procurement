@@ -6,8 +6,8 @@
 // XMLHttpRequest (มี upload.onprogress) แล้วค่อยเรียก server action แยกอีกทีแค่บันทึกแถวอ้างอิงไฟล์
 // ที่อัปโหลดเสร็จแล้วลงตาราง (ไม่ต้องอัปโหลดไฟล์ซ้ำ)
 //
-// ใช้ได้เฉพาะปลายทาง Supabase Storage เท่านั้น — ไม่รองรับ Google Drive provider เพราะต้องอัปโหลด
-// ผ่าน service account ที่รันได้แค่ฝั่ง server เท่านั้น (ดู storage_provider ใน proc_app_settings)
+// ปลายทาง Google Drive ใช้ uploadFileToDriveSessionWithProgress แทน — server เปิด resumable upload
+// session ด้วย service account ให้ แล้ว browser PUT ไฟล์ไปที่ session URL ตรงๆ
 
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/lib/supabase/database.types";
@@ -54,4 +54,35 @@ export async function uploadFileToSupabaseWithProgress(
   const { error } = await client.storage.from(bucket).upload(path, file, { contentType: file.type || undefined });
   if (error) return { error: error.message };
   return {};
+}
+
+/** PUT ไฟล์ไปที่ resumable upload session URL ของ Google Drive (เปิดโดย server ด้วย service account)
+ * คืน fileId ของไฟล์ที่อัปโหลดเสร็จ */
+export function uploadFileToDriveSessionWithProgress(
+  uploadUrl: string,
+  file: File,
+  onProgress: (percent: number) => void,
+): Promise<{ fileId?: string; error?: string }> {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", uploadUrl, true);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status !== 200 && xhr.status !== 201) {
+        resolve({ error: `อัปโหลดไป Google Drive ไม่สำเร็จ (รหัส ${xhr.status})` });
+        return;
+      }
+      try {
+        const fileId = (JSON.parse(xhr.responseText) as { id?: string }).id;
+        resolve(fileId ? { fileId } : { error: "อัปโหลดไป Google Drive ไม่สำเร็จ" });
+      } catch {
+        resolve({ error: "อัปโหลดไป Google Drive ไม่สำเร็จ" });
+      }
+    };
+    xhr.onerror = () => resolve({ error: "อัปโหลดไป Google Drive ไม่สำเร็จ (การเชื่อมต่อขัดข้อง)" });
+    xhr.send(file);
+  });
 }

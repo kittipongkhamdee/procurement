@@ -72,6 +72,49 @@ export async function driveUpload(
   return fileId;
 }
 
+/**
+ * เปิด resumable upload session ให้ browser อัปโหลดไฟล์ตรงไป Drive เอง (ไม่ผ่าน Vercel ซึ่งจำกัด
+ * request body ไว้ ~4.5MB) — ส่ง Origin ของ browser ไปตอนเปิด session เพื่อให้ Google ตอบ CORS
+ * header กลับมาตอน browser PUT ไฟล์ไปที่ URL นี้
+ */
+export async function driveStartResumableUpload(
+  supabase: SupabaseServerClient,
+  opts: { fileName: string; mimeType: string; size: number; origin: string },
+): Promise<string> {
+  const { auth, folderId } = await getDriveClient(supabase);
+  const res = await auth.request({
+    url: `${DRIVE_UPLOAD_API}/files`,
+    method: "POST",
+    params: { ...SUPPORTS_ALL_DRIVES, uploadType: "resumable" },
+    headers: {
+      "Content-Type": "application/json; charset=UTF-8",
+      "X-Upload-Content-Type": opts.mimeType || "application/octet-stream",
+      "X-Upload-Content-Length": String(opts.size),
+      Origin: opts.origin,
+    },
+    data: { name: opts.fileName, parents: [folderId] },
+  });
+  const uploadUrl = res.headers.get("location");
+  if (!uploadUrl) throw new Error("เปิดการอัปโหลดไป Google Drive ไม่สำเร็จ");
+  return uploadUrl;
+}
+
+/** หลัง browser อัปโหลดเสร็จ — ตรวจว่าไฟล์อยู่ในโฟลเดอร์ของระบบจริง แล้วเปิดสิทธิ์อ่านแบบเดียวกับ driveUpload */
+export async function driveFinalizeUpload(supabase: SupabaseServerClient, fileId: string): Promise<void> {
+  const { auth, folderId } = await getDriveClient(supabase);
+  const meta = await auth.request<{ parents?: string[] }>({
+    url: `${DRIVE_API}/files/${fileId}`,
+    params: { ...SUPPORTS_ALL_DRIVES, fields: "parents" },
+  });
+  if (!meta.data.parents?.includes(folderId)) throw new Error("ไฟล์ไม่ได้อยู่ในโฟลเดอร์ของระบบ");
+  await auth.request({
+    url: `${DRIVE_API}/files/${fileId}/permissions`,
+    method: "POST",
+    params: SUPPORTS_ALL_DRIVES,
+    data: { role: "reader", type: "anyone" },
+  });
+}
+
 export async function driveDelete(supabase: SupabaseServerClient, fileId: string): Promise<void> {
   const { auth } = await getDriveClient(supabase);
   try {

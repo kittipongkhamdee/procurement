@@ -14,14 +14,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { isDriveRef, driveFileId, driveViewUrl, isExternalLink } from "@/lib/storage/ref";
+import { isDriveRef, driveFileId, driveViewUrl, encodeDriveRef, isExternalLink } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
-import { uploadFileToSupabaseWithProgress } from "@/lib/storage/client-upload";
-import { uploadDocument, deleteDocument, updateDocument } from "./actions";
+import { uploadFileToDriveSessionWithProgress, uploadFileToSupabaseWithProgress } from "@/lib/storage/client-upload";
+import { uploadDocument, deleteDocument, updateDocument, startDocumentDriveUpload } from "./actions";
 
 const BUCKET = "procurement-files";
 
@@ -65,6 +65,28 @@ function UploadProgressBar({ progress }: { progress: number | null }) {
   );
 }
 
+/** อัปโหลดไฟล์ตรงจากเบราว์เซอร์ไปปลายทางที่ตั้งค่าไว้ (ไม่ส่งไฟล์ผ่าน Server Action ซึ่ง Vercel
+ * จำกัดขนาด request ไว้ ~4.5MB) คืน ref ให้ server action บันทึกแถวอ้างอิงต่อ */
+async function uploadDocumentFileDirect(
+  file: File,
+  storageProvider: "supabase" | "google_drive",
+  onProgress: (percent: number) => void,
+): Promise<{ ref?: string; error?: string }> {
+  const ext = file.name.split(".").pop();
+  const name = `${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+  if (storageProvider === "google_drive") {
+    const session = await startDocumentDriveUpload(name, file.type, file.size);
+    if (!session.uploadUrl) return { error: session.error ?? "เปิดการอัปโหลดไป Google Drive ไม่สำเร็จ" };
+    const uploaded = await uploadFileToDriveSessionWithProgress(session.uploadUrl, file, onProgress);
+    if (!uploaded.fileId) return { error: uploaded.error };
+    return { ref: encodeDriveRef(uploaded.fileId) };
+  }
+  const path = `documents/${name}`;
+  const uploaded = await uploadFileToSupabaseWithProgress("procurement-files", path, file, onProgress);
+  if (uploaded.error) return { error: uploaded.error };
+  return { ref: path };
+}
+
 /** แก้ไขรายการเดิม — เปลี่ยนชื่อไฟล์ได้เสมอ, ถ้าเดิมเป็นลิงก์ภายนอกแก้ลิงก์ได้, ถ้าเดิมเป็นไฟล์ที่
  * อัปโหลดไว้เลือกไฟล์ใหม่แทนที่ของเดิมได้ (ไม่เลือก = แก้แค่ชื่อ) — เป็น component แยกระดับ module
  * (ไม่ใช่ inline ใน DocumentsPage) กัน lint "สร้าง component ระหว่าง render" */
@@ -89,21 +111,17 @@ function EditDocumentModal({
     const file = formData.get("file") as File | null;
     const hasNewFile = !!file && file.size > 0;
     setSubmitting(true);
-    if (hasNewFile) setProgress(storageProvider === "supabase" ? 0 : null);
+    if (hasNewFile) setProgress(0);
     try {
-      // ไฟล์ที่เลือกจริง (ไม่ใช่ลิงก์) และปลายทางเป็น Supabase Storage — อัปโหลดตรงจากเบราว์เซอร์เพื่อ
-      // ให้แสดง % ความคืบหน้าได้จริง แล้วค่อยเรียก server action แค่บันทึกแถวอ้างอิง (ไม่อัปโหลดซ้ำ)
-      if (file && file.size > 0 && !isLink && storageProvider === "supabase") {
-        const ext = file.name.split(".").pop();
-        const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
-        const uploadResult = await uploadFileToSupabaseWithProgress("procurement-files", path, file, setProgress);
-        if (uploadResult?.error) {
-          await toastError(uploadResult.error);
+      if (file && hasNewFile && !isLink) {
+        const uploaded = await uploadDocumentFileDirect(file, storageProvider, setProgress);
+        if (!uploaded.ref) {
+          await toastError(uploaded.error ?? "อัปโหลดไฟล์ไม่สำเร็จ");
           return;
         }
-        formData.set("uploaded_ref", path);
-        formData.delete("file");
+        formData.set("uploaded_ref", uploaded.ref);
       }
+      formData.delete("file");
       const result = await updateDocument(doc.id, formData);
       if (result?.error) {
         await toastError(result.error);
@@ -207,21 +225,17 @@ export default function DocumentsPage() {
     const link = String(formData.get("link") ?? "").trim();
     const hasFile = !!file && file.size > 0;
     setUploading(true);
-    if (hasFile && !link) setUploadProgress(storageProvider === "supabase" ? 0 : null);
+    if (hasFile && !link) setUploadProgress(0);
     try {
-      // มีไฟล์จริง (ไม่ใช่ลิงก์) และปลายทางเป็น Supabase Storage — อัปโหลดตรงจากเบราว์เซอร์เพื่อให้
-      // แสดง % ความคืบหน้าได้จริง แล้วค่อยเรียก server action แค่บันทึกแถวอ้างอิง (ไม่อัปโหลดซ้ำ)
-      if (hasFile && !link && storageProvider === "supabase" && file) {
-        const ext = file.name.split(".").pop();
-        const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
-        const uploadResult = await uploadFileToSupabaseWithProgress("procurement-files", path, file, setUploadProgress);
-        if (uploadResult?.error) {
-          await toastError(uploadResult.error);
+      if (file && hasFile && !link) {
+        const uploaded = await uploadDocumentFileDirect(file, storageProvider, setUploadProgress);
+        if (!uploaded.ref) {
+          await toastError(uploaded.error ?? "อัปโหลดไฟล์ไม่สำเร็จ");
           return;
         }
-        formData.set("uploaded_ref", path);
-        formData.delete("file");
+        formData.set("uploaded_ref", uploaded.ref);
       }
+      formData.delete("file");
       const result = await uploadDocument(formData);
       if (result?.error) {
         await toastError(result.error);

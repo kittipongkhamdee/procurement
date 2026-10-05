@@ -1,11 +1,49 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { uploadToStorage, deleteFromStorage } from "@/lib/storage";
-import { isExternalLink } from "@/lib/storage/ref";
+import { driveFinalizeUpload, driveStartResumableUpload } from "@/lib/storage/google-drive";
+import { driveFileId, isDriveRef, isExternalLink } from "@/lib/storage/ref";
 
 const BUCKET = "procurement-files";
+
+// ปลายทาง Google Drive: browser อัปโหลดไฟล์ตรงไป Drive เอง ไม่ส่งผ่าน Server Action — Vercel ตัด
+// request ที่ใหญ่เกิน ~4.5MB ทิ้งด้วย 413 ก่อนโค้ดในแอ็กชันจะได้ทำงาน (ผู้ใช้เห็นแค่ "An unexpected
+// response was received from the server")
+export async function startDocumentDriveUpload(
+  fileName: string,
+  mimeType: string,
+  size: number,
+): Promise<{ uploadUrl?: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "กรุณาเข้าสู่ระบบใหม่" };
+  const origin = (await headers()).get("origin");
+  if (!origin) return { error: "ไม่สามารถระบุที่มาของคำขอได้" };
+  try {
+    const uploadUrl = await driveStartResumableUpload(supabase, { fileName, mimeType, size, origin });
+    return { uploadUrl };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "เปิดการอัปโหลดไป Google Drive ไม่สำเร็จ" };
+  }
+}
+
+async function finalizeIfDrive(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ref: string,
+): Promise<string | null> {
+  if (!isDriveRef(ref)) return null;
+  try {
+    await driveFinalizeUpload(supabase, driveFileId(ref));
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : "ตั้งค่าไฟล์บน Google Drive ไม่สำเร็จ";
+  }
+}
 
 // คืนค่า { error } แทนการ throw — ข้อความ error ที่ throw จาก Server Action ถูก Next.js ปิดบัง
 // (redact) ในโปรดักชัน ฝั่ง client จะเห็นแค่ "Minified React error #441" อ่านไม่รู้เรื่อง แทนข้อความ
@@ -40,6 +78,8 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
   }
 
   if (uploadedRef) {
+    const finalizeError = await finalizeIfDrive(supabase, uploadedRef);
+    if (finalizeError) return { error: finalizeError };
     const { error } = await supabase.from("proc_documents").insert({
       file_name: fileName || uploadedRef.split("/").pop() || "เอกสาร",
       file_url: uploadedRef,
@@ -101,6 +141,8 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
   // ไฟล์ใหม่ถูกอัปโหลดตรงจาก browser ไปยัง Supabase Storage มาแล้ว (ดู client-upload.ts) — แค่บันทึก
   // แถวให้ชี้ไปไฟล์ใหม่ ไม่ต้องอัปโหลดซ้ำ
   if (uploadedRef) {
+    const finalizeError = await finalizeIfDrive(supabase, uploadedRef);
+    if (finalizeError) return { error: finalizeError };
     const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: uploadedRef }).eq("id", id);
     if (error) return { error: error.message };
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
