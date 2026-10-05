@@ -45,6 +45,30 @@ async function finalizeIfDrive(
   }
 }
 
+async function insertDocument(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  row: { file_name: string; file_url: string; category: string | null; uploaded_by: string | null },
+): Promise<{ error?: string }> {
+  // รายการใหม่ต่อท้ายลำดับเดิมเสมอ (ผู้ใช้เลื่อนขึ้น/ลงเองได้ภายหลัง)
+  const { data: last } = await supabase
+    .from("proc_documents")
+    .select("sort_order")
+    .order("sort_order", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  const { error } = await supabase
+    .from("proc_documents")
+    .insert({ ...row, sort_order: (last?.sort_order ?? 0) + 1 });
+  if (error) return { error: error.message };
+  revalidatePath("/documents");
+  return {};
+}
+
+function readCategory(formData: FormData): string | null {
+  return String(formData.get("category") ?? "").trim() || null;
+}
+
+
 // คืนค่า { error } แทนการ throw — ข้อความ error ที่ throw จาก Server Action ถูก Next.js ปิดบัง
 // (redact) ในโปรดักชัน ฝั่ง client จะเห็นแค่ "Minified React error #441" อ่านไม่รู้เรื่อง แทนข้อความ
 // จริงที่ตั้งใจให้ผู้ใช้เห็น (แพทเทิร์นเดียวกับ deleteProject ใน projects/actions.ts)
@@ -67,27 +91,23 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
     if (!isExternalLink(link)) return { error: "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://" };
     if (!fileName) return { error: "กรุณาระบุชื่อไฟล์เอกสาร (จำเป็นเมื่อวางลิงก์แทนการอัปโหลด)" };
 
-    const { error } = await supabase.from("proc_documents").insert({
+    return insertDocument(supabase, {
       file_name: fileName,
       file_url: link,
+      category: readCategory(formData),
       uploaded_by: user?.id ?? null,
     });
-    if (error) return { error: error.message };
-    revalidatePath("/documents");
-    return {};
   }
 
   if (uploadedRef) {
     const finalizeError = await finalizeIfDrive(supabase, uploadedRef);
     if (finalizeError) return { error: finalizeError };
-    const { error } = await supabase.from("proc_documents").insert({
-      file_name: fileName || uploadedRef.split("/").pop() || "เอกสาร",
+    return insertDocument(supabase, {
+      file_name: fileName || "เอกสาร",
       file_url: uploadedRef,
+      category: readCategory(formData),
       uploaded_by: user?.id ?? null,
     });
-    if (error) return { error: error.message };
-    revalidatePath("/documents");
-    return {};
   }
 
   if (!file || file.size === 0) return { error: "กรุณาเลือกไฟล์ หรือวางลิงก์แทน" };
@@ -97,15 +117,12 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
 
   const ref = await uploadToStorage(supabase, { file, bucket: BUCKET, path });
 
-  const { error } = await supabase.from("proc_documents").insert({
+  return insertDocument(supabase, {
     file_name: fileName || file.name,
     file_url: ref,
+    category: readCategory(formData),
     uploaded_by: user?.id ?? null,
   });
-  if (error) return { error: error.message };
-
-  revalidatePath("/documents");
-  return {};
 }
 
 // แก้ไขรายการเดิม — เปลี่ยนชื่อไฟล์ได้เสมอ และถ้าเดิมเป็นลิงก์ภายนอกก็แก้ลิงก์ได้ ถ้าเดิมเป็นไฟล์
@@ -115,6 +132,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
 
   const fileName = String(formData.get("file_name") ?? "").trim();
   if (!fileName) return { error: "กรุณาระบุชื่อไฟล์เอกสาร" };
+  const category = readCategory(formData);
 
   const link = String(formData.get("link") ?? "").trim();
   const file = formData.get("file") as File | null;
@@ -132,7 +150,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
     if (!isExternalLink(link)) return { error: "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://" };
     // ถ้าของเดิมเป็นไฟล์ที่ระบบอัปโหลดไว้ (ไม่ใช่ลิงก์) แล้วเปลี่ยนมาใช้ลิงก์แทน ลบไฟล์เก่าออกจาก storage ด้วย
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: link }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: link }).eq("id", id);
     if (error) return { error: error.message };
     revalidatePath("/documents");
     return {};
@@ -143,7 +161,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
   if (uploadedRef) {
     const finalizeError = await finalizeIfDrive(supabase, uploadedRef);
     if (finalizeError) return { error: finalizeError };
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: uploadedRef }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: uploadedRef }).eq("id", id);
     if (error) return { error: error.message };
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
     revalidatePath("/documents");
@@ -154,7 +172,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
     const ext = file.name.split(".").pop();
     const path = `documents/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
     const ref = await uploadToStorage(supabase, { file, bucket: BUCKET, path });
-    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, file_url: ref }).eq("id", id);
+    const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category, file_url: ref }).eq("id", id);
     if (error) return { error: error.message };
     // ลบไฟล์เก่าหลังอัปโหลด/บันทึกไฟล์ใหม่สำเร็จแล้วเท่านั้น กันกรณีบันทึกไม่สำเร็จแล้วไฟล์เก่าหายไปด้วย
     if (!isExternalLink(current.file_url)) await deleteFromStorage(supabase, current.file_url, BUCKET);
@@ -163,7 +181,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
   }
 
   // ไม่ได้เปลี่ยนไฟล์/ลิงก์ — แก้แค่ชื่อ
-  const { error } = await supabase.from("proc_documents").update({ file_name: fileName }).eq("id", id);
+  const { error } = await supabase.from("proc_documents").update({ file_name: fileName, category }).eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/documents");
   return {};
@@ -175,6 +193,31 @@ export async function deleteDocument(id: string, ref: string): Promise<{ error?:
   if (!isExternalLink(ref)) await deleteFromStorage(supabase, ref, BUCKET);
   const { error } = await supabase.from("proc_documents").delete().eq("id", id);
   if (error) return { error: error.message };
+  revalidatePath("/documents");
+  return {};
+}
+
+// เลื่อนรายการขึ้น/ลงหนึ่งตำแหน่ง — เรียงเลขลำดับใหม่ทั้งชุด (1..n) ทุกครั้ง กันเลขซ้ำ/ช่องว่าง
+export async function moveDocument(id: string, direction: "up" | "down"): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { data: rows, error: fetchError } = await supabase
+    .from("proc_documents")
+    .select("id")
+    .order("sort_order", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (fetchError) return { error: fetchError.message };
+
+  const ids = (rows ?? []).map((r) => r.id);
+  const index = ids.indexOf(id);
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || target < 0 || target >= ids.length) return {};
+  [ids[index], ids[target]] = [ids[target], ids[index]];
+
+  const results = await Promise.all(
+    ids.map((docId, i) => supabase.from("proc_documents").update({ sort_order: i + 1 }).eq("id", docId)),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { error: failed.error.message };
   revalidatePath("/documents");
   return {};
 }

@@ -21,11 +21,13 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { uploadFileToDriveSessionWithProgress, uploadFileToSupabaseWithProgress } from "@/lib/storage/client-upload";
-import { uploadDocument, deleteDocument, updateDocument, startDocumentDriveUpload } from "./actions";
+import { uploadDocument, deleteDocument, updateDocument, startDocumentDriveUpload, moveDocument } from "./actions";
 
 const BUCKET = "procurement-files";
 
-type DocumentRow = { id: string; file_name: string; file_url: string; created_at: string };
+type DocumentRow = { id: string; file_name: string; file_url: string; category: string | null; created_at: string };
+
+const CATEGORY_DATALIST_ID = "document-categories";
 type ProjectFile = { id: string; name: string; file_url_word: string | null; file_url_pdf: string | null };
 
 async function resolveUrls(
@@ -139,11 +141,21 @@ function EditDocumentModal({
   }
 
   return (
-    <Modal ref={modalRef} trigger="แก้ไข" triggerClassName="text-xs font-medium text-navy-800 hover:underline" title="แก้ไขเอกสาร">
+    <Modal ref={modalRef} trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" title="แก้ไขเอกสาร">
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label className="label">ชื่อไฟล์เอกสาร</label>
           <input name="file_name" defaultValue={doc.file_name} required className="input w-full" />
+        </div>
+        <div>
+          <label className="label">หมวดหมู่</label>
+          <input
+            name="category"
+            defaultValue={doc.category ?? ""}
+            list={CATEGORY_DATALIST_ID}
+            placeholder="เช่น แผนปฏิบัติการ, คำสั่ง, แบบฟอร์ม"
+            className="input w-full"
+          />
         </div>
         {isLink ? (
           <div>
@@ -173,6 +185,7 @@ export default function DocumentsPage() {
   const [signedProjectFileUrls, setSignedProjectFileUrls] = useState<Map<string, string>>(new Map());
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [movingId, setMovingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [storageProvider, setStorageProvider] = useState<"supabase" | "google_drive">("supabase");
 
@@ -181,7 +194,8 @@ export default function DocumentsPage() {
     const [{ data: docs, error }, { data: proposals }, { data: providerSetting }] = await Promise.all([
       supabase
         .from("proc_documents")
-        .select("id, file_name, file_url, created_at")
+        .select("id, file_name, file_url, category, created_at")
+        .order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false }),
       supabase
         .from("plan_project_proposals")
@@ -234,6 +248,7 @@ export default function DocumentsPage() {
           return;
         }
         formData.set("uploaded_ref", uploaded.ref);
+        if (!String(formData.get("file_name") ?? "").trim()) formData.set("file_name", file.name);
       }
       formData.delete("file");
       const result = await uploadDocument(formData);
@@ -249,6 +264,23 @@ export default function DocumentsPage() {
     } finally {
       setUploading(false);
       setUploadProgress(null);
+    }
+  }
+
+  async function handleMove(id: string, direction: "up" | "down") {
+    if (movingId) return;
+    setMovingId(id);
+    try {
+      const result = await moveDocument(id, direction);
+      if (result?.error) {
+        await toastError(result.error);
+        return;
+      }
+      await reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setMovingId(null);
     }
   }
 
@@ -270,6 +302,10 @@ export default function DocumentsPage() {
       setDeletingId(null);
     }
   }
+
+  const categories = Array.from(
+    new Set((documents ?? []).map((d) => d.category).filter((c): c is string => !!c)),
+  ).sort((a, b) => a.localeCompare(b, "th"));
 
   return (
     <div>
@@ -349,7 +385,13 @@ export default function DocumentsPage() {
         </p>
         <form onSubmit={handleUpload} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <input name="file_name" placeholder="ชื่อไฟล์เอกสาร (ไม่ระบุ = ใช้ชื่อไฟล์เดิม เว้นแต่วางลิงก์ต้องระบุ)" className="input sm:col-span-2" />
-          <input type="file" name="file" className="input" />
+          <input
+            name="category"
+            list={CATEGORY_DATALIST_ID}
+            placeholder="หมวดหมู่ (เช่น แผนปฏิบัติการ, คำสั่ง)"
+            className="input"
+          />
+          <input type="file" name="file" className="input sm:col-span-3" />
           <input
             type="url"
             name="link"
@@ -368,61 +410,82 @@ export default function DocumentsPage() {
       ) : (
         <div className="table-shell">
           {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
+          <datalist id={CATEGORY_DATALIST_ID}>
+            {categories.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
           <table className="table-base">
             <thead>
               <tr>
+                <th className="w-14 text-center">ลำดับที่</th>
                 <th>ชื่อไฟล์เอกสาร</th>
-                <th>วันที่เพิ่ม</th>
-                <th></th>
-                <th></th>
-                <th></th>
+                <th className="whitespace-nowrap">หมวดหมู่</th>
+                <th className="whitespace-nowrap">วันที่เพิ่ม</th>
+                <th className="whitespace-nowrap text-center">จัดลำดับ</th>
+                <th className="text-right">จัดการ</th>
               </tr>
             </thead>
             <tbody>
-              {documents.map((d) => (
+              {documents.map((d, i) => (
                 <tr key={d.id}>
+                  <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                   <td className="font-medium text-slate-900">{d.file_name}</td>
-                  <td>{formatThaiDate(d.created_at)}</td>
-                  <td className="text-right">
-                    {isExternalLink(d.file_url) ? (
-                      <a
-                        href={d.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-medium text-navy-800 hover:underline"
+                  <td className="whitespace-nowrap">{d.category ?? <span className="text-slate-400">-</span>}</td>
+                  <td className="whitespace-nowrap">{formatThaiDate(d.created_at)}</td>
+                  <td className="whitespace-nowrap text-center">
+                    <div className="inline-flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMove(d.id, "up")}
+                        disabled={i === 0 || movingId !== null}
+                        aria-label="เลื่อนขึ้น"
+                        title="เลื่อนขึ้น"
+                        className="btn-secondary btn-sm disabled:opacity-40"
                       >
-                        เปิดลิงก์
-                      </a>
-                    ) : signedUrls.get(d.file_url) ? (
-                      <a
-                        href={signedUrls.get(d.file_url)}
-                        target="_blank"
-                        className="text-xs font-medium text-navy-800 hover:underline"
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMove(d.id, "down")}
+                        disabled={i === documents.length - 1 || movingId !== null}
+                        aria-label="เลื่อนลง"
+                        title="เลื่อนลง"
+                        className="btn-secondary btn-sm disabled:opacity-40"
                       >
-                        ดาวน์โหลด
-                      </a>
-                    ) : (
-                      <span className="text-xs text-slate-400">ไม่พบไฟล์</span>
-                    )}
+                        ▼
+                      </button>
+                    </div>
                   </td>
-                  <td className="text-right">
-                    <EditDocumentModal doc={d} storageProvider={storageProvider} onChanged={reload} />
-                  </td>
-                  <td className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(d.id, d.file_url, d.file_name)}
-                      disabled={deletingId === d.id}
-                      className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
-                    >
-                      {deletingId === d.id ? "กำลังลบ..." : "ลบ"}
-                    </button>
+                  <td>
+                    <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                      {isExternalLink(d.file_url) ? (
+                        <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
+                          เปิดลิงก์
+                        </a>
+                      ) : signedUrls.get(d.file_url) ? (
+                        <a href={signedUrls.get(d.file_url)} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
+                          ดาวน์โหลด
+                        </a>
+                      ) : (
+                        <span className="text-sm text-slate-400">ไม่พบไฟล์</span>
+                      )}
+                      <EditDocumentModal doc={d} storageProvider={storageProvider} onChanged={reload} />
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(d.id, d.file_url, d.file_name)}
+                        disabled={deletingId === d.id}
+                        className="btn-danger btn-sm disabled:opacity-50"
+                      >
+                        {deletingId === d.id ? "กำลังลบ..." : "ลบ"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {documents.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={6} className="table-empty">
                     ยังไม่มีข้อมูล
                   </td>
                 </tr>

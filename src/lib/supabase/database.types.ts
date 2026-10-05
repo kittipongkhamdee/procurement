@@ -1929,24 +1929,30 @@ export type Database = {
       }
       proc_documents: {
         Row: {
+          category: string | null
           created_at: string
           file_name: string
           file_url: string
           id: string
+          sort_order: number | null
           uploaded_by: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string
           file_name: string
           file_url: string
           id?: string
+          sort_order?: number | null
           uploaded_by?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string
           file_name?: string
           file_url?: string
           id?: string
+          sort_order?: number | null
           uploaded_by?: string | null
         }
         Relationships: []
