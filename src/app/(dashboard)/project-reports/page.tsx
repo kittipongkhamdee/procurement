@@ -177,13 +177,20 @@ export default function ProjectReportsPage() {
           <div className="group relative">
             <div
               tabIndex={unreportedCount > 0 ? 0 : undefined}
-              className="stat-card h-full outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              className={`stat-card h-full outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                unreportedCount > 0 ? "cursor-pointer transition group-hover:border-amber-300 group-hover:shadow-md" : ""
+              }`}
               style={{ "--accent": WARN } as React.CSSProperties}
             >
               <div className="stat-label">ยังไม่รายงาน</div>
               <div className="stat-value text-amber-600">
                 {unreportedCount.toLocaleString("th-TH")} <span className="stat-suffix hidden sm:inline">โครงการ</span>
               </div>
+              {unreportedCount > 0 && (
+                <p className="mt-1 text-xs font-medium text-amber-700">
+                  ดูรายชื่อ <span aria-hidden>▾</span>
+                </p>
+              )}
             </div>
             {unreportedCount > 0 && (
               <div className="absolute right-0 top-full z-20 hidden pt-2 group-focus-within:block group-hover:block">
