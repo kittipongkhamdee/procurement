@@ -34,7 +34,8 @@ const WARN = "#d97706"; // คงเหลือ
 // "กำลังดำเนินการ" ใช้เขียวเฉดอ่อนกว่า GOOD (เสร็จสิ้น) เพื่อให้ทั้งคู่อยู่ในโทนเขียวเดียวกัน
 // (สื่อว่าเป็นไปด้วยดีทั้งคู่) แต่ยังแยกจากกันได้ชัดด้วยความเข้ม
 const INPROGRESS = "#34d399"; // กำลังดำเนินการ
-const NEUTRAL = "#cbd5e1"; // ยังไม่ดำเนินการ — เทาจางกว่าเดิม (#94a3b8) ให้ดูเป็นสถานะ "ยังไม่เริ่ม" เฉยๆ ไม่เด่นเกิน
+const RED = "#dc2626"; // ไม่ได้ดำเนินการ (รายงานโครงการติ๊ก "ไม่ได้ดำเนินการโครงการนี้")
+const NEUTRAL = "#cbd5e1"; // รอดำเนินการ — เทาจางกว่าเดิม (#94a3b8) ให้ดูเป็นสถานะ "ยังไม่เริ่ม" เฉยๆ ไม่เด่นเกิน
 const BRAND = "#123361";
 // สีวนใช้ต่อวงในเกจครึ่งวงกลมซ้อน "งบประมาณแยกตามประเภทเงิน" — แค่แยกแยะแต่ละวง ไม่ได้มีความหมาย
 // เชิงสถานะแบบ GOOD/WARN/NEUTRAL จึงแยกชุดสีต่างหาก วนซ้ำถ้าประเภทเงินมีมากกว่าจำนวนสีที่กำหนด
@@ -112,13 +113,14 @@ function StatusStackRow({
 }: {
   label: string;
   total: number;
-  counts: { completed: number; inProgress: number; notStarted: number };
+  counts: { completed: number; inProgress: number; notStarted: number; notImplemented: number };
   bold?: boolean;
 }) {
   const segments = [
     { value: counts.completed, color: GOOD, text: "#ffffff", name: "เสร็จสิ้น" },
     { value: counts.inProgress, color: INPROGRESS, text: "#064e3b", name: "กำลังดำเนินการ" },
-    { value: counts.notStarted, color: NEUTRAL, text: "#334155", name: "ยังไม่ดำเนินการ" },
+    { value: counts.notStarted, color: NEUTRAL, text: "#334155", name: "รอดำเนินการ" },
+    { value: counts.notImplemented, color: RED, text: "#ffffff", name: "ไม่ได้ดำเนินการ" },
   ];
   return (
     <div className="flex items-center gap-2 text-sm">
@@ -270,6 +272,7 @@ export default function DashboardPage() {
   const [approvedByProject, setApprovedByProject] = useState<Map<string, number>>(new Map());
   const [expenseTotals, setExpenseTotals] = useState<number[]>([0, 0, 0, 0, 0]);
   const [completedProjectIds, setCompletedProjectIds] = useState<Set<string>>(new Set());
+  const [notImplementedProjectIds, setNotImplementedProjectIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -292,6 +295,7 @@ export default function DashboardPage() {
       setApprovedByProject(new Map());
       setExpenseTotals([0, 0, 0, 0, 0]);
       setCompletedProjectIds(new Set());
+      setNotImplementedProjectIds(new Set());
       setLoading(false);
       return;
     }
@@ -340,10 +344,14 @@ export default function DashboardPage() {
     setExpenseTotals(nextExpenseTotals);
 
     const nextCompleted = new Set<string>();
+    const nextNotImplemented = new Set<string>();
     for (const r of reports ?? []) {
-      if (r.project_id && projectIds.has(r.project_id) && r.not_implemented === false) nextCompleted.add(r.project_id);
+      if (!r.project_id || !projectIds.has(r.project_id)) continue;
+      if (r.not_implemented === false) nextCompleted.add(r.project_id);
+      else nextNotImplemented.add(r.project_id);
     }
     setCompletedProjectIds(nextCompleted);
+    setNotImplementedProjectIds(nextNotImplemented);
 
     setLoading(false);
   }, []);
@@ -360,15 +368,16 @@ export default function DashboardPage() {
     const totalActivities = projects.reduce((s, p) => s + p.activityCount, 0);
 
     const countStatuses = (list: ProjectRow[]) => {
-      const counts = { completed: 0, inProgress: 0, notStarted: 0 };
+      const counts = { completed: 0, inProgress: 0, notStarted: 0, notImplemented: 0 };
       for (const p of list) {
         if (completedProjectIds.has(p.id)) counts.completed++;
+        else if (notImplementedProjectIds.has(p.id)) counts.notImplemented++;
         else if ((approvedByProject.get(p.id) ?? 0) > 0) counts.inProgress++;
         else counts.notStarted++;
       }
       return counts;
     };
-    const { completed, inProgress, notStarted } = countStatuses(projects);
+    const { completed, inProgress, notStarted, notImplemented } = countStatuses(projects);
 
     const bySource = budgetSources.map((s) => {
       const inSource = projects.filter((p) => p.budgetSourceId === s.id);
@@ -386,13 +395,13 @@ export default function DashboardPage() {
 
     const expenseTotal = expenseTotals.reduce((s, v) => s + v, 0);
 
-    return { totalBudget, totalSpent, totalRemaining, totalActivities, completed, inProgress, notStarted, bySource, byGroup, expenseTotal };
-  }, [projects, approvedByProject, completedProjectIds, budgetSources, adminGroups, expenseTotals]);
+    return { totalBudget, totalSpent, totalRemaining, totalActivities, completed, inProgress, notStarted, notImplemented, bySource, byGroup, expenseTotal };
+  }, [projects, approvedByProject, completedProjectIds, notImplementedProjectIds, budgetSources, adminGroups, expenseTotals]);
 
   if (loading) return <PageLoadingSkeleton />;
 
   const projectCount = projects.length;
-  const { totalBudget, totalSpent, totalRemaining, totalActivities, completed, inProgress, notStarted, bySource, byGroup, expenseTotal } =
+  const { totalBudget, totalSpent, totalRemaining, totalActivities, completed, inProgress, notStarted, notImplemented, bySource, byGroup, expenseTotal } =
     computed;
 
   return (
@@ -483,7 +492,7 @@ export default function DashboardPage() {
             <div className="card">
               <div className="card-title">สถานะโครงการ ({projectCount.toLocaleString("th-TH")} โครงการ)</div>
               <div className="space-y-2.5 print:space-y-2">
-                <StatusStackRow label="ทั้งหมด" total={projectCount} counts={{ completed, inProgress, notStarted }} bold />
+                <StatusStackRow label="ทั้งหมด" total={projectCount} counts={{ completed, inProgress, notStarted, notImplemented }} bold />
                 {byGroup
                   .filter((g) => g.projectCount > 0)
                   .map((g) => (
@@ -506,7 +515,13 @@ export default function DashboardPage() {
                 <span className="inline-flex items-center gap-2">
                   <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: NEUTRAL }} />
                   <span className="text-slate-600">
-                    ยังไม่ดำเนินการ <b className="font-semibold text-slate-900">{notStarted}</b> ({pct(notStarted, projectCount).toFixed(1)}%)
+                    รอดำเนินการ <b className="font-semibold text-slate-900">{notStarted}</b> ({pct(notStarted, projectCount).toFixed(1)}%)
+                  </span>
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: RED }} />
+                  <span className="text-slate-600">
+                    ไม่ได้ดำเนินการ <b className="font-semibold text-slate-900">{notImplemented}</b> ({pct(notImplemented, projectCount).toFixed(1)}%)
                   </span>
                 </span>
               </div>
