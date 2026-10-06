@@ -7,7 +7,7 @@
 // หน้าเสนอ/แก้ไขรายงานย้ายไปเป็นเต็มหน้า (/project-reports/new, /project-reports/[id]/edit)
 // แทน popup เดิม เพราะฟอร์มยาวหลายส่วนทำให้ popup อึดอัด — หน้านี้เหลือแค่รายการ+ลิงก์ไปหน้าเหล่านั้น
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -29,7 +29,7 @@ type Report = {
   created_at: string;
   not_implemented: boolean;
   responsible_name: string | null;
-  plan_projects: { name: string } | null;
+  plan_projects: { name: string; plan_admin_groups: { name: string; sort_order: number | null } | null } | null;
 };
 
 const BRAND = "#123361";
@@ -52,12 +52,18 @@ export default function ProjectReportsPage() {
     const { data: reportsData, error } = await supabase
       .from("proc_project_reports")
       .select(
-        "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, responsible_name, plan_projects(name)",
+        "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, responsible_name, plan_projects(name, plan_admin_groups(name, sort_order))",
       )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
 
-    const rows = (reportsData as unknown as Report[]) ?? [];
+    // เรียงตามลำดับกลุ่มบริหารงานของโครงการ (เหมือนหน้า "โครงการ") คงลำดับเดิม (ใหม่สุดก่อน) ภายในกลุ่ม
+    // — Array.sort เสถียร; รายงานที่ไม่มีกลุ่มอยู่ท้ายสุด
+    const rows = ((reportsData as unknown as Report[]) ?? []).sort(
+      (a, b) =>
+        (a.plan_projects?.plan_admin_groups?.sort_order ?? Number.MAX_SAFE_INTEGER) -
+        (b.plan_projects?.plan_admin_groups?.sort_order ?? Number.MAX_SAFE_INTEGER),
+    );
     setReports(rows);
 
     const { data: budgetYears } = await supabase
@@ -150,9 +156,12 @@ export default function ProjectReportsPage() {
   const searchTerm = search.trim().toLowerCase();
   const filteredReports = searchTerm
     ? reports.filter((r) =>
-        [r.plan_projects?.name, r.responsible_name].some((v) => v?.toLowerCase().includes(searchTerm)),
+        [r.plan_projects?.name, r.responsible_name, r.plan_projects?.plan_admin_groups?.name].some((v) => v?.toLowerCase().includes(searchTerm)),
       )
     : reports;
+  const groupOf = (r: Report) => r.plan_projects?.plan_admin_groups?.name ?? "ไม่ระบุกลุ่ม";
+  const groupCounts = new Map<string, number>();
+  for (const r of filteredReports) groupCounts.set(groupOf(r), (groupCounts.get(groupOf(r)) ?? 0) + 1);
   const emptyMessage = reports.length === 0 ? "ยังไม่มีข้อมูล" : "ไม่พบรายการที่ค้นหา";
   const reportedCount = totalProjects - unreportedCount;
 
@@ -232,7 +241,7 @@ export default function ProjectReportsPage() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="ค้นหาชื่อโครงการ / ผู้รับผิดชอบ..."
+          placeholder="ค้นหาชื่อโครงการ / ผู้รับผิดชอบ / กลุ่มบริหาร..."
           aria-label="ค้นหารายงานโครงการ"
           className="input w-full sm:max-w-sm"
         />
@@ -251,8 +260,18 @@ export default function ProjectReportsPage() {
           {filteredReports.map((r, i) => {
             const canManage = isAdmin || (user && r.uploaded_by === user.userId);
             const photoRefs = r.photo_refs ?? [];
+            const showGroupHeader = i === 0 || groupOf(filteredReports[i - 1]) !== groupOf(r);
             return (
-              <div key={r.id} className="flex items-start gap-2 px-4 py-3">
+              <Fragment key={r.id}>
+                {showGroupHeader && (
+                  <div className="bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                    {groupOf(r)}{" "}
+                    <span className="font-normal text-slate-500">
+                      ({(groupCounts.get(groupOf(r)) ?? 0).toLocaleString("th-TH")} รายงาน)
+                    </span>
+                  </div>
+                )}
+              <div className="flex items-start gap-2 px-4 py-3">
                 <span className="mt-0.5 shrink-0 text-xs tabular-nums text-slate-400">{i + 1}</span>
                 <div className="min-w-0 flex-1">
                   <span className="block font-medium text-slate-900">{r.plan_projects?.name ?? "-"}</span>
@@ -286,6 +305,7 @@ export default function ProjectReportsPage() {
                   </div>
                 </div>
               </div>
+              </Fragment>
             );
           })}
           {filteredReports.length === 0 && <p className="table-empty">{emptyMessage}</p>}
@@ -306,8 +326,20 @@ export default function ProjectReportsPage() {
             {filteredReports.map((r, i) => {
               const canManage = isAdmin || (user && r.uploaded_by === user.userId);
               const photoRefs = r.photo_refs ?? [];
+              const showGroupHeader = i === 0 || groupOf(filteredReports[i - 1]) !== groupOf(r);
               return (
-                <tr key={r.id}>
+                <Fragment key={r.id}>
+                {showGroupHeader && (
+                  <tr className="bg-slate-100">
+                    <td colSpan={5} className="py-2 font-semibold text-slate-700">
+                      {groupOf(r)}{" "}
+                      <span className="font-normal text-slate-500">
+                        ({(groupCounts.get(groupOf(r)) ?? 0).toLocaleString("th-TH")} รายงาน)
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                <tr>
                   <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                   <td className="max-w-xs whitespace-normal break-words font-medium text-slate-900">
                     {r.plan_projects?.name ?? "-"}
@@ -339,6 +371,7 @@ export default function ProjectReportsPage() {
                     </div>
                   </td>
                 </tr>
+                </Fragment>
               );
             })}
             {filteredReports.length === 0 && (
