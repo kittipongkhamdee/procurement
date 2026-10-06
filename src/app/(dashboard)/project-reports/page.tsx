@@ -15,7 +15,10 @@ import { formatThaiDate } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { FileTextIcon, PencilIcon, PrinterIcon, WordFileIcon } from "@/components/icons";
 import { DeleteReportButton } from "./delete-report-button";
+import { sortProjectsByGroup } from "./project-select";
 import { deleteProjectReport } from "./actions";
+
+type YearProject = { id: string; name: string; adminGroup: string | null; adminGroupOrder: number };
 
 type Report = {
   id: string;
@@ -39,8 +42,8 @@ export default function ProjectReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<Map<string, string>>(new Map());
   // โครงการทั้งหมดของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน ไม่มีก็ใช้ปีล่าสุด เหมือนหน้าแดชบอร์ด) ไว้นับ
-  // "รายงานแล้ว/ยังไม่รายงาน" — null = ยังโหลดไม่เสร็จหรือยังไม่มีปีงบประมาณ
-  const [yearProjectIds, setYearProjectIds] = useState<string[] | null>(null);
+  // "รายงานแล้ว/ยังไม่รายงาน" และแสดงรายชื่อที่ยังไม่รายงาน — null = ยังโหลดไม่เสร็จหรือยังไม่มีปีงบประมาณ
+  const [yearProjects, setYearProjects] = useState<YearProject[] | null>(null);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -62,10 +65,21 @@ export default function ProjectReportsPage() {
       .order("year", { ascending: false });
     const year = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
     if (year) {
-      const { data: yearProjects } = await supabase.from("plan_projects").select("id").eq("budget_year_id", year.id);
-      setYearProjectIds((yearProjects ?? []).map((p) => p.id));
+      const { data: projectRows } = await supabase
+        .from("plan_projects")
+        .select("id, name, plan_admin_groups(name, sort_order)")
+        .eq("budget_year_id", year.id)
+        .order("sort_order");
+      setYearProjects(
+        sortProjectsByGroup(
+          (projectRows ?? []).map((p) => {
+            const group = p.plan_admin_groups as unknown as { name: string; sort_order: number | null } | null;
+            return { id: p.id, name: p.name, adminGroup: group?.name ?? null, adminGroupOrder: group?.sort_order ?? 0 };
+          }),
+        ),
+      );
     } else {
-      setYearProjectIds(null);
+      setYearProjects(null);
     }
 
     const paths = rows.map((r) => r.file_url).filter((p): p is string => !!p);
@@ -128,9 +142,10 @@ export default function ProjectReportsPage() {
 
   // โครงการที่ส่งรายงานแล้วนับรวมรายงานแบบ "ไม่ได้ดำเนินการ" ด้วย (ถือว่าได้รายงานสถานะแล้ว)
   const reportedProjectIds = new Set(reports.map((r) => r.project_id).filter((id): id is string => !!id));
-  const totalProjects = yearProjectIds?.length ?? 0;
-  const reportedCount = (yearProjectIds ?? []).filter((id) => reportedProjectIds.has(id)).length;
-  const unreportedCount = totalProjects - reportedCount;
+  const totalProjects = yearProjects?.length ?? 0;
+  const unreportedProjects = (yearProjects ?? []).filter((p) => !reportedProjectIds.has(p.id));
+  const unreportedCount = unreportedProjects.length;
+  const reportedCount = totalProjects - unreportedCount;
 
   return (
     <div>
@@ -144,7 +159,7 @@ export default function ProjectReportsPage() {
         </Link>
       </div>
 
-      {yearProjectIds !== null && (
+      {yearProjects !== null && (
         <div className="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
           <div className="stat-card" style={{ "--accent": BRAND } as React.CSSProperties}>
             <div className="stat-label">จำนวนโครงการ</div>
@@ -158,11 +173,40 @@ export default function ProjectReportsPage() {
               {reportedCount.toLocaleString("th-TH")} <span className="stat-suffix hidden sm:inline">โครงการ</span>
             </div>
           </div>
-          <div className="stat-card" style={{ "--accent": WARN } as React.CSSProperties}>
-            <div className="stat-label">ยังไม่รายงาน</div>
-            <div className="stat-value text-amber-600">
-              {unreportedCount.toLocaleString("th-TH")} <span className="stat-suffix hidden sm:inline">โครงการ</span>
+          {/* วางเมาส์ (คอม) หรือแตะการ์ด (มือถือ/แท็บเล็ต — tabIndex ทำให้แตะแล้วได้ focus) เพื่อดูรายชื่อ */}
+          <div className="group relative">
+            <div
+              tabIndex={unreportedCount > 0 ? 0 : undefined}
+              className="stat-card h-full outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              style={{ "--accent": WARN } as React.CSSProperties}
+            >
+              <div className="stat-label">ยังไม่รายงาน</div>
+              <div className="stat-value text-amber-600">
+                {unreportedCount.toLocaleString("th-TH")} <span className="stat-suffix hidden sm:inline">โครงการ</span>
+              </div>
             </div>
+            {unreportedCount > 0 && (
+              <div className="absolute right-0 top-full z-20 hidden pt-2 group-focus-within:block group-hover:block">
+                <div className="max-h-72 w-80 max-w-[85vw] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                  <p className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">
+                    โครงการที่ยังไม่รายงาน ({unreportedCount.toLocaleString("th-TH")})
+                  </p>
+                  <ol>
+                    {unreportedProjects.map((p, i) => (
+                      <li key={p.id} className="flex gap-2 px-3 py-1.5 text-sm">
+                        <span className="w-5 shrink-0 text-right text-xs tabular-nums leading-5 text-slate-400">
+                          {i + 1}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-slate-900">{p.name}</span>
+                          {p.adminGroup && <span className="block text-xs text-slate-500">{p.adminGroup}</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
