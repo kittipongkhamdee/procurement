@@ -19,6 +19,7 @@ import { isDriveRef, driveFileId, driveThumbnailUrl } from "@/lib/storage/ref";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ChevronLeftIcon } from "@/components/icons";
 import { ProjectReportForm, type Project, type ProjectReportInitial } from "../../project-report-form";
+import { sortProjectsByGroup } from "../../project-select";
 import { updateProjectReport, extractBackgroundFromProposalFile } from "../../actions";
 
 type Proposal = {
@@ -79,7 +80,7 @@ export default function EditProjectReportPage() {
           .maybeSingle(),
         supabase
           .from("plan_projects")
-          .select("id, name, budget, plan_activities(budget)")
+          .select("id, name, budget, plan_admin_groups(name, sort_order), plan_activities(budget)")
           .order("sort_order"),
         supabase
           .from("plan_project_proposals")
@@ -103,8 +104,9 @@ export default function EditProjectReportPage() {
       );
     }
     setProjects(
-      (projectRows ?? []).map((p) => {
+      sortProjectsByGroup((projectRows ?? []).map((p) => {
         const proposal = proposalByProjectId.get(p.id);
+        const group = p.plan_admin_groups as unknown as { name: string; sort_order: number | null } | null;
         // งบประมาณจริงของโครงการอาจมาจากผลรวมกิจกรรม (plan_activities) แทนคอลัมน์ budget ตรงๆ
         // ของ plan_projects ถ้ามีการแตกกิจกรรมย่อยไว้ (เหมือนที่หน้า /projects คำนวณ) —
         // ไม่งั้นช่อง "งบประมาณที่ได้รับอนุมัติ" ในฟอร์มรายงานจะไม่ดึงค่ามาให้อัตโนมัติ
@@ -125,8 +127,10 @@ export default function EditProjectReportPage() {
           indicatorsQuantity: proposal?.indicators_quantity ?? [],
           indicatorsQuality: proposal?.indicators_quality ?? [],
           proposalPdfPath: proposal?.file_url_pdf ?? null,
+          adminGroup: group?.name ?? null,
+          adminGroupOrder: group?.sort_order ?? 0,
         };
-      }),
+      })),
     );
 
     if (!reportRow) {

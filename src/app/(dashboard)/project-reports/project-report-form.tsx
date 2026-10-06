@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { ProjectSelect } from "./project-select";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import {
   ProjectReportPhotoUpload,
@@ -29,6 +30,9 @@ export type Project = {
   indicatorsQuantity: IndicatorTarget[];
   indicatorsQuality: IndicatorTarget[];
   proposalPdfPath: string | null;
+  /** ชื่อกลุ่มบริหารงานของโครงการ (null = ยังไม่กำหนดกลุ่ม) และลำดับกลุ่ม ใช้แสดงป้าย/เรียงในช่องเลือกโครงการ */
+  adminGroup: string | null;
+  adminGroupOrder: number;
 };
 
 function formatBaht(n: number) {
@@ -408,6 +412,11 @@ export function ProjectReportForm({
   }
 
   async function handleSubmit(formData: FormData) {
+    // กล่องเลือกโครงการเป็น hidden input ซึ่งเบราว์เซอร์ไม่บังคับ required ให้ — เช็คเองก่อนเริ่มอัปโหลดรูป
+    if (!projectId) {
+      await toastError("กรุณาเลือกโครงการ");
+      return;
+    }
     // flushSync บังคับให้ปุ่มเปลี่ยนเป็น "กำลังบันทึก..." ทันทีก่อนเริ่มงานหนัก (บีบอัด/อัปโหลดรูป)
     // ไม่งั้น React อาจรวม state นี้ไว้กับงานอื่นแล้วหน่วงการวาดหน้าจอ ทำให้ดูเหมือนกดแล้วไม่มีอะไรเกิดขึ้น
     flushSync(() => setIsSubmitting(true));
@@ -475,22 +484,7 @@ export function ProjectReportForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label className="label">ชื่อโครงการ</label>
-            <select
-              name="project_id"
-              required
-              value={projectId}
-              onChange={(e) => handleProjectChange(e.target.value)}
-              className="input"
-            >
-              <option value="" disabled>
-                เลือกโครงการ..
-              </option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <ProjectSelect name="project_id" value={projectId} onChange={handleProjectChange} projects={projects} />
           </div>
           {selectedProject &&
             (selectedProject.strategyAlignment || selectedProject.standard) && (
