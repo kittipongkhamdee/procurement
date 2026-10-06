@@ -162,6 +162,28 @@ export default function ProjectReportsPage() {
   const groupOf = (r: Report) => r.plan_projects?.plan_admin_groups?.name ?? "ไม่ระบุกลุ่ม";
   const groupCounts = new Map<string, number>();
   for (const r of filteredReports) groupCounts.set(groupOf(r), (groupCounts.get(groupOf(r)) ?? 0) + 1);
+  // จำนวนโครงการที่ยังไม่รายงานต่อกลุ่ม (ปีงบประมาณปัจจุบัน) ไว้แสดง "เหลือ X" ที่หัวกลุ่ม — ไม่ขึ้นกับคำค้นหา
+  const remainingByGroup = new Map<string, number>();
+  for (const p of unreportedProjects) {
+    const g = p.adminGroup ?? "ไม่ระบุกลุ่ม";
+    remainingByGroup.set(g, (remainingByGroup.get(g) ?? 0) + 1);
+  }
+  const renderGroupHeader = (name: string) => {
+    const remaining = remainingByGroup.get(name) ?? 0;
+    return (
+      <>
+        {name}{" "}
+        <span className="font-normal text-slate-500">
+          ({(groupCounts.get(name) ?? 0).toLocaleString("th-TH")} รายงาน)
+        </span>{" "}
+        {remaining > 0 ? (
+          <span className="ml-1 text-amber-700">เหลือ {remaining.toLocaleString("th-TH")}</span>
+        ) : (
+          <span className="ml-1 text-emerald-700">ครบแล้ว</span>
+        )}
+      </>
+    );
+  };
   const emptyMessage = reports.length === 0 ? "ยังไม่มีข้อมูล" : "ไม่พบรายการที่ค้นหา";
   const reportedCount = totalProjects - unreportedCount;
 
@@ -265,10 +287,7 @@ export default function ProjectReportsPage() {
               <Fragment key={r.id}>
                 {showGroupHeader && (
                   <div className="bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
-                    {groupOf(r)}{" "}
-                    <span className="font-normal text-slate-500">
-                      ({(groupCounts.get(groupOf(r)) ?? 0).toLocaleString("th-TH")} รายงาน)
-                    </span>
+                    {renderGroupHeader(groupOf(r))}
                   </div>
                 )}
               <div className="flex items-start gap-2 px-4 py-3">
@@ -332,10 +351,7 @@ export default function ProjectReportsPage() {
                 {showGroupHeader && (
                   <tr className="bg-slate-100">
                     <td colSpan={5} className="py-2 font-semibold text-slate-700">
-                      {groupOf(r)}{" "}
-                      <span className="font-normal text-slate-500">
-                        ({(groupCounts.get(groupOf(r)) ?? 0).toLocaleString("th-TH")} รายงาน)
-                      </span>
+                      {renderGroupHeader(groupOf(r))}
                     </td>
                   </tr>
                 )}
