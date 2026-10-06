@@ -35,6 +35,7 @@ type ProjectRow = {
   adminGroupId: string;
   budgetSourceId: string | null;
   adminGroup: string;
+  adminGroupOrder: number;
   budgetSource: string;
   activities: Activity[];
   budget: number;
@@ -72,7 +73,7 @@ export default function ProjectsPage() {
       ? await supabase
           .from("plan_projects")
           .select(
-            "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name), plan_budget_sources(name), plan_activities(id, name, budget, responsible)",
+            "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name, sort_order), plan_budget_sources(name), plan_activities(id, name, budget, responsible)",
           )
           .eq("budget_year_id", year.id)
           .order("sort_order")
@@ -95,6 +96,7 @@ export default function ProjectsPage() {
       spentByProject.set(d.project_id, (spentByProject.get(d.project_id) ?? 0) + Number(d.amount ?? 0));
     }
 
+    // เรียงตามลำดับกลุ่มบริหาร (sort_order ของกลุ่ม) คงลำดับโครงการเดิมภายในกลุ่ม (Array.sort เสถียร)
     setRows(
       (projects ?? []).map((p) => {
         const activities = p.plan_activities as unknown as Activity[];
@@ -111,13 +113,15 @@ export default function ProjectsPage() {
           adminGroupId: p.admin_group_id,
           budgetSourceId: p.budget_source_id,
           adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
+          adminGroupOrder:
+            (p.plan_admin_groups as unknown as { sort_order: number | null } | null)?.sort_order ?? Number.MAX_SAFE_INTEGER,
           budgetSource: (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? "-",
           activities,
           budget,
           spent,
           remaining: budget - spent,
         };
-      }),
+      }).sort((a, b) => a.adminGroupOrder - b.adminGroupOrder),
     );
   }, []);
 

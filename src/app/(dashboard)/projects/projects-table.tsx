@@ -25,6 +25,7 @@ type ProjectRow = {
   adminGroupId: string;
   budgetSourceId: string | null;
   adminGroup: string;
+  adminGroupOrder: number;
   budgetSource: string;
   activities: Activity[];
   budget: number;
@@ -107,6 +108,14 @@ function ActivityRows({
   );
 }
 
+function GroupHeaderLabel({ name, count }: { name: string; count: number }) {
+  return (
+    <>
+      {name} <span className="font-normal text-slate-500">({count.toLocaleString("th-TH")} โครงการ)</span>
+    </>
+  );
+}
+
 export function ProjectsTable({
   rows,
   isAdmin,
@@ -156,6 +165,13 @@ export function ProjectsTable({
         r.budgetSource.toLowerCase().includes(q),
     );
   }, [rows, query]);
+
+  // จำนวนโครงการต่อกลุ่ม (นับจากผลที่กรองแล้ว ทุกหน้า) ไว้แสดงที่หัวกลุ่ม
+  const groupCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of filteredRows) counts.set(r.adminGroup, (counts.get(r.adminGroup) ?? 0) + 1);
+    return counts;
+  }, [filteredRows]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -242,8 +258,15 @@ export function ProjectsTable({
       <div className="divide-y divide-slate-100 md:hidden">
         {pageRows.map((r, i) => {
           const isOpen = expanded.has(r.id);
+          const showGroupHeader = i === 0 || pageRows[i - 1].adminGroup !== r.adminGroup;
           return (
-            <div key={r.id}>
+            <Fragment key={r.id}>
+              {showGroupHeader && (
+                <div className="bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                  <GroupHeaderLabel name={r.adminGroup} count={groupCounts.get(r.adminGroup) ?? 0} />
+                </div>
+              )}
+              <div>
               <div className="flex items-start gap-2 px-4 py-3">
                 <button
                   type="button"
@@ -274,7 +297,8 @@ export function ProjectsTable({
                   <ActivitiesDetail activities={r.activities} projectBudget={r.projectBudget} />
                 </div>
               )}
-            </div>
+              </div>
+            </Fragment>
           );
         })}
         {pageRows.length === 0 && (
@@ -299,8 +323,16 @@ export function ProjectsTable({
         <tbody>
           {pageRows.map((r, i) => {
             const isOpen = expanded.has(r.id);
+            const showGroupHeader = i === 0 || pageRows[i - 1].adminGroup !== r.adminGroup;
             return (
               <Fragment key={r.id}>
+                {showGroupHeader && (
+                  <tr className="bg-slate-100">
+                    <td colSpan={colSpan} className="py-2 font-semibold text-slate-700">
+                      <GroupHeaderLabel name={r.adminGroup} count={groupCounts.get(r.adminGroup) ?? 0} />
+                    </td>
+                  </tr>
+                )}
                 <tr onClick={() => toggle(r.id)} className="cursor-pointer">
                   <td className="text-center tabular-nums text-slate-400">{pageOffset + i + 1}</td>
                   <td className="min-w-[10rem] max-w-[16rem] font-medium text-slate-900">
