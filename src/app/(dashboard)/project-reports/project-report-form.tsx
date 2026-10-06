@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
+import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import {
   ProjectReportPhotoUpload,
@@ -524,21 +525,11 @@ export function ProjectReportForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">เริ่มดำเนินงาน</label>
-              <input
-                type="date"
-                name="period_start"
-                defaultValue={initial?.periodStart ?? ""}
-                className="input"
-              />
+              <ThaiDatePicker name="period_start" defaultValue={initial?.periodStart ?? null} />
             </div>
             <div>
               <label className="label">สิ้นสุดดำเนินงาน</label>
-              <input
-                type="date"
-                name="period_end"
-                defaultValue={initial?.periodEnd ?? ""}
-                className="input"
-              />
+              <ThaiDatePicker name="period_end" defaultValue={initial?.periodEnd ?? null} />
             </div>
           </div>
           <div className="sm:col-span-2">
