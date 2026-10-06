@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatThaiDate } from "@/lib/thai";
+import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
 type ProjectOption = { id: string; name: string; budget: number; approvedSoFar: number };
@@ -136,6 +137,11 @@ export function ApprovalForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    // ปฏิทิน พ.ศ. ใช้ hidden input ซึ่งเบราว์เซอร์ไม่บังคับ required ให้ — เช็คเองก่อนส่ง
+    if (!String(formData.get("doc_date") ?? "").trim()) {
+      await toastError("กรุณาเลือกวันที่บันทึกข้อความ");
+      return;
+    }
     formData.set("summary_items_json", JSON.stringify(summaryRows));
     formData.set("items_json", JSON.stringify(itemRows));
     formData.set("budget", selected ? String(selected.budget) : "");
@@ -182,7 +188,7 @@ export function ApprovalForm({
           )}
           <div>
             <label className="label">วันที่บันทึกข้อความ</label>
-            <input type="date" name="doc_date" defaultValue={initial?.doc_date ?? ""} required className="input w-full" />
+            <ThaiDatePicker name="doc_date" defaultValue={initial?.doc_date ?? null} />
           </div>
           <div />
           <input
@@ -242,12 +248,7 @@ export function ApprovalForm({
 
           <div className="sm:col-span-3">
             <label className="label">จะดำเนินการวันที่</label>
-            <input
-              type="date"
-              value={planDateISO}
-              onChange={(e) => setPlanDateISO(e.target.value)}
-              className="input w-full"
-            />
+            <ThaiDatePicker value={planDateISO || null} onChange={(iso) => setPlanDateISO(iso ?? "")} />
             {(planDateISO || initial?.plan_date_text) && (
               <p className="mt-1 text-xs text-slate-500">
                 {planDateISO
