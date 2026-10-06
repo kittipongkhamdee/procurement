@@ -44,6 +44,7 @@ export default function ProjectReportsPage() {
   // โครงการทั้งหมดของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน ไม่มีก็ใช้ปีล่าสุด เหมือนหน้าแดชบอร์ด) ไว้นับ
   // "รายงานแล้ว/ยังไม่รายงาน" และแสดงรายชื่อที่ยังไม่รายงาน — null = ยังโหลดไม่เสร็จหรือยังไม่มีปีงบประมาณ
   const [yearProjects, setYearProjects] = useState<YearProject[] | null>(null);
+  const [search, setSearch] = useState("");
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -145,6 +146,14 @@ export default function ProjectReportsPage() {
   const totalProjects = yearProjects?.length ?? 0;
   const unreportedProjects = (yearProjects ?? []).filter((p) => !reportedProjectIds.has(p.id));
   const unreportedCount = unreportedProjects.length;
+
+  const searchTerm = search.trim().toLowerCase();
+  const filteredReports = searchTerm
+    ? reports.filter((r) =>
+        [r.plan_projects?.name, r.responsible_name].some((v) => v?.toLowerCase().includes(searchTerm)),
+      )
+    : reports;
+  const emptyMessage = reports.length === 0 ? "ยังไม่มีข้อมูล" : "ไม่พบรายการที่ค้นหา";
   const reportedCount = totalProjects - unreportedCount;
 
   return (
@@ -218,12 +227,28 @@ export default function ProjectReportsPage() {
         </div>
       )}
 
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="ค้นหาชื่อโครงการ / ผู้รับผิดชอบ..."
+          aria-label="ค้นหารายงานโครงการ"
+          className="input w-full sm:max-w-sm"
+        />
+        {searchTerm && (
+          <span className="text-sm text-slate-500">
+            พบ {filteredReports.length.toLocaleString("th-TH")} จาก {reports.length.toLocaleString("th-TH")} รายการ
+          </span>
+        )}
+      </div>
+
       <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
 
         {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
         <div className="divide-y divide-slate-100 md:hidden">
-          {reports.map((r, i) => {
+          {filteredReports.map((r, i) => {
             const canManage = isAdmin || (user && r.uploaded_by === user.userId);
             const photoRefs = r.photo_refs ?? [];
             return (
@@ -263,7 +288,7 @@ export default function ProjectReportsPage() {
               </div>
             );
           })}
-          {reports.length === 0 && <p className="table-empty">ยังไม่มีข้อมูล</p>}
+          {filteredReports.length === 0 && <p className="table-empty">{emptyMessage}</p>}
         </div>
 
         {/* จอกว้าง md ขึ้นไป: ตาราง */}
@@ -278,7 +303,7 @@ export default function ProjectReportsPage() {
             </tr>
           </thead>
           <tbody>
-            {reports.map((r, i) => {
+            {filteredReports.map((r, i) => {
               const canManage = isAdmin || (user && r.uploaded_by === user.userId);
               const photoRefs = r.photo_refs ?? [];
               return (
@@ -316,10 +341,10 @@ export default function ProjectReportsPage() {
                 </tr>
               );
             })}
-            {reports.length === 0 && (
+            {filteredReports.length === 0 && (
               <tr>
                 <td colSpan={5} className="table-empty">
-                  ยังไม่มีข้อมูล
+                  {emptyMessage}
                 </td>
               </tr>
             )}
