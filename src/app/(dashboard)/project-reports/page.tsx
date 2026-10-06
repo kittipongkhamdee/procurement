@@ -29,11 +29,18 @@ type Report = {
   plan_projects: { name: string } | null;
 };
 
+const BRAND = "#123361";
+const GOOD = "#059669";
+const WARN = "#d97706";
+
 export default function ProjectReportsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const [reports, setReports] = useState<Report[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<Map<string, string>>(new Map());
+  // โครงการทั้งหมดของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน ไม่มีก็ใช้ปีล่าสุด เหมือนหน้าแดชบอร์ด) ไว้นับ
+  // "รายงานแล้ว/ยังไม่รายงาน" — null = ยังโหลดไม่เสร็จหรือยังไม่มีปีงบประมาณ
+  const [yearProjectIds, setYearProjectIds] = useState<string[] | null>(null);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -48,6 +55,18 @@ export default function ProjectReportsPage() {
 
     const rows = (reportsData as unknown as Report[]) ?? [];
     setReports(rows);
+
+    const { data: budgetYears } = await supabase
+      .from("plan_budget_years")
+      .select("id, is_open")
+      .order("year", { ascending: false });
+    const year = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
+    if (year) {
+      const { data: yearProjects } = await supabase.from("plan_projects").select("id").eq("budget_year_id", year.id);
+      setYearProjectIds((yearProjects ?? []).map((p) => p.id));
+    } else {
+      setYearProjectIds(null);
+    }
 
     const paths = rows.map((r) => r.file_url).filter((p): p is string => !!p);
     const { data: fileUrlsMap } =
@@ -107,6 +126,12 @@ export default function ProjectReportsPage() {
     );
   }
 
+  // โครงการที่ส่งรายงานแล้วนับรวมรายงานแบบ "ไม่ได้ดำเนินการ" ด้วย (ถือว่าได้รายงานสถานะแล้ว)
+  const reportedProjectIds = new Set(reports.map((r) => r.project_id).filter((id): id is string => !!id));
+  const totalProjects = yearProjectIds?.length ?? 0;
+  const reportedCount = (yearProjectIds ?? []).filter((id) => reportedProjectIds.has(id)).length;
+  const unreportedCount = totalProjects - reportedCount;
+
   return (
     <div>
       <div className="page-header">
@@ -118,6 +143,29 @@ export default function ProjectReportsPage() {
           + รายงานโครงการใหม่
         </Link>
       </div>
+
+      {yearProjectIds !== null && (
+        <div className="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="stat-card" style={{ "--accent": BRAND } as React.CSSProperties}>
+            <div className="stat-label">จำนวนโครงการ</div>
+            <div className="stat-value">
+              {totalProjects.toLocaleString("th-TH")} <span className="stat-suffix hidden sm:inline">โครงการ</span>
+            </div>
+          </div>
+          <div className="stat-card" style={{ "--accent": GOOD } as React.CSSProperties}>
+            <div className="stat-label">รายงานแล้ว</div>
+            <div className="stat-value text-emerald-600">
+              {reportedCount.toLocaleString("th-TH")} <span className="stat-suffix hidden sm:inline">โครงการ</span>
+            </div>
+          </div>
+          <div className="stat-card" style={{ "--accent": WARN } as React.CSSProperties}>
+            <div className="stat-label">ยังไม่รายงาน</div>
+            <div className="stat-value text-amber-600">
+              {unreportedCount.toLocaleString("th-TH")} <span className="stat-suffix hidden sm:inline">โครงการ</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="table-shell">
         {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
