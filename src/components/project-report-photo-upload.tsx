@@ -89,6 +89,9 @@ export const ProjectReportPhotoUpload = forwardRef<
   );
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // ref ของรูปที่อัปโหลดสำเร็จแล้ว — ถ้ากดบันทึกแล้วล้มเหลวที่ขั้นอื่น (เช่น ไม่มีสิทธิ์) แล้วกดซ้ำ จะใช้
+  // รูปเดิมต่อ ไม่อัปโหลดซ้ำจนมีไฟล์ซ้ำค้างใน storage (อัปโหลดใหม่เฉพาะเมื่อหมุนรูปเพิ่ม)
+  const uploadedRefs = useRef(new Map<string, { rotation: number; ref: string }>());
 
   useImperativeHandle(ref, () => ({
     async uploadAll() {
@@ -96,9 +99,13 @@ export const ProjectReportPhotoUpload = forwardRef<
         photos.map(async (photo) => {
           if (photo.existingRef) return photo.existingRef;
           if (!photo.file) throw new Error("อัปโหลดภาพถ่ายไม่สำเร็จ");
+          const cached = uploadedRefs.current.get(photo.id);
+          if (cached && cached.rotation === photo.rotation) return cached.ref;
           const base = photo.preparedFile ?? (await compressPhotoFile(photo.file));
           const rotated = await rotateFile(base, photo.rotation);
-          return uploadPreparedFile(rotated);
+          const uploadedRef = await uploadPreparedFile(rotated);
+          uploadedRefs.current.set(photo.id, { rotation: photo.rotation, ref: uploadedRef });
+          return uploadedRef;
         }),
       );
     },

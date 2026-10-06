@@ -222,7 +222,7 @@ export function ProjectReportForm({
   submitLabel,
 }: {
   projects: Project[];
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => Promise<{ error?: string }>;
   aiExtractionEnabled?: boolean;
   extractBackgroundFromProposalFile?: (filePath: string) => Promise<string>;
   /** เรียกหลังบันทึกสำเร็จเท่านั้น (เช่น สั่งปิด popup) — ไม่เรียกถ้าบันทึกไม่สำเร็จ ผู้ใช้จะได้เห็น toast แจ้ง error และแก้ไขฟอร์มต่อได้ */
@@ -431,7 +431,11 @@ export function ProjectReportForm({
           indicatorResultsQuality.filter((r) => r.indicator.trim() !== ""),
         ),
       );
-      await action(formData);
+      const result = await action(formData);
+      if (result.error) {
+        await toastError(result.error);
+        return;
+      }
       await toastSuccess(
         initial
           ? "บันทึกการแก้ไขรายงานโครงการเรียบร้อยแล้ว"

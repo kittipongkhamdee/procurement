@@ -119,7 +119,26 @@ async function assertNoDuplicateReport(
     );
 }
 
-export async function createProjectReport(formData: FormData) {
+// คืน { error } แทนการ throw — ข้อความ error ที่ throw จาก Server Action ถูก Next.js ปิดบังในโปรดักชัน
+// ฝั่ง client เห็นแค่ "Minified React error #441" อ่านไม่รู้เรื่อง (แพทเทิร์นเดียวกับ deleteProject)
+async function toResult(fn: () => Promise<void>): Promise<{ error?: string }> {
+  try {
+    await fn();
+    return {};
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("row-level security")) {
+      return { error: "คุณไม่มีสิทธิ์บันทึกรายงานนี้ กรุณาติดต่อผู้ดูแลระบบ" };
+    }
+    return { error: message || "บันทึกรายงานไม่สำเร็จ" };
+  }
+}
+
+export async function createProjectReport(formData: FormData): Promise<{ error?: string }> {
+  return toResult(() => createProjectReportOrThrow(formData));
+}
+
+async function createProjectReportOrThrow(formData: FormData) {
   const { supabase, user } = await requireUser();
 
   const projectId = String(formData.get("project_id") ?? "");
@@ -142,7 +161,11 @@ export async function createProjectReport(formData: FormData) {
   revalidatePath("/project-reports");
 }
 
-export async function updateProjectReport(id: string, formData: FormData) {
+export async function updateProjectReport(id: string, formData: FormData): Promise<{ error?: string }> {
+  return toResult(() => updateProjectReportOrThrow(id, formData));
+}
+
+async function updateProjectReportOrThrow(id: string, formData: FormData) {
   const { supabase, user } = await requireUser();
 
   const { data: report } = await supabase
