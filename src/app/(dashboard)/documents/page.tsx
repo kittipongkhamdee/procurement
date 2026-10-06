@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/AuthContext";
 import { isDriveRef, driveFileId, driveViewUrl, encodeDriveRef, isExternalLink } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
 import { fileExtension, fileTypeBadge, stripKnownExtension } from "@/lib/file-type";
@@ -202,7 +203,12 @@ function FileTypeBadge({ doc }: { doc: DocumentRow }) {
   );
 }
 
+// ตรงกับ proc_is_staff() ใน DB — ผู้ใช้อื่นเห็นแค่ปุ่มเปิด/ดาวน์โหลด
+const STAFF_ROLES = ["admin", "supply_officer", "finance_officer"];
+
 export default function DocumentsPage() {
+  const { user, isAdmin } = useAuth();
+  const canManage = STAFF_ROLES.includes(user?.role ?? "");
   const [documents, setDocuments] = useState<DocumentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signedUrls, setSignedUrls] = useState<Map<string, string>>(new Map());
@@ -212,7 +218,6 @@ export default function DocumentsPage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const backfillTriedRef = useRef(false);
-  const reloadRef = useRef<(() => void) | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [storageProvider, setStorageProvider] = useState<"supabase" | "google_drive">("supabase");
 
@@ -233,14 +238,6 @@ export default function DocumentsPage() {
     ]);
     if (error) setError(error.message);
     setDocuments(docs ?? []);
-    if (!backfillTriedRef.current && (docs ?? []).some((d) => !d.file_type && isDriveRef(d.file_url))) {
-      backfillTriedRef.current = true;
-      backfillDocumentFileTypes()
-        .then(({ updated }) => {
-          if (updated > 0) reloadRef.current?.();
-        })
-        .catch(() => {});
-    }
     setStorageProvider(providerSetting?.value === "google_drive" ? "google_drive" : "supabase");
 
     const files = (proposals ?? []).filter((p) => p.file_url_word || p.file_url_pdf);
@@ -260,9 +257,17 @@ export default function DocumentsPage() {
     setSignedProjectFileUrls(projectFileUrls);
   }, []);
 
+  // เติมประเภทไฟล์ให้รายการเก่าบน Google Drive ครั้งเดียว (เฉพาะผู้มีสิทธิ์จัดการ)
   useEffect(() => {
-    reloadRef.current = reload;
-  }, [reload]);
+    if (backfillTriedRef.current || !canManage || !documents) return;
+    if (!documents.some((d) => !d.file_type && isDriveRef(d.file_url))) return;
+    backfillTriedRef.current = true;
+    backfillDocumentFileTypes()
+      .then(({ updated }) => {
+        if (updated > 0) reload();
+      })
+      .catch(() => {});
+  }, [documents, canManage, reload]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -417,33 +422,35 @@ export default function DocumentsPage() {
 
       <h2 className="card-title mb-2">เอกสารทั่วไป</h2>
 
-      <div className="card mb-6">
-        <h2 className="card-title">เพิ่มไฟล์ใหม่</h2>
-        <p className="mb-3 text-sm text-slate-500">
-          เลือกได้ 2 แบบ — อัปโหลดไฟล์เข้าระบบ หรือวางลิงก์ภายนอก (เช่น ลิงก์แชร์ไฟล์จาก Google Drive
-          ของตัวเอง) ถ้าใช้ลิงก์ เมื่อแก้ไขไฟล์ต้นทางภายหลังไม่ต้องมาลบ/อัปโหลดใหม่ในระบบนี้
-        </p>
-        <form onSubmit={handleUpload} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <input name="file_name" placeholder="ชื่อไฟล์เอกสาร ไม่ต้องใส่นามสกุล (ไม่ระบุ = ใช้ชื่อไฟล์เดิม เว้นแต่วางลิงก์ต้องระบุ)" className="input sm:col-span-2" />
-          <input
-            name="category"
-            list={CATEGORY_DATALIST_ID}
-            placeholder="หมวดหมู่ (เช่น แผนปฏิบัติการ, คำสั่ง)"
-            className="input"
-          />
-          <input type="file" name="file" className="input sm:col-span-3" />
-          <input
-            type="url"
-            name="link"
-            placeholder="หรือวางลิงก์ภายนอก เช่น https://drive.google.com/..."
-            className="input sm:col-span-3"
-          />
-          {uploading && <UploadProgressBar progress={uploadProgress} />}
-          <button type="submit" disabled={uploading} className="btn-primary sm:col-span-3 disabled:opacity-50">
-            {uploading ? "กำลังบันทึก..." : "บันทึก"}
-          </button>
-        </form>
-      </div>
+      {canManage && (
+        <div className="card mb-6">
+          <h2 className="card-title">เพิ่มไฟล์ใหม่</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            เลือกได้ 2 แบบ — อัปโหลดไฟล์เข้าระบบ หรือวางลิงก์ภายนอก (เช่น ลิงก์แชร์ไฟล์จาก Google Drive
+            ของตัวเอง) ถ้าใช้ลิงก์ เมื่อแก้ไขไฟล์ต้นทางภายหลังไม่ต้องมาลบ/อัปโหลดใหม่ในระบบนี้
+          </p>
+          <form onSubmit={handleUpload} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <input name="file_name" placeholder="ชื่อไฟล์เอกสาร ไม่ต้องใส่นามสกุล (ไม่ระบุ = ใช้ชื่อไฟล์เดิม เว้นแต่วางลิงก์ต้องระบุ)" className="input sm:col-span-2" />
+            <input
+              name="category"
+              list={CATEGORY_DATALIST_ID}
+              placeholder="หมวดหมู่ (เช่น แผนปฏิบัติการ, คำสั่ง)"
+              className="input"
+            />
+            <input type="file" name="file" className="input sm:col-span-3" />
+            <input
+              type="url"
+              name="link"
+              placeholder="หรือวางลิงก์ภายนอก เช่น https://drive.google.com/..."
+              className="input sm:col-span-3"
+            />
+            {uploading && <UploadProgressBar progress={uploadProgress} />}
+            <button type="submit" disabled={uploading} className="btn-primary sm:col-span-3 disabled:opacity-50">
+              {uploading ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </form>
+        </div>
+      )}
 
       {documents === null ? (
         <PageLoadingSkeleton />
@@ -462,7 +469,7 @@ export default function DocumentsPage() {
                 <th>ชื่อไฟล์เอกสาร</th>
                 <th className="whitespace-nowrap">หมวดหมู่</th>
                 <th className="whitespace-nowrap">วันที่เพิ่ม</th>
-                <th className="whitespace-nowrap text-center">จัดลำดับ</th>
+                {canManage && <th className="whitespace-nowrap text-center">จัดลำดับ</th>}
                 <th className="text-right">จัดการ</th>
               </tr>
             </thead>
@@ -478,30 +485,32 @@ export default function DocumentsPage() {
                   </td>
                   <td className="whitespace-nowrap">{d.category ?? <span className="text-slate-400">-</span>}</td>
                   <td className="whitespace-nowrap">{formatThaiDate(d.created_at)}</td>
-                  <td className="whitespace-nowrap text-center">
-                    <div className="inline-flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleMove(d.id, "up")}
-                        disabled={i === 0 || movingId !== null}
-                        aria-label="เลื่อนขึ้น"
-                        title="เลื่อนขึ้น"
-                        className="btn-secondary btn-sm disabled:opacity-40"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMove(d.id, "down")}
-                        disabled={i === documents.length - 1 || movingId !== null}
-                        aria-label="เลื่อนลง"
-                        title="เลื่อนลง"
-                        className="btn-secondary btn-sm disabled:opacity-40"
-                      >
-                        ▼
-                      </button>
-                    </div>
-                  </td>
+                  {canManage && (
+                    <td className="whitespace-nowrap text-center">
+                      <div className="inline-flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleMove(d.id, "up")}
+                          disabled={i === 0 || movingId !== null}
+                          aria-label="เลื่อนขึ้น"
+                          title="เลื่อนขึ้น"
+                          className="btn-secondary btn-sm disabled:opacity-40"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMove(d.id, "down")}
+                          disabled={i === documents.length - 1 || movingId !== null}
+                          aria-label="เลื่อนลง"
+                          title="เลื่อนลง"
+                          className="btn-secondary btn-sm disabled:opacity-40"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </td>
+                  )}
                   <td>
                     <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                       {isExternalLink(d.file_url) ? (
@@ -515,22 +524,24 @@ export default function DocumentsPage() {
                       ) : (
                         <span className="text-sm text-slate-400">ไม่พบไฟล์</span>
                       )}
-                      <EditDocumentModal doc={d} storageProvider={storageProvider} onChanged={reload} />
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(d.id, d.file_url, d.file_name)}
-                        disabled={deletingId === d.id}
-                        className="btn-danger btn-sm disabled:opacity-50"
-                      >
-                        {deletingId === d.id ? "กำลังลบ..." : "ลบ"}
-                      </button>
+                      {canManage && <EditDocumentModal doc={d} storageProvider={storageProvider} onChanged={reload} />}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(d.id, d.file_url, d.file_name)}
+                          disabled={deletingId === d.id}
+                          className="btn-danger btn-sm disabled:opacity-50"
+                        >
+                          {deletingId === d.id ? "กำลังลบ..." : "ลบ"}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
               {documents.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="table-empty">
+                  <td colSpan={canManage ? 6 : 5} className="table-empty">
                     ยังไม่มีข้อมูล
                   </td>
                 </tr>

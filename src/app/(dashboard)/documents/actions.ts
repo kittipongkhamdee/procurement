@@ -9,6 +9,24 @@ import { driveFileId, isDriveRef, isExternalLink } from "@/lib/storage/ref";
 
 const BUCKET = "procurement-files";
 
+// สิทธิ์ตรงกับ RLS ของ proc_documents: เพิ่ม/แก้ไขได้เฉพาะ admin/เจ้าหน้าที่พัสดุ/เจ้าหน้าที่การเงิน (proc_is_staff)
+// ลบได้เฉพาะ admin — ต้องเช็คฝั่ง server เองก่อนทำอะไรกับ storage เพราะการลบไฟล์บน Google Drive ใช้
+// service account ซึ่งไม่ผ่าน RLS: ถ้าปล่อยให้ผู้ใช้อื่นกดลบ ไฟล์จริงบน Drive จะถูกลบไปก่อน แล้ว RLS ค่อยกัน
+// การลบแถวในตารางแบบเงียบๆ (ไม่มี error) ทำให้เหลือแถวที่ลิงก์เสีย
+const STAFF_ROLES = ["admin", "supply_officer", "finance_officer"];
+
+async function getRole(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from("proc_profiles").select("role").eq("user_id", user.id).maybeSingle();
+  return data?.role ?? null;
+}
+
+const STAFF_ONLY_ERROR = "เฉพาะผู้ดูแลระบบ เจ้าหน้าที่พัสดุ หรือเจ้าหน้าที่การเงินเท่านั้น";
+const ADMIN_ONLY_ERROR = "เฉพาะผู้ดูแลระบบเท่านั้นที่ลบเอกสารได้";
+
 async function finalizeIfDrive(
   supabase: Awaited<ReturnType<typeof createClient>>,
   ref: string,
@@ -56,6 +74,7 @@ function readCategory(formData: FormData): string | null {
 // จริงที่ตั้งใจให้ผู้ใช้เห็น (แพทเทิร์นเดียวกับ deleteProject ใน projects/actions.ts)
 export async function uploadDocument(formData: FormData): Promise<{ error?: string }> {
   const supabase = await createClient();
+  if (!STAFF_ROLES.includes((await getRole(supabase)) ?? "")) return { error: STAFF_ONLY_ERROR };
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -114,6 +133,7 @@ export async function uploadDocument(formData: FormData): Promise<{ error?: stri
 // ที่อัปโหลดไว้ก็อัปโหลดไฟล์ใหม่แทนที่ไฟล์เดิมได้ (ลบไฟล์เก่าออกจาก storage หลังอัปโหลดไฟล์ใหม่สำเร็จ)
 export async function updateDocument(id: string, formData: FormData): Promise<{ error?: string }> {
   const supabase = await createClient();
+  if (!STAFF_ROLES.includes((await getRole(supabase)) ?? "")) return { error: STAFF_ONLY_ERROR };
 
   const fileName = String(formData.get("file_name") ?? "").trim();
   if (!fileName) return { error: "กรุณาระบุชื่อไฟล์เอกสาร" };
@@ -176,6 +196,7 @@ export async function updateDocument(id: string, formData: FormData): Promise<{ 
 
 export async function deleteDocument(id: string, ref: string): Promise<{ error?: string }> {
   const supabase = await createClient();
+  if ((await getRole(supabase)) !== "admin") return { error: ADMIN_ONLY_ERROR };
   // ลิงก์ภายนอกที่ผู้ใช้วางเอง ระบบไม่ได้เป็นเจ้าของไฟล์ ไม่ต้อง (และลบไม่ได้) เรียก deleteFromStorage
   if (!isExternalLink(ref)) await deleteFromStorage(supabase, ref, BUCKET);
   const { error } = await supabase.from("proc_documents").delete().eq("id", id);
@@ -187,6 +208,7 @@ export async function deleteDocument(id: string, ref: string): Promise<{ error?:
 // เลื่อนรายการขึ้น/ลงหนึ่งตำแหน่ง — เรียงเลขลำดับใหม่ทั้งชุด (1..n) ทุกครั้ง กันเลขซ้ำ/ช่องว่าง
 export async function moveDocument(id: string, direction: "up" | "down"): Promise<{ error?: string }> {
   const supabase = await createClient();
+  if (!STAFF_ROLES.includes((await getRole(supabase)) ?? "")) return { error: STAFF_ONLY_ERROR };
   const { data: rows, error: fetchError } = await supabase
     .from("proc_documents")
     .select("id")
@@ -213,6 +235,7 @@ export async function moveDocument(id: string, direction: "up" | "down"): Promis
 // จาก Drive ครั้งเดียวแล้วบันทึกไว้ (หน้าเว็บเรียกเฉพาะตอนยังมีรายการที่ไม่มี file_type)
 export async function backfillDocumentFileTypes(): Promise<{ updated: number }> {
   const supabase = await createClient();
+  if (!STAFF_ROLES.includes((await getRole(supabase)) ?? "")) return { updated: 0 };
   const { data: rows } = await supabase
     .from("proc_documents")
     .select("id, file_url")
