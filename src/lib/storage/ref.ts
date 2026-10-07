@@ -34,3 +34,22 @@ export function displayNameForRef(ref: string): string {
   if (isDriveRef(ref)) return "ไฟล์ที่แนบไว้ (Google Drive)";
   return ref.split("/").pop() ?? ref;
 }
+
+/** URL สำหรับฝังดูไฟล์ใน iframe — ไฟล์ Google Drive ใช้หน้า /preview (หน้า /view ฝังไม่ได้) */
+export function driveEmbedUrl(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/preview`;
+}
+
+/** แปลง ref ของไฟล์ที่เก็บในระบบเป็น URL เปิดดู — ไฟล์ Supabase ใช้ signed URL ที่เซ็นไว้แล้ว ส่วนไฟล์ Google Drive
+ * (gdrive:{id}) ไม่ได้อยู่ใน Supabase Storage จึงเซ็นไม่ได้ ใช้ลิงก์ดูไฟล์ของ Drive แทน */
+export function resolveFileUrl(ref: string | null, signed: Map<string, string>): string | null {
+  if (!ref) return null;
+  if (isDriveRef(ref)) return driveViewUrl(driveFileId(ref));
+  return signed.get(ref) ?? null;
+}
+
+export function resolveEmbedUrl(ref: string | null, signed: Map<string, string>): string | null {
+  if (!ref) return null;
+  if (isDriveRef(ref)) return driveEmbedUrl(driveFileId(ref));
+  return signed.get(ref) ?? null;
+}

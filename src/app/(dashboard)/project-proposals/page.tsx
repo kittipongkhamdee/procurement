@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
-import { driveFileId, driveViewUrl, isDriveRef } from "@/lib/storage/ref";
+import { isDriveRef, resolveEmbedUrl, resolveFileUrl } from "@/lib/storage/ref";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { CheckIcon, ClipboardCheckIcon, LightbulbIcon, PlusIcon } from "@/components/icons";
 import { ProposalsTable } from "./proposals-table";
@@ -61,13 +61,6 @@ type ProposalRow = {
   approvedAt: string | null;
   approveNote: string | null;
 };
-
-// ไฟล์ที่เก็บบน Google Drive (ref "gdrive:{id}") ไม่ได้อยู่ใน Supabase Storage จึงเซ็น signed URL ไม่ได้ — เปิดผ่านลิงก์ดูไฟล์ของ Drive แทน
-function resolveFileUrl(ref: string | null, signed: Map<string, string>): string | null {
-  if (!ref) return null;
-  if (isDriveRef(ref)) return driveViewUrl(driveFileId(ref));
-  return signed.get(ref) ?? null;
-}
 
 export default function ProjectProposalsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -175,10 +168,7 @@ export default function ProjectProposalsPage() {
         strategyAlignment: p.strategy_alignment,
         fileUrlWord: resolveFileUrl(p.file_url_word, signedFileUrls),
         fileUrlPdf: resolveFileUrl(p.file_url_pdf, signedFileUrls),
-        fileUrlPdfPreview:
-          p.file_url_pdf && isDriveRef(p.file_url_pdf)
-            ? `https://drive.google.com/file/d/${driveFileId(p.file_url_pdf)}/preview`
-            : resolveFileUrl(p.file_url_pdf, signedFileUrls),
+        fileUrlPdfPreview: resolveEmbedUrl(p.file_url_pdf, signedFileUrls),
         fileUrlWordPath: p.file_url_word,
         fileUrlPdfPath: p.file_url_pdf,
         activities: (p.activities as unknown as ActivityRow[]) ?? [],

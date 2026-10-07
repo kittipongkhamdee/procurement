@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { isDriveRef, resolveEmbedUrl, resolveFileUrl } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
 import { toastError, toastSuccess, errorMessage, confirmWarning } from "@/lib/swal";
 import { BellIcon, BoxIcon, ChevronRightIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
@@ -56,6 +57,7 @@ type ProposalItem = {
   strategyAlignment: string | null;
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
+  fileUrlPdfPreview: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;
@@ -408,7 +410,7 @@ export function PendingActionsPanel() {
 
     // เซ็นลิงก์ไฟล์โครงการ (Word/PDF) เป็น batch เดียว ให้เปิดอ่านประกอบการตัดสินใจได้ในป็อปอัป
     // (มิเรอร์แพทเทิร์นเดียวกับ project-proposals/page.tsx)
-    const filePaths = proposalRows.flatMap((p) => [p.file_url_word, p.file_url_pdf]).filter((p): p is string => !!p);
+    const filePaths = proposalRows.flatMap((p) => [p.file_url_word, p.file_url_pdf]).filter((p): p is string => !!p && !isDriveRef(p));
     const signedFileUrls = new Map<string, string>();
     if (filePaths.length > 0) {
       const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(filePaths, 3600);
@@ -427,8 +429,9 @@ export function PendingActionsPanel() {
       standard: p.standard,
       responsible: p.responsible ?? [],
       strategyAlignment: p.strategy_alignment,
-      fileUrlWord: p.file_url_word ? (signedFileUrls.get(p.file_url_word) ?? null) : null,
-      fileUrlPdf: p.file_url_pdf ? (signedFileUrls.get(p.file_url_pdf) ?? null) : null,
+      fileUrlWord: resolveFileUrl(p.file_url_word, signedFileUrls),
+      fileUrlPdf: resolveFileUrl(p.file_url_pdf, signedFileUrls),
+      fileUrlPdfPreview: resolveEmbedUrl(p.file_url_pdf, signedFileUrls),
       activities: p.activities ?? [],
       budgetAmount: Number(p.budget_amount),
       status: p.status,
