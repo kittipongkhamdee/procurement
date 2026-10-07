@@ -1,6 +1,6 @@
 "use client";
 
-// แท็บ "จัดโครงการ" — เตรียม "ร่างโครงการ" (plan_draft_projects) สำหรับปีงบประมาณใหม่ ยังไม่ใช่
+// แท็บ "คัดลอกโครงการเดิม" / "ร่างโครงการปีงบประมาณนี้" (แท็บหลักของหน้า ใช้คอมโพเนนต์นี้ร่วมกัน ส่ง section มา) — เตรียม "ร่างโครงการ" (plan_draft_projects) สำหรับปีงบประมาณใหม่ ยังไม่ใช่
 // โครงการจริงและไม่ใช่ข้อเสนอโครงการ โดย:
 // 1) คัดลอกรายการจากปีงบประมาณเดิมมาเป็นร่างตั้งต้น (แก้ไขได้ทุกอย่างหลังคัดลอก)
 // 2) แก้ไข/เพิ่ม/ลบ ชื่อโครงการ/กลุ่มบริหาร/แหล่งงบประมาณ/งบประมาณ ต่อรายการผ่านปุ่มแก้ไข/บันทึก
@@ -70,19 +70,18 @@ function formatBaht(n: number) {
 
 const ALL = "__all__";
 
-const SUB_TABS = [
-  { key: "copy", label: "คัดลอกโครงการเดิม" },
-  { key: "draft", label: "ร่างโครงการปีงบประมาณนี้" },
-] as const;
-type SubTabKey = (typeof SUB_TABS)[number]["key"];
+type SubTabKey = "copy" | "draft";
 
 export function ProjectAllocationTab({
+  section,
   budgetYearId,
   budgetYears,
   adminGroups,
   budgetSources,
   isAdmin,
 }: {
+  /** ส่วนที่แสดง: คัดลอกโครงการเดิม หรือ ร่างโครงการปีงบประมาณนี้ (เลือกจากแท็บหลักของหน้า) */
+  section: SubTabKey;
   budgetYearId: string;
   budgetYears: BudgetYear[];
   adminGroups: Option[];
@@ -120,7 +119,7 @@ export function ProjectAllocationTab({
   const [togglingOpenEdit, setTogglingOpenEdit] = useState(false);
   const canEditDraft = isAdmin || draftOpenEdit;
 
-  const [subTab, setSubTab] = useState<SubTabKey>("copy");
+  const subTab = section;
 
   useEffect(() => {
     if (sourceYearId || otherYears.length === 0 || !targetYear) return;
@@ -461,23 +460,6 @@ export function ProjectAllocationTab({
 
   return (
     <div>
-      <div className="flex gap-1 border-b border-slate-200">
-        {SUB_TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setSubTab(t.key)}
-            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
-              subTab === t.key
-                ? "border-navy-800 text-navy-800"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       {subTab === "copy" && (
         <div className="mt-4">
           <p className="mb-3 text-sm text-slate-500">เลือกโครงการจากปีงบประมาณเดิมเพื่อนำมาเป็นร่างตั้งต้นในปีนี้ (แก้ไขได้ทุกอย่างในตารางด้านล่างหลังคัดลอก)</p>

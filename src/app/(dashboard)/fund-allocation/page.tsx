@@ -1,6 +1,6 @@
 "use client";
 
-// หน้า "การจัดสรรเงิน" — shell แบบแท็บ 3 แท็บ: รายรับ / จัดสรรเงิน / จัดโครงการ ใช้ปีงบประมาณเดียวกัน
+// หน้า "การจัดสรรเงิน" — shell แบบแท็บ: นักเรียนและรายหัว / รายรับ / จัดสรรเงิน / คัดลอกโครงการเดิม / ร่างโครงการปีงบประมาณนี้ ใช้ปีงบประมาณเดียวกัน
 // ทั้งหน้า (ดู /root/.claude/plans) — client-fetch pattern เดียวกับ /projects
 
 import { useCallback, useEffect, useState } from "react";
@@ -19,7 +19,8 @@ const TABS = [
   { key: "student_rates", label: "นักเรียนและรายหัว" },
   { key: "revenue", label: "รายรับ" },
   { key: "group", label: "จัดสรรเงิน" },
-  { key: "project", label: "จัดโครงการ" },
+  { key: "copy", label: "คัดลอกโครงการเดิม" },
+  { key: "draft", label: "ร่างโครงการปีงบประมาณนี้" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -106,8 +107,10 @@ export default function FundAllocationPage() {
             {tab === "group" && (
               <GroupAllocationTab budgetYearId={budgetYearId} adminGroups={adminGroups} isAdmin={isAdmin} />
             )}
-            {tab === "project" && (
+            {/* สองแท็บนี้ใช้คอมโพเนนต์เดียวกัน (ตำแหน่งเดียวกันในทรี) สลับไปมาแล้วสถานะไม่หาย */}
+            {(tab === "copy" || tab === "draft") && (
               <ProjectAllocationTab
+                section={tab}
                 budgetYearId={budgetYearId}
                 budgetYears={budgetYears}
                 adminGroups={adminGroups}
