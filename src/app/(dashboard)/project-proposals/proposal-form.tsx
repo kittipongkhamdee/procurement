@@ -440,7 +440,7 @@ export function ProposalForm({
                 {draftProjects.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
-                    {existingNameKeys.has(normalizeProposalName(d.name)) ? " (ส่งคำเสนอแล้ว)" : ""}
+                    {existingNameKeys.has(normalizeProposalName(d.name)) ? " (เสนอโครงการแล้ว)" : ""}
                   </option>
                 ))}
               </select>
