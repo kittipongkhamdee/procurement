@@ -307,13 +307,13 @@ export function ProjectsTable({
       </div>
 
       {/* จอกว้าง md ขึ้นไป: ตาราง */}
-      <table className="hidden table-base md:table">
+      <table className="hidden table-base min-w-0 [&_td]:px-3 [&_th]:px-3 md:table">
         <thead>
           <tr>
             <th className="w-10 text-center">#</th>
             <th>โครงการ</th>
-            <th className="whitespace-nowrap">กลุ่มบริหาร</th>
-            <th className="whitespace-nowrap">แหล่งเงินงบประมาณ</th>
+            <th>กลุ่มบริหาร</th>
+            <th>แหล่งเงินงบประมาณ</th>
             <th className="whitespace-nowrap text-right">งบประมาณ</th>
             <th className="whitespace-nowrap text-right">เบิกจ่ายแล้ว</th>
             <th className="whitespace-nowrap text-right">คงเหลือ</th>
@@ -343,8 +343,8 @@ export function ProjectsTable({
                       <span className="break-words">{r.name}</span>
                     </span>
                   </td>
-                  <td className="whitespace-nowrap">{r.adminGroup}</td>
-                  <td className="whitespace-nowrap">{r.budgetSource}</td>
+                  <td>{r.adminGroup}</td>
+                  <td>{r.budgetSource}</td>
                   <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budget)}</td>
                   <td className="whitespace-nowrap text-right tabular-nums text-emerald-700">
                     {formatBaht(r.spent)}

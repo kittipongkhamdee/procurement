@@ -184,7 +184,7 @@ export default function EvaluationsPage() {
         </div>
 
         {/* จอกว้าง md ขึ้นไป: ตาราง */}
-        <table className="hidden table-base md:table">
+        <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
           <thead>
             <tr>
               <th className="w-16 whitespace-nowrap px-3 text-center">ลำดับที่</th>
@@ -272,7 +272,7 @@ export default function EvaluationsPage() {
             </div>
 
             {/* จอกว้าง md ขึ้นไป: ตาราง */}
-            <table className="hidden table-base md:table">
+            <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
               <thead>
                 <tr>
                   <th>ชื่อ Template</th>

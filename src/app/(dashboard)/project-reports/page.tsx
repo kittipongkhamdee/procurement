@@ -393,12 +393,12 @@ export default function ProjectReportsPage() {
         </div>
 
         {/* จอกว้าง md ขึ้นไป: ตาราง */}
-        <table className="hidden table-base md:table">
+        <table className="hidden table-base min-w-0 [&_td]:px-3 [&_th]:px-3 md:table">
           <thead>
             <tr>
               <th className="w-10 text-center">#</th>
               <th>ชื่อโครงการ</th>
-              <th className="whitespace-nowrap">ผู้รับผิดชอบโครงการ</th>
+              <th>ผู้รับผิดชอบโครงการ</th>
               <th className="whitespace-nowrap">วันที่รายงาน</th>
               <th></th>
             </tr>

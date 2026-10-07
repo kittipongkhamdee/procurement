@@ -193,13 +193,13 @@ export function ProposalsTable({
       </div>
 
       {/* จอกว้าง md ขึ้นไป: ตาราง */}
-      <table className="hidden table-base min-w-0 md:table">
+      <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
         <thead>
           <tr>
             <th className="w-10 text-center">#</th>
             <th>ชื่อโครงการ</th>
-            <th className="whitespace-nowrap">กลุ่มบริหาร</th>
-            <th className="whitespace-nowrap">ผู้เสนอ</th>
+            <th>กลุ่มบริหาร</th>
+            <th>ผู้เสนอ</th>
             <th className="whitespace-nowrap text-right">งบประมาณ</th>
             <th className="whitespace-nowrap text-center">สถานะ</th>
             <th></th>
@@ -212,8 +212,8 @@ export function ProposalsTable({
               <tr key={r.id}>
                 <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                 <td className="min-w-[10rem] max-w-[16rem] break-words font-medium text-slate-900">{r.name}</td>
-                <td className="whitespace-nowrap">{r.adminGroup}</td>
-                <td className="whitespace-nowrap">{r.proposerName ?? "-"}</td>
+                <td>{r.adminGroup}</td>
+                <td>{r.proposerName ?? "-"}</td>
                 <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budgetAmount)}</td>
                 <td className="whitespace-nowrap text-center">
                   <span className={`${statusBadgeClass(r.status)} !text-sm`}>{r.status}</span>

@@ -580,7 +580,7 @@ export default function ApprovalsPage() {
           </div>
 
           {/* จอกว้าง md ขึ้นไป: ตาราง */}
-          <table className="hidden table-base md:table">
+          <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
             <thead>
               <tr>
                 <th>#</th>
@@ -591,8 +591,6 @@ export default function ApprovalsPage() {
                 <th>ผู้รับผิดชอบ</th>
                 <th className="text-right">ขออนุมัติครั้งนี้</th>
                 <th>สถานะ</th>
-                <th></th>
-                <th></th>
                 <th></th>
               </tr>
             </thead>
@@ -633,44 +631,42 @@ export default function ApprovalsPage() {
                       />
                     </td>
                     <td className="text-right">
-                      <a
-                        href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
-                        target="_blank"
-                        className="btn-secondary btn-sm"
-                      >
-                        PDF
-                      </a>
-                    </td>
-                    <td className="text-right">
-                      {isOwnerOrAdmin &&
-                        (editableState ? (
-                          <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
-                            แก้ไข
-                          </a>
-                        ) : (
-                          <button
-                            type="button"
-                            title="แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)"
-                            onClick={() => toastError("แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)")}
-                            className="btn-secondary btn-sm cursor-not-allowed opacity-50"
-                          >
-                            แก้ไข
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <a
+                          href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
+                          target="_blank"
+                          className="btn-secondary btn-sm"
+                        >
+                          PDF
+                        </a>
+                        {isOwnerOrAdmin &&
+                          (editableState ? (
+                            <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
+                              แก้ไข
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              title="แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)"
+                              onClick={() => toastError("แก้ไขไม่ได้ (มีผู้เห็นชอบแล้ว)")}
+                              className="btn-secondary btn-sm cursor-not-allowed opacity-50"
+                            >
+                              แก้ไข
+                            </button>
+                          ))}
+                        {isOwnerOrAdmin && editableState && (
+                          <button type="button" onClick={() => handleDelete(a.id)} className="btn-danger btn-sm">
+                            ลบ
                           </button>
-                        ))}
-                    </td>
-                    <td className="text-right">
-                      {isOwnerOrAdmin && editableState && (
-                        <button type="button" onClick={() => handleDelete(a.id)} className="btn-danger btn-sm">
-                          ลบ
-                        </button>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
               })}
               {approvals.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="table-empty">
+                  <td colSpan={9} className="table-empty">
                     ยังไม่มีข้อมูล
                   </td>
                 </tr>
