@@ -122,14 +122,14 @@ async function requireEditableProposal(id: string) {
 
   const { data: proposal } = await supabase
     .from("plan_project_proposals")
-    .select("created_by, status, budget_year_id, file_url_word, file_url_pdf")
+    .select("created_by, status, budget_year_id, file_url_word, file_url_pdf, budget_source_id, budget_amount, activities")
     .eq("id", id)
     .maybeSingle();
   if (!proposal) throw new Error("ไม่พบข้อเสนอโครงการ");
   if (!isAdmin && proposal.created_by !== user.id) throw new Error("ไม่มีสิทธิ์ทำรายการนี้");
   if (proposal.status !== "รอเห็นชอบ") throw new Error('ทำรายการได้เฉพาะข้อเสนอที่สถานะ "รอเห็นชอบ" เท่านั้น');
 
-  return { supabase, proposal };
+  return { supabase, proposal, isAdmin };
 }
 
 export async function createProposal(formData: FormData) {
@@ -224,7 +224,9 @@ export async function extractProposalFromUploadedFile(input: {
 }
 
 export async function updateProposal(id: string, formData: FormData) {
-  const { supabase, proposal } = await requireEditableProposal(id);
+  const { supabase, proposal, isAdmin } = await requireEditableProposal(id);
+  // ครู (ไม่ใช่ผู้ดูแลระบบ) แก้แหล่งเงิน วิธีกรอกงบ และงบรวมก้อนเดียวไม่ได้ — ใช้ค่าเดิมในฐานข้อมูลเสมอ ไม่เชื่อค่าจากฟอร์ม
+  const lockBudget = !isAdmin;
 
   const name = str(formData, "name");
   if (!name) return;
@@ -237,7 +239,10 @@ export async function updateProposal(id: string, formData: FormData) {
 
   const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
-  const hasActivities = String(formData.get("has_activities") ?? "yes") !== "no";
+  const existingActivities = (proposal.activities as unknown as unknown[] | null) ?? [];
+  const hasActivities = lockBudget
+    ? existingActivities.length > 0
+    : String(formData.get("has_activities") ?? "yes") !== "no";
 
   let activities: ActivityRow[] = [];
   let budgetAmount = 0;
@@ -259,7 +264,7 @@ export async function updateProposal(id: string, formData: FormData) {
         ? Number(lockedBudgetAmount) || 0
         : activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
   } else {
-    budgetAmount = Number(formData.get("project_budget") ?? 0) || 0;
+    budgetAmount = lockBudget ? Number(proposal.budget_amount ?? 0) : Number(formData.get("project_budget") ?? 0) || 0;
   }
 
   const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
@@ -277,7 +282,7 @@ export async function updateProposal(id: string, formData: FormData) {
       strategy_alignment: str(formData, "strategy_alignment"),
       activities,
       budget_amount: budgetAmount,
-      budget_source_id: str(formData, "budget_source_id"),
+      budget_source_id: lockBudget ? proposal.budget_source_id : str(formData, "budget_source_id"),
       file_url_word: fileUrlWord,
       file_url_pdf: fileUrlPdf,
       indicators_quantity: indicatorsField(formData, "indicators_quantity_json"),

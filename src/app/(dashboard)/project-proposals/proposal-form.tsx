@@ -201,6 +201,7 @@ export function ProposalForm({
   strategies,
   standards,
   draftProjects = [],
+  lockBudget = false,
   initial,
   submitLabel = "ส่งข้อเสนอโครงการ",
   successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
@@ -214,6 +215,8 @@ export function ProposalForm({
   strategies: Strategy[];
   standards: Standard[];
   draftProjects?: DraftProject[];
+  /** ล็อกแหล่งเงินงบประมาณ วิธีกรอกงบ และงบรวมก้อนเดียว (ใช้ตอนครูแก้ไขข้อเสนอของตัวเอง — เฉพาะผู้ดูแลระบบแก้ได้) */
+  lockBudget?: boolean;
   initial?: ProposalFormInitial;
   submitLabel?: string;
   successMessage?: string;
@@ -492,7 +495,7 @@ export function ProposalForm({
             required
             value={budgetSourceId}
             onChange={(e) => setBudgetSourceId(e.target.value)}
-            disabled={!!lockedDraft}
+            disabled={!!lockedDraft || lockBudget}
             className="input disabled:bg-slate-100 disabled:text-slate-500"
           >
             <option value="" disabled>
@@ -504,8 +507,13 @@ export function ProposalForm({
               </option>
             ))}
           </select>
-          {lockedDraft && <input type="hidden" name="budget_source_id" value={budgetSourceId} />}
+          {(lockedDraft || lockBudget) && <input type="hidden" name="budget_source_id" value={budgetSourceId} />}
         </div>
+        {lockBudget && (
+          <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            แหล่งเงินงบประมาณและงบรวมก้อนเดียวแก้ไขไม่ได้ หากต้องการแก้ไข กรุณาติดต่อผู้ดูแลระบบ
+          </p>
+        )}
         <div className="mb-1 text-sm font-medium text-slate-700">โครงการนี้กรอกงบประมาณแบบไหน?</div>
         <div role="radiogroup" aria-label="วิธีกรอกงบประมาณโครงการ" className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {[
@@ -528,11 +536,12 @@ export function ProposalForm({
                 role="radio"
                 aria-checked={selected}
                 onClick={() => chooseHasActivities(opt.value)}
-                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-colors ${
+                disabled={lockBudget}
+                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-colors disabled:cursor-not-allowed ${
                   selected
                     ? "border-navy-800 bg-navy-50/60"
                     : "border-slate-200 bg-white hover:border-slate-300"
-                }`}
+                } ${lockBudget && !selected ? "opacity-50" : ""}`}
               >
                 <span
                   aria-hidden
@@ -646,11 +655,11 @@ export function ProposalForm({
               required
               value={projectBudget}
               onChange={(e) => setProjectBudget(e.target.value)}
-              disabled={!!lockedDraft}
+              disabled={!!lockedDraft || lockBudget}
               className="input disabled:bg-slate-100 disabled:text-slate-500"
               placeholder="0.00"
             />
-            {lockedDraft && <input type="hidden" name="project_budget" value={projectBudget} />}
+            {(lockedDraft || lockBudget) && <input type="hidden" name="project_budget" value={projectBudget} />}
           </div>
         )}
       </div>

@@ -162,6 +162,7 @@ export function ProposalsTable({
                   <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
                     <ProposalForm
                       action={updateProposal.bind(null, r.id)}
+                      lockBudget={!isAdmin}
                       budgetYearId=""
                       adminGroups={adminGroups}
                       budgetSources={budgetSources}
@@ -262,6 +263,7 @@ export function ProposalsTable({
                       <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
                         <ProposalForm
                           action={updateProposal.bind(null, r.id)}
+                          lockBudget={!isAdmin}
                           budgetYearId=""
                           adminGroups={adminGroups}
                           budgetSources={budgetSources}
