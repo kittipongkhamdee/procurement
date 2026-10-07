@@ -47,6 +47,8 @@ type ProposalRow = {
   fileUrlPdf: string | null;
   /** URL สำหรับฝังดูตัวอย่าง (iframe) — ไฟล์ Google Drive ใช้หน้า /preview */
   fileUrlPdfPreview: string | null;
+  /** ลำดับกลุ่มบริหารงาน (sort_order ของกลุ่ม) ไว้เรียง/จัดกลุ่มในตาราง */
+  adminGroupOrder: number;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];
@@ -100,7 +102,7 @@ export default function ProjectProposalsPage() {
       supabase
         .from("plan_project_proposals")
         .select(
-          "id, name, proposer_name, created_by, standard, responsible, objectives, strategy_alignment, activities, indicators_quantity, indicators_quality, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+          "id, name, proposer_name, created_by, standard, responsible, objectives, strategy_alignment, activities, indicators_quantity, indicators_quality, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name, sort_order), plan_budget_sources(name)",
         )
         .order("created_at", { ascending: false }),
     ]);
@@ -159,6 +161,8 @@ export default function ProjectProposalsPage() {
         proposerName: (p.created_by ? currentNames.get(p.created_by) : undefined) ?? p.proposer_name,
         createdBy: p.created_by,
         adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
+        adminGroupOrder:
+          (p.plan_admin_groups as unknown as { sort_order: number | null } | null)?.sort_order ?? Number.MAX_SAFE_INTEGER,
         budgetSource: (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? "-",
         standard: p.standard,
         adminGroupId: p.admin_group_id,

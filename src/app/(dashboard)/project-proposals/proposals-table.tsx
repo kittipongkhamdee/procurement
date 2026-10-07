@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Modal } from "@/components/modal";
 import type { Tables } from "@/lib/supabase/database.types";
 import { ProposalDetailModal } from "./proposal-detail-modal";
@@ -45,6 +46,7 @@ type ProposalRow = {
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
   fileUrlPdfPreview: string | null;
+  adminGroupOrder: number;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];
@@ -112,14 +114,35 @@ export function ProposalsTable({
   /** เปิดป็อปอัปรายละเอียดของรายการนี้อัตโนมัติ — มาจากลิงก์ลัดหน้า "ผู้บริหาร" (?open=<id>) */
   autoOpenId?: string | null;
 }) {
+  // จัดกลุ่มตามกลุ่มบริหารงาน (ลำดับตาม sort_order ของกลุ่ม เหมือนหน้า "โครงการ"/"รายงานโครงการ") — Array.sort เสถียร
+  // จึงคงลำดับเดิม (ใหม่สุดก่อน) ภายในกลุ่มเดียวกัน
+  const sortedRows = [...rows].sort(
+    (a, b) => a.adminGroupOrder - b.adminGroupOrder || a.adminGroup.localeCompare(b.adminGroup, "th"),
+  );
+  const groupCounts = new Map<string, number>();
+  for (const r of sortedRows) groupCounts.set(r.adminGroup, (groupCounts.get(r.adminGroup) ?? 0) + 1);
+  const renderGroupHeader = (name: string) => (
+    <>
+      {name}{" "}
+      <span className="font-normal text-slate-500">({(groupCounts.get(name) ?? 0).toLocaleString("th-TH")} โครงการ)</span>
+    </>
+  );
+
   return (
     <>
       {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว (แพทเทิร์นเดียวกับ asset-register/register-tab.tsx) */}
       <div className="divide-y divide-slate-100 md:hidden">
-        {rows.map((r, i) => {
+        {sortedRows.map((r, i) => {
           const canEdit = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
+          const showGroupHeader = i === 0 || sortedRows[i - 1].adminGroup !== r.adminGroup;
           return (
-            <div key={r.id} className="px-4 py-3">
+            <Fragment key={r.id}>
+            {showGroupHeader && (
+              <div className="bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                {renderGroupHeader(r.adminGroup)}
+              </div>
+            )}
+            <div className="px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-slate-400">#{i + 1}</span>
                 <span className="break-words font-medium text-slate-900">{r.name}</span>
@@ -187,6 +210,7 @@ export function ProposalsTable({
                 />
               </div>
             </div>
+            </Fragment>
           );
         })}
         {rows.length === 0 && <p className="table-empty">ยังไม่มีข้อเสนอโครงการ</p>}
@@ -206,10 +230,19 @@ export function ProposalsTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => {
+          {sortedRows.map((r, i) => {
             const canEdit = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
+            const showGroupHeader = i === 0 || sortedRows[i - 1].adminGroup !== r.adminGroup;
             return (
-              <tr key={r.id}>
+              <Fragment key={r.id}>
+              {showGroupHeader && (
+                <tr className="bg-slate-100">
+                  <td colSpan={7} className="py-2 font-semibold text-slate-700">
+                    {renderGroupHeader(r.adminGroup)}
+                  </td>
+                </tr>
+              )}
+              <tr>
                 <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                 <td className="min-w-[10rem] max-w-[16rem] break-words font-medium text-slate-900">{r.name}</td>
                 <td>{r.adminGroup}</td>
@@ -278,6 +311,7 @@ export function ProposalsTable({
                   </div>
                 </td>
               </tr>
+              </Fragment>
             );
           })}
           {rows.length === 0 && (
