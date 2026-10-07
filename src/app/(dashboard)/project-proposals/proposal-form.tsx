@@ -57,14 +57,17 @@ function IndicatorList({
     <div>
       <label className="label">{label}</label>
       <div className="overflow-hidden rounded-xl border border-slate-200/80">
-        <div className="hidden grid-cols-[1fr_10rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+        <div className="hidden grid-cols-[1.75rem_1fr_10rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+          <div className="text-right">ที่</div>
           <div>ตัวชี้วัด</div>
           <div>ค่าเป้าหมาย</div>
           <div></div>
         </div>
         <div className="divide-y divide-slate-100">
           {rows.map((row, i) => (
-            <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1fr_10rem_3.5rem] sm:items-center">
+            <div key={i} className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-[1.75rem_1fr_10rem_3.5rem] sm:items-center">
+              {/* เลขลำดับอัตโนมัติ (แสดงอย่างเดียว ไม่บันทึกลงข้อมูล) */}
+              <span className="text-xs font-semibold text-slate-500 sm:text-right sm:text-sm sm:font-medium">{i + 1}.</span>
               <input
                 value={row.indicator}
                 onChange={(e) => onChange(rows.map((r, idx) => (idx === i ? { ...r, indicator: e.target.value } : r)))}
@@ -115,7 +118,9 @@ function ListField({
       <label className="label">{label}</label>
       <div className="grid grid-cols-1 gap-2">
         {values.map((v, i) => (
-          <div key={i} className="flex gap-2">
+          <div key={i} className="flex items-center gap-2">
+            {/* เลขลำดับอัตโนมัติ (แสดงอย่างเดียว ไม่บันทึกลงข้อมูล) */}
+            <span className="w-6 shrink-0 text-right text-sm font-medium text-slate-500">{i + 1}.</span>
             <input
               value={v}
               onChange={(e) => onChange(values.map((row, idx) => (idx === i ? e.target.value : row)))}
