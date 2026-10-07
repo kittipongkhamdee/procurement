@@ -32,11 +32,20 @@ export default function NewProjectReportPage() {
 
   const reload = useCallback(async () => {
     const supabase = createClient();
+    // เลือกโครงการได้เฉพาะของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน ไม่มีก็ใช้ปีล่าสุด) — ไม่ปนโครงการปีเก่า
+    const { data: budgetYears } = await supabase
+      .from("plan_budget_years")
+      .select("id, is_open")
+      .order("year", { ascending: false });
+    const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
     const [{ data: projectRows }, { data: proposals }, { data: aiSetting }, { data: approvals }] = await Promise.all([
-      supabase
-        .from("plan_projects")
-        .select("id, name, budget, plan_admin_groups(name, sort_order), plan_activities(budget)")
-        .order("sort_order"),
+      currentYear
+        ? supabase
+            .from("plan_projects")
+            .select("id, name, budget, plan_admin_groups(name, sort_order), plan_activities(budget)")
+            .eq("budget_year_id", currentYear.id)
+            .order("sort_order")
+        : Promise.resolve({ data: [] as never[] }),
       supabase
         .from("plan_project_proposals")
         .select(

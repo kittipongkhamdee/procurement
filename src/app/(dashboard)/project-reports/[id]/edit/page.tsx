@@ -80,7 +80,7 @@ export default function EditProjectReportPage() {
           .maybeSingle(),
         supabase
           .from("plan_projects")
-          .select("id, name, budget, plan_admin_groups(name, sort_order), plan_activities(budget)")
+          .select("id, name, budget, budget_year_id, plan_admin_groups(name, sort_order), plan_activities(budget)")
           .order("sort_order"),
         supabase
           .from("plan_project_proposals")
@@ -91,6 +91,8 @@ export default function EditProjectReportPage() {
         supabase.from("proc_app_settings").select("value").eq("key", "ai_extraction_enabled").maybeSingle(),
         supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
       ]);
+    // แสดงให้เลือกเฉพาะโครงการของปีงบประมาณเดียวกับโครงการของรายงานนี้ (ไม่ปนโครงการต่างปี)
+    const reportYearId = (projectRows ?? []).find((p) => p.id === reportRow?.project_id)?.budget_year_id ?? null;
     setAiExtractionEnabled(aiSetting?.value !== "false");
     const proposalByProjectId = new Map((proposals as unknown as Proposal[] ?? []).map((p) => [p.project_id, p]));
     // ผลรวมงบที่อนุมัติจริงจากบันทึกขออนุมัติ (สถานะ "อนุมัติ") ต่อโครงการ — ใช้เติมช่อง
@@ -104,7 +106,7 @@ export default function EditProjectReportPage() {
       );
     }
     setProjects(
-      sortProjectsByGroup((projectRows ?? []).map((p) => {
+      sortProjectsByGroup((projectRows ?? []).filter((p) => !reportYearId || p.budget_year_id === reportYearId).map((p) => {
         const proposal = proposalByProjectId.get(p.id);
         const group = p.plan_admin_groups as unknown as { name: string; sort_order: number | null } | null;
         // งบประมาณจริงของโครงการอาจมาจากผลรวมกิจกรรม (plan_activities) แทนคอลัมน์ budget ตรงๆ

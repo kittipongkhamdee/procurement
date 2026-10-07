@@ -18,6 +18,8 @@ import { DeleteReportButton } from "./delete-report-button";
 import { sortProjectsByGroup } from "./project-select";
 import { deleteProjectReport } from "./actions";
 
+type BudgetYear = { id: string; year: number; is_open: boolean };
+
 type YearProject = { id: string; name: string; adminGroup: string | null; adminGroupOrder: number };
 
 type Report = {
@@ -29,7 +31,7 @@ type Report = {
   created_at: string;
   not_implemented: boolean;
   responsible_name: string | null;
-  plan_projects: { name: string; plan_admin_groups: { name: string; sort_order: number | null } | null } | null;
+  plan_projects: { name: string; budget_year_id: string | null; plan_admin_groups: { name: string; sort_order: number | null } | null } | null;
 };
 
 const BRAND = "#123361";
@@ -45,6 +47,9 @@ export default function ProjectReportsPage() {
   // "รายงานแล้ว/ยังไม่รายงาน" และแสดงรายชื่อที่ยังไม่รายงาน — null = ยังโหลดไม่เสร็จหรือยังไม่มีปีงบประมาณ
   const [yearProjects, setYearProjects] = useState<YearProject[] | null>(null);
   const [search, setSearch] = useState("");
+  // ปีงบประมาณทั้งหมด + ปีที่กำลังดู (เริ่มที่ปีที่เปิดใช้งาน ไม่มีก็ปีล่าสุด) — การ์ดสรุปและรายการกรองตามปีนี้
+  const [years, setYears] = useState<BudgetYear[]>([]);
+  const [selectedYearId, setSelectedYearId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -52,7 +57,7 @@ export default function ProjectReportsPage() {
     const { data: reportsData, error } = await supabase
       .from("proc_project_reports")
       .select(
-        "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, responsible_name, plan_projects(name, plan_admin_groups(name, sort_order))",
+        "id, project_id, uploaded_by, file_url, photo_refs, created_at, not_implemented, responsible_name, plan_projects(name, budget_year_id, plan_admin_groups(name, sort_order))",
       )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
@@ -68,26 +73,9 @@ export default function ProjectReportsPage() {
 
     const { data: budgetYears } = await supabase
       .from("plan_budget_years")
-      .select("id, is_open")
+      .select("id, year, is_open")
       .order("year", { ascending: false });
-    const year = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
-    if (year) {
-      const { data: projectRows } = await supabase
-        .from("plan_projects")
-        .select("id, name, plan_admin_groups(name, sort_order)")
-        .eq("budget_year_id", year.id)
-        .order("sort_order");
-      setYearProjects(
-        sortProjectsByGroup(
-          (projectRows ?? []).map((p) => {
-            const group = p.plan_admin_groups as unknown as { name: string; sort_order: number | null } | null;
-            return { id: p.id, name: p.name, adminGroup: group?.name ?? null, adminGroupOrder: group?.sort_order ?? 0 };
-          }),
-        ),
-      );
-    } else {
-      setYearProjects(null);
-    }
+    setYears(budgetYears ?? []);
 
     const paths = rows.map((r) => r.file_url).filter((p): p is string => !!p);
     const { data: fileUrlsMap } =
@@ -105,6 +93,38 @@ export default function ProjectReportsPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
+
+  // ตั้งปีเริ่มต้นเป็นปีที่เปิดใช้งาน (ไม่มีก็ปีล่าสุด) ครั้งแรกที่โหลดรายการปีมาแล้ว
+  useEffect(() => {
+    if (selectedYearId !== null || years.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedYearId((years.find((y) => y.is_open) ?? years[0]).id);
+  }, [years, selectedYearId]);
+
+  // โครงการทั้งหมดของปีที่เลือก ไว้นับ "รายงานแล้ว/ยังไม่รายงาน" และแสดงรายชื่อที่ยังไม่รายงาน
+  useEffect(() => {
+    if (!selectedYearId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: projectRows } = await createClient()
+        .from("plan_projects")
+        .select("id, name, plan_admin_groups(name, sort_order)")
+        .eq("budget_year_id", selectedYearId)
+        .order("sort_order");
+      if (cancelled) return;
+      setYearProjects(
+        sortProjectsByGroup(
+          (projectRows ?? []).map((p) => {
+            const group = p.plan_admin_groups as unknown as { name: string; sort_order: number | null } | null;
+            return { id: p.id, name: p.name, adminGroup: group?.name ?? null, adminGroupOrder: group?.sort_order ?? 0 };
+          }),
+        ),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedYearId]);
 
   if (reports === null || authLoading) return <PageLoadingSkeleton />;
 
@@ -148,17 +168,22 @@ export default function ProjectReportsPage() {
   }
 
   // โครงการที่ส่งรายงานแล้วนับรวมรายงานแบบ "ไม่ได้ดำเนินการ" ด้วย (ถือว่าได้รายงานสถานะแล้ว)
-  const reportedProjectIds = new Set(reports.map((r) => r.project_id).filter((id): id is string => !!id));
+  const selectedYear = years.find((y) => y.id === selectedYearId) ?? null;
+  const openYearId = (years.find((y) => y.is_open) ?? years[0] ?? null)?.id ?? null;
+  // ปีที่ปิดแล้วเป็นแบบอ่านอย่างเดียว (ผู้ดูแลระบบยังแก้ไข/ลบได้) — รายงานที่ไม่ผูกโครงการนับเป็นของปีปัจจุบัน
+  const isReadOnlyYear = !!selectedYear && !selectedYear.is_open;
+  const yearReports = reports.filter((r) => (r.plan_projects?.budget_year_id ?? openYearId) === selectedYearId);
+  const reportedProjectIds = new Set(yearReports.map((r) => r.project_id).filter((id): id is string => !!id));
   const totalProjects = yearProjects?.length ?? 0;
   const unreportedProjects = (yearProjects ?? []).filter((p) => !reportedProjectIds.has(p.id));
   const unreportedCount = unreportedProjects.length;
 
   const searchTerm = search.trim().toLowerCase();
   const filteredReports = searchTerm
-    ? reports.filter((r) =>
+    ? yearReports.filter((r) =>
         [r.plan_projects?.name, r.responsible_name, r.plan_projects?.plan_admin_groups?.name].some((v) => v?.toLowerCase().includes(searchTerm)),
       )
-    : reports;
+    : yearReports;
   const groupOf = (r: Report) => r.plan_projects?.plan_admin_groups?.name ?? "ไม่ระบุกลุ่ม";
   const groupCounts = new Map<string, number>();
   for (const r of filteredReports) groupCounts.set(groupOf(r), (groupCounts.get(groupOf(r)) ?? 0) + 1);
@@ -184,7 +209,7 @@ export default function ProjectReportsPage() {
       </>
     );
   };
-  const emptyMessage = reports.length === 0 ? "ยังไม่มีข้อมูล" : "ไม่พบรายการที่ค้นหา";
+  const emptyMessage = yearReports.length === 0 ? "ยังไม่มีรายงานของปีงบประมาณนี้" : "ไม่พบรายการที่ค้นหา";
   const reportedCount = totalProjects - unreportedCount;
 
   return (
@@ -199,7 +224,44 @@ export default function ProjectReportsPage() {
         </Link>
       </div>
 
-      {yearProjects !== null && (
+      {years.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <label htmlFor="report-year" className="text-sm font-medium text-slate-600">
+            ปีงบประมาณ
+          </label>
+          <select
+            id="report-year"
+            value={selectedYearId ?? ""}
+            onChange={(e) => {
+              setSelectedYearId(e.target.value);
+              setYearProjects(null);
+              setSearch("");
+            }}
+            className="input w-auto"
+          >
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>
+                {y.year}
+                {y.is_open ? " (ปัจจุบัน)" : " (ปิดแล้ว)"}
+              </option>
+            ))}
+          </select>
+          {isReadOnlyYear && (
+            <span className="badge-slate">
+              ปีงบประมาณ {selectedYear?.year} ปิดแล้ว — ดู/พิมพ์/ดาวน์โหลดได้อย่างเดียว
+            </span>
+          )}
+        </div>
+      )}
+
+      {yearProjects !== null && totalProjects === 0 && (
+        <p className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ยังไม่มีโครงการของปีงบประมาณ {selectedYear?.year} — ต้องมีโครงการของปีนี้ในเมนู &quot;โครงการ&quot; ก่อน
+          จึงจะเพิ่มรายงานได้
+        </p>
+      )}
+
+      {yearProjects !== null && totalProjects > 0 && (
         <div className="mb-6 grid grid-cols-3 gap-3 sm:gap-4">
           <div className="stat-card" style={{ "--accent": BRAND } as React.CSSProperties}>
             <div className="stat-label">จำนวนโครงการ</div>
@@ -269,7 +331,7 @@ export default function ProjectReportsPage() {
         />
         {searchTerm && (
           <span className="text-sm text-slate-500">
-            พบ {filteredReports.length.toLocaleString("th-TH")} จาก {reports.length.toLocaleString("th-TH")} รายการ
+            พบ {filteredReports.length.toLocaleString("th-TH")} จาก {yearReports.length.toLocaleString("th-TH")} รายการ
           </span>
         )}
       </div>
@@ -280,7 +342,7 @@ export default function ProjectReportsPage() {
         {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการ (ชื่อโครงการขึ้นบรรทัดเต็มความกว้าง ไม่บีบเป็นคอลัมน์แคบ) */}
         <div className="divide-y divide-slate-100 md:hidden">
           {filteredReports.map((r, i) => {
-            const canManage = isAdmin || (user && r.uploaded_by === user.userId);
+            const canManage = isAdmin || (!isReadOnlyYear && user && r.uploaded_by === user.userId);
             const photoRefs = r.photo_refs ?? [];
             const showGroupHeader = i === 0 || groupOf(filteredReports[i - 1]) !== groupOf(r);
             return (
@@ -343,7 +405,7 @@ export default function ProjectReportsPage() {
           </thead>
           <tbody>
             {filteredReports.map((r, i) => {
-              const canManage = isAdmin || (user && r.uploaded_by === user.userId);
+              const canManage = isAdmin || (!isReadOnlyYear && user && r.uploaded_by === user.userId);
               const photoRefs = r.photo_refs ?? [];
               const showGroupHeader = i === 0 || groupOf(filteredReports[i - 1]) !== groupOf(r);
               return (

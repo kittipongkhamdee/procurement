@@ -101,6 +101,24 @@ async function getRole(
   return data?.role ?? null;
 }
 
+/** ปีงบประมาณที่ปิดแล้วเป็นแบบอ่านอย่างเดียว — ผู้ที่ไม่ใช่ผู้ดูแลระบบเพิ่ม/แก้ไข/ลบรายงานของโครงการในปีที่ปิดแล้วไม่ได้ */
+async function assertProjectYearEditable(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string | null,
+  role: string | null,
+) {
+  if (role === "admin" || !projectId) return;
+  const { data } = await supabase
+    .from("plan_projects")
+    .select("plan_budget_years(year, is_open)")
+    .eq("id", projectId)
+    .maybeSingle();
+  const year = data?.plan_budget_years as unknown as { year: number; is_open: boolean } | null;
+  if (year && !year.is_open) {
+    throw new Error(`ปีงบประมาณ ${year.year} ปิดแล้ว ไม่สามารถเพิ่ม/แก้ไข/ลบรายงานของปีนี้ได้ กรุณาติดต่อผู้ดูแลระบบ`);
+  }
+}
+
 /** โครงการหนึ่งควรมีรายงานสรุปเดียว — กันไม่ให้เผลอบันทึกซ้ำ (excludeReportId ไว้ยกเว้นตัวเองตอนแก้ไข) */
 async function assertNoDuplicateReport(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -149,6 +167,7 @@ async function createProjectReportOrThrow(formData: FormData) {
     throw new Error("กรุณากรอกเหตุผลที่ไม่ได้ดำเนินการ");
   }
 
+  await assertProjectYearEditable(supabase, projectId, await getRole(supabase, user.id));
   await assertNoDuplicateReport(supabase, projectId);
 
   const { error } = await supabase.from("proc_project_reports").insert({
@@ -190,7 +209,9 @@ async function updateProjectReportOrThrow(id: string, formData: FormData) {
     throw new Error("กรุณากรอกเหตุผลที่ไม่ได้ดำเนินการ");
   }
 
+  await assertProjectYearEditable(supabase, report.project_id, role);
   if (projectId !== report.project_id) {
+    await assertProjectYearEditable(supabase, projectId, role);
     await assertNoDuplicateReport(supabase, projectId, id);
   }
 
@@ -228,7 +249,7 @@ export async function deleteProjectReport(
 
   const { data: report } = await supabase
     .from("proc_project_reports")
-    .select("uploaded_by")
+    .select("uploaded_by, project_id")
     .eq("id", id)
     .maybeSingle();
   if (!report) throw new Error("ไม่พบรายงานนี้");
@@ -239,6 +260,7 @@ export async function deleteProjectReport(
       "คุณไม่มีสิทธิ์ลบรายงานนี้ ผู้ที่ลบได้คือเจ้าของรายงานหรือผู้ดูแลระบบเท่านั้น",
     );
   }
+  await assertProjectYearEditable(supabase, report.project_id, role);
 
   await deleteFromStorage(supabase, ref, BUCKET);
   await Promise.all(
