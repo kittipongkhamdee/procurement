@@ -122,7 +122,7 @@ async function requireEditableProposal(id: string) {
 
   const { data: proposal } = await supabase
     .from("plan_project_proposals")
-    .select("created_by, status, budget_year_id, file_url_word, file_url_pdf, budget_source_id, budget_amount, activities")
+    .select("created_by, status, budget_year_id, file_url_word, file_url_pdf, admin_group_id, budget_source_id, budget_amount, activities")
     .eq("id", id)
     .maybeSingle();
   if (!proposal) throw new Error("ไม่พบข้อเสนอโครงการ");
@@ -225,7 +225,7 @@ export async function extractProposalFromUploadedFile(input: {
 
 export async function updateProposal(id: string, formData: FormData) {
   const { supabase, proposal, isAdmin } = await requireEditableProposal(id);
-  // ครู (ไม่ใช่ผู้ดูแลระบบ) แก้แหล่งเงิน วิธีกรอกงบ และงบรวมก้อนเดียวไม่ได้ — ใช้ค่าเดิมในฐานข้อมูลเสมอ ไม่เชื่อค่าจากฟอร์ม
+  // ครู (ไม่ใช่ผู้ดูแลระบบ) แก้กลุ่มงาน แหล่งเงิน วิธีกรอกงบ และงบรวมก้อนเดียวไม่ได้ — ใช้ค่าเดิมในฐานข้อมูลเสมอ ไม่เชื่อค่าจากฟอร์ม
   const lockBudget = !isAdmin;
 
   const name = str(formData, "name");
@@ -275,7 +275,7 @@ export async function updateProposal(id: string, formData: FormData) {
     .from("plan_project_proposals")
     .update({
       standard: str(formData, "standard"),
-      admin_group_id: str(formData, "admin_group_id"),
+      admin_group_id: lockBudget ? proposal.admin_group_id : str(formData, "admin_group_id"),
       name,
       responsible,
       objectives: listField(formData, "objectives_json"),

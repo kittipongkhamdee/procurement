@@ -215,7 +215,7 @@ export function ProposalForm({
   strategies: Strategy[];
   standards: Standard[];
   draftProjects?: DraftProject[];
-  /** ล็อกแหล่งเงินงบประมาณ วิธีกรอกงบ และงบรวมก้อนเดียว (ใช้ตอนครูแก้ไขข้อเสนอของตัวเอง — เฉพาะผู้ดูแลระบบแก้ได้) */
+  /** ล็อกกลุ่มงานที่รับผิดชอบ แหล่งเงินงบประมาณ วิธีกรอกงบ และงบรวมก้อนเดียว (ใช้ตอนครูแก้ไขข้อเสนอของตัวเอง — เฉพาะผู้ดูแลระบบแก้ได้) */
   lockBudget?: boolean;
   initial?: ProposalFormInitial;
   submitLabel?: string;
@@ -451,7 +451,7 @@ export function ProposalForm({
               required
               value={adminGroupId}
               onChange={(e) => setAdminGroupId(e.target.value)}
-              disabled={!!lockedDraft}
+              disabled={!!lockedDraft || lockBudget}
               className="input disabled:bg-slate-100 disabled:text-slate-500"
             >
               <option value="" disabled>
@@ -463,7 +463,7 @@ export function ProposalForm({
                 </option>
               ))}
             </select>
-            {lockedDraft && <input type="hidden" name="admin_group_id" value={adminGroupId} />}
+            {(lockedDraft || lockBudget) && <input type="hidden" name="admin_group_id" value={adminGroupId} />}
           </div>
           <div ref={responsibleRef} className={fieldErrors.responsible ? "rounded-xl ring-2 ring-red-400 p-1" : ""}>
             <label className="label">ผู้รับผิดชอบโครงการ</label>
@@ -511,7 +511,7 @@ export function ProposalForm({
         </div>
         {lockBudget && (
           <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            แหล่งเงินงบประมาณและงบรวมก้อนเดียวแก้ไขไม่ได้ หากต้องการแก้ไข กรุณาติดต่อผู้ดูแลระบบ
+            กลุ่มงานที่รับผิดชอบ แหล่งเงินงบประมาณ และงบรวมก้อนเดียวแก้ไขไม่ได้ หากต้องการแก้ไข กรุณาติดต่อผู้ดูแลระบบ
           </p>
         )}
         <div className="mb-1 text-sm font-medium text-slate-700">โครงการนี้กรอกงบประมาณแบบไหน?</div>
