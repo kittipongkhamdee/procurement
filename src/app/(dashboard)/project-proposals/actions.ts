@@ -132,7 +132,29 @@ async function requireEditableProposal(id: string) {
   return { supabase, proposal, isAdmin };
 }
 
-export async function createProposal(formData: FormData) {
+const DUPLICATE_PROPOSAL_MESSAGE =
+  "โครงการนี้ได้ส่งข้อเสนอโครงการไปแล้ว 1 โครงการส่งได้ 1 รายการ ไม่สามารถส่งซ้ำได้ (หากต้องการแก้ไข ให้ไปแก้ที่รายการเดิม)";
+
+function normalizeProposalName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/** 1 โครงการส่งข้อเสนอได้ 1 รายการต่อปีงบประมาณ — เช็กชื่อซ้ำ (ไม่สนช่องว่าง/ตัวพิมพ์เล็กใหญ่) ยกเว้นรายการของตัวเองตอนแก้ไข */
+async function hasDuplicateProposal(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  budgetYearId: string | null,
+  name: string,
+  excludeId?: string,
+) {
+  let query = supabase.from("plan_project_proposals").select("id, name");
+  query = budgetYearId ? query.eq("budget_year_id", budgetYearId) : query.is("budget_year_id", null);
+  if (excludeId) query = query.neq("id", excludeId);
+  const { data } = await query;
+  const target = normalizeProposalName(name);
+  return (data ?? []).some((p) => normalizeProposalName(p.name) === target);
+}
+
+export async function createProposal(formData: FormData): Promise<{ error?: string } | void> {
   const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase
@@ -145,6 +167,8 @@ export async function createProposal(formData: FormData) {
   if (!name) return;
 
   const budgetYearId = str(formData, "budget_year_id");
+  if (await hasDuplicateProposal(supabase, budgetYearId, name)) return { error: DUPLICATE_PROPOSAL_MESSAGE };
+
   const { data: budgetYear } = await supabase
     .from("plan_budget_years")
     .select("year")
@@ -200,7 +224,11 @@ export async function createProposal(formData: FormData) {
     indicators_quantity: indicatorsField(formData, "indicators_quantity_json"),
     indicators_quality: indicatorsField(formData, "indicators_quality_json"),
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // ส่งพร้อมกันสองคำขอ: ดัชนี unique ในฐานข้อมูลกันซ้ำไว้อีกชั้น
+    if (error.code === "23505") return { error: DUPLICATE_PROPOSAL_MESSAGE };
+    throw new Error(error.message);
+  }
   revalidatePath("/project-proposals");
 }
 
@@ -223,13 +251,16 @@ export async function extractProposalFromUploadedFile(input: {
   }
 }
 
-export async function updateProposal(id: string, formData: FormData) {
+export async function updateProposal(id: string, formData: FormData): Promise<{ error?: string } | void> {
   const { supabase, proposal, isAdmin } = await requireEditableProposal(id);
   // ครู (ไม่ใช่ผู้ดูแลระบบ) แก้กลุ่มงาน แหล่งเงิน วิธีกรอกงบ และงบรวมก้อนเดียวไม่ได้ — ใช้ค่าเดิมในฐานข้อมูลเสมอ ไม่เชื่อค่าจากฟอร์ม
   const lockBudget = !isAdmin;
 
   const name = str(formData, "name");
   if (!name) return;
+  if (await hasDuplicateProposal(supabase, proposal.budget_year_id, name, id)) {
+    return { error: DUPLICATE_PROPOSAL_MESSAGE };
+  }
 
   const { data: budgetYear } = await supabase
     .from("plan_budget_years")
@@ -289,7 +320,10 @@ export async function updateProposal(id: string, formData: FormData) {
       indicators_quality: indicatorsField(formData, "indicators_quality_json"),
     })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "23505") return { error: DUPLICATE_PROPOSAL_MESSAGE };
+    throw new Error(error.message);
+  }
   revalidatePath("/project-proposals");
 }
 

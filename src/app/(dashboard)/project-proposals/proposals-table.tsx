@@ -47,6 +47,7 @@ type ProposalRow = {
   fileUrlPdf: string | null;
   fileUrlPdfPreview: string | null;
   adminGroupOrder: number;
+  budgetYearId: string | null;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];
@@ -163,6 +164,9 @@ export function ProposalsTable({
                     <ProposalForm
                       action={updateProposal.bind(null, r.id)}
                       lockBudget={!isAdmin}
+                      existingProposalNames={sortedRows
+                        .filter((x) => x.id !== r.id && x.budgetYearId === r.budgetYearId)
+                        .map((x) => x.name)}
                       budgetYearId=""
                       adminGroups={adminGroups}
                       budgetSources={budgetSources}
@@ -264,6 +268,9 @@ export function ProposalsTable({
                         <ProposalForm
                           action={updateProposal.bind(null, r.id)}
                           lockBudget={!isAdmin}
+                          existingProposalNames={sortedRows
+                            .filter((x) => x.id !== r.id && x.budgetYearId === r.budgetYearId)
+                            .map((x) => x.name)}
                           budgetYearId=""
                           adminGroups={adminGroups}
                           budgetSources={budgetSources}

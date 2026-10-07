@@ -28,6 +28,8 @@ export default function NewProjectProposalPage() {
   const [strategies, setStrategies] = useState<Option[]>([]);
   const [standards, setStandards] = useState<Option[]>([]);
   const [draftProjects, setDraftProjects] = useState<DraftProject[]>([]);
+  // ชื่อข้อเสนอโครงการที่ส่งไปแล้วในปีงบประมาณนี้ — ไว้เตือนตอนเลือก/พิมพ์ชื่อซ้ำ
+  const [existingProposalNames, setExistingProposalNames] = useState<string[]>([]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -55,6 +57,11 @@ export default function NewProjectProposalPage() {
         .eq("budget_year_id", year.id)
         .order("sort_order")
         .order("created_at");
+      const { data: proposalNames } = await supabase
+        .from("plan_project_proposals")
+        .select("name")
+        .eq("budget_year_id", year.id);
+      setExistingProposalNames((proposalNames ?? []).map((p) => p.name));
       setDraftProjects(
         (draftsData ?? []).map((d) => ({
           id: d.id,
@@ -102,6 +109,7 @@ export default function NewProjectProposalPage() {
             strategies={strategies}
             standards={standards}
             draftProjects={draftProjects}
+            existingProposalNames={existingProposalNames}
             onSuccess={() => router.push("/project-proposals")}
           />
         </div>

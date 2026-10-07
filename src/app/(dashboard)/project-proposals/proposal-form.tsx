@@ -146,6 +146,19 @@ function ListField({
   );
 }
 
+function normalizeProposalName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function DuplicateWarning() {
+  return (
+    <p role="alert" className="mt-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+      โครงการนี้ได้ส่งข้อเสนอโครงการไปแล้ว — 1 โครงการส่งได้ 1 รายการ ไม่สามารถส่งซ้ำได้
+      (หากต้องการแก้ไข ให้ไปแก้ที่รายการเดิมในหน้ารายการเสนอโครงการ)
+    </p>
+  );
+}
+
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
@@ -202,12 +215,13 @@ export function ProposalForm({
   standards,
   draftProjects = [],
   lockBudget = false,
+  existingProposalNames = [],
   initial,
   submitLabel = "ส่งข้อเสนอโครงการ",
   successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
   onSuccess,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => void | Promise<void | { error?: string }>;
   budgetYearId: string;
   adminGroups: AdminGroup[];
   budgetSources: BudgetSource[];
@@ -217,6 +231,8 @@ export function ProposalForm({
   draftProjects?: DraftProject[];
   /** ล็อกกลุ่มงานที่รับผิดชอบ แหล่งเงินงบประมาณ วิธีกรอกงบ และงบรวมก้อนเดียว (ใช้ตอนครูแก้ไขข้อเสนอของตัวเอง — เฉพาะผู้ดูแลระบบแก้ได้) */
   lockBudget?: boolean;
+  /** ชื่อข้อเสนอโครงการที่มีอยู่แล้วในปีงบประมาณเดียวกัน (ไม่รวมรายการที่กำลังแก้ไข) — 1 โครงการส่งได้ 1 รายการ */
+  existingProposalNames?: string[];
   initial?: ProposalFormInitial;
   submitLabel?: string;
   successMessage?: string;
@@ -268,6 +284,13 @@ export function ProposalForm({
   }
 
   const lockedDraft = draftProjects.find((d) => d.id === selectedDraftId) ?? null;
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const existingNameKeys = useMemo(
+    () => new Set(existingProposalNames.map(normalizeProposalName)),
+    [existingProposalNames],
+  );
+  const isDuplicateName = name.trim() !== "" && existingNameKeys.has(normalizeProposalName(name));
 
   function handleDraftSelect(draftId: string) {
     setSelectedDraftId(draftId);
@@ -275,6 +298,9 @@ export function ProposalForm({
     const draft = draftProjects.find((d) => d.id === draftId);
     if (!draft) return;
     setName(draft.name);
+    if (existingNameKeys.has(normalizeProposalName(draft.name))) {
+      void toastError(`โครงการ "${draft.name}" ได้ส่งข้อเสนอโครงการไปแล้ว ไม่สามารถส่งซ้ำได้`);
+    }
     setAdminGroupId(draft.adminGroupId ?? "");
     setBudgetSourceId(draft.budgetSourceId ?? "");
     setHasActivities(false);
@@ -311,6 +337,28 @@ export function ProposalForm({
   }
 
   async function handleSubmit(formData: FormData) {
+    // กันกดส่งซ้ำ: ถ้ากำลังส่งอยู่ ไม่ทำซ้ำ
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    let keepLocked = false;
+    try {
+      keepLocked = await doSubmit(formData);
+    } finally {
+      // ส่งสำเร็จตอนสร้างใหม่: ล็อกปุ่มไว้จนกว่าจะเปลี่ยนหน้า (กันกดซ้ำระหว่างรอ) ส่วนกรณีอื่นปลดล็อก
+      if (!keepLocked) {
+        submittingRef.current = false;
+        setSubmitting(false);
+      }
+    }
+  }
+
+  /** คืน true เมื่อส่งสำเร็จตอนสร้างใหม่ (ให้คงปุ่มถูกล็อกไว้) */
+  async function doSubmit(formData: FormData): Promise<boolean> {
+    if (isDuplicateName) {
+      await toastError("โครงการนี้ได้ส่งข้อเสนอโครงการไปแล้ว ไม่สามารถส่งซ้ำได้");
+      return false;
+    }
     formData.set("has_activities", hasActivities ? "yes" : "no");
     formData.set("activities_json", JSON.stringify(hasActivities ? activities : []));
     formData.set("objectives_json", JSON.stringify(objectives.filter((o) => o.trim() !== "")));
@@ -323,7 +371,7 @@ export function ProposalForm({
           ? `งบประมาณกิจกรรมย่อยรวมเกินจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(activityBudgetDiff)} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`
           : `งบประมาณกิจกรรมย่อยรวมยังขาดจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(Math.abs(activityBudgetDiff))} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`,
       );
-      return;
+      return false;
     }
 
     const errors = validate(formData);
@@ -332,16 +380,22 @@ export function ProposalForm({
       const firstKey = FIELD_ORDER.find((k) => errors[k]);
       if (firstKey) refFor(firstKey).current?.scrollIntoView({ behavior: "smooth", block: "center" });
       await toastError("กรุณากรอกข้อมูลให้ครบถ้วนตามที่ระบุ (จุดที่มีกรอบสีแดง)");
-      return;
+      return false;
     }
     setFieldErrors({});
 
     try {
-      await action(formData);
+      const result = await action(formData);
+      if (result && typeof result === "object" && result.error) {
+        await toastError(result.error);
+        return false;
+      }
       await toastSuccess(successMessage);
       onSuccess?.();
+      return !initial;
     } catch (err) {
       await toastError(errorMessage(err));
+      return false;
     }
   }
 
@@ -386,9 +440,11 @@ export function ProposalForm({
                 {draftProjects.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
+                    {existingNameKeys.has(normalizeProposalName(d.name)) ? " (ส่งข้อเสนอแล้ว)" : ""}
                   </option>
                 ))}
               </select>
+              {lockedDraft && isDuplicateName && <DuplicateWarning />}
               <p className="mt-1 text-xs text-slate-500">
                 เลือกแล้วจะเติมชื่อโครงการ กลุ่มงาน แหล่งเงินงบประมาณ และงบประมาณให้อัตโนมัติ แก้ไขต่อได้ตามต้องการ
               </p>
@@ -401,8 +457,9 @@ export function ProposalForm({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="input"
+              className={`input ${isDuplicateName ? "border-red-400 ring-1 ring-red-300" : ""}`}
             />
+            {isDuplicateName && <DuplicateWarning />}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -704,8 +761,12 @@ export function ProposalForm({
         </div>
       </div>
 
-      <button type="submit" className="btn-primary mt-2">
-        {submitLabel}
+      <button
+        type="submit"
+        disabled={submitting}
+        className="btn-primary mt-2 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {submitting ? "กำลังส่ง…" : submitLabel}
       </button>
     </form>
   );
