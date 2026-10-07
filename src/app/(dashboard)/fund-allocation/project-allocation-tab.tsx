@@ -548,7 +548,7 @@ export function ProjectAllocationTab({
             </div>
 
             {/* จอกว้าง md ขึ้นไป: ตาราง */}
-            <table className="hidden table-base md:table">
+            <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
               <thead>
                 <tr>
                   <th className="w-14 text-center">ลำดับ</th>
@@ -563,8 +563,8 @@ export function ProjectAllocationTab({
                     </th>
                   )}
                   <th>โครงการ</th>
-                  <th className="whitespace-nowrap">กลุ่มบริหาร</th>
-                  <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
+                  <th>กลุ่มบริหาร</th>
+                  <th>แหล่งงบประมาณ</th>
                   <th className="whitespace-nowrap text-right">งบประมาณ</th>
                 </tr>
               </thead>
@@ -580,8 +580,8 @@ export function ProjectAllocationTab({
                     <td className="min-w-[10rem] max-w-[18rem]">
                       <span className="break-words font-medium text-slate-900">{r.name}</span>
                     </td>
-                    <td className="whitespace-nowrap">{r.adminGroup}</td>
-                    <td className="whitespace-nowrap">{r.budgetSource}</td>
+                    <td>{r.adminGroup}</td>
+                    <td>{r.budgetSource}</td>
                     <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budget)}</td>
                   </tr>
                 ))}
@@ -654,7 +654,7 @@ export function ProjectAllocationTab({
             (หรือพิมพ์ชื่อใหม่เองก็ได้)
           </p>
 
-          <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="mb-6 grid grid-cols-1 gap-6 2xl:grid-cols-2">
             <div>
               <div className="card-title mb-2 text-sm font-bold text-navy-800">เทียบตามแหล่งงบประมาณ</div>
               <div className="table-shell">
@@ -683,7 +683,7 @@ export function ProjectAllocationTab({
                 </div>
 
                 {/* จอกว้าง md ขึ้นไป: ตาราง */}
-                <table className="hidden table-base md:table">
+                <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
                   <thead>
                     <tr>
                       <th className="w-14 text-center">ลำดับ</th>
@@ -749,7 +749,7 @@ export function ProjectAllocationTab({
                 </div>
 
                 {/* จอกว้าง md ขึ้นไป: ตาราง */}
-                <table className="hidden table-base md:table">
+                <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
                   <thead>
                     <tr>
                       <th className="w-14 text-center">ลำดับ</th>
@@ -968,15 +968,15 @@ export function ProjectAllocationTab({
               </div>
 
               {/* จอกว้าง md ขึ้นไป: ตาราง */}
-              <table className="hidden table-base md:table">
+              <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
                 <thead>
                   <tr>
                     <th className="w-12 text-center">#</th>
                     <th>โครงการ</th>
-                    <th className="whitespace-nowrap">กลุ่มบริหาร</th>
-                    <th className="whitespace-nowrap">แหล่งงบประมาณ</th>
+                    <th>กลุ่มบริหาร</th>
+                    <th>แหล่งงบประมาณ</th>
                     <th className="whitespace-nowrap text-right">งบประมาณ</th>
-                    <th className="whitespace-nowrap"></th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1001,7 +1001,7 @@ export function ProjectAllocationTab({
                             <span className="break-words font-medium text-slate-900">{r.name}</span>
                           )}
                         </td>
-                        <td className="whitespace-nowrap">
+                        <td>
                           {isEditing ? (
                             <select
                               value={editDraft?.adminGroupId ?? ""}
@@ -1022,7 +1022,7 @@ export function ProjectAllocationTab({
                             adminGroups.find((g) => g.id === r.adminGroupId)?.name ?? "ไม่ระบุ"
                           )}
                         </td>
-                        <td className="whitespace-nowrap">
+                        <td>
                           {isEditing ? (
                             <select
                               value={editDraft?.budgetSourceId ?? ""}
