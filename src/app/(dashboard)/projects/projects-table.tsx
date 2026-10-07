@@ -183,7 +183,7 @@ export function ProjectsTable({
   }
 
   function exportToExcel() {
-    const header = ["ลำดับ", "ชื่อโครงการ", "กลุ่มบริหาร", "แหล่งเงินงบประมาณ", "งบประมาณ", "เบิกจ่ายแล้ว", "คงเหลือ"];
+    const header = ["ลำดับ", "ชื่อโครงการ", "กลุ่มบริหาร", "แหล่งเงินงบประมาณ", "งบประมาณ", "อนุมัติจ่ายแล้ว", "คงเหลือ"];
     const escapeCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
     const lines = [header.map(escapeCell).join(",")];
     filteredRows.forEach((r, i) => {
@@ -292,7 +292,7 @@ export function ProjectsTable({
                   <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-xs text-slate-500">
                     <span>แหล่งเงิน: {r.budgetSource}</span>
                     <span>งบประมาณ: {formatBaht(r.budget)}</span>
-                    <span className="text-emerald-700">เบิกจ่ายแล้ว: {formatBaht(r.spent)}</span>
+                    <span className="text-emerald-700">อนุมัติจ่ายแล้ว: {formatBaht(r.spent)}</span>
                   </div>
                   <ActivitiesDetail activities={r.activities} projectBudget={r.projectBudget} />
                 </div>
@@ -315,7 +315,7 @@ export function ProjectsTable({
             <th>กลุ่มบริหาร</th>
             <th>แหล่งเงินงบประมาณ</th>
             <th className="whitespace-nowrap text-right">งบประมาณ</th>
-            <th className="whitespace-nowrap text-right">เบิกจ่ายแล้ว</th>
+            <th className="whitespace-nowrap text-right">อนุมัติจ่ายแล้ว</th>
             <th className="whitespace-nowrap text-right">คงเหลือ</th>
             {isAdmin && <th></th>}
           </tr>
