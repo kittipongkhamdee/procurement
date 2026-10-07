@@ -44,6 +44,7 @@ type ProposalRow = {
   strategyAlignment: string | null;
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
+  fileUrlPdfPreview: string | null;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];

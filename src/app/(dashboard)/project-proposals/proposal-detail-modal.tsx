@@ -31,6 +31,7 @@ type Proposal = {
   strategyAlignment: string | null;
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
+  fileUrlPdfPreview: string | null;
   activities: ActivityRow[];
   budgetAmount: number;
   status: string;
@@ -297,7 +298,7 @@ export function ProposalDetailModal({
               ตัวอย่างไฟล์โครงการ (PDF)
             </summary>
             <iframe
-              src={proposal.fileUrlPdf}
+              src={proposal.fileUrlPdfPreview ?? proposal.fileUrlPdf}
               title={`ไฟล์โครงการ ${proposal.name}`}
               className="h-[70vh] w-full border-t border-slate-200"
             />

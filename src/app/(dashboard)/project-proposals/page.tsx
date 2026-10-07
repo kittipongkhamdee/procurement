@@ -4,14 +4,15 @@
 // ข้อเสนอโครงการ + สิทธิ์ผู้ใช้ผ่าน browser Supabase client แทนการรอ Server Component fetch
 //
 // สำคัญ: ใช้ resolveUrls แบบ client เอง (เหมือนหน้า /documents) ไม่ import จากบาร์เรล
-// @/lib/storage เพราะดึง google-drive.ts (service account secret) เข้ามาด้วย ไฟล์โครงการใน
-// หน้านี้ใช้แค่ Supabase Storage เสมอ (ไม่รองรับ Google Drive) จึงไม่ต้องเช็ค isDriveRef เลย
+// @/lib/storage เพราะดึง google-drive.ts (service account secret) เข้ามาด้วย — import เฉพาะ
+// @/lib/storage/ref (pure function) ไฟล์ที่เก็บบน Google Drive (gdrive:{id}) เปิดผ่านลิงก์ดูไฟล์ของ Drive
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { driveFileId, driveViewUrl, isDriveRef } from "@/lib/storage/ref";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { CheckIcon, ClipboardCheckIcon, LightbulbIcon, PlusIcon } from "@/components/icons";
 import { ProposalsTable } from "./proposals-table";
@@ -44,6 +45,8 @@ type ProposalRow = {
   strategyAlignment: string | null;
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
+  /** URL สำหรับฝังดูตัวอย่าง (iframe) — ไฟล์ Google Drive ใช้หน้า /preview */
+  fileUrlPdfPreview: string | null;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];
@@ -58,6 +61,13 @@ type ProposalRow = {
   approvedAt: string | null;
   approveNote: string | null;
 };
+
+// ไฟล์ที่เก็บบน Google Drive (ref "gdrive:{id}") ไม่ได้อยู่ใน Supabase Storage จึงเซ็น signed URL ไม่ได้ — เปิดผ่านลิงก์ดูไฟล์ของ Drive แทน
+function resolveFileUrl(ref: string | null, signed: Map<string, string>): string | null {
+  if (!ref) return null;
+  if (isDriveRef(ref)) return driveViewUrl(driveFileId(ref));
+  return signed.get(ref) ?? null;
+}
 
 export default function ProjectProposalsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
@@ -130,7 +140,7 @@ export default function ProjectProposalsPage() {
 
     const filePaths = (proposals ?? [])
       .flatMap((p) => [p.file_url_word, p.file_url_pdf])
-      .filter((p): p is string => !!p);
+      .filter((p): p is string => !!p && !isDriveRef(p));
     const signedFileUrls = new Map<string, string>();
     if (filePaths.length > 0) {
       const { data: signed } = await supabase.storage.from("procurement-files").createSignedUrls(filePaths, 3600);
@@ -163,8 +173,12 @@ export default function ProjectProposalsPage() {
         responsible: p.responsible ?? [],
         objectives: (p.objectives as unknown as string[]) ?? [],
         strategyAlignment: p.strategy_alignment,
-        fileUrlWord: p.file_url_word ? (signedFileUrls.get(p.file_url_word) ?? null) : null,
-        fileUrlPdf: p.file_url_pdf ? (signedFileUrls.get(p.file_url_pdf) ?? null) : null,
+        fileUrlWord: resolveFileUrl(p.file_url_word, signedFileUrls),
+        fileUrlPdf: resolveFileUrl(p.file_url_pdf, signedFileUrls),
+        fileUrlPdfPreview:
+          p.file_url_pdf && isDriveRef(p.file_url_pdf)
+            ? `https://drive.google.com/file/d/${driveFileId(p.file_url_pdf)}/preview`
+            : resolveFileUrl(p.file_url_pdf, signedFileUrls),
         fileUrlWordPath: p.file_url_word,
         fileUrlPdfPath: p.file_url_pdf,
         activities: (p.activities as unknown as ActivityRow[]) ?? [],
