@@ -10,13 +10,17 @@ import { useAuth } from "@/lib/AuthContext";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { resizeAvatarFile } from "@/lib/image-resize";
 import { LockIcon, UserIcon } from "@/components/icons";
-import { changePassword, removeAvatar, uploadAvatar } from "./actions";
+import { changePassword, removeAvatar, updateOwnName, uploadAvatar } from "./actions";
 
 export default function ProfilePage() {
   const { displayName, roleLabel, avatarUrl, loading, refresh } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
+
+  // null = ยังไม่ได้พิมพ์แก้ ใช้ชื่อปัจจุบันจาก useAuth (โหลดแบบ async จึงเก็บเฉพาะค่าที่ผู้ใช้พิมพ์เอง)
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -61,6 +65,28 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleSaveName(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (savingName || nameDraft === null) return;
+    setSavingName(true);
+    try {
+      const fd = new FormData();
+      fd.set("full_name", nameDraft);
+      const result = await updateOwnName(fd);
+      if (result.error) {
+        await toastError(result.error);
+        return;
+      }
+      await refresh();
+      setNameDraft(null);
+      await toastSuccess("บันทึกชื่อแล้ว");
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSavingName(false);
+    }
+  }
+
   async function handleChangePassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSavingPassword(true);
@@ -86,7 +112,7 @@ export default function ProfilePage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">โปรไฟล์ของฉัน</h1>
-          <p className="page-subtitle">จัดการรูปประจำตัวและรหัสผ่านของบัญชีคุณ</p>
+          <p className="page-subtitle">จัดการรูปประจำตัว ชื่อ และรหัสผ่านของบัญชีคุณ</p>
         </div>
       </div>
 
@@ -137,6 +163,40 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title mb-4 flex items-center gap-2">
+            <UserIcon className="h-4 w-4" />
+            ชื่อที่แสดง
+          </div>
+          <form onSubmit={handleSaveName} className="space-y-3">
+            <div>
+              <label htmlFor="full_name" className="label">
+                ชื่อ-นามสกุล
+              </label>
+              <input
+                id="full_name"
+                type="text"
+                required
+                maxLength={120}
+                value={nameDraft ?? displayName}
+                onChange={(e) => setNameDraft(e.target.value)}
+                disabled={loading || savingName}
+                className="input"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                ชื่อนี้แสดงที่มุมขวาบนและในเอกสารที่สร้างต่อจากนี้ ส่วนเอกสารที่บันทึกไปแล้วจะยังเป็นชื่อเดิม
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={savingName || nameDraft === null || nameDraft.trim() === "" || nameDraft.trim() === displayName}
+              className="btn-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {savingName ? "กำลังบันทึก..." : "บันทึกชื่อ"}
+            </button>
+          </form>
         </div>
 
         <div className="card">

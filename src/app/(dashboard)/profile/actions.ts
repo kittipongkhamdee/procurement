@@ -56,6 +56,32 @@ export async function removeAvatar() {
   revalidatePath("/profile");
 }
 
+// แก้ไขชื่อที่แสดงของบัญชีตัวเอง — คืน { error } แทนการ throw (Next.js ปิดบังข้อความ error ที่ throw จาก
+// Server Action ในโปรดักชัน) ชื่อที่บันทึกไว้ในเอกสารเก่าแล้ว (เช่น ผู้เสนอโครงการ/ผู้ลงความเห็น) ไม่เปลี่ยนตาม
+export async function updateOwnName(formData: FormData): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "กรุณาเข้าสู่ระบบ" };
+
+  const fullName = String(formData.get("full_name") ?? "").trim();
+  if (!fullName) return { error: "กรุณากรอกชื่อ" };
+  if (fullName.length > 120) return { error: "ชื่อยาวเกินไป (ไม่เกิน 120 ตัวอักษร)" };
+
+  const { data, error } = await supabase
+    .from("proc_profiles")
+    .update({ full_name: fullName, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+    .select("user_id");
+  if (error) return { error: error.message };
+  // RLS ที่กันการแก้ไขจะไม่โยน error แต่ไม่มีแถวถูกอัปเดต
+  if (!data || data.length === 0) return { error: "ไม่พบข้อมูลโปรไฟล์ของคุณ" };
+
+  revalidatePath("/profile");
+  return {};
+}
+
 export async function changePassword(formData: FormData) {
   const { supabase } = await requireUser();
   const newPassword = String(formData.get("new_password") ?? "");
