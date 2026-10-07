@@ -173,7 +173,10 @@ export function ProjectAllocationTab({
       .select("id, name, admin_group_id, budget_source_id, budget, editing_by_name")
       .eq("budget_year_id", budgetYearId)
       .order("sort_order")
-      .order("created_at");
+      .order("created_at")
+      // แถวที่คัดลอกมาพร้อมกันมี sort_order และ created_at เท่ากันหมด — ต้องมีตัวตัดสินสุดท้ายที่คงที่ ไม่งั้น
+      // Postgres คืนลำดับของแถวที่เท่ากันตามตำแหน่งจริงในตาราง ซึ่งเปลี่ยนทุกครั้งที่แถวถูก UPDATE (กดแก้ไข/บันทึก)
+      .order("id");
     setDraftRows(
       (data ?? []).map((d) => ({
         id: d.id,
