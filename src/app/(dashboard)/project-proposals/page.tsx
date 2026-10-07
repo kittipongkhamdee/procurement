@@ -139,11 +139,21 @@ export default function ProjectProposalsPage() {
       });
     }
 
+    // ชื่อผู้เสนอใช้ชื่อปัจจุบันในโปรไฟล์ (proposer_name เป็นแค่สำเนาตอนสร้าง — ใช้สำรองเมื่อหาโปรไฟล์ไม่เจอ)
+    const creatorIds = Array.from(new Set((proposals ?? []).map((p) => p.created_by).filter((id): id is string => !!id)));
+    const currentNames = new Map<string, string>();
+    if (creatorIds.length > 0) {
+      const { data: creators } = await supabase.from("proc_profiles").select("user_id, full_name").in("user_id", creatorIds);
+      creators?.forEach((c) => {
+        if (c.full_name) currentNames.set(c.user_id, c.full_name);
+      });
+    }
+
     setRows(
       (proposals ?? []).map((p) => ({
         id: p.id,
         name: p.name,
-        proposerName: p.proposer_name,
+        proposerName: (p.created_by ? currentNames.get(p.created_by) : undefined) ?? p.proposer_name,
         createdBy: p.created_by,
         adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
         budgetSource: (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? "-",
