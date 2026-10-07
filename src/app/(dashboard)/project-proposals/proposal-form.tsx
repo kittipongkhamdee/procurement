@@ -277,12 +277,9 @@ export function ProposalForm({
     setActivities((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
-  function toggleHasActivities() {
-    setHasActivities((v) => {
-      const next = !v;
-      if (next && activities.length === 0) setActivities([emptyActivity()]);
-      return next;
-    });
+  function chooseHasActivities(next: boolean) {
+    setHasActivities(next);
+    if (next && activities.length === 0) setActivities([emptyActivity()]);
   }
 
   const totalBudget = useMemo(
@@ -504,25 +501,49 @@ export function ProposalForm({
           </select>
           {lockedDraft && <input type="hidden" name="budget_source_id" value={budgetSourceId} />}
         </div>
-        <div className="mb-3 flex items-center gap-3 text-sm">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={hasActivities}
-            onClick={toggleHasActivities}
-            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-              hasActivities ? "bg-navy-800" : "bg-slate-300"
-            }`}
-          >
-            <span
-              className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition-transform ${
-                hasActivities ? "translate-x-6" : "translate-x-1"
-              }`}
-            />
-          </button>
-          <span className="font-medium text-slate-700">
-            {hasActivities ? "มีกิจกรรมย่อย" : "ไม่มีกิจกรรมย่อย"}
-          </span>
+        <div className="mb-1 text-sm font-medium text-slate-700">โครงการนี้กรอกงบประมาณแบบไหน?</div>
+        <div role="radiogroup" aria-label="วิธีกรอกงบประมาณโครงการ" className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {[
+            {
+              value: true,
+              title: "แยกงบตามกิจกรรม",
+              desc: "โครงการมีหลายกิจกรรม ต้องการระบุชื่อ ผู้รับผิดชอบ และงบของแต่ละกิจกรรม ระบบจะรวมงบให้เอง",
+            },
+            {
+              value: false,
+              title: "งบรวมก้อนเดียว",
+              desc: "โครงการไม่ได้แยกกิจกรรม ใส่งบประมาณรวมของโครงการช่องเดียว",
+            },
+          ].map((opt) => {
+            const selected = hasActivities === opt.value;
+            return (
+              <button
+                key={opt.title}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => chooseHasActivities(opt.value)}
+                className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-colors ${
+                  selected
+                    ? "border-navy-800 bg-navy-50/60"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                    selected ? "border-navy-800 bg-navy-800" : "border-slate-300"
+                  }`}
+                >
+                  {selected && <span className="h-2 w-2 rounded-full bg-white" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-900">{opt.title}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{opt.desc}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {hasActivities ? (
