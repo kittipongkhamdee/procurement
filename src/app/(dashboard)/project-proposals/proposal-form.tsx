@@ -379,7 +379,7 @@ export function ProposalForm({
                 onChange={(e) => handleDraftSelect(e.target.value)}
                 className="input"
               >
-                <option value="">— ไม่ใช้ พิมพ์เอง —</option>
+                <option value="">— กรุณาเลือก หรือพิมพ์เองที่ช่องชื่อโครงการ —</option>
                 {draftProjects.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
