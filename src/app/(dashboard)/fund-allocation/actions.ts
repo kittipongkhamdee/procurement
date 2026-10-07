@@ -93,16 +93,26 @@ export async function upsertGroupAllocation(budgetYearId: string, adminGroupId: 
 // ก่อนที่ครูจะไปเลือกใช้ตอนสร้างข้อเสนอโครงการจริงที่เมนู "เสนอโครงการ" ต่อไป
 export async function copyProjectsToDraft(targetBudgetYearId: string, projectIds: string[]) {
   const supabase = await requireAdmin();
-  if (projectIds.length === 0) return;
+  if (projectIds.length === 0) return { copied: 0, skipped: 0 };
 
   const { data: projects, error: fetchError } = await supabase
     .from("plan_projects")
     .select("id, name, admin_group_id, budget_source_id, budget, plan_activities(budget)")
     .in("id", projectIds);
   if (fetchError) throw new Error(fetchError.message);
-  if (!projects || projects.length === 0) return;
+  if (!projects || projects.length === 0) return { copied: 0, skipped: 0 };
 
-  const rows = projects.map((p) => {
+  // กันคัดลอกซ้ำ: ข้ามโครงการที่มีร่างโครงการชื่อเดียวกัน+กลุ่มบริหารเดียวกันอยู่แล้วในปีนี้
+  const { data: existing } = await supabase
+    .from("plan_draft_projects")
+    .select("name, admin_group_id")
+    .eq("budget_year_id", targetBudgetYearId);
+  const existingKeys = new Set((existing ?? []).map((e) => `${e.name.trim()}|${e.admin_group_id ?? ""}`));
+  const fresh = projects.filter((p) => !existingKeys.has(`${p.name.trim()}|${p.admin_group_id ?? ""}`));
+  const skipped = projects.length - fresh.length;
+  if (fresh.length === 0) return { copied: 0, skipped };
+
+  const rows = fresh.map((p) => {
     const activities = (p.plan_activities as unknown as { budget: number }[]) ?? [];
     const budget =
       activities.length > 0 ? activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0) : Number(p.budget ?? 0);
@@ -118,6 +128,7 @@ export async function copyProjectsToDraft(targetBudgetYearId: string, projectIds
   const { error } = await supabase.from("plan_draft_projects").insert(rows);
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
+  return { copied: rows.length, skipped };
 }
 
 // ล็อกแก้ไขร่างโครงการหมดอายุอัตโนมัติหลังไม่มีการบันทึก/ยกเลิกภายในเวลานี้ (กันกรณีปิดแท็บทิ้งไว้
@@ -188,6 +199,34 @@ export async function releaseDraftEditLock(id: string, budgetYearId: string) {
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/fund-allocation");
+}
+
+// ยกเลิกตอนเพิ่มร่างโครงการใหม่ — ลบแถวเปล่า "โครงการใหม่" ที่เพิ่งสร้างโดยผู้กดเอง (ยังไม่ได้แก้ชื่อ/งบ) ทิ้ง
+// ไม่ให้ค้างเป็นแถวขยะ ถ้าไม่ตรงเงื่อนไขนี้จะไม่ลบ แค่ปล่อยล็อกแก้ไข
+export async function discardNewDraftProject(id: string, budgetYearId: string) {
+  const supabase = await requireDraftEditor(budgetYearId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("กรุณาเข้าสู่ระบบ");
+  const { data: deleted } = await supabase
+    .from("plan_draft_projects")
+    .delete()
+    .eq("id", id)
+    .eq("name", "โครงการใหม่")
+    .eq("budget", 0)
+    .eq("editing_by", user.id)
+    .select("id");
+  if (!deleted || deleted.length === 0) {
+    await supabase
+      .from("plan_draft_projects")
+      .update({ editing_by: null, editing_by_name: null, editing_at: null })
+      .eq("id", id);
+    revalidatePath("/fund-allocation");
+    return { deleted: false };
+  }
+  revalidatePath("/fund-allocation");
+  return { deleted: true };
 }
 
 // แก้ไขร่างโครงการแบบอินไลน์ (ชื่อ/กลุ่มบริหาร/แหล่งงบ/งบประมาณ) — ส่งเฉพาะฟิลด์ที่เปลี่ยน พร้อมปล่อย

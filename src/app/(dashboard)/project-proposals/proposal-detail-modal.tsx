@@ -291,6 +291,19 @@ export function ProposalDetailModal({
           );
         })()}
 
+        {proposal.fileUrlPdf && (
+          <details open className="rounded-lg border border-slate-200">
+            <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold text-slate-700">
+              ตัวอย่างไฟล์โครงการ (PDF)
+            </summary>
+            <iframe
+              src={proposal.fileUrlPdf}
+              title={`ไฟล์โครงการ ${proposal.name}`}
+              className="h-[70vh] w-full border-t border-slate-200"
+            />
+          </details>
+        )}
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="สนองกลยุทธ์โรงเรียน" value={proposal.strategyAlignment} />
           <Field label="สอดคล้องกับมาตรฐานการศึกษา" value={proposal.standard} />

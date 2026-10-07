@@ -14,6 +14,7 @@ import {
   acquireDraftEditLock,
   copyProjectsToDraft,
   createDraftProject,
+  discardNewDraftProject,
   deleteDraftProject,
   releaseDraftEditLock,
   setDraftEditOpen,
@@ -100,6 +101,8 @@ export function ProjectAllocationTab({
 
   const [draftRows, setDraftRows] = useState<DraftRow[] | null>(null);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  // แถวที่เพิ่งกด "เพิ่มร่างโครงการ" และยังไม่ได้บันทึก — ถ้ายกเลิกให้ลบแถวเปล่านั้นทิ้ง
+  const [newDraftId, setNewDraftId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DraftEditState | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [acquiringId, setAcquiringId] = useState<string | null>(null);
@@ -301,8 +304,9 @@ export function ProjectAllocationTab({
     if (selectedIds.size === 0) return;
     setCopying(true);
     try {
-      await copyProjectsToDraft(budgetYearId, Array.from(selectedIds));
-      await toastSuccess(`คัดลอกเป็นร่างโครงการเรียบร้อยแล้ว ${selectedIds.size} รายการ`);
+      const result = await copyProjectsToDraft(budgetYearId, Array.from(selectedIds));
+      const skippedText = result.skipped > 0 ? ` (ข้าม ${result.skipped} รายการที่มีอยู่ในร่างแล้ว)` : "";
+      await toastSuccess(`คัดลอกเป็นร่างโครงการเรียบร้อยแล้ว ${result.copied} รายการ${skippedText}`);
       setSelectedIds(new Set());
       await loadDraftRows();
     } catch (err) {
@@ -339,7 +343,16 @@ export function ProjectAllocationTab({
     setEditingRowId(null);
     setEditDraft(null);
     try {
-      await releaseDraftEditLock(row.id, budgetYearId);
+      if (row.id === newDraftId) {
+        setNewDraftId(null);
+        const { deleted } = await discardNewDraftProject(row.id, budgetYearId);
+        if (deleted) {
+          setDraftRows((prev) => (prev ? prev.filter((r) => r.id !== row.id) : prev));
+          return;
+        }
+      } else {
+        await releaseDraftEditLock(row.id, budgetYearId);
+      }
       patchDraft(row.id, { editingByName: null });
     } catch (err) {
       await toastError(errorMessage(err));
@@ -369,6 +382,7 @@ export function ProjectAllocationTab({
         budget,
       });
       patchDraft(row.id, { name, adminGroupId, budgetSourceId, budget, editingByName: null });
+      setNewDraftId(null);
       setEditingRowId(null);
       setEditDraft(null);
       await toastSuccess("บันทึกร่างโครงการเรียบร้อยแล้ว");
@@ -397,6 +411,7 @@ export function ProjectAllocationTab({
         setDraftAdminGroupId(ALL);
         setDraftBudgetSourceId(ALL);
         setEditingRowId(row.id);
+        setNewDraftId(row.id);
         setEditDraft({
           name: row.name,
           adminGroupId: row.adminGroupId ?? "",
