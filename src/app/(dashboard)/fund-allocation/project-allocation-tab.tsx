@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/AuthContext";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import {
   acquireDraftEditLock,
@@ -72,6 +73,9 @@ const ALL = "__all__";
 
 type SubTabKey = "copy" | "draft";
 
+// ล็อกแก้ไขหมดอายุหลังเวลานี้ — ต้องตรงกับ EDIT_LOCK_MINUTES ใน actions.ts
+const EDIT_LOCK_MINUTES = 10;
+
 export function ProjectAllocationTab({
   section,
   budgetYearId,
@@ -88,6 +92,8 @@ export function ProjectAllocationTab({
   budgetSources: Option[];
   isAdmin: boolean;
 }) {
+  const { user } = useAuth();
+  const myUserId = user?.userId ?? null;
   const targetYear = budgetYears.find((y) => y.id === budgetYearId) ?? null;
   const otherYears = budgetYears.filter((y) => y.id !== budgetYearId);
 
@@ -170,7 +176,7 @@ export function ProjectAllocationTab({
     const supabase = createClient();
     const { data } = await supabase
       .from("plan_draft_projects")
-      .select("id, name, admin_group_id, budget_source_id, budget, editing_by_name")
+      .select("id, name, admin_group_id, budget_source_id, budget, editing_by, editing_by_name, editing_at")
       .eq("budget_year_id", budgetYearId)
       .order("sort_order")
       .order("created_at")
@@ -184,10 +190,18 @@ export function ProjectAllocationTab({
         adminGroupId: d.admin_group_id,
         budgetSourceId: d.budget_source_id,
         budget: Number(d.budget ?? 0),
-        editingByName: d.editing_by_name,
+        // แสดง "กำลังแก้ไขโดย…" เฉพาะล็อกของคนอื่นที่ยังไม่หมดอายุ — ล็อกของตัวเองที่ค้างไว้ (ปิดแท็บ/เปลี่ยนหน้า
+        // ระหว่างแก้ไข) และล็อกที่หมดอายุแล้วถือว่าว่าง กดแก้ไขต่อได้ (ฝั่ง server ก็ยอมจองซ้ำในกรณีเหล่านี้)
+        editingByName:
+          d.editing_by_name &&
+          d.editing_by !== myUserId &&
+          d.editing_at &&
+          Date.now() - new Date(d.editing_at).getTime() < EDIT_LOCK_MINUTES * 60 * 1000
+            ? d.editing_by_name
+            : null,
       })),
     );
-  }, [budgetYearId]);
+  }, [budgetYearId, myUserId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
