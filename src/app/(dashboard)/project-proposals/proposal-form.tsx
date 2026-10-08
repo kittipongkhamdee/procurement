@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import type { Tables } from "@/lib/supabase/database.types";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
@@ -143,6 +144,36 @@ function ListField({
         {addLabel}
       </button>
     </div>
+  );
+}
+
+/** ปุ่มส่งฟอร์ม — ใช้ useFormStatus เพื่อให้สถานะ "กำลังส่ง…" ขึ้นทันทีที่กดปุ่ม (state ธรรมดาใน form action ถูกหน่วงไว้
+ * จนกว่า action จะเสร็จ ผู้ใช้เลยเห็นปุ่มนิ่งเงียบระหว่างอัปโหลด/บันทึก) */
+function SubmitButton({
+  label,
+  pendingLabel,
+  disabled,
+}: {
+  label: string;
+  pendingLabel: string;
+  disabled: boolean;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending || disabled}
+      aria-busy={pending}
+      className="btn-primary mt-2 inline-flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {pending && (
+        <span
+          aria-hidden
+          className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+        />
+      )}
+      {pending ? pendingLabel : label}
+    </button>
   );
 }
 
@@ -789,13 +820,11 @@ export function ProposalForm({
         </div>
       </div>
 
-      <button
-        type="submit"
+      <SubmitButton
+        label={submitting ? (initial ? "กำลังบันทึก…" : "กำลังส่ง…") : submitLabel}
+        pendingLabel={initial ? "กำลังบันทึก… กรุณารอสักครู่" : "กำลังส่งข้อเสนอ… กรุณารอสักครู่"}
         disabled={submitting || budgetMismatch}
-        className="btn-primary mt-2 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {submitting ? "กำลังส่ง…" : submitLabel}
-      </button>
+      />
       {budgetMismatch && budgetTarget !== null && (
         <p role="alert" className="text-sm font-medium text-red-600">
           บันทึกไม่ได้: งบรวมของกิจกรรมย่อย {formatBaht(totalBudget)} บาท ต้องเท่ากับ {formatBaht(budgetTarget)} บาท
