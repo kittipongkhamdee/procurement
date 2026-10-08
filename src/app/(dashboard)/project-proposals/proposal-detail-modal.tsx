@@ -20,6 +20,8 @@ type ActivityRow = {
   budget: number;
 };
 
+type IndicatorRow = { indicator: string; target: string };
+
 type Proposal = {
   id: string;
   name: string;
@@ -29,6 +31,9 @@ type Proposal = {
   standard: string | null;
   responsible: string[];
   strategyAlignment: string | null;
+  objectives: string[];
+  indicatorsQuantity: IndicatorRow[];
+  indicatorsQuality: IndicatorRow[];
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
   fileUrlPdfPreview: string | null;
@@ -312,6 +317,30 @@ export function ProposalDetailModal({
           <Field label="ผู้รับผิดชอบ" value={proposal.responsible.join(", ") || "-"} />
         </div>
 
+        {proposal.objectives.length > 0 && (
+          <div>
+            <SectionTitle>วัตถุประสงค์</SectionTitle>
+            <ol className="mt-1 space-y-1 text-left text-sm text-slate-700">
+              {proposal.objectives.map((o, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="w-5 shrink-0 text-right text-slate-400">{i + 1}.</span>
+                  <span className="min-w-0 whitespace-pre-wrap break-words">{o}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {proposal.activities.length === 0 && (
+          <div>
+            <SectionTitle>งบประมาณโครงการ</SectionTitle>
+            <div className="mt-1 grid grid-cols-1 gap-0.5 text-left text-sm font-bold text-navy-800">
+              <div>งบประมาณ: {formatBaht(proposal.budgetAmount)} บาท</div>
+              <div>แหล่งเงิน: {proposal.budgetSource}</div>
+            </div>
+          </div>
+        )}
+
         {proposal.activities.length > 0 && (
           <div>
             <SectionTitle>ขั้นตอนการดำเนินงาน และงบประมาณ</SectionTitle>
@@ -334,6 +363,33 @@ export function ProposalDetailModal({
             <div className="mt-2 grid grid-cols-1 gap-0.5 text-left text-sm font-bold text-navy-800">
               <div>รวมงบประมาณทั้งสิ้น: {formatBaht(proposal.budgetAmount)} บาท</div>
               <div>แหล่งเงิน: {proposal.budgetSource}</div>
+            </div>
+          </div>
+        )}
+
+        {(proposal.indicatorsQuantity.length > 0 || proposal.indicatorsQuality.length > 0) && (
+          <div>
+            <SectionTitle>ตัวชี้วัดและเป้าหมายความสำเร็จ</SectionTitle>
+            <div className="mt-1 grid grid-cols-1 gap-3">
+              {[
+                { title: "เชิงปริมาณ", rows: proposal.indicatorsQuantity },
+                { title: "เชิงคุณภาพ", rows: proposal.indicatorsQuality },
+              ]
+                .filter((g) => g.rows.length > 0)
+                .map((g) => (
+                  <div key={g.title}>
+                    <div className="text-sm font-semibold text-slate-600">{g.title}</div>
+                    <div className="mt-1 divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+                      {g.rows.map((r, i) => (
+                        <div key={i} className="grid grid-cols-1 gap-1 p-3 text-left text-sm sm:grid-cols-[1.5rem_1fr_12rem] sm:gap-2">
+                          <span className="text-slate-400 sm:text-right">{i + 1}.</span>
+                          <span className="min-w-0 break-words text-slate-700">{r.indicator}</span>
+                          <span className="min-w-0 break-words font-medium text-navy-800">เป้าหมาย: {r.target}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
             </div>
           </div>
         )}

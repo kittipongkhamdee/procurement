@@ -45,6 +45,7 @@ function formatBaht(n: number) {
 }
 
 type ActivityRow = { name: string; responsible: string[]; budget: number };
+type IndicatorRow = { indicator: string; target: string };
 type ProposalItem = {
   id: string;
   name: string;
@@ -55,6 +56,9 @@ type ProposalItem = {
   standard: string | null;
   responsible: string[];
   strategyAlignment: string | null;
+  objectives: string[];
+  indicatorsQuantity: IndicatorRow[];
+  indicatorsQuality: IndicatorRow[];
   fileUrlWord: string | null;
   fileUrlPdf: string | null;
   fileUrlPdfPreview: string | null;
@@ -357,7 +361,7 @@ export function PendingActionsPanel() {
         ? supabase
             .from("plan_project_proposals")
             .select(
-              "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, activities, budget_amount, status, file_url_word, file_url_pdf, created_at, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
+              "id, name, proposer_name, created_by, standard, responsible, strategy_alignment, objectives, indicators_quantity, indicators_quality, activities, budget_amount, status, file_url_word, file_url_pdf, created_at, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name), plan_budget_sources(name)",
             )
             .in("status", [deputy ? "รอเห็นชอบ" : "", director ? "รออนุมัติ" : ""].filter(Boolean))
             .order("created_at", { ascending: true })
@@ -392,6 +396,9 @@ export function PendingActionsPanel() {
       standard: string | null;
       responsible: string[] | null;
       strategy_alignment: string | null;
+      objectives: string[] | null;
+      indicators_quantity: IndicatorRow[] | null;
+      indicators_quality: IndicatorRow[] | null;
       activities: ActivityRow[] | null;
       budget_amount: number;
       status: string;
@@ -429,6 +436,9 @@ export function PendingActionsPanel() {
       standard: p.standard,
       responsible: p.responsible ?? [],
       strategyAlignment: p.strategy_alignment,
+      objectives: p.objectives ?? [],
+      indicatorsQuantity: p.indicators_quantity ?? [],
+      indicatorsQuality: p.indicators_quality ?? [],
       fileUrlWord: resolveFileUrl(p.file_url_word, signedFileUrls),
       fileUrlPdf: resolveFileUrl(p.file_url_pdf, signedFileUrls),
       fileUrlPdfPreview: resolveEmbedUrl(p.file_url_pdf, signedFileUrls),
