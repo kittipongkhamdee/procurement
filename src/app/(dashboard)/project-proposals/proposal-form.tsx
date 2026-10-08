@@ -328,6 +328,8 @@ export function ProposalForm({
   // ร่างโครงการนี้ส่งข้อเสนอไปแล้วหรือยัง: ผูกด้วย id (เลือกจากช่องร่างโครงการ) หรือชื่อตรงกับข้อเสนอที่มีอยู่
   const isDraftProposed = (d: DraftProject) =>
     proposedDraftIdSet.has(d.id) || existingNameKeys.has(normalizeProposalName(d.name));
+  // ช่องเลือกร่างโครงการแสดงเฉพาะร่างที่ยังไม่ได้เสนอ (ถ้าเลือกค้างไว้อยู่ ยังคงแสดงรายการนั้นเพื่อไม่ให้ช่องว่างกะทันหัน)
+  const availableDrafts = draftProjects.filter((d) => !isDraftProposed(d) || d.id === selectedDraftId);
   const isDuplicateName =
     (name.trim() !== "" && existingNameKeys.has(normalizeProposalName(name))) ||
     (!!lockedDraft && proposedDraftIdSet.has(lockedDraft.id));
@@ -486,16 +488,17 @@ export function ProposalForm({
                 className="input"
               >
                 <option value="">— กรุณาเลือก หรือพิมพ์เองที่ช่องชื่อโครงการ —</option>
-                {draftProjects.map((d) => (
+                {availableDrafts.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
-                    {isDraftProposed(d) ? " (เสนอโครงการแล้ว)" : ""}
                   </option>
                 ))}
               </select>
               {lockedDraft && isDuplicateName && <DuplicateWarning />}
               <p className="mt-1 text-xs text-slate-500">
-                เลือกแล้วจะเติมชื่อโครงการ กลุ่มงาน แหล่งเงินงบประมาณ และงบประมาณให้อัตโนมัติ แก้ไขต่อได้ตามต้องการ
+                {availableDrafts.length === 0
+                  ? "ร่างโครงการทุกรายการถูกเสนอไปแล้ว — หากเป็นโครงการนอกร่าง ให้พิมพ์ชื่อโครงการเองที่ช่องด้านล่าง"
+                  : `แสดงเฉพาะร่างโครงการที่ยังไม่ได้เสนอ (${availableDrafts.length.toLocaleString("th-TH")} รายการ) เลือกแล้วจะเติมชื่อโครงการ กลุ่มงาน แหล่งเงินงบประมาณ และงบประมาณให้อัตโนมัติ`}
               </p>
             </div>
           )}
