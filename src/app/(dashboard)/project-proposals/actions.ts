@@ -132,6 +132,9 @@ async function requireEditableProposal(id: string) {
   return { supabase, proposal, isAdmin };
 }
 
+const BUDGET_MISMATCH_MESSAGE = (target: number, total: number) =>
+  `งบประมาณรวมของกิจกรรมย่อย (${total.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท) ไม่เท่ากับงบที่กำหนดไว้ (${target.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท) กรุณาแก้ไขให้ยอดรวมตรงกันก่อนบันทึก`;
+
 const DUPLICATE_PROPOSAL_MESSAGE =
   "โครงการนี้ได้ส่งข้อเสนอโครงการไปแล้ว 1 โครงการส่งได้ 1 รายการ ไม่สามารถส่งซ้ำได้ (หากต้องการแก้ไข ให้ไปแก้ที่รายการเดิม)";
 
@@ -194,10 +197,12 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
         budget: Number(a.budget) || 0,
       })) as unknown as ActivityRow[];
     const lockedBudgetAmount = formData.get("locked_budget_amount");
-    budgetAmount =
-      lockedBudgetAmount !== null
-        ? Number(lockedBudgetAmount) || 0
-        : activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+    const activitiesTotal = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+    // เลือกร่างโครงการที่กำหนดงบไว้แล้ว: งบรวมกิจกรรมย่อยต้องเท่ากับงบนั้นพอดี
+    if (lockedBudgetAmount !== null && Math.abs(activitiesTotal - (Number(lockedBudgetAmount) || 0)) >= 0.01) {
+      return { error: BUDGET_MISMATCH_MESSAGE(Number(lockedBudgetAmount) || 0, activitiesTotal) };
+    }
+    budgetAmount = lockedBudgetAmount !== null ? Number(lockedBudgetAmount) || 0 : activitiesTotal;
   } else {
     budgetAmount = Number(formData.get("project_budget") ?? 0) || 0;
   }
@@ -290,10 +295,15 @@ export async function updateProposal(id: string, formData: FormData): Promise<{ 
         budget: Number(a.budget) || 0,
       })) as unknown as ActivityRow[];
     const lockedBudgetAmount = formData.get("locked_budget_amount");
-    budgetAmount =
-      lockedBudgetAmount !== null
-        ? Number(lockedBudgetAmount) || 0
-        : activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+    const activitiesTotal = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
+    if (lockBudget) {
+      // ครูแก้ไขได้เฉพาะการแบ่งงบรายกิจกรรม — ยอดรวมต้องเท่ากับงบที่กำหนดไว้เดิมพอดี
+      const target = Number(proposal.budget_amount ?? 0);
+      if (Math.abs(activitiesTotal - target) >= 0.01) return { error: BUDGET_MISMATCH_MESSAGE(target, activitiesTotal) };
+      budgetAmount = target;
+    } else {
+      budgetAmount = lockedBudgetAmount !== null ? Number(lockedBudgetAmount) || 0 : activitiesTotal;
+    }
   } else {
     budgetAmount = lockBudget ? Number(proposal.budget_amount ?? 0) : Number(formData.get("project_budget") ?? 0) || 0;
   }

@@ -321,7 +321,15 @@ export function ProposalForm({
     [activities],
   );
 
-  const activityBudgetDiff = lockedDraft ? totalBudget - lockedDraft.budget : 0;
+  // งบที่กำหนดไว้ที่ยอดรวมกิจกรรมย่อยต้องเท่ากับ: งบของร่างโครงการที่เลือก หรือ (ครูแก้ไขข้อเสนอเดิม) งบเดิมของข้อเสนอ
+  const budgetTarget: number | null = lockedDraft
+    ? lockedDraft.budget
+    : lockBudget && hasActivities && initial
+      ? initial.budgetAmount
+      : null;
+  const budgetTargetLabel = lockedDraft ? "ร่างโครงการ" : "งบที่กำหนดไว้เดิม";
+  const activityBudgetDiff = budgetTarget !== null && hasActivities ? totalBudget - budgetTarget : 0;
+  const budgetMismatch = Math.abs(activityBudgetDiff) >= 0.01;
 
   function validate(formData: FormData): Partial<Record<FieldKey, boolean>> {
     const errors: Partial<Record<FieldKey, boolean>> = {};
@@ -365,11 +373,11 @@ export function ProposalForm({
     formData.set("indicators_quantity_json", JSON.stringify(indicatorsQuantity.filter((r) => r.indicator.trim() !== "")));
     formData.set("indicators_quality_json", JSON.stringify(indicatorsQuality.filter((r) => r.indicator.trim() !== "")));
 
-    if (lockedDraft && hasActivities && Math.abs(activityBudgetDiff) >= 0.01) {
+    if (budgetMismatch) {
       await toastError(
         activityBudgetDiff > 0
-          ? `งบประมาณกิจกรรมย่อยรวมเกินจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(activityBudgetDiff)} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`
-          : `งบประมาณกิจกรรมย่อยรวมยังขาดจากที่กำหนดไว้ในร่างโครงการ ${formatBaht(Math.abs(activityBudgetDiff))} บาท กรุณาแก้ไขให้ยอดรวมตรงกับร่างโครงการก่อนบันทึก`,
+          ? `งบประมาณกิจกรรมย่อยรวมเกินจากที่กำหนดไว้ใน${budgetTargetLabel} ${formatBaht(activityBudgetDiff)} บาท กรุณาแก้ไขให้ยอดรวมตรงกันก่อนบันทึก`
+          : `งบประมาณกิจกรรมย่อยรวมยังขาดจากที่กำหนดไว้ใน${budgetTargetLabel} ${formatBaht(Math.abs(activityBudgetDiff))} บาท กรุณาแก้ไขให้ยอดรวมตรงกันก่อนบันทึก`,
       );
       return false;
     }
@@ -675,27 +683,27 @@ export function ProposalForm({
               <div className="flex flex-wrap items-center justify-end gap-2 bg-slate-50 px-3 py-2 text-sm">
                 <span className="font-semibold text-slate-600">รวมงบประมาณทั้งสิ้น</span>
                 <span className="font-bold text-navy-800">
-                  {formatBaht(lockedDraft ? lockedDraft.budget : totalBudget)} บาท
+                  {formatBaht(budgetTarget ?? totalBudget)} บาท
                 </span>
               </div>
-              {lockedDraft && Math.abs(activityBudgetDiff) >= 0.01 && (
-                <div className="flex flex-wrap items-center justify-end gap-2 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {budgetMismatch && (
+                <div role="alert" className="flex flex-wrap items-center justify-end gap-2 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
                   <span>
                     งบประมาณกิจกรรมย่อยรวม {formatBaht(totalBudget)} บาท —{" "}
                     {activityBudgetDiff > 0
-                      ? `เกินจากร่างโครงการ ${formatBaht(activityBudgetDiff)} บาท`
+                      ? `เกินจาก${budgetTargetLabel} ${formatBaht(activityBudgetDiff)} บาท`
                       : `ยังขาดอีก ${formatBaht(Math.abs(activityBudgetDiff))} บาท`}
                   </span>
                 </div>
               )}
             </div>
-            {lockedDraft && (
+            {budgetTarget !== null && (
               <>
                 <p className="mb-2 text-xs text-slate-500">
-                  งบประมาณกิจกรรมย่อยกรอกเองได้ตามจริง แต่ยอดรวมงบประมาณทั้งสิ้นจะยึดตามที่กำหนดไว้ในร่างโครงการ —
+                  งบประมาณกิจกรรมย่อยกรอกเองได้ตามจริง แต่ยอดรวมงบประมาณทั้งสิ้นจะยึดตามที่กำหนดไว้ใน{budgetTargetLabel} —
                   ยอดรวมกิจกรรมย่อยต้องตรงกับยอดนี้พอดี จึงจะบันทึกได้
                 </p>
-                <input type="hidden" name="locked_budget_amount" value={lockedDraft.budget} />
+                {lockedDraft && <input type="hidden" name="locked_budget_amount" value={lockedDraft.budget} />}
               </>
             )}
             <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
@@ -763,11 +771,17 @@ export function ProposalForm({
 
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || budgetMismatch}
         className="btn-primary mt-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitting ? "กำลังส่ง…" : submitLabel}
       </button>
+      {budgetMismatch && budgetTarget !== null && (
+        <p role="alert" className="text-sm font-medium text-red-600">
+          บันทึกไม่ได้: งบรวมของกิจกรรมย่อย {formatBaht(totalBudget)} บาท ต้องเท่ากับ {formatBaht(budgetTarget)} บาท
+          ({activityBudgetDiff > 0 ? "เกิน" : "ขาด"} {formatBaht(Math.abs(activityBudgetDiff))} บาท)
+        </p>
+      )}
     </form>
   );
 }
