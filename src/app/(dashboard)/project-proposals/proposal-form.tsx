@@ -475,8 +475,18 @@ export function ProposalForm({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className={`input ${isDuplicateName ? "border-red-400 ring-1 ring-red-300" : ""}`}
+              // เลือกจากร่างโครงการแล้ว ชื่อต้องตามร่าง — ล็อกไว้ไม่ให้พิมพ์ใหม่ (readOnly ยังส่งค่าไปกับฟอร์มตามปกติ)
+              readOnly={!!lockedDraft}
+              className={`input read-only:cursor-not-allowed read-only:bg-slate-100 read-only:text-slate-500 ${
+                isDuplicateName ? "border-red-400 ring-1 ring-red-300" : ""
+              }`}
             />
+            {lockedDraft && (
+              <p className="mt-1 text-xs text-slate-500">
+                ชื่อโครงการตามร่างโครงการที่เลือก แก้ไขไม่ได้ — หากต้องการพิมพ์ชื่อเอง ให้เปลี่ยนช่อง &quot;ใช้ข้อมูลจากร่างโครงการ&quot;
+                กลับเป็นตัวเลือกแรกก่อน
+              </p>
+            )}
             {isDuplicateName && <DuplicateWarning />}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
