@@ -4,7 +4,7 @@
 // แนวตั้ง/ส่งออก PDF ได้ (ใช้ window.print() ของเบราว์เซอร์ ไม่ได้สร้างไฟล์ react-pdf แยก เพราะหน้านี้มี
 // กราฟที่ react-pdf วาดไม่ได้ตรงๆ — ดีไซน์อนุมัติจากผู้ใช้แล้วผ่าน artifact mockup ก่อนเขียนหน้านี้)
 //
-// ที่มาของตัวเลข "เบิกจ่ายแล้ว" ทั้งหมดในหน้านี้ยึดจาก proc_approvals (บันทึกขออนุมัติ) ที่
+// ที่มาของตัวเลข "อนุมัติจ่ายแล้ว" ทั้งหมดในหน้านี้ยึดจาก proc_approvals (บันทึกขออนุมัติ) ที่
 // status = "อนุมัติ" เท่านั้น — ไม่ใช้ proc_project_disbursements (เมนู "เบิกจ่ายงบประมาณโครงการ")
 // ตามที่ผู้ใช้ยืนยันไว้ เพราะการเบิกจ่ายจริงในระบบนี้อ้างอิงบันทึกขออนุมัติเป็นหลัก
 //
@@ -29,7 +29,7 @@ const SUMMARY_LABELS = [
 const SUMMARY_DISPLAY_LABELS = ["จัดซื้อจัดจ้าง", "เบี้ยเลี้ยง/ค่าตอบแทน", "เดินทางไปราชการ", "สาธารณูปโภค", "อื่นๆ"];
 const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
 
-const GOOD = "#059669"; // เบิกจ่ายแล้ว / เสร็จสิ้น
+const GOOD = "#059669"; // อนุมัติจ่ายแล้ว / เสร็จสิ้น
 const WARN = "#d97706"; // คงเหลือ
 // "กำลังดำเนินการ" ใช้เขียวเฉดอ่อนกว่า GOOD (เสร็จสิ้น) เพื่อให้ทั้งคู่อยู่ในโทนเขียวเดียวกัน
 // (สื่อว่าเป็นไปด้วยดีทั้งคู่) แต่ยังแยกจากกันได้ชัดด้วยความเข้ม
@@ -170,7 +170,7 @@ function BulletChart({ value, target }: { value: number; target: number | null }
         viewBox="0 0 100 32"
         preserveAspectRatio="none"
         role="img"
-        aria-label={`เบิกจ่ายแล้ว ${v.toFixed(1)}%${target !== null ? ` เป้าตามเวลา ${clamp(target).toFixed(1)}%` : ""}`}
+        aria-label={`อนุมัติจ่ายแล้ว ${v.toFixed(1)}%${target !== null ? ` เป้าตามเวลา ${clamp(target).toFixed(1)}%` : ""}`}
       >
         {BULLET_BANDS.map((b, i) => {
           const from = i === 0 ? 0 : BULLET_BANDS[i - 1].to;
@@ -477,7 +477,7 @@ export default function DashboardPage() {
               <p className="mt-1 text-xs text-slate-400">บาท</p>
             </div>
             <div className="stat-card" style={{ "--accent": GOOD } as React.CSSProperties}>
-              <div className="stat-label">เบิกจ่ายแล้ว</div>
+              <div className="stat-label">อนุมัติจ่ายแล้ว</div>
               <div className="stat-value text-lg text-emerald-600">{formatBaht(totalSpent)}</div>
               <p className="mt-1 text-xs text-slate-400">{pct(totalSpent, totalBudget).toFixed(1)}% ของงบทั้งหมด</p>
             </div>
@@ -533,13 +533,13 @@ export default function DashboardPage() {
                 <span className="text-2xl font-extrabold tabular-nums text-navy-900">
                   {pct(totalSpent, totalBudget).toFixed(1)}%
                 </span>
-                <span className="text-sm text-slate-500">เบิกจ่ายแล้วจากงบทั้งหมด</span>
+                <span className="text-sm text-slate-500">อนุมัติจ่ายแล้วจากงบทั้งหมด</span>
               </div>
               <BulletChart value={pct(totalSpent, totalBudget)} target={fiscalElapsedPct} />
               <div className="mt-4 space-y-2 text-sm print:mt-2 print:space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: GOOD }} />
-                  <span className="min-w-0 flex-1 truncate text-slate-600">เบิกจ่ายแล้ว</span>
+                  <span className="min-w-0 flex-1 truncate text-slate-600">อนุมัติจ่ายแล้ว</span>
                   <span className="shrink-0 font-semibold tabular-nums text-slate-900">{formatBaht(totalSpent)}</span>
                 </div>
                 <div className="flex items-center gap-2">
