@@ -318,6 +318,8 @@ export function ProposalForm({
   }
 
   const lockedDraft = draftProjects.find((d) => d.id === selectedDraftId) ?? null;
+  // สร้างใหม่: ชื่อมาจากร่างโครงการที่เลือกเท่านั้น / แก้ไข: เฉพาะผู้ดูแลระบบ (lockBudget=false) แก้ชื่อได้
+  const nameReadOnly = initial ? lockBudget : true;
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const existingNameKeys = useMemo(
@@ -336,7 +338,10 @@ export function ProposalForm({
 
   function handleDraftSelect(draftId: string) {
     setSelectedDraftId(draftId);
-    if (!draftId) return;
+    if (!draftId) {
+      setName("");
+      return;
+    }
     const draft = draftProjects.find((d) => d.id === draftId);
     if (!draft) return;
     setName(draft.name);
@@ -405,6 +410,10 @@ export function ProposalForm({
 
   /** คืน true เมื่อส่งสำเร็จตอนสร้างใหม่ (ให้คงปุ่มถูกล็อกไว้) */
   async function doSubmit(formData: FormData): Promise<boolean> {
+    if (!initial && !selectedDraftId) {
+      await toastError("กรุณาเลือกโครงการจากร่างโครงการก่อนส่งข้อเสนอ");
+      return false;
+    }
     if (isDuplicateName) {
       await toastError("โครงการนี้ได้ส่งข้อเสนอโครงการไปแล้ว ไม่สามารถส่งซ้ำได้");
       return false;
@@ -479,15 +488,18 @@ export function ProposalForm({
               </div>
             </div>
           </div>
-          {draftProjects.length > 0 && (
+          {!initial && (
             <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-              <label className="label">ใช้ข้อมูลจากร่างโครงการที่เตรียมไว้ (ถ้ามี)</label>
+              <label className="label">
+                เลือกโครงการ (จากร่างโครงการที่เตรียมไว้) <span className="text-red-600">*</span>
+              </label>
               <select
                 value={selectedDraftId}
                 onChange={(e) => handleDraftSelect(e.target.value)}
+                required
                 className="input"
               >
-                <option value="">— กรุณาเลือก หรือพิมพ์เองที่ช่องชื่อโครงการ —</option>
+                <option value="">— กรุณาเลือกโครงการ —</option>
                 {availableDrafts.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
@@ -497,8 +509,8 @@ export function ProposalForm({
               {lockedDraft && isDuplicateName && <DuplicateWarning />}
               <p className="mt-1 text-xs text-slate-500">
                 {availableDrafts.length === 0
-                  ? "ร่างโครงการทุกรายการถูกเสนอไปแล้ว — หากเป็นโครงการนอกร่าง ให้พิมพ์ชื่อโครงการเองที่ช่องด้านล่าง"
-                  : `แสดงเฉพาะร่างโครงการที่ยังไม่ได้เสนอ (${availableDrafts.length.toLocaleString("th-TH")} รายการ) เลือกแล้วจะเติมชื่อโครงการ กลุ่มงาน แหล่งเงินงบประมาณ และงบประมาณให้อัตโนมัติ`}
+                  ? "ร่างโครงการทุกรายการถูกเสนอไปแล้ว ไม่มีรายการให้เลือก — หากต้องการเสนอโครงการอื่น กรุณาติดต่อผู้ดูแลระบบให้เพิ่มร่างโครงการก่อน"
+                  : `เลือกได้เฉพาะร่างโครงการที่ยังไม่ได้เสนอ (${availableDrafts.length.toLocaleString("th-TH")} รายการ) เลือกแล้วระบบจะเติมชื่อโครงการ กลุ่มงาน แหล่งเงินงบประมาณ และงบประมาณให้อัตโนมัติ`}
               </p>
             </div>
           )}
@@ -509,16 +521,18 @@ export function ProposalForm({
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              // เลือกจากร่างโครงการแล้ว ชื่อต้องตามร่าง — ล็อกไว้ไม่ให้พิมพ์ใหม่ (readOnly ยังส่งค่าไปกับฟอร์มตามปกติ)
-              readOnly={!!lockedDraft}
+              // ชื่อโครงการเลือกจากร่างโครงการเท่านั้น (ฟอร์มสร้างใหม่) / ครูแก้ชื่อเองไม่ได้ (ฟอร์มแก้ไข) — readOnly ยังส่งค่าไปกับฟอร์มตามปกติ
+              readOnly={nameReadOnly}
+              placeholder={!initial ? "ชื่อโครงการจะแสดงเมื่อเลือกจากร่างโครงการด้านบน" : undefined}
               className={`input read-only:cursor-not-allowed read-only:bg-slate-100 read-only:text-slate-500 ${
                 isDuplicateName ? "border-red-400 ring-1 ring-red-300" : ""
               }`}
             />
-            {lockedDraft && (
+            {nameReadOnly && (
               <p className="mt-1 text-xs text-slate-500">
-                ชื่อโครงการตามร่างโครงการที่เลือก แก้ไขไม่ได้ — หากต้องการพิมพ์ชื่อเอง ให้เปลี่ยนช่อง &quot;ใช้ข้อมูลจากร่างโครงการ&quot;
-                กลับเป็นตัวเลือกแรกก่อน
+                {initial
+                  ? "ชื่อโครงการแก้ไขไม่ได้ หากต้องการแก้ชื่อ กรุณาติดต่อผู้ดูแลระบบ"
+                  : "ชื่อโครงการเลือกจากร่างโครงการเท่านั้น พิมพ์เองไม่ได้"}
               </p>
             )}
             {isDuplicateName && <DuplicateWarning />}

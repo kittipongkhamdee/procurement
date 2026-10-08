@@ -122,7 +122,7 @@ async function requireEditableProposal(id: string) {
 
   const { data: proposal } = await supabase
     .from("plan_project_proposals")
-    .select("created_by, status, budget_year_id, file_url_word, file_url_pdf, admin_group_id, budget_source_id, budget_amount, activities")
+    .select("created_by, status, name, budget_year_id, file_url_word, file_url_pdf, admin_group_id, budget_source_id, budget_amount, activities")
     .eq("id", id)
     .maybeSingle();
   if (!proposal) throw new Error("ไม่พบข้อเสนอโครงการ");
@@ -166,22 +166,29 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const name = str(formData, "name");
+  // ชื่อโครงการต้องเลือกจากร่างโครงการเท่านั้น — ใช้ชื่อ/กลุ่มบริหาร/แหล่งเงิน/งบจากร่างโครงการเป็นหลัก ไม่เชื่อค่าที่พิมพ์มาจากฟอร์ม
+  const budgetYearId = str(formData, "budget_year_id");
+  const draftProjectId = str(formData, "draft_project_id");
+  if (!draftProjectId) return { error: "กรุณาเลือกโครงการจากร่างโครงการ (พิมพ์ชื่อโครงการเองไม่ได้)" };
+  const { data: draft } = await supabase
+    .from("plan_draft_projects")
+    .select("id, name, budget_year_id, admin_group_id, budget_source_id, budget")
+    .eq("id", draftProjectId)
+    .maybeSingle();
+  if (!draft || draft.budget_year_id !== budgetYearId) {
+    return { error: "ไม่พบร่างโครงการที่เลือกในปีงบประมาณนี้ กรุณาเลือกใหม่" };
+  }
+  const name = draft.name.trim();
   if (!name) return;
 
-  const budgetYearId = str(formData, "budget_year_id");
   if (await hasDuplicateProposal(supabase, budgetYearId, name)) return { error: DUPLICATE_PROPOSAL_MESSAGE };
-
-  // ผูกข้อเสนอกับร่างโครงการที่ครูเลือก (ถ้ามี) — ร่างหนึ่งผูกได้กับข้อเสนอเดียว
-  const draftProjectId = str(formData, "draft_project_id");
-  if (draftProjectId) {
-    const { data: draftTaken } = await supabase
-      .from("plan_project_proposals")
-      .select("id")
-      .eq("draft_project_id", draftProjectId)
-      .maybeSingle();
-    if (draftTaken) return { error: DUPLICATE_PROPOSAL_MESSAGE };
-  }
+  // ร่างหนึ่งผูกได้กับข้อเสนอเดียว
+  const { data: draftTaken } = await supabase
+    .from("plan_project_proposals")
+    .select("id")
+    .eq("draft_project_id", draftProjectId)
+    .maybeSingle();
+  if (draftTaken) return { error: DUPLICATE_PROPOSAL_MESSAGE };
 
   const { data: budgetYear } = await supabase
     .from("plan_budget_years")
@@ -207,15 +214,15 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
         ...a,
         budget: Number(a.budget) || 0,
       })) as unknown as ActivityRow[];
-    const lockedBudgetAmount = formData.get("locked_budget_amount");
+    const draftBudget = Number(draft.budget ?? 0);
     const activitiesTotal = activities.reduce((sum, a) => sum + (Number(a.budget) || 0), 0);
-    // เลือกร่างโครงการที่กำหนดงบไว้แล้ว: งบรวมกิจกรรมย่อยต้องเท่ากับงบนั้นพอดี
-    if (lockedBudgetAmount !== null && Math.abs(activitiesTotal - (Number(lockedBudgetAmount) || 0)) >= 0.01) {
-      return { error: BUDGET_MISMATCH_MESSAGE(Number(lockedBudgetAmount) || 0, activitiesTotal) };
+    // งบที่กำหนดไว้ในร่างโครงการ: งบรวมกิจกรรมย่อยต้องเท่ากับงบนั้นพอดี
+    if (Math.abs(activitiesTotal - draftBudget) >= 0.01) {
+      return { error: BUDGET_MISMATCH_MESSAGE(draftBudget, activitiesTotal) };
     }
-    budgetAmount = lockedBudgetAmount !== null ? Number(lockedBudgetAmount) || 0 : activitiesTotal;
+    budgetAmount = draftBudget;
   } else {
-    budgetAmount = Number(formData.get("project_budget") ?? 0) || 0;
+    budgetAmount = Number(draft.budget ?? 0);
   }
 
   const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
@@ -228,14 +235,14 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
     budget_year_id: budgetYearId,
     draft_project_id: draftProjectId,
     standard: str(formData, "standard"),
-    admin_group_id: str(formData, "admin_group_id"),
+    admin_group_id: draft.admin_group_id ?? str(formData, "admin_group_id"),
     name,
     responsible,
     objectives: listField(formData, "objectives_json"),
     strategy_alignment: str(formData, "strategy_alignment"),
     activities,
     budget_amount: budgetAmount,
-    budget_source_id: str(formData, "budget_source_id"),
+    budget_source_id: draft.budget_source_id ?? str(formData, "budget_source_id"),
     file_url_word: fileUrlWord,
     file_url_pdf: fileUrlPdf,
     indicators_quantity: indicatorsField(formData, "indicators_quantity_json"),
@@ -273,7 +280,8 @@ export async function updateProposal(id: string, formData: FormData): Promise<{ 
   // ครู (ไม่ใช่ผู้ดูแลระบบ) แก้กลุ่มงาน แหล่งเงิน วิธีกรอกงบ และงบรวมก้อนเดียวไม่ได้ — ใช้ค่าเดิมในฐานข้อมูลเสมอ ไม่เชื่อค่าจากฟอร์ม
   const lockBudget = !isAdmin;
 
-  const name = str(formData, "name");
+  // ครูแก้ชื่อโครงการเองไม่ได้ (ชื่อมาจากร่างโครงการ) — เฉพาะผู้ดูแลระบบแก้ได้
+  const name = lockBudget ? proposal.name : str(formData, "name");
   if (!name) return;
   if (await hasDuplicateProposal(supabase, proposal.budget_year_id, name, id)) {
     return { error: DUPLICATE_PROPOSAL_MESSAGE };
