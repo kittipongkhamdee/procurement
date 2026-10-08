@@ -109,6 +109,8 @@ export function ProposalDetailModal({
   triggerClassName?: string;
 }) {
   const modalRef = useRef<ModalHandle>(null);
+  // iframe PDF โหลดเฉพาะตอน popup เปิดอยู่จริง — ไม่งั้นทุกแถวโหลด PDF พร้อมกันตั้งแต่เปิดหน้า (มือถือ/iPhone หน่วยความจำไม่พอ หน้ารีเฟรชเอง)
+  const [isOpen, setIsOpen] = useState(false);
   const [endorseNote, setEndorseNote] = useState("");
   const [endorseRejecting, setEndorseRejecting] = useState(false);
   const [approveNote, setApproveNote] = useState("");
@@ -215,6 +217,7 @@ export function ProposalDetailModal({
 
   return (
     <Modal
+      onOpenChange={setIsOpen}
       ref={modalRef}
       title={proposal.name}
       trigger={trigger ?? "ดูรายละเอียด"}
@@ -302,11 +305,13 @@ export function ProposalDetailModal({
             <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold text-slate-700">
               ตัวอย่างไฟล์โครงการ (PDF)
             </summary>
-            <iframe
-              src={proposal.fileUrlPdfPreview ?? proposal.fileUrlPdf}
-              title={`ไฟล์โครงการ ${proposal.name}`}
-              className="h-[70vh] w-full border-t border-slate-200"
-            />
+            {isOpen ? (
+              <iframe
+                src={proposal.fileUrlPdfPreview ?? proposal.fileUrlPdf}
+                title={`ไฟล์โครงการ ${proposal.name}`}
+                className="h-[70vh] w-full border-t border-slate-200"
+              />
+            ) : null}
           </details>
         )}
 

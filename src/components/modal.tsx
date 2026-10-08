@@ -18,8 +18,14 @@ export const Modal = forwardRef<
     /** เปิด popup อัตโนมัติทันทีตอน mount — ใช้กับลิงก์ลัดจากหน้า "ผู้บริหาร" (เช่น
      * /project-proposals?open=<id>) ที่ต้องการพาผู้ใช้เข้าไปยังป็อปอัปรายการนั้นตรงๆ */
     defaultOpen?: boolean;
+    /** แจ้งสถานะเปิด/ปิดของ popup — ใช้ให้เนื้อหาหนัก (เช่น iframe PDF) โหลดเฉพาะตอนเปิดดูจริง เพราะเนื้อหาใน popup ถูก
+     * เรนเดอร์ไว้ใน <dialog> ที่ปิดอยู่เสมอ ถ้าไม่ lazy จะโหลดทุกแถวพร้อมกันตั้งแต่เปิดหน้า (มือถือหน่วยความจำไม่พอแล้วหน้าค้าง/รีเฟรช) */
+    onOpenChange?: (open: boolean) => void;
   }
->(function Modal({ trigger, triggerClassName, title, children, closeOnSubmit, wide, defaultOpen }, forwardedRef) {
+>(function Modal(
+  { trigger, triggerClassName, title, children, closeOnSubmit, wide, defaultOpen, onOpenChange },
+  forwardedRef,
+) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useImperativeHandle(forwardedRef, () => ({
@@ -38,16 +44,25 @@ export const Modal = forwardRef<
       el = el.parentElement;
     }
     ref.current.showModal();
+    onOpenChange?.(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <>
-      <button type="button" className={triggerClassName} onClick={() => ref.current?.showModal()}>
+      <button
+        type="button"
+        className={triggerClassName}
+        onClick={() => {
+          onOpenChange?.(true);
+          ref.current?.showModal();
+        }}
+      >
         {trigger}
       </button>
       <dialog
         ref={ref}
+        onClose={() => onOpenChange?.(false)}
         className={`m-auto w-full text-left ${wide ? "max-w-6xl" : "max-w-2xl"} rounded-xl border-0 bg-white p-0 shadow-2xl backdrop:bg-navy-950/60`}
         onClick={(e) => {
           if (e.target === ref.current) ref.current?.close();
