@@ -216,6 +216,7 @@ export function ProposalForm({
   draftProjects = [],
   lockBudget = false,
   existingProposalNames = [],
+  proposedDraftIds = [],
   initial,
   submitLabel = "ส่งข้อเสนอโครงการ",
   successMessage = "ส่งข้อเสนอโครงการเรียบร้อยแล้ว",
@@ -233,6 +234,8 @@ export function ProposalForm({
   lockBudget?: boolean;
   /** ชื่อข้อเสนอโครงการที่มีอยู่แล้วในปีงบประมาณเดียวกัน (ไม่รวมรายการที่กำลังแก้ไข) — 1 โครงการส่งได้ 1 รายการ */
   existingProposalNames?: string[];
+  /** id ร่างโครงการที่มีข้อเสนอผูกอยู่แล้ว */
+  proposedDraftIds?: string[];
   initial?: ProposalFormInitial;
   submitLabel?: string;
   successMessage?: string;
@@ -290,7 +293,13 @@ export function ProposalForm({
     () => new Set(existingProposalNames.map(normalizeProposalName)),
     [existingProposalNames],
   );
-  const isDuplicateName = name.trim() !== "" && existingNameKeys.has(normalizeProposalName(name));
+  const proposedDraftIdSet = useMemo(() => new Set(proposedDraftIds), [proposedDraftIds]);
+  // ร่างโครงการนี้ส่งข้อเสนอไปแล้วหรือยัง: ผูกด้วย id (เลือกจากช่องร่างโครงการ) หรือชื่อตรงกับข้อเสนอที่มีอยู่
+  const isDraftProposed = (d: DraftProject) =>
+    proposedDraftIdSet.has(d.id) || existingNameKeys.has(normalizeProposalName(d.name));
+  const isDuplicateName =
+    (name.trim() !== "" && existingNameKeys.has(normalizeProposalName(name))) ||
+    (!!lockedDraft && proposedDraftIdSet.has(lockedDraft.id));
 
   function handleDraftSelect(draftId: string) {
     setSelectedDraftId(draftId);
@@ -298,7 +307,7 @@ export function ProposalForm({
     const draft = draftProjects.find((d) => d.id === draftId);
     if (!draft) return;
     setName(draft.name);
-    if (existingNameKeys.has(normalizeProposalName(draft.name))) {
+    if (isDraftProposed(draft)) {
       void toastError(`โครงการ "${draft.name}" ได้ส่งข้อเสนอโครงการไปแล้ว ไม่สามารถส่งซ้ำได้`);
     }
     setAdminGroupId(draft.adminGroupId ?? "");
@@ -410,6 +419,7 @@ export function ProposalForm({
   return (
     <form action={handleSubmit} className="grid grid-cols-1 gap-4 text-left">
       <input type="hidden" name="budget_year_id" value={budgetYearId} />
+      {selectedDraftId && <input type="hidden" name="draft_project_id" value={selectedDraftId} />}
 
       <div>
         <div className="card-title">ข้อมูลทั่วไป</div>
@@ -448,7 +458,7 @@ export function ProposalForm({
                 {draftProjects.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
-                    {existingNameKeys.has(normalizeProposalName(d.name)) ? " (เสนอโครงการแล้ว)" : ""}
+                    {isDraftProposed(d) ? " (เสนอโครงการแล้ว)" : ""}
                   </option>
                 ))}
               </select>

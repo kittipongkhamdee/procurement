@@ -172,6 +172,17 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
   const budgetYearId = str(formData, "budget_year_id");
   if (await hasDuplicateProposal(supabase, budgetYearId, name)) return { error: DUPLICATE_PROPOSAL_MESSAGE };
 
+  // ผูกข้อเสนอกับร่างโครงการที่ครูเลือก (ถ้ามี) — ร่างหนึ่งผูกได้กับข้อเสนอเดียว
+  const draftProjectId = str(formData, "draft_project_id");
+  if (draftProjectId) {
+    const { data: draftTaken } = await supabase
+      .from("plan_project_proposals")
+      .select("id")
+      .eq("draft_project_id", draftProjectId)
+      .maybeSingle();
+    if (draftTaken) return { error: DUPLICATE_PROPOSAL_MESSAGE };
+  }
+
   const { data: budgetYear } = await supabase
     .from("plan_budget_years")
     .select("year")
@@ -215,6 +226,7 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
     created_by: user.id,
     proposer_name: profile?.full_name ?? null,
     budget_year_id: budgetYearId,
+    draft_project_id: draftProjectId,
     standard: str(formData, "standard"),
     admin_group_id: str(formData, "admin_group_id"),
     name,

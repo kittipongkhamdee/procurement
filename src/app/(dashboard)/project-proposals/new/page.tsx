@@ -30,6 +30,8 @@ export default function NewProjectProposalPage() {
   const [draftProjects, setDraftProjects] = useState<DraftProject[]>([]);
   // ชื่อข้อเสนอโครงการที่ส่งไปแล้วในปีงบประมาณนี้ — ไว้เตือนตอนเลือก/พิมพ์ชื่อซ้ำ
   const [existingProposalNames, setExistingProposalNames] = useState<string[]>([]);
+  // id ร่างโครงการที่มีข้อเสนอผูกอยู่แล้ว (ผูกตอนเลือกจากช่อง "ใช้ข้อมูลจากร่างโครงการ") — 1 ร่างส่งได้ 1 ข้อเสนอ
+  const [proposedDraftIds, setProposedDraftIds] = useState<string[]>([]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -59,9 +61,10 @@ export default function NewProjectProposalPage() {
         .order("created_at");
       const { data: proposalNames } = await supabase
         .from("plan_project_proposals")
-        .select("name")
+        .select("name, draft_project_id")
         .eq("budget_year_id", year.id);
       setExistingProposalNames((proposalNames ?? []).map((p) => p.name));
+      setProposedDraftIds((proposalNames ?? []).map((p) => p.draft_project_id).filter((id): id is string => !!id));
       setDraftProjects(
         (draftsData ?? []).map((d) => ({
           id: d.id,
@@ -110,6 +113,7 @@ export default function NewProjectProposalPage() {
             standards={standards}
             draftProjects={draftProjects}
             existingProposalNames={existingProposalNames}
+            proposedDraftIds={proposedDraftIds}
             onSuccess={() => router.push("/project-proposals")}
           />
         </div>

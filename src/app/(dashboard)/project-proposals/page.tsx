@@ -50,6 +50,7 @@ type ProposalRow = {
   /** ลำดับกลุ่มบริหารงาน (sort_order ของกลุ่ม) ไว้เรียง/จัดกลุ่มในตาราง */
   adminGroupOrder: number;
   budgetYearId: string | null;
+  draftProjectId: string | null;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];
@@ -72,12 +73,14 @@ export default function ProjectProposalsPage() {
   const autoOpenId = useSearchParams().get("open");
   const [rows, setRows] = useState<ProposalRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [currentYear, setCurrentYear] = useState<{ id: string } | null>(null);
+  const [currentYear, setCurrentYear] = useState<{ id: string; year: number } | null>(null);
   const [adminGroups, setAdminGroups] = useState<Option[]>([]);
   const [budgetSources, setBudgetSources] = useState<Option[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [strategies, setStrategies] = useState<Option[]>([]);
   const [standards, setStandards] = useState<Option[]>([]);
+  // ร่างโครงการของปีงบประมาณปัจจุบัน ไว้นับว่าเสนอแล้วกี่รายการ (นับจากการผูกด้วย id หรือชื่อตรงกัน)
+  const [drafts, setDrafts] = useState<{ id: string; name: string; adminGroup: string }[]>([]);
   const [canEndorse, setCanEndorse] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
 
@@ -103,13 +106,31 @@ export default function ProjectProposalsPage() {
       supabase
         .from("plan_project_proposals")
         .select(
-          "id, name, proposer_name, created_by, budget_year_id, standard, responsible, objectives, strategy_alignment, activities, indicators_quantity, indicators_quality, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name, sort_order), plan_budget_sources(name)",
+          "id, name, proposer_name, created_by, budget_year_id, draft_project_id, standard, responsible, objectives, strategy_alignment, activities, indicators_quantity, indicators_quality, budget_amount, status, admin_group_id, budget_source_id, file_url_word, file_url_pdf, endorsed_by_name, endorsed_at, endorse_note, approved_by_name, approved_at, approve_note, plan_admin_groups(name, sort_order), plan_budget_sources(name)",
         )
         .order("created_at", { ascending: false }),
     ]);
     if (error) setError(error.message);
 
-    setCurrentYear(budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null);
+    const year = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
+    setCurrentYear(year);
+    if (year) {
+      const { data: draftRows } = await supabase
+        .from("plan_draft_projects")
+        .select("id, name, plan_admin_groups(name, sort_order)")
+        .eq("budget_year_id", year.id)
+        .order("sort_order")
+        .order("created_at");
+      setDrafts(
+        (draftRows ?? []).map((d) => ({
+          id: d.id,
+          name: d.name,
+          adminGroup: (d.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
+        })),
+      );
+    } else {
+      setDrafts([]);
+    }
     setAdminGroups(adminGroupsData ?? []);
     setBudgetSources(budgetSourcesData ?? []);
     setTeachers(teachersData ?? []);
@@ -162,6 +183,7 @@ export default function ProjectProposalsPage() {
         proposerName: (p.created_by ? currentNames.get(p.created_by) : undefined) ?? p.proposer_name,
         createdBy: p.created_by,
         budgetYearId: p.budget_year_id,
+        draftProjectId: p.draft_project_id,
         adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
         adminGroupOrder:
           (p.plan_admin_groups as unknown as { sort_order: number | null } | null)?.sort_order ?? Number.MAX_SAFE_INTEGER,
@@ -210,6 +232,25 @@ export default function ProjectProposalsPage() {
   const pendingEndorseCount = rows.filter((r) => r.status === "รอเห็นชอบ").length;
   const pendingApproveCount = rows.filter((r) => r.status === "รออนุมัติ").length;
   const approvedCount = rows.filter((r) => r.status === "อนุมัติแล้ว").length;
+
+  // สรุป "เสนอโครงการแล้วจากร่างโครงการ" ของปีงบประมาณปัจจุบัน
+  const normName = (n: string) => n.trim().replace(/\s+/g, " ").toLowerCase();
+  const yearRows = rows.filter((r) => r.budgetYearId === currentYear?.id);
+  const linkedDraftIds = new Set(yearRows.map((r) => r.draftProjectId).filter((id): id is string => !!id));
+  const yearNameKeys = new Set(yearRows.map((r) => normName(r.name)));
+  const draftNameKeys = new Set(drafts.map((d) => normName(d.name)));
+  const isDraftProposed = (d: { id: string; name: string }) => linkedDraftIds.has(d.id) || yearNameKeys.has(normName(d.name));
+  const unproposedDrafts = drafts.filter((d) => !isDraftProposed(d));
+  const proposedDraftCount = drafts.length - unproposedDrafts.length;
+  // ข้อเสนอที่ครูพิมพ์ชื่อเอง ไม่ได้ผูกหรือชื่อไม่ตรงกับร่างโครงการใดเลย
+  const selfTypedCount = yearRows.filter((r) => !r.draftProjectId && !draftNameKeys.has(normName(r.name))).length;
+  const draftSummaryByGroup: Record<string, { total: number; proposed: number }> = {};
+  for (const d of drafts) {
+    const g = (draftSummaryByGroup[d.adminGroup] ??= { total: 0, proposed: 0 });
+    g.total += 1;
+    if (isDraftProposed(d)) g.proposed += 1;
+  }
+  const proposedPct = drafts.length > 0 ? (proposedDraftCount / drafts.length) * 100 : 0;
 
   return (
     <div>
@@ -277,6 +318,59 @@ export default function ProjectProposalsPage() {
         </div>
       )}
 
+      {drafts.length > 0 && (
+        <div className="group relative mb-4">
+          <div
+            tabIndex={unproposedDrafts.length > 0 ? 0 : undefined}
+            className={`stat-card outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+              unproposedDrafts.length > 0 ? "cursor-pointer transition group-hover:border-amber-300 group-hover:shadow-md" : ""
+            }`}
+            style={{ "--accent": unproposedDrafts.length > 0 ? "#d97706" : "#059669" } as React.CSSProperties}
+          >
+            <div className="stat-label">เสนอโครงการแล้วจากร่างโครงการ (ปี {currentYear?.year})</div>
+            <div className="stat-value">
+              {proposedDraftCount.toLocaleString("th-TH")}{" "}
+              <span className="stat-suffix">จาก {drafts.length.toLocaleString("th-TH")} ร่างโครงการ</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${proposedPct}%` }} />
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              {unproposedDrafts.length > 0 ? (
+                <span className="font-medium text-amber-700">
+                  ยังไม่ได้เสนอ {unproposedDrafts.length.toLocaleString("th-TH")} โครงการ — ดูรายชื่อ <span aria-hidden>▾</span>
+                </span>
+              ) : (
+                <span className="font-medium text-emerald-700">เสนอครบทุกร่างโครงการแล้ว</span>
+              )}
+              {selfTypedCount > 0 && (
+                <span> · มีข้อเสนอที่พิมพ์ชื่อเอง (ไม่ตรงกับร่างโครงการใด) {selfTypedCount.toLocaleString("th-TH")} รายการ</span>
+              )}
+            </p>
+          </div>
+          {unproposedDrafts.length > 0 && (
+            <div className="absolute left-0 top-full z-20 hidden pt-2 group-focus-within:block group-hover:block">
+              <div className="max-h-72 w-96 max-w-[90vw] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                <p className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">
+                  ร่างโครงการที่ยังไม่ได้เสนอ ({unproposedDrafts.length.toLocaleString("th-TH")})
+                </p>
+                <ol>
+                  {unproposedDrafts.map((d, i) => (
+                    <li key={d.id} className="flex gap-2 px-3 py-1.5 text-sm">
+                      <span className="w-5 shrink-0 text-right text-xs tabular-nums leading-5 text-slate-400">{i + 1}</span>
+                      <span className="min-w-0">
+                        <span className="block text-slate-900">{d.name}</span>
+                        <span className="block text-xs text-slate-500">{d.adminGroup}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="card mb-4 flex items-start gap-3 bg-navy-950/[0.03]">
         <LightbulbIcon className="h-5 w-5 shrink-0 text-navy-700" />
         <p className="text-sm text-slate-600">
@@ -294,6 +388,7 @@ export default function ProjectProposalsPage() {
           canEndorse={canEndorse}
           canApprove={canApprove}
           currentUserId={user?.userId ?? null}
+          draftSummaryByGroup={draftSummaryByGroup}
           adminGroups={adminGroups}
           budgetSources={budgetSources}
           teachers={teachers}

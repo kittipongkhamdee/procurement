@@ -79,6 +79,7 @@ export function ProposalsTable({
   canEndorse,
   canApprove,
   currentUserId,
+  draftSummaryByGroup = {},
   adminGroups,
   budgetSources,
   teachers,
@@ -114,6 +115,8 @@ export function ProposalsTable({
   onChanged?: () => void;
   /** เปิดป็อปอัปรายละเอียดของรายการนี้อัตโนมัติ — มาจากลิงก์ลัดหน้า "ผู้บริหาร" (?open=<id>) */
   autoOpenId?: string | null;
+  /** จำนวนร่างโครงการและที่เสนอแล้ว แยกตามกลุ่มบริหาร (ปีงบประมาณปัจจุบัน) ไว้แสดงที่หัวกลุ่ม */
+  draftSummaryByGroup?: Record<string, { total: number; proposed: number }>;
 }) {
   // จัดกลุ่มตามกลุ่มบริหารงาน (ลำดับตาม sort_order ของกลุ่ม เหมือนหน้า "โครงการ"/"รายงานโครงการ") — Array.sort เสถียร
   // จึงคงลำดับเดิม (ใหม่สุดก่อน) ภายในกลุ่มเดียวกัน
@@ -126,6 +129,23 @@ export function ProposalsTable({
     <>
       {name}{" "}
       <span className="font-normal text-slate-500">({(groupCounts.get(name) ?? 0).toLocaleString("th-TH")} โครงการ)</span>
+      {draftSummaryByGroup[name] &&
+        (() => {
+          const { total, proposed } = draftSummaryByGroup[name];
+          const remaining = total - proposed;
+          return (
+            <>
+              <span className="ml-2 font-normal text-slate-500">
+                เสนอแล้ว {proposed.toLocaleString("th-TH")} จาก {total.toLocaleString("th-TH")} ร่างโครงการ
+              </span>
+              {remaining > 0 ? (
+                <span className="ml-1 text-amber-700">เหลือ {remaining.toLocaleString("th-TH")}</span>
+              ) : (
+                <span className="ml-1 text-emerald-700">ครบแล้ว</span>
+              )}
+            </>
+          );
+        })()}
     </>
   );
 

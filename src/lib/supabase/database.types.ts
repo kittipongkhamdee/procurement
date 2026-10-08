@@ -1152,6 +1152,7 @@ export type Database = {
           budget_year_id: string | null
           created_at: string
           created_by: string | null
+          draft_project_id: string | null
           endorse_note: string | null
           endorsed_at: string | null
           endorsed_by_name: string | null
@@ -1180,6 +1181,7 @@ export type Database = {
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
+          draft_project_id?: string | null
           endorse_note?: string | null
           endorsed_at?: string | null
           endorsed_by_name?: string | null
@@ -1208,6 +1210,7 @@ export type Database = {
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
+          draft_project_id?: string | null
           endorse_note?: string | null
           endorsed_at?: string | null
           endorsed_by_name?: string | null
