@@ -180,7 +180,7 @@ export function ProposalsTable({
                   </a>
                 )}
                 {canEdit && (
-                  <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
+                  <Modal lazy title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
                     <ProposalForm
                       action={updateProposal.bind(null, r.id)}
                       lockBudget={!isAdmin}
@@ -284,7 +284,7 @@ export function ProposalsTable({
                       </a>
                     )}
                     {canEdit && (
-                      <Modal title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
+                      <Modal lazy title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
                         <ProposalForm
                           action={updateProposal.bind(null, r.id)}
                           lockBudget={!isAdmin}

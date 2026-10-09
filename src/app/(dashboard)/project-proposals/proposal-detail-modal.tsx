@@ -217,6 +217,7 @@ export function ProposalDetailModal({
 
   return (
     <Modal
+      lazy
       onOpenChange={setIsOpen}
       ref={modalRef}
       title={proposal.name}

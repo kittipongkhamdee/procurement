@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactNode } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 
 export type ModalHandle = { close: () => void };
 
@@ -21,12 +21,16 @@ export const Modal = forwardRef<
     /** แจ้งสถานะเปิด/ปิดของ popup — ใช้ให้เนื้อหาหนัก (เช่น iframe PDF) โหลดเฉพาะตอนเปิดดูจริง เพราะเนื้อหาใน popup ถูก
      * เรนเดอร์ไว้ใน <dialog> ที่ปิดอยู่เสมอ ถ้าไม่ lazy จะโหลดทุกแถวพร้อมกันตั้งแต่เปิดหน้า (มือถือหน่วยความจำไม่พอแล้วหน้าค้าง/รีเฟรช) */
     onOpenChange?: (open: boolean) => void;
+    /** เรนเดอร์เนื้อหาเมื่อ popup ถูกเปิดครั้งแรก (เปิดแล้วคงไว้ ไม่ถอดตอนปิด จึงไม่เสียข้อมูลที่กรอกค้างไว้) — ใช้กับรายการยาว
+     * ที่มี popup หนักๆ ต่อแถว (ฟอร์มแก้ไข/รายละเอียด) ไม่งั้นทุกแถวเรนเดอร์ไว้ตั้งแต่เปิดหน้า มือถือหน่วยความจำไม่พอแล้วหน้าค้าง */
+    lazy?: boolean;
   }
 >(function Modal(
-  { trigger, triggerClassName, title, children, closeOnSubmit, wide, defaultOpen, onOpenChange },
+  { trigger, triggerClassName, title, children, closeOnSubmit, wide, defaultOpen, onOpenChange, lazy },
   forwardedRef,
 ) {
   const ref = useRef<HTMLDialogElement>(null);
+  const [opened, setOpened] = useState(false);
 
   useImperativeHandle(forwardedRef, () => ({
     close: () => ref.current?.close(),
@@ -43,6 +47,7 @@ export const Modal = forwardRef<
       if (getComputedStyle(el).display === "none") return;
       el = el.parentElement;
     }
+    setOpened(true);
     ref.current.showModal();
     onOpenChange?.(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,6 +59,7 @@ export const Modal = forwardRef<
         type="button"
         className={triggerClassName}
         onClick={() => {
+          setOpened(true);
           onOpenChange?.(true);
           ref.current?.showModal();
         }}
@@ -84,7 +90,7 @@ export const Modal = forwardRef<
               ✕
             </button>
           </div>
-          <div className="max-h-[75vh] overflow-y-auto p-5">{children}</div>
+          <div className="max-h-[75vh] overflow-y-auto p-5">{lazy && !opened ? null : children}</div>
         </div>
       </dialog>
     </>
