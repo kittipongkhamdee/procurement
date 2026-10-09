@@ -48,6 +48,7 @@ type ProposalRow = {
   fileUrlPdfPreview: string | null;
   adminGroupOrder: number;
   budgetYearId: string | null;
+  draftProjectId: string | null;
   fileUrlWordPath: string | null;
   fileUrlPdfPath: string | null;
   activities: ActivityRow[];
@@ -80,6 +81,7 @@ export function ProposalsTable({
   canApprove,
   currentUserId,
   draftSummaryByGroup = {},
+  lockedActivitiesByDraft = {},
   adminGroups,
   budgetSources,
   teachers,
@@ -117,6 +119,8 @@ export function ProposalsTable({
   autoOpenId?: string | null;
   /** จำนวนร่างโครงการและที่เสนอแล้ว แยกตามกลุ่มบริหาร (ปีงบประมาณปัจจุบัน) ไว้แสดงที่หัวกลุ่ม */
   draftSummaryByGroup?: Record<string, { total: number; proposed: number }>;
+  /** ร่างโครงการที่กำหนดกิจกรรม+งบครบแล้ว (draftId -> กิจกรรม) — ครูแก้ชื่อ/งบกิจกรรมของข้อเสนอที่ผูกกับร่างนี้ไม่ได้ */
+  lockedActivitiesByDraft?: Record<string, { name: string; budget: number }[]>;
 }) {
   // จัดกลุ่มตามกลุ่มบริหารงาน (ลำดับตาม sort_order ของกลุ่ม เหมือนหน้า "โครงการ"/"รายงานโครงการ") — Array.sort เสถียร
   // จึงคงลำดับเดิม (ใหม่สุดก่อน) ภายในกลุ่มเดียวกัน
@@ -184,6 +188,7 @@ export function ProposalsTable({
                     <ProposalForm
                       action={updateProposal.bind(null, r.id)}
                       lockBudget={!isAdmin}
+                      lockedDraftActivities={r.draftProjectId ? lockedActivitiesByDraft[r.draftProjectId] : undefined}
                       existingProposalNames={sortedRows
                         .filter((x) => x.id !== r.id && x.budgetYearId === r.budgetYearId)
                         .map((x) => x.name)}
@@ -288,6 +293,7 @@ export function ProposalsTable({
                         <ProposalForm
                           action={updateProposal.bind(null, r.id)}
                           lockBudget={!isAdmin}
+                      lockedDraftActivities={r.draftProjectId ? lockedActivitiesByDraft[r.draftProjectId] : undefined}
                           existingProposalNames={sortedRows
                             .filter((x) => x.id !== r.id && x.budgetYearId === r.budgetYearId)
                             .map((x) => x.name)}

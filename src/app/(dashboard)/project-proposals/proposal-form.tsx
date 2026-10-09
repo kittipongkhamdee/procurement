@@ -18,6 +18,8 @@ type DraftProject = {
   adminGroupId: string | null;
   budgetSourceId: string | null;
   budget: number;
+  /** กิจกรรมย่อยที่กำหนดไว้ในร่างโครงการ (ถ้ามี) */
+  activities?: { name: string; budget: number }[];
 };
 
 type ActivityRow = {
@@ -246,6 +248,7 @@ export function ProposalForm({
   standards,
   draftProjects = [],
   lockBudget = false,
+  lockedDraftActivities,
   existingProposalNames = [],
   proposedDraftIds = [],
   initial,
@@ -263,6 +266,8 @@ export function ProposalForm({
   draftProjects?: DraftProject[];
   /** ล็อกกลุ่มงานที่รับผิดชอบ แหล่งเงินงบประมาณ วิธีกรอกงบ และงบรวมก้อนเดียว (ใช้ตอนครูแก้ไขข้อเสนอของตัวเอง — เฉพาะผู้ดูแลระบบแก้ได้) */
   lockBudget?: boolean;
+  /** ตอนครูแก้ไขข้อเสนอเดิม: กิจกรรม+งบที่กำหนดครบแล้วในร่างโครงการที่ผูกอยู่ — ถ้ามี ชื่อ/งบกิจกรรมแก้ไม่ได้ (ใช้ตามร่าง) */
+  lockedDraftActivities?: { name: string; budget: number }[];
   /** ชื่อข้อเสนอโครงการที่มีอยู่แล้วในปีงบประมาณเดียวกัน (ไม่รวมรายการที่กำลังแก้ไข) — 1 โครงการส่งได้ 1 รายการ */
   existingProposalNames?: string[];
   /** id ร่างโครงการที่มีข้อเสนอผูกอยู่แล้ว */
@@ -280,8 +285,21 @@ export function ProposalForm({
   const [standard, setStandard] = useState(initial?.standard ?? "");
   const [responsible, setResponsible] = useState<string[]>(initial?.responsible ?? []);
   const [objectives, setObjectives] = useState<string[]>(initial?.objectives ?? [""]);
-  const [hasActivities, setHasActivities] = useState((initial?.activities.length ?? 1) > 0);
-  const [activities, setActivities] = useState<ActivityRow[]>(initial?.activities ?? [emptyActivity()]);
+  const [hasActivities, setHasActivities] = useState(
+    (initial?.activities.length ?? 1) > 0 || (!!lockBudget && (lockedDraftActivities?.length ?? 0) > 0),
+  );
+  const [activities, setActivities] = useState<ActivityRow[]>(() => {
+    if (initial && lockBudget && lockedDraftActivities && lockedDraftActivities.length > 0) {
+      return lockedDraftActivities.map((d, i) => {
+        const match =
+          initial.activities.find((a) => a.name.trim() === d.name.trim()) ??
+          (initial.activities.length === lockedDraftActivities.length ? initial.activities[i] : undefined);
+        return { name: d.name, responsible: match?.responsible ?? [], budget: String(d.budget) };
+      });
+    }
+    return initial?.activities ?? [emptyActivity()];
+  });
+  const [budgetConfirmed, setBudgetConfirmed] = useState(false);
   const [projectBudget, setProjectBudget] = useState(
     initial && !hasActivities ? String(initial.budgetAmount) : "",
   );
@@ -320,6 +338,14 @@ export function ProposalForm({
   const lockedDraft = draftProjects.find((d) => d.id === selectedDraftId) ?? null;
   // สร้างใหม่: ชื่อมาจากร่างโครงการที่เลือกเท่านั้น / แก้ไข: เฉพาะผู้ดูแลระบบ (lockBudget=false) แก้ชื่อได้
   const nameReadOnly = initial ? lockBudget : true;
+  // ร่างที่เลือกมีกิจกรรมและงบรวมกิจกรรมเท่างบร่างแล้ว (กำหนดครบ) — ชื่อ/งบกิจกรรมใช้ตามร่าง ครูแก้ไม่ได้
+  const draftActivitiesFinal = (d: DraftProject | null) => {
+    if (!d || !d.activities || d.activities.length === 0) return false;
+    return Math.abs(d.activities.reduce((sum, a) => sum + a.budget, 0) - d.budget) < 0.01;
+  };
+  const activitiesLocked = initial
+    ? lockBudget && (lockedDraftActivities?.length ?? 0) > 0
+    : draftActivitiesFinal(lockedDraft);
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const existingNameKeys = useMemo(
@@ -340,6 +366,7 @@ export function ProposalForm({
     setSelectedDraftId(draftId);
     if (!draftId) {
       setName("");
+      setBudgetConfirmed(false);
       return;
     }
     const draft = draftProjects.find((d) => d.id === draftId);
@@ -350,8 +377,20 @@ export function ProposalForm({
     }
     setAdminGroupId(draft.adminGroupId ?? "");
     setBudgetSourceId(draft.budgetSourceId ?? "");
-    setHasActivities(false);
     setProjectBudget(String(draft.budget));
+    setBudgetConfirmed(false);
+    if (draftActivitiesFinal(draft)) {
+      // ดึงกิจกรรม + งบจากร่างมาให้ (ครูกรอกได้เฉพาะผู้รับผิดชอบ)
+      setHasActivities(true);
+      setActivities((draft.activities ?? []).map((a) => ({ name: a.name, responsible: [], budget: String(a.budget) })));
+    } else {
+      setHasActivities(false);
+      if (draft.activities && draft.activities.length > 0) {
+        void toastError(
+          `ร่างโครงการ "${draft.name}" ยังกำหนดงบรายกิจกรรมไม่ครบ กรุณาแจ้งผู้ดูแลระบบให้ตรวจสอบก่อนส่งข้อเสนอ`,
+        );
+      }
+    }
   }
 
   function updateActivity(index: number, patch: Partial<ActivityRow>) {
@@ -369,11 +408,14 @@ export function ProposalForm({
   );
 
   // งบที่กำหนดไว้ที่ยอดรวมกิจกรรมย่อยต้องเท่ากับ: งบของร่างโครงการที่เลือก หรือ (ครูแก้ไขข้อเสนอเดิม) งบเดิมของข้อเสนอ
-  const budgetTarget: number | null = lockedDraft
-    ? lockedDraft.budget
-    : lockBudget && hasActivities && initial
-      ? initial.budgetAmount
-      : null;
+  // (กิจกรรมล็อกตามร่าง: ยอดรวมตรงกับร่างอยู่แล้ว ไม่ต้องตรวจเทียบซ้ำ)
+  const budgetTarget: number | null = activitiesLocked
+    ? null
+    : lockedDraft
+      ? lockedDraft.budget
+      : lockBudget && hasActivities && initial
+        ? initial.budgetAmount
+        : null;
   const budgetTargetLabel = lockedDraft ? "ร่างโครงการ" : "งบที่กำหนดไว้เดิม";
   const activityBudgetDiff = budgetTarget !== null && hasActivities ? totalBudget - budgetTarget : 0;
   const budgetMismatch = Math.abs(activityBudgetDiff) >= 0.01;
@@ -418,6 +460,11 @@ export function ProposalForm({
       await toastError("โครงการนี้ได้ส่งข้อเสนอโครงการไปแล้ว ไม่สามารถส่งซ้ำได้");
       return false;
     }
+    if (!initial && !budgetConfirmed) {
+      await toastError("กรุณากดยืนยันงบประมาณที่ได้รับก่อนส่งข้อเสนอโครงการ");
+      return false;
+    }
+    if (!initial) formData.set("budget_confirmed", "yes");
     formData.set("has_activities", hasActivities ? "yes" : "no");
     formData.set("activities_json", JSON.stringify(hasActivities ? activities : []));
     formData.set("objectives_json", JSON.stringify(objectives.filter((o) => o.trim() !== "")));
@@ -669,12 +716,12 @@ export function ProposalForm({
                 role="radio"
                 aria-checked={selected}
                 onClick={() => chooseHasActivities(opt.value)}
-                disabled={lockBudget}
+                disabled={lockBudget || activitiesLocked}
                 className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition-colors disabled:cursor-not-allowed ${
                   selected
                     ? "border-navy-800 bg-navy-50/60"
                     : "border-slate-200 bg-white hover:border-slate-300"
-                } ${lockBudget && !selected ? "opacity-50" : ""}`}
+                } ${(lockBudget || activitiesLocked) && !selected ? "opacity-50" : ""}`}
               >
                 <span
                   aria-hidden
@@ -713,7 +760,8 @@ export function ProposalForm({
                       <input
                         value={row.name}
                         onChange={(e) => updateActivity(i, { name: e.target.value })}
-                        className="input"
+                        readOnly={activitiesLocked}
+                        className="input read-only:bg-slate-100 read-only:text-slate-600"
                         placeholder={`กิจกรรมที่ ${i + 1}`}
                       />
                     </div>
@@ -732,11 +780,12 @@ export function ProposalForm({
                         step="0.01"
                         value={row.budget}
                         onChange={(e) => updateActivity(i, { budget: e.target.value })}
-                        className="input text-right"
+                        readOnly={activitiesLocked}
+                        className="input text-right read-only:bg-slate-100 read-only:text-slate-600"
                         placeholder="0.00"
                       />
                     </div>
-                    {activities.length > 1 && (
+                    {activities.length > 1 && !activitiesLocked && (
                       <button
                         type="button"
                         onClick={() => setActivities((prev) => prev.filter((_, idx) => idx !== i))}
@@ -765,7 +814,12 @@ export function ProposalForm({
                 </div>
               )}
             </div>
-            {budgetTarget !== null && (
+            {activitiesLocked && (
+              <p className="mb-2 text-xs text-slate-500">
+                ชื่อกิจกรรมและงบประมาณรายกิจกรรมเป็นไปตามที่ตกลงกันในที่ประชุมคณะจัดทำร่างโครงการ แก้ไขไม่ได้ — กรอกได้เฉพาะผู้รับผิดชอบกิจกรรม
+              </p>
+            )}
+            {budgetTarget !== null && !activitiesLocked && (
               <>
                 <p className="mb-2 text-xs text-slate-500">
                   งบประมาณกิจกรรมย่อยกรอกเองได้ตามจริง แต่ยอดรวมงบประมาณทั้งสิ้นจะยึดตามที่กำหนดไว้ใน{budgetTargetLabel} —
@@ -774,9 +828,12 @@ export function ProposalForm({
                 {lockedDraft && <input type="hidden" name="locked_budget_amount" value={lockedDraft.budget} />}
               </>
             )}
-            <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
-              + เพิ่มกิจกรรม
-            </button>
+            {activitiesLocked && lockedDraft && <input type="hidden" name="locked_budget_amount" value={lockedDraft.budget} />}
+            {!activitiesLocked && (
+              <button type="button" onClick={() => setActivities((prev) => [...prev, emptyActivity()])} className="btn-secondary btn-sm">
+                + เพิ่มกิจกรรม
+              </button>
+            )}
           </>
         ) : (
           <div>
@@ -836,6 +893,27 @@ export function ProposalForm({
           </div>
         </div>
       </div>
+
+      {!initial && (
+        <label
+          className={`flex items-start gap-3 rounded-xl border-2 p-3 text-sm ${
+            budgetConfirmed ? "border-emerald-300 bg-emerald-50/60" : "border-amber-300 bg-amber-50/60"
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={budgetConfirmed}
+            onChange={(e) => setBudgetConfirmed(e.target.checked)}
+            disabled={!lockedDraft}
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span className="text-slate-800">
+            {lockedDraft
+              ? `ข้าพเจ้ายืนยันว่าได้รับงบประมาณโครงการนี้ ${formatBaht(lockedDraft.budget)} บาท ตามที่ตกลงกันในที่ประชุมคณะจัดทำร่างโครงการ`
+              : "เลือกโครงการจากร่างโครงการก่อน แล้วยืนยันงบประมาณที่ได้รับ"}
+          </span>
+        </label>
+      )}
 
       <SubmitButton
         label={submitting ? (initial ? "กำลังบันทึก…" : "กำลังส่ง…") : submitLabel}

@@ -55,6 +55,47 @@ type ActivityRow = {
   budget: string;
 };
 
+type DraftActivityLite = { name: string; budget: number };
+
+/** กิจกรรมของร่างโครงการที่ "สมบูรณ์" แล้ว = มีกิจกรรมและผลรวมงบกิจกรรมเท่ากับงบร่าง (ผู้ดูแลระบบกรอกวงเงินครบแล้ว) */
+async function loadFinalDraftActivities(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  draftId: string,
+  draftBudget: number,
+): Promise<{ hasActivities: boolean; final: DraftActivityLite[] | null }> {
+  const { data } = await supabase
+    .from("plan_draft_activities")
+    .select("name, budget, sort_order")
+    .eq("draft_project_id", draftId)
+    .order("sort_order");
+  const acts = (data ?? []).map((a) => ({ name: a.name, budget: Number(a.budget ?? 0) }));
+  if (acts.length === 0) return { hasActivities: false, final: null };
+  const total = acts.reduce((sum, a) => sum + a.budget, 0);
+  return { hasActivities: true, final: Math.abs(total - draftBudget) < 0.01 ? acts : null };
+}
+
+/** ชื่อ/งบกิจกรรมมาจากร่างโครงการ (แก้ไม่ได้) — ผู้รับผิดชอบกิจกรรมเอามาจากที่ครูส่งมา (จับคู่ตามชื่อก่อน แล้วตามลำดับ) */
+function activitiesFromDraft(draftActs: DraftActivityLite[], submitted: ActivityRow[]): ActivityRow[] {
+  return draftActs.map((d, i) => {
+    const match =
+      submitted.find((s) => s.name.trim() === d.name.trim()) ?? (submitted.length === draftActs.length ? submitted[i] : undefined);
+    return {
+      name: d.name,
+      responsible: Array.isArray(match?.responsible) ? match.responsible : [],
+      budget: d.budget as unknown as string,
+    };
+  });
+}
+
+function parseActivitiesJson(formData: FormData): ActivityRow[] {
+  try {
+    const parsed = JSON.parse(String(formData.get("activities_json") ?? "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 const PROPOSAL_FILES_BUCKET = "procurement-files";
 
 function indicatorsField(formData: FormData, key: string) {
@@ -122,7 +163,7 @@ async function requireEditableProposal(id: string) {
 
   const { data: proposal } = await supabase
     .from("plan_project_proposals")
-    .select("created_by, status, name, budget_year_id, file_url_word, file_url_pdf, admin_group_id, budget_source_id, budget_amount, activities")
+    .select("created_by, status, name, budget_year_id, file_url_word, file_url_pdf, admin_group_id, budget_source_id, budget_amount, activities, draft_project_id")
     .eq("id", id)
     .maybeSingle();
   if (!proposal) throw new Error("ไม่พบข้อเสนอโครงการ");
@@ -198,16 +239,27 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
 
   const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
-  const hasActivities = String(formData.get("has_activities") ?? "yes") !== "no";
+  // ครูต้องกดยืนยันงบประมาณที่ได้รับอีกครั้งตอนเสนอโครงการ
+  if (String(formData.get("budget_confirmed") ?? "") !== "yes") {
+    return { error: "กรุณากดยืนยันงบประมาณที่ได้รับก่อนส่งข้อเสนอโครงการ" };
+  }
+
+  // ร่างโครงการที่มีกิจกรรมย่อย: ชื่อ/งบกิจกรรมใช้ตามร่างเสมอ (ตกลงกันแล้วที่ประชุมคณะจัดทำร่างโครงการ) ครูกรอกได้เฉพาะผู้รับผิดชอบ
+  const draftBudgetForCheck = Number(draft.budget ?? 0);
+  const draftActs = await loadFinalDraftActivities(supabase, draftProjectId, draftBudgetForCheck);
+  if (draftActs.hasActivities && !draftActs.final) {
+    return { error: "ร่างโครงการนี้ยังกำหนดงบรายกิจกรรมไม่ครบ (ผลรวมกิจกรรมไม่เท่างบโครงการ) กรุณาแจ้งผู้ดูแลระบบให้ตรวจสอบก่อน" };
+  }
+
+  const hasActivities = draftActs.final ? true : String(formData.get("has_activities") ?? "yes") !== "no";
 
   let activities: ActivityRow[] = [];
   let budgetAmount = 0;
-  if (hasActivities) {
-    try {
-      activities = JSON.parse(String(formData.get("activities_json") ?? "[]"));
-    } catch {
-      activities = [];
-    }
+  if (draftActs.final) {
+    activities = activitiesFromDraft(draftActs.final, parseActivitiesJson(formData));
+    budgetAmount = draftBudgetForCheck;
+  } else if (hasActivities) {
+    activities = parseActivitiesJson(formData);
     activities = activities
       .filter((a) => a.name.trim() !== "")
       .map((a) => ({
@@ -300,14 +352,26 @@ export async function updateProposal(id: string, formData: FormData): Promise<{ 
     ? existingActivities.length > 0
     : String(formData.get("has_activities") ?? "yes") !== "no";
 
+  // ครู: ถ้าร่างโครงการที่ผูกอยู่กำหนดกิจกรรม+งบครบแล้ว ชื่อ/งบกิจกรรมใช้ตามร่างเสมอ แก้เองไม่ได้ (เหลือแก้ผู้รับผิดชอบได้)
+  let finalDraftActs: DraftActivityLite[] | null = null;
+  if (lockBudget && proposal.draft_project_id) {
+    const { data: linkedDraft } = await supabase
+      .from("plan_draft_projects")
+      .select("budget")
+      .eq("id", proposal.draft_project_id)
+      .maybeSingle();
+    if (linkedDraft) {
+      finalDraftActs = (await loadFinalDraftActivities(supabase, proposal.draft_project_id, Number(linkedDraft.budget ?? 0))).final;
+    }
+  }
+
   let activities: ActivityRow[] = [];
   let budgetAmount = 0;
-  if (hasActivities) {
-    try {
-      activities = JSON.parse(String(formData.get("activities_json") ?? "[]"));
-    } catch {
-      activities = [];
-    }
+  if (finalDraftActs) {
+    activities = activitiesFromDraft(finalDraftActs, parseActivitiesJson(formData));
+    budgetAmount = finalDraftActs.reduce((sum, a) => sum + a.budget, 0);
+  } else if (hasActivities) {
+    activities = parseActivitiesJson(formData);
     activities = activities
       .filter((a) => a.name.trim() !== "")
       .map((a) => ({

@@ -81,6 +81,8 @@ export default function ProjectProposalsPage() {
   const [standards, setStandards] = useState<Option[]>([]);
   // ร่างโครงการของปีงบประมาณปัจจุบัน ไว้นับว่าเสนอแล้วกี่รายการ (นับจากการผูกด้วย id หรือชื่อตรงกัน)
   const [drafts, setDrafts] = useState<{ id: string; name: string; adminGroup: string }[]>([]);
+  // ร่างโครงการที่กำหนดกิจกรรม+งบครบแล้ว (ผลรวมกิจกรรม = งบร่าง): draftId -> กิจกรรม — ใช้ล็อกชื่อ/งบกิจกรรมตอนครูแก้ไขข้อเสนอ
+  const [lockedActivitiesByDraft, setLockedActivitiesByDraft] = useState<Record<string, { name: string; budget: number }[]>>({});
   const [canEndorse, setCanEndorse] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
 
@@ -117,7 +119,7 @@ export default function ProjectProposalsPage() {
     if (year) {
       const { data: draftRows } = await supabase
         .from("plan_draft_projects")
-        .select("id, name, plan_admin_groups(name, sort_order)")
+        .select("id, name, budget, plan_admin_groups(name, sort_order), plan_draft_activities(name, budget, sort_order)")
         .eq("budget_year_id", year.id)
         .order("sort_order")
         .order("created_at");
@@ -128,8 +130,19 @@ export default function ProjectProposalsPage() {
           adminGroup: (d.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
         })),
       );
+      const locked: Record<string, { name: string; budget: number }[]> = {};
+      for (const d of draftRows ?? []) {
+        const acts = [...((d.plan_draft_activities as unknown as { name: string; budget: number; sort_order: number }[]) ?? [])]
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((a) => ({ name: a.name, budget: Number(a.budget ?? 0) }));
+        if (acts.length > 0 && Math.abs(acts.reduce((sum, a) => sum + a.budget, 0) - Number(d.budget ?? 0)) < 0.01) {
+          locked[d.id] = acts;
+        }
+      }
+      setLockedActivitiesByDraft(locked);
     } else {
       setDrafts([]);
+      setLockedActivitiesByDraft({});
     }
     setAdminGroups(adminGroupsData ?? []);
     setBudgetSources(budgetSourcesData ?? []);
@@ -389,6 +402,7 @@ export default function ProjectProposalsPage() {
           canApprove={canApprove}
           currentUserId={user?.userId ?? null}
           draftSummaryByGroup={draftSummaryByGroup}
+          lockedActivitiesByDraft={lockedActivitiesByDraft}
           adminGroups={adminGroups}
           budgetSources={budgetSources}
           teachers={teachers}

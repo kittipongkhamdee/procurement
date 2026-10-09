@@ -16,7 +16,14 @@ import { createProposal } from "../actions";
 
 type Option = { id: string; name: string };
 type Teacher = { id: string; name: string; is_active: boolean };
-type DraftProject = { id: string; name: string; adminGroupId: string | null; budgetSourceId: string | null; budget: number };
+type DraftProject = {
+  id: string;
+  name: string;
+  adminGroupId: string | null;
+  budgetSourceId: string | null;
+  budget: number;
+  activities: { name: string; budget: number }[];
+};
 
 export default function NewProjectProposalPage() {
   const router = useRouter();
@@ -55,7 +62,7 @@ export default function NewProjectProposalPage() {
     if (year) {
       const { data: draftsData } = await supabase
         .from("plan_draft_projects")
-        .select("id, name, admin_group_id, budget_source_id, budget")
+        .select("id, name, admin_group_id, budget_source_id, budget, plan_draft_activities(name, budget, sort_order)")
         .eq("budget_year_id", year.id)
         .order("sort_order")
         .order("created_at");
@@ -72,6 +79,9 @@ export default function NewProjectProposalPage() {
           adminGroupId: d.admin_group_id,
           budgetSourceId: d.budget_source_id,
           budget: Number(d.budget ?? 0),
+          activities: [...((d.plan_draft_activities as unknown as { name: string; budget: number; sort_order: number }[]) ?? [])]
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map((a) => ({ name: a.name, budget: Number(a.budget ?? 0) })),
         })),
       );
     }
