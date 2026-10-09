@@ -993,6 +993,44 @@ export type Database = {
           },
         ]
       }
+      plan_draft_activities: {
+        Row: {
+          budget: number
+          created_at: string
+          draft_project_id: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          budget?: number
+          created_at?: string
+          draft_project_id: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          budget?: number
+          created_at?: string
+          draft_project_id?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_draft_activities_draft_project_id_fkey"
+            columns: ["draft_project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_draft_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_draft_projects: {
         Row: {
           admin_group_id: string | null
@@ -1006,6 +1044,7 @@ export type Database = {
           id: string
           name: string
           sort_order: number
+          source_project_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1020,6 +1059,7 @@ export type Database = {
           id?: string
           name: string
           sort_order?: number
+          source_project_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1034,6 +1074,7 @@ export type Database = {
           id?: string
           name?: string
           sort_order?: number
+          source_project_id?: string | null
           updated_at?: string
         }
         Relationships: [

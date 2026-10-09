@@ -10,17 +10,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
-import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import {
-  acquireDraftEditLock,
-  copyProjectsToDraft,
-  createDraftProject,
-  discardNewDraftProject,
-  deleteDraftProject,
-  releaseDraftEditLock,
-  setDraftEditOpen,
-  updateDraftProject,
-} from "./actions";
+import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { copyProjectsToDraft, setDraftEditOpen } from "./actions";
+import { DraftCompare } from "./draft-compare";
 import { computeAllItemTotals, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
 // ชื่อแหล่งงบประมาณ (plan_budget_sources.name) ที่มีที่มาจากเงินอุดหนุนรายหัว (คำนวณได้จากแท็บ
@@ -56,13 +48,6 @@ type DraftRow = {
   budgetSourceId: string | null;
   budget: number;
   editingByName: string | null;
-};
-
-type DraftEditState = {
-  name: string;
-  adminGroupId: string;
-  budgetSourceId: string;
-  budget: string;
 };
 
 function formatBaht(n: number) {
@@ -105,17 +90,7 @@ export function ProjectAllocationTab({
   const [sourceBudgetSourceId, setSourceBudgetSourceId] = useState<string>(ALL);
 
   const [draftRows, setDraftRows] = useState<DraftRow[] | null>(null);
-  const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  // แถวที่เพิ่งกด "เพิ่มร่างโครงการ" และยังไม่ได้บันทึก — ถ้ายกเลิกให้ลบแถวเปล่านั้นทิ้ง
-  const [newDraftId, setNewDraftId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<DraftEditState | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [acquiringId, setAcquiringId] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
 
-  const [draftSearch, setDraftSearch] = useState("");
-  const [draftAdminGroupId, setDraftAdminGroupId] = useState<string>(ALL);
-  const [draftBudgetSourceId, setDraftBudgetSourceId] = useState<string>(ALL);
 
   const [groupAllocations, setGroupAllocations] = useState<Record<string, number>>({});
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
@@ -291,17 +266,6 @@ export function ProjectAllocationTab({
     });
   }, [sourceRows, sourceAdminGroupId, sourceBudgetSourceId]);
 
-  const filteredDraftRows = useMemo(() => {
-    if (!draftRows) return [];
-    const search = draftSearch.trim().toLowerCase();
-    return draftRows.filter((r) => {
-      if (search && !r.name.toLowerCase().includes(search)) return false;
-      if (draftAdminGroupId !== ALL && r.adminGroupId !== draftAdminGroupId) return false;
-      if (draftBudgetSourceId !== ALL && r.budgetSourceId !== draftBudgetSourceId) return false;
-      return true;
-    });
-  }, [draftRows, draftSearch, draftAdminGroupId, draftBudgetSourceId]);
-
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -329,135 +293,6 @@ export function ProjectAllocationTab({
       await toastError(errorMessage(err));
     } finally {
       setCopying(false);
-    }
-  }
-
-  function patchDraft(id: string, patch: Partial<DraftRow>) {
-    setDraftRows((prev) => (prev ? prev.map((r) => (r.id === id ? { ...r, ...patch } : r)) : prev));
-  }
-
-  async function startEditDraft(row: DraftRow) {
-    setAcquiringId(row.id);
-    try {
-      await acquireDraftEditLock(row.id, budgetYearId);
-      setEditingRowId(row.id);
-      setEditDraft({
-        name: row.name,
-        adminGroupId: row.adminGroupId ?? "",
-        budgetSourceId: row.budgetSourceId ?? "",
-        budget: String(row.budget),
-      });
-    } catch (err) {
-      await toastError(errorMessage(err));
-      await loadDraftRows();
-    } finally {
-      setAcquiringId(null);
-    }
-  }
-
-  async function cancelEditDraft(row: DraftRow) {
-    setEditingRowId(null);
-    setEditDraft(null);
-    try {
-      if (row.id === newDraftId) {
-        setNewDraftId(null);
-        const { deleted } = await discardNewDraftProject(row.id, budgetYearId);
-        if (deleted) {
-          setDraftRows((prev) => (prev ? prev.filter((r) => r.id !== row.id) : prev));
-          return;
-        }
-      } else {
-        await releaseDraftEditLock(row.id, budgetYearId);
-      }
-      patchDraft(row.id, { editingByName: null });
-    } catch (err) {
-      await toastError(errorMessage(err));
-    }
-  }
-
-  async function saveEditDraft(row: DraftRow) {
-    if (!editDraft) return;
-    const name = editDraft.name.trim();
-    if (!name) {
-      await toastError("กรุณากรอกชื่อโครงการ");
-      return;
-    }
-    const budget = Number(editDraft.budget);
-    if (Number.isNaN(budget) || budget < 0) {
-      await toastError("กรุณากรอกจำนวนเงินให้ถูกต้อง");
-      return;
-    }
-    setSavingId(row.id);
-    try {
-      const adminGroupId = editDraft.adminGroupId || null;
-      const budgetSourceId = editDraft.budgetSourceId || null;
-      await updateDraftProject(row.id, budgetYearId, {
-        name,
-        admin_group_id: adminGroupId,
-        budget_source_id: budgetSourceId,
-        budget,
-      });
-      patchDraft(row.id, { name, adminGroupId, budgetSourceId, budget, editingByName: null });
-      setNewDraftId(null);
-      setEditingRowId(null);
-      setEditDraft(null);
-      await toastSuccess("บันทึกร่างโครงการเรียบร้อยแล้ว");
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function handleAddDraft() {
-    setAdding(true);
-    try {
-      const created = await createDraftProject(budgetYearId);
-      if (created) {
-        const row: DraftRow = {
-          id: created.id,
-          name: created.name,
-          adminGroupId: created.admin_group_id,
-          budgetSourceId: created.budget_source_id,
-          budget: Number(created.budget ?? 0),
-          editingByName: created.editing_by_name,
-        };
-        setDraftRows((prev) => [row, ...(prev ?? [])]);
-        setDraftSearch("");
-        setDraftAdminGroupId(ALL);
-        setDraftBudgetSourceId(ALL);
-        setEditingRowId(row.id);
-        setNewDraftId(row.id);
-        setEditDraft({
-          name: row.name,
-          adminGroupId: row.adminGroupId ?? "",
-          budgetSourceId: row.budgetSourceId ?? "",
-          budget: String(row.budget),
-        });
-      }
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function handleDeleteDraft(row: DraftRow) {
-    const ok = await confirmDelete({ title: `ลบร่างโครงการ "${row.name}"?`, text: "ไม่สามารถกู้คืนได้" });
-    if (!ok) return;
-    setSavingId(row.id);
-    try {
-      await deleteDraftProject(row.id);
-      setDraftRows((prev) => (prev ? prev.filter((r) => r.id !== row.id) : prev));
-      if (editingRowId === row.id) {
-        setEditingRowId(null);
-        setEditDraft(null);
-      }
-      await toastSuccess("ลบร่างโครงการเรียบร้อยแล้ว");
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setSavingId(null);
     }
   }
 
@@ -648,7 +483,7 @@ export function ProjectAllocationTab({
           )}
           <p className="mb-3 text-sm text-slate-500">
             {canEditDraft
-              ? "กด \"แก้ไข\" ต่อรายการเพื่อแก้ไขแล้วกด \"บันทึก\""
+              ? "ตารางเทียบกับโครงการปีก่อน — กด \"แก้ไข\" ต่อรายการเพื่อกรอกวงเงินปีนี้ (รวมกิจกรรมย่อย) แล้วกด \"บันทึก\""
               : "ดูรายการได้อย่างเดียว"}{" "}
             — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู &quot;เสนอโครงการ&quot;
             (หรือพิมพ์ชื่อใหม่เองก็ได้)
@@ -788,339 +623,17 @@ export function ProjectAllocationTab({
             </div>
           </div>
 
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
-                  <label className="label">ค้นหาชื่อโครงการ</label>
-                  <input
-                    type="text"
-                    value={draftSearch}
-                    onChange={(e) => setDraftSearch(e.target.value)}
-                    placeholder="พิมพ์ชื่อโครงการ..."
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="label">กลุ่มบริหารงาน</label>
-                  <select
-                    value={draftAdminGroupId}
-                    onChange={(e) => setDraftAdminGroupId(e.target.value)}
-                    className="input"
-                  >
-                    <option value={ALL}>ทั้งหมด</option>
-                    {adminGroups.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">แหล่งงบประมาณ</label>
-                  <select
-                    value={draftBudgetSourceId}
-                    onChange={(e) => setDraftBudgetSourceId(e.target.value)}
-                    className="input"
-                  >
-                    <option value={ALL}>ทั้งหมด</option>
-                    {budgetSources.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {canEditDraft && (
-                <button
-                  type="button"
-                  onClick={handleAddDraft}
-                  disabled={adding || editingRowId !== null}
-                  className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {adding ? "กำลังเพิ่ม..." : "+ เพิ่มร่างโครงการ"}
-                </button>
-              )}
-            </div>
-
-            <div className="table-shell mt-2">
-              {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว */}
-              <div className="divide-y divide-slate-100 md:hidden">
-                {filteredDraftRows.map((r, i) => {
-                  const isSaving = savingId === r.id;
-                  const isEditing = editingRowId === r.id;
-                  const isAcquiring = acquiringId === r.id;
-                  const lockedByOther = !isEditing && !!r.editingByName;
-                  return (
-                    <div key={r.id} className="px-4 py-3">
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={editDraft?.name ?? ""}
-                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-                            disabled={isSaving}
-                            className="input w-full font-medium text-slate-900 disabled:bg-slate-100"
-                          />
-                          <select
-                            value={editDraft?.adminGroupId ?? ""}
-                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, adminGroupId: e.target.value } : prev))}
-                            disabled={isSaving}
-                            className="input disabled:bg-slate-100"
-                          >
-                            <option value="">ไม่ระบุกลุ่มบริหาร</option>
-                            {adminGroups.map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.name}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            value={editDraft?.budgetSourceId ?? ""}
-                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, budgetSourceId: e.target.value } : prev))}
-                            disabled={isSaving}
-                            className="input disabled:bg-slate-100"
-                          >
-                            <option value="">ไม่ระบุแหล่งงบประมาณ</option>
-                            {budgetSources.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                {s.name}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={editDraft?.budget ?? ""}
-                            onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, budget: e.target.value } : prev))}
-                            disabled={isSaving}
-                            className="input text-right disabled:bg-slate-100"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => cancelEditDraft(r)}
-                              disabled={isSaving}
-                              className="btn-secondary btn-sm flex-1 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              ยกเลิก
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => saveEditDraft(r)}
-                              disabled={isSaving}
-                              className="btn-primary btn-sm flex-1 disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="min-w-0 break-words font-medium text-slate-900">
-                              <span className="text-xs text-slate-400">#{i + 1}</span> {r.name}
-                            </span>
-                            <span className="shrink-0 tabular-nums">{formatBaht(r.budget)}</span>
-                          </div>
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {adminGroups.find((g) => g.id === r.adminGroupId)?.name ?? "ไม่ระบุ"} ·{" "}
-                            {budgetSources.find((s) => s.id === r.budgetSourceId)?.name ?? "ไม่ระบุ"}
-                          </p>
-                          {lockedByOther ? (
-                            <p className="mt-2 text-xs text-amber-700">กำลังแก้ไขโดย {r.editingByName}</p>
-                          ) : (
-                            <div className="mt-2 flex gap-2">
-                              {canEditDraft && (
-                                <button
-                                  type="button"
-                                  onClick={() => startEditDraft(r)}
-                                  disabled={editingRowId !== null || isAcquiring}
-                                  className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  {isAcquiring ? "กำลังเปิด..." : "แก้ไข"}
-                                </button>
-                              )}
-                              {isAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteDraft(r)}
-                                  disabled={isSaving || editingRowId !== null}
-                                  className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  ลบ
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-                {draftRows !== null && filteredDraftRows.length === 0 && (
-                  <p className="table-empty">
-                    {draftRows.length === 0
-                      ? 'ยังไม่มีร่างโครงการ — คัดลอกจากปีเดิมด้านบน หรือกด "+ เพิ่มร่างโครงการ"'
-                      : "ไม่พบร่างโครงการตามตัวกรองที่เลือก"}
-                  </p>
-                )}
-              </div>
-
-              {/* จอกว้าง md ขึ้นไป: ตาราง */}
-              <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
-                <thead>
-                  <tr>
-                    <th className="w-12 text-center">#</th>
-                    <th>โครงการ</th>
-                    <th>กลุ่มบริหาร</th>
-                    <th>แหล่งงบประมาณ</th>
-                    <th className="whitespace-nowrap text-right">งบประมาณ</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDraftRows.map((r, i) => {
-                    const isSaving = savingId === r.id;
-                    const isEditing = editingRowId === r.id;
-                    const isAcquiring = acquiringId === r.id;
-                    const lockedByOther = !isEditing && !!r.editingByName;
-                    return (
-                      <tr key={r.id}>
-                        <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
-                        <td className="min-w-[10rem] max-w-[18rem]">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              value={editDraft?.name ?? ""}
-                              onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-                              disabled={isSaving}
-                              className="input w-full font-medium text-slate-900 disabled:bg-slate-100"
-                            />
-                          ) : (
-                            <span className="break-words font-medium text-slate-900">{r.name}</span>
-                          )}
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <select
-                              value={editDraft?.adminGroupId ?? ""}
-                              onChange={(e) =>
-                                setEditDraft((prev) => (prev ? { ...prev, adminGroupId: e.target.value } : prev))
-                              }
-                              disabled={isSaving}
-                              className="input disabled:bg-slate-100"
-                            >
-                              <option value="">ไม่ระบุ</option>
-                              {adminGroups.map((g) => (
-                                <option key={g.id} value={g.id}>
-                                  {g.name}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            adminGroups.find((g) => g.id === r.adminGroupId)?.name ?? "ไม่ระบุ"
-                          )}
-                        </td>
-                        <td>
-                          {isEditing ? (
-                            <select
-                              value={editDraft?.budgetSourceId ?? ""}
-                              onChange={(e) =>
-                                setEditDraft((prev) => (prev ? { ...prev, budgetSourceId: e.target.value } : prev))
-                              }
-                              disabled={isSaving}
-                              className="input disabled:bg-slate-100"
-                            >
-                              <option value="">ไม่ระบุ</option>
-                              {budgetSources.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.name}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            budgetSources.find((s) => s.id === r.budgetSourceId)?.name ?? "ไม่ระบุ"
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap text-right">
-                          {isEditing ? (
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={editDraft?.budget ?? ""}
-                              onChange={(e) =>
-                                setEditDraft((prev) => (prev ? { ...prev, budget: e.target.value } : prev))
-                              }
-                              disabled={isSaving}
-                              className="input w-36 text-right disabled:bg-slate-100"
-                            />
-                          ) : (
-                            <span className="tabular-nums">{formatBaht(r.budget)}</span>
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap text-right">
-                          {isEditing ? (
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => cancelEditDraft(r)}
-                                disabled={isSaving}
-                                className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                ยกเลิก
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => saveEditDraft(r)}
-                                disabled={isSaving}
-                                className="btn-primary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                {isSaving ? "กำลังบันทึก..." : "บันทึก"}
-                              </button>
-                            </div>
-                          ) : lockedByOther ? (
-                            <span className="text-xs text-amber-700">กำลังแก้ไขโดย {r.editingByName}</span>
-                          ) : (
-                            <div className="flex justify-end gap-2">
-                              {canEditDraft && (
-                                <button
-                                  type="button"
-                                  onClick={() => startEditDraft(r)}
-                                  disabled={editingRowId !== null || isAcquiring}
-                                  className="btn-secondary btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  {isAcquiring ? "กำลังเปิด..." : "แก้ไข"}
-                                </button>
-                              )}
-                              {isAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteDraft(r)}
-                                  disabled={isSaving || editingRowId !== null}
-                                  className="btn-danger btn-sm disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                  ลบ
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {draftRows !== null && filteredDraftRows.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="table-empty">
-                        {draftRows.length === 0
-                          ? "ยังไม่มีร่างโครงการ — คัดลอกจากปีเดิมด้านบน หรือกด \"+ เพิ่มร่างโครงการ\""
-                          : "ไม่พบร่างโครงการตามตัวกรองที่เลือก"}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-          </div>
+          <DraftCompare
+            budgetYearId={budgetYearId}
+            budgetYears={budgetYears}
+            adminGroups={adminGroups}
+            budgetSources={budgetSources}
+            isAdmin={isAdmin}
+            canEditDraft={canEditDraft}
+            groupAllocations={groupAllocations}
+            myUserId={myUserId}
+            onChanged={loadDraftRows}
+          />
         </div>
       )}
     </div>
