@@ -1005,7 +1005,7 @@ export default function AssetAuditDetailPage() {
         คณะผู้ตรวจสอบ: {inspectors.map((i) => i.full_name_snapshot).join(", ") || "-"}
       </p>
 
-      <div className="mt-4 flex gap-1 border-b border-slate-200">
+      <div className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200">
         {[
           { key: "count" as const, label: "ตรวจนับ" },
           { key: "diff" as const, label: `สรุปผลต่าง (${diffRows.length})` },
@@ -1015,7 +1015,7 @@ export default function AssetAuditDetailPage() {
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={`border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
               tab === t.key ? "border-navy-800 text-navy-800" : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
