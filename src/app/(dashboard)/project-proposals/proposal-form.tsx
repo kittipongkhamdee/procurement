@@ -814,11 +814,6 @@ export function ProposalForm({
                 </div>
               )}
             </div>
-            {activitiesLocked && (
-              <p className="mb-2 text-xs text-slate-500">
-                ชื่อกิจกรรมและงบประมาณรายกิจกรรมเป็นไปตามที่ตกลงกันในที่ประชุมคณะจัดทำร่างโครงการ แก้ไขไม่ได้ — กรอกได้เฉพาะผู้รับผิดชอบกิจกรรม
-              </p>
-            )}
             {budgetTarget !== null && !activitiesLocked && (
               <>
                 <p className="mb-2 text-xs text-slate-500">
@@ -909,7 +904,7 @@ export function ProposalForm({
           />
           <span className="text-slate-800">
             {lockedDraft
-              ? `ข้าพเจ้ายืนยันว่าได้รับงบประมาณโครงการนี้ ${formatBaht(lockedDraft.budget)} บาท ตามที่ตกลงกันในที่ประชุมคณะจัดทำร่างโครงการ`
+              ? `ข้าพเจ้ายืนยันว่าได้รับงบประมาณโครงการนี้ ${formatBaht(lockedDraft.budget)} บาท`
               : "เลือกโครงการจากร่างโครงการก่อน แล้วยืนยันงบประมาณที่ได้รับ"}
           </span>
         </label>
