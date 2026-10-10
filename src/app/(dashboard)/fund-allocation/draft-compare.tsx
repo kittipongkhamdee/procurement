@@ -158,16 +158,24 @@ export function DraftCompare({
       .order("name");
     setPrevProjects(
       (data ?? []).map((p) => {
-        const acts = [...((p.plan_activities as unknown as { name: string | null; budget: number; sort_order: number }[]) ?? [])]
-          .sort((a, b) => a.sort_order - b.sort_order)
-          .map((a, i) => ({ name: a.name?.trim() || `กิจกรรมที่ ${i + 1}`, budget: Number(a.budget ?? 0) }));
+        const rawActs = [...((p.plan_activities as unknown as { name: string | null; budget: number; sort_order: number }[]) ?? [])]
+          .sort((a, b) => a.sort_order - b.sort_order);
+        // โครงการที่ไม่มีกิจกรรมย่อย: ระบบเดิมเก็บงบไว้ในกิจกรรมเดียวที่ไม่มีชื่อ — ถือว่าไม่มีกิจกรรมย่อย (ใช้ยอดนั้นเป็นงบโครงการ)
+        const noSubActivities = rawActs.length === 1 && !rawActs[0].name?.trim();
+        const acts = noSubActivities
+          ? []
+          : rawActs.map((a, i) => ({ name: a.name?.trim() || `กิจกรรมที่ ${i + 1}`, budget: Number(a.budget ?? 0) }));
         return {
           id: p.id,
           name: p.name,
           adminGroupId: p.admin_group_id,
           budgetSourceId: p.budget_source_id,
           activities: acts,
-          total: acts.length > 0 ? acts.reduce((s, a) => s + a.budget, 0) : Number(p.budget ?? 0),
+          total: noSubActivities
+            ? Number(rawActs[0].budget ?? 0)
+            : acts.length > 0
+              ? acts.reduce((s, a) => s + a.budget, 0)
+              : Number(p.budget ?? 0),
         };
       }),
     );

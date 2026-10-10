@@ -95,6 +95,8 @@ type PrevActivity = { name: string | null; budget: number; sort_order: number };
 
 // แปลงกิจกรรมของโครงการปีก่อนเป็นแถวกิจกรรมของร่าง — กิจกรรมที่ไม่มีชื่อได้ชื่อ "กิจกรรมที่ N"
 function buildDraftActivityRows(draftId: string, activities: PrevActivity[] | undefined, keepBudget: boolean) {
+  // โครงการที่ไม่มีกิจกรรมย่อย: ระบบเดิมเก็บงบไว้ในกิจกรรมเดียวที่ไม่มีชื่อ — ไม่คัดลอกเป็นกิจกรรมของร่าง
+  if (activities && activities.length === 1 && !activities[0].name?.trim()) return [];
   return [...(activities ?? [])]
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((a, i) => ({
@@ -422,7 +424,7 @@ export async function copyActivitiesFromPrevious(
     await supabase.from("plan_draft_projects").update({ source_project_id: p.projectId }).eq("id", p.draftId).is("source_project_id", null);
   }
   revalidatePath("/fund-allocation");
-  return { copied: todo.length, skipped };
+  return { copied: new Set(rows.map((r) => r.draft_project_id)).size, skipped };
 }
 
 // สร้างร่างโครงการปีนี้จากโครงการปีก่อนที่ยังไม่มีร่าง — ชื่อ/กลุ่ม/แหล่งงบเหมือนเดิม งบและงบกิจกรรมเริ่มที่ 0
