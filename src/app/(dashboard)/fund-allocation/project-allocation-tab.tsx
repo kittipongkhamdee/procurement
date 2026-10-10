@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
-import { copyProjectsToDraft, setDraftEditOpen } from "./actions";
+import { copyProjectsToDraft } from "./actions";
 import { DraftCompare } from "./draft-compare";
 import { computeAllItemTotals, rateKey, type GradeKey, type ItemKey } from "./revenue-calc";
 
@@ -96,9 +96,8 @@ export function ProjectAllocationTab({
   const [counts, setCounts] = useState<Partial<Record<GradeKey, number>>>({});
   const [rates, setRates] = useState<Record<string, number>>({});
   const [schoolIncome, setSchoolIncome] = useState(0);
-  const [draftOpenEdit, setDraftOpenEdit] = useState(false);
-  const [togglingOpenEdit, setTogglingOpenEdit] = useState(false);
-  const canEditDraft = isAdmin || draftOpenEdit;
+  // แก้ไข/เพิ่มร่างโครงการได้เฉพาะผู้ดูแลระบบ (ผู้ดูแลระบบเป็นคนกำหนดร่างโครงการเอง)
+  const canEditDraft = isAdmin;
 
   const subTab = section;
 
@@ -194,7 +193,7 @@ export function ProjectAllocationTab({
 
   const loadSummaryData = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: allocData }, { data: countsData }, { data: ratesData }, { data: incomeData }, { data: yearData }] =
+    const [{ data: allocData }, { data: countsData }, { data: ratesData }, { data: incomeData }] =
       await Promise.all([
         supabase.from("plan_group_allocations").select("admin_group_id, allocated_amount").eq("budget_year_id", budgetYearId),
         supabase.from("plan_student_counts").select("grade_key, student_count").eq("budget_year_id", budgetYearId),
@@ -203,7 +202,6 @@ export function ProjectAllocationTab({
           .select("item_key, grade_key, rate_per_student")
           .eq("budget_year_id", budgetYearId),
         supabase.from("plan_school_income").select("amount").eq("budget_year_id", budgetYearId).maybeSingle(),
-        supabase.from("plan_budget_years").select("draft_projects_open_edit").eq("id", budgetYearId).maybeSingle(),
       ]);
 
     const nextAllocations: Record<string, number> = {};
@@ -220,7 +218,6 @@ export function ProjectAllocationTab({
     setRates(nextRates);
 
     setSchoolIncome(Number(incomeData?.amount ?? 0));
-    setDraftOpenEdit(yearData?.draft_projects_open_edit ?? false);
   }, [budgetYearId]);
 
   useEffect(() => {
@@ -293,20 +290,6 @@ export function ProjectAllocationTab({
       await toastError(errorMessage(err));
     } finally {
       setCopying(false);
-    }
-  }
-
-  async function handleToggleOpenEdit() {
-    const next = !draftOpenEdit;
-    setTogglingOpenEdit(true);
-    try {
-      await setDraftEditOpen(budgetYearId, next);
-      setDraftOpenEdit(next);
-      await toastSuccess(next ? "เปิดการแก้ไขให้ทุกคนแล้ว" : "ปิดการแก้ไขให้ทุกคนแล้ว");
-    } catch (err) {
-      await toastError(errorMessage(err));
-    } finally {
-      setTogglingOpenEdit(false);
     }
   }
 
@@ -459,34 +442,12 @@ export function ProjectAllocationTab({
             <div className="card-title text-base font-bold text-navy-800">
               ร่างโครงการปีงบประมาณนี้ {targetYear ? `(${targetYear.year})` : ""}
             </div>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={handleToggleOpenEdit}
-                disabled={togglingOpenEdit}
-                className={`btn-sm disabled:cursor-not-allowed disabled:opacity-40 ${
-                  draftOpenEdit ? "btn-danger" : "btn-primary"
-                }`}
-              >
-                {togglingOpenEdit
-                  ? "กำลังบันทึก..."
-                  : draftOpenEdit
-                    ? "ปิดการแก้ไขให้ทุกคน"
-                    : "เปิดการแก้ไขให้ทุกคน"}
-              </button>
-            )}
           </div>
-          {draftOpenEdit && (
-            <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              เปิดให้ครูทุกคนเพิ่ม/แก้ไขร่างโครงการได้อยู่ (การลบยังจำกัดเฉพาะผู้ดูแลระบบ)
-            </p>
-          )}
           <p className="mb-3 text-sm text-slate-500">
             {canEditDraft
               ? "ตารางเทียบกับโครงการปีก่อน — กด \"แก้ไข\" ต่อรายการเพื่อกรอกวงเงินปีนี้ (รวมกิจกรรมย่อย) แล้วกด \"บันทึก\""
               : "ดูรายการได้อย่างเดียว"}{" "}
             — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู &quot;เสนอโครงการ&quot;
-            (หรือพิมพ์ชื่อใหม่เองก็ได้)
           </p>
 
           <div className="mb-6 grid grid-cols-1 gap-6 2xl:grid-cols-2">

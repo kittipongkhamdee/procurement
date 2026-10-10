@@ -280,18 +280,6 @@ export async function deleteDraftProject(id: string) {
   revalidatePath("/fund-allocation");
 }
 
-// admin เปิด/ปิดให้ทุกคนเพิ่ม/แก้ไขร่างโครงการได้ สำหรับปีงบประมาณที่ระบุ
-export async function setDraftEditOpen(budgetYearId: string, open: boolean) {
-  const supabase = await requireAdmin();
-  const { error } = await supabase
-    .from("plan_budget_years")
-    .update({ draft_projects_open_edit: open })
-    .eq("id", budgetYearId);
-  if (error) throw new Error(error.message);
-  revalidatePath("/fund-allocation");
-}
-
-
 type DraftActivityInput = { id?: string; name: string; budget: number };
 
 // บันทึกร่างโครงการหนึ่งรายการจากหน้าเทียบงบ (ชื่อ/กลุ่ม/แหล่งงบ/โครงการปีก่อนที่จับคู่ + กิจกรรมย่อย)
