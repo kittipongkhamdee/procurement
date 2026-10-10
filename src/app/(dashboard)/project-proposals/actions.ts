@@ -87,6 +87,13 @@ function activitiesFromDraft(draftActs: DraftActivityLite[], submitted: Activity
   });
 }
 
+const ACTIVITY_RESPONSIBLE_MESSAGE = "กรุณาเลือกผู้รับผิดชอบให้ครบทุกกิจกรรม (อย่างน้อยกิจกรรมละ 1 คน)";
+
+/** ทุกกิจกรรมต้องมีผู้รับผิดชอบอย่างน้อย 1 คน */
+function activitiesMissingResponsible(activities: ActivityRow[]) {
+  return activities.some((a) => !Array.isArray(a.responsible) || a.responsible.filter(Boolean).length === 0);
+}
+
 function parseActivitiesJson(formData: FormData): ActivityRow[] {
   try {
     const parsed = JSON.parse(String(formData.get("activities_json") ?? "[]"));
@@ -277,6 +284,8 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
     budgetAmount = Number(draft.budget ?? 0);
   }
 
+  if (activitiesMissingResponsible(activities)) return { error: ACTIVITY_RESPONSIBLE_MESSAGE };
+
   const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
   const fileUrlWord = await renameProposalFile(supabase, str(formData, "file_url_word"), baseName);
   const fileUrlPdf = await renameProposalFile(supabase, str(formData, "file_url_pdf"), baseName);
@@ -391,6 +400,8 @@ export async function updateProposal(id: string, formData: FormData): Promise<{ 
   } else {
     budgetAmount = lockBudget ? Number(proposal.budget_amount ?? 0) : Number(formData.get("project_budget") ?? 0) || 0;
   }
+
+  if (activitiesMissingResponsible(activities)) return { error: ACTIVITY_RESPONSIBLE_MESSAGE };
 
   const baseName = sanitizeFileNamePart(budgetYear ? `${name}_${budgetYear.year}` : name);
   const fileUrlWord = await replaceProposalFile(supabase, proposal.file_url_word, str(formData, "file_url_word"), baseName);

@@ -209,6 +209,7 @@ type FieldKey =
   | "file_url_word"
   | "file_url_pdf"
   | "responsible"
+  | "activity_responsible"
   | "objectives"
   | "indicators_quantity"
   | "indicators_quality";
@@ -217,6 +218,7 @@ const FIELD_ORDER: FieldKey[] = [
   "file_url_word",
   "file_url_pdf",
   "responsible",
+  "activity_responsible",
   "objectives",
   "indicators_quantity",
   "indicators_quality",
@@ -314,6 +316,7 @@ export function ProposalForm({
   const fileWordRef = useRef<HTMLDivElement>(null);
   const filePdfRef = useRef<HTMLDivElement>(null);
   const responsibleRef = useRef<HTMLDivElement>(null);
+  const activityResponsibleRef = useRef<HTMLDivElement>(null);
   const objectivesRef = useRef<HTMLDivElement>(null);
   const indicatorsQuantityRef = useRef<HTMLDivElement>(null);
   const indicatorsQualityRef = useRef<HTMLDivElement>(null);
@@ -326,6 +329,8 @@ export function ProposalForm({
         return filePdfRef;
       case "responsible":
         return responsibleRef;
+      case "activity_responsible":
+        return activityResponsibleRef;
       case "objectives":
         return objectivesRef;
       case "indicators_quantity":
@@ -425,6 +430,8 @@ export function ProposalForm({
     if (!String(formData.get("file_url_word") ?? "").trim()) errors.file_url_word = true;
     if (!String(formData.get("file_url_pdf") ?? "").trim()) errors.file_url_pdf = true;
     if (responsible.length === 0) errors.responsible = true;
+    // แยกตามกิจกรรม: ทุกกิจกรรมต้องมีผู้รับผิดชอบอย่างน้อย 1 คน
+    if (hasActivities && activities.some((a) => a.responsible.length === 0)) errors.activity_responsible = true;
     if (!objectives.some((o) => o.trim() !== "")) errors.objectives = true;
     if (!indicatorsQuantity.some((r) => r.indicator.trim() !== "" && r.target.trim() !== ""))
       errors.indicators_quantity = true;
@@ -745,11 +752,13 @@ export function ProposalForm({
             <div className="mb-2 overflow-hidden rounded-xl border border-slate-200/80">
               <div className="hidden grid-cols-[1fr_8rem_6rem_3.5rem] gap-2 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:grid">
                 <div>ชื่อกิจกรรมย่อย</div>
-                <div>ผู้รับผิดชอบ</div>
+                <div>
+                  ผู้รับผิดชอบ <span className="text-red-600">*</span>
+                </div>
                 <div>งบประมาณ</div>
                 <div></div>
               </div>
-              <div className="divide-y divide-slate-100">
+              <div ref={activityResponsibleRef} className="divide-y divide-slate-100">
                 {activities.map((row, i) => (
                   <div
                     key={i}
@@ -765,8 +774,10 @@ export function ProposalForm({
                         placeholder={`กิจกรรมที่ ${i + 1}`}
                       />
                     </div>
-                    <div>
-                      <label className="label sm:hidden">ผู้รับผิดชอบ</label>
+                    <div className={fieldErrors.activity_responsible && row.responsible.length === 0 ? "rounded-xl ring-2 ring-red-400" : ""}>
+                      <label className="label sm:hidden">
+                        ผู้รับผิดชอบ <span className="text-red-600">*</span>
+                      </label>
                       <TeacherMultiSelect
                         teachers={teachers}
                         value={row.responsible}
@@ -814,6 +825,7 @@ export function ProposalForm({
                 </div>
               )}
             </div>
+            <FieldError show={!!fieldErrors.activity_responsible} message="กรุณาเลือกผู้รับผิดชอบให้ครบทุกกิจกรรม (อย่างน้อยกิจกรรมละ 1 คน)" />
             {budgetTarget !== null && !activitiesLocked && (
               <>
                 <p className="mb-2 text-xs text-slate-500">
