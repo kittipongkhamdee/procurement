@@ -438,19 +438,19 @@ export function ProjectAllocationTab({
 
       {subTab === "draft" && (
         <div className="mt-4">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 print:hidden">
             <div className="card-title text-base font-bold text-navy-800">
               ร่างโครงการปีงบประมาณนี้ {targetYear ? `(${targetYear.year})` : ""}
             </div>
           </div>
-          <p className="mb-3 text-sm text-slate-500">
+          <p className="mb-3 text-sm text-slate-500 print:hidden">
             {canEditDraft
               ? "ตารางเทียบกับโครงการปีก่อน — กด \"แก้ไข\" ต่อรายการเพื่อกรอกวงเงินปีนี้ (รวมกิจกรรมย่อย) แล้วกด \"บันทึก\""
               : "ดูรายการได้อย่างเดียว"}{" "}
             — ครูจะเลือกจากรายการนี้ตอนสร้างข้อเสนอโครงการจริงที่เมนู &quot;เสนอโครงการ&quot;
           </p>
 
-          <div className="mb-6 grid grid-cols-1 gap-6 2xl:grid-cols-2">
+          <div className="mb-6 grid grid-cols-1 gap-6 2xl:grid-cols-2 print:hidden">
             <div>
               <div className="card-title mb-2 text-sm font-bold text-navy-800">เทียบตามแหล่งงบประมาณ</div>
               <div className="table-shell">

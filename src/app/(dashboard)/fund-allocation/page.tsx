@@ -57,14 +57,14 @@ export default function FundAllocationPage() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className={`page-header ${tab === "draft" ? "print:hidden" : ""}`}>
         <div>
           <h1 className="page-title">การจัดสรรเงิน</h1>
           <p className="page-subtitle">ประมาณการรายรับ จัดสรรงบประมาณตามกลุ่มบริหารงาน และจัดสรรให้แต่ละโครงการ</p>
         </div>
       </div>
 
-      <div className="mt-6 max-w-xs">
+      <div className={`mt-6 max-w-xs ${tab === "draft" ? "print:hidden" : ""}`}>
         <label className="label">ปีงบประมาณ</label>
         <select
           value={budgetYearId ?? ""}
@@ -80,7 +80,7 @@ export default function FundAllocationPage() {
         </select>
       </div>
 
-      <div className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200">
+      <div className={`mt-4 flex gap-1 overflow-x-auto border-b border-slate-200 ${tab === "draft" ? "print:hidden" : ""}`}>
         {TABS.map((t) => (
           <button
             key={t.key}

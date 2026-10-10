@@ -11,6 +11,9 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { useSchoolSettings } from "@/lib/school-settings";
+import { ExcelFileIcon, PrinterIcon } from "@/components/icons";
+import { buildDraftCompareWorkbook, type DraftCompareExportGroup } from "@/lib/draft-compare-export";
 import {
   acquireDraftEditLock,
   copyActivitiesFromPrevious,
@@ -132,6 +135,8 @@ export function DraftCompare({
   const [adding, setAdding] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [busyProjectId, setBusyProjectId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const { schoolName } = useSchoolSettings();
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
@@ -750,11 +755,70 @@ export function DraftCompare({
 
   const prevYearLabel = budgetYears.find((y) => y.id === compareYearId)?.year ?? "ก่อน";
   const targetYearLabel = targetYear?.year ?? "";
+  // ส่งออก Excel: หนึ่งแผ่นต่อหนึ่งกลุ่มบริหารงาน (ตามตัวกรองกลุ่ม/ค้นหาที่เลือกอยู่) + แผ่นสรุป
+  async function handleExportExcel() {
+    if (groups.length === 0) {
+      await toastError("ไม่มีข้อมูลให้ส่งออก");
+      return;
+    }
+    setExporting(true);
+    try {
+      const exportGroups: DraftCompareExportGroup[] = groups.map((g) => ({
+        name: g.name,
+        allocated: g.allocated,
+        prevTotal: g.prevTotal,
+        nextTotal: g.nextTotal,
+        projects: [
+          ...g.draftRows.map((d) => {
+            const match = matchByDraft.get(d.id);
+            return {
+              name: d.name,
+              prev: match ? match.total : null,
+              next: d.budget,
+              note: match ? undefined : "ไม่มีโครงการเทียบ",
+              activities: mergeActivities(match?.activities ?? [], d.activities),
+            };
+          }),
+          ...g.prevRows.map((p) => ({
+            name: p.name,
+            prev: p.total,
+            next: null,
+            note: `ยังไม่มีร่างปี ${targetYearLabel}`,
+            activities: p.activities.map((a) => ({ name: a.name, prev: a.budget, next: null })),
+          })),
+        ],
+      }));
+      const buffer = await buildDraftCompareWorkbook({
+        schoolName,
+        prevYear: prevYearLabel,
+        nextYear: targetYearLabel,
+        groups: exportGroups,
+      });
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ร่างโครงการ_${targetYearLabel}_เทียบ_${prevYearLabel}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const loading = drafts === null || prevProjects === null;
 
   return (
     <div>
-      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* ตั้งหน้ากระดาษ A4 แนวตั้งตอนพิมพ์ (มีผลเฉพาะตอนหน้านี้เปิดอยู่) */}
+      <style>{`@media print { @page { size: A4 portrait; margin: 12mm; } }`}</style>
+      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3 print:hidden">
         <div>
           <label className="label">เทียบกับปีงบประมาณ</label>
           <select value={compareYearId} onChange={(e) => setCompareYearId(e.target.value)} className="input">
@@ -789,7 +853,7 @@ export function DraftCompare({
         </div>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <p className="text-sm text-slate-600">
           รวมปี {prevYearLabel}: <span className="tabular-nums font-semibold">{formatBaht(grand.prevTotal)}</span> · รวมปี{" "}
           {targetYearLabel}: <span className="tabular-nums font-semibold">{formatBaht(grand.nextTotal)}</span> · ผลต่าง:{" "}
@@ -797,6 +861,21 @@ export function DraftCompare({
             {formatDiff(grand.nextTotal - grand.prevTotal)}
           </span>
         </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => window.print()} disabled={groups.length === 0} className="btn-secondary btn-sm">
+            <PrinterIcon className="h-3.5 w-3.5" />
+            พิมพ์
+          </button>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={exporting || groups.length === 0}
+            className="btn-secondary btn-sm"
+          >
+            <ExcelFileIcon className="h-3.5 w-3.5" />
+            {exporting ? "กำลังสร้างไฟล์..." : "ส่งออก Excel"}
+          </button>
+        </div>
         {canEditDraft && (
           <div className="flex flex-wrap gap-2">
             {pendingPairs.length > 0 && (
@@ -830,11 +909,21 @@ export function DraftCompare({
         </p>
       )}
 
-      <div className="space-y-5">
-        {groups.map((g) => {
+      <div className="space-y-5 print:space-y-0">
+        {groups.map((g, gi) => {
           const remain = g.allocated === null ? null : g.allocated - g.nextTotal;
           return (
-            <section key={g.id}>
+            <section
+              key={g.id}
+              className={gi < groups.length - 1 ? "print:break-after-page" : ""}
+            >
+              {/* หัวกระดาษตอนพิมพ์ (ซ้ำทุกหน้า = ทุกกลุ่มบริหาร) */}
+              <div className="mb-2 hidden border-b-2 border-navy-800 pb-2 print:block">
+                <div className="text-xs text-slate-600">{schoolName}</div>
+                <div className="text-base font-bold text-navy-800">
+                  ร่างโครงการปีงบประมาณ {targetYearLabel} เทียบกับปีงบประมาณ {prevYearLabel}
+                </div>
+              </div>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                 <h3 className="text-sm font-bold text-navy-800">{g.name}</h3>
                 <p className="text-xs text-slate-500">
@@ -853,7 +942,7 @@ export function DraftCompare({
 
               <div className="table-shell">
                 {/* มือถือ/จอแคบกว่า md: การ์ดต่อโครงการ */}
-                <div className="divide-y divide-slate-100 md:hidden">
+                <div className="divide-y divide-slate-100 md:hidden print:hidden">
                   {g.draftRows.map((d, i) => {
                     const match = matchByDraft.get(d.id);
                     const lines = mergeActivities(match?.activities ?? [], d.activities);
@@ -916,7 +1005,7 @@ export function DraftCompare({
                 </div>
 
                 {/* จอกว้าง md ขึ้นไป: ตารางเทียบ */}
-                <table className="hidden table-base min-w-0 md:table [&_td]:px-3 [&_th]:px-3">
+                <table className="hidden table-base min-w-0 md:table print:table [&_td]:px-3 [&_th]:px-3 print:[&_td:nth-child(6)]:hidden print:[&_th:nth-child(6)]:hidden print:[&_tr]:break-inside-avoid">
                   <thead>
                     <tr>
                       <th className="w-12 text-center">#</th>
