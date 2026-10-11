@@ -20,6 +20,7 @@ import { GeminiKeyForm } from "./gemini-key-form";
 import { AiExtractionToggle } from "./ai-extraction-toggle";
 import { StorageProviderToggle } from "./storage-provider-toggle";
 import { SchoolBrandingForm } from "./school-branding-form";
+import { MaintenanceForm } from "./maintenance-form";
 import { ApprovalTemplateForm } from "./approval-template-form";
 import { ApprovalDocNumberForm } from "./approval-doc-number-form";
 import { AssetCodeTemplateForm } from "./asset-code-template-form";
@@ -43,6 +44,7 @@ import {
   setCurrentBudgetYear,
   setGeminiApiKey,
   setGeminiModel,
+  setMaintenanceMode,
   setSchoolName,
   setStorageProvider,
   setUserGroups,
@@ -78,6 +80,8 @@ type SettingsData = {
   educationArea: string | null;
   schoolAddress: string | null;
   assetCodePrefix: string | null;
+  maintenanceEnabled: boolean;
+  maintenanceMessage: string | null;
   hasCustomApprovalTemplate: boolean;
   approvalDocNumberPrefix: string;
   approvalDocNumberSeparator: string;
@@ -119,7 +123,7 @@ export default function SettingsPage() {
       supabase.from("proc_app_settings").select("value").eq("key", "storage_provider").maybeSingle(),
       supabase
         .from("proc_school_settings")
-        .select("school_name, logo_url, education_area, school_address, asset_code_prefix")
+        .select("school_name, logo_url, education_area, school_address, asset_code_prefix, maintenance_enabled, maintenance_message")
         .eq("id", true)
         .maybeSingle(),
       supabase.storage.from("procurement-documents").list("templates"),
@@ -155,6 +159,8 @@ export default function SettingsPage() {
       educationArea: schoolSettings?.education_area ?? null,
       schoolAddress: schoolSettings?.school_address ?? null,
       assetCodePrefix: schoolSettings?.asset_code_prefix ?? null,
+      maintenanceEnabled: schoolSettings?.maintenance_enabled ?? false,
+      maintenanceMessage: schoolSettings?.maintenance_message ?? null,
       hasCustomApprovalTemplate: (templateFiles ?? []).some((f) => f.name === "approval-template.pdf"),
       approvalDocNumberPrefix: numberFormatMap.get("approval_doc_number_prefix") ?? "",
       approvalDocNumberSeparator: numberFormatMap.get("approval_doc_number_separator") || "/",
@@ -237,6 +243,22 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">ปิดปรับปรุงระบบชั่วคราว</div>
+            <p className="mb-4 text-sm text-slate-500">
+              ใช้ตอนต้องประมวลผล/ย้ายข้อมูล ที่ไม่อยากให้ใครใช้งานพร้อมกัน — เมื่อเปิดโหมดนี้ ผู้ใช้ที่ไม่ใช่ผู้ดูแลระบบจะเห็นหน้า
+              &quot;ระบบปิดปรับปรุงชั่วคราว&quot; แทนทั้งระบบ ส่วนผู้ดูแลระบบยังใช้งานได้ตามปกติ และปิดโหมดนี้ได้จากที่นี่เสมอ
+              (หน้าทำแบบประเมินสาธารณะและหน้าเข้าสู่ระบบยังเปิดอยู่)
+            </p>
+            <MaintenanceForm
+              enabled={data.maintenanceEnabled}
+              message={data.maintenanceMessage}
+              setMaintenanceMode={setMaintenanceMode}
+            />
+          </div>
+        </div>
+
         <div className="lg:col-span-2">
           <div className="card">
             <div className="card-title">ข้อมูลโรงเรียน</div>

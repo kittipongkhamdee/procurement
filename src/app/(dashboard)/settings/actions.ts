@@ -359,3 +359,26 @@ export async function setAssetCodeTemplate(formData: FormData): Promise<{ error?
   revalidatePath("/settings");
   return {};
 }
+
+// เปิด/ปิดโหมด "ปิดปรับปรุงระบบชั่วคราว" — เปิดอยู่: ผู้ใช้ที่ไม่ใช่ผู้ดูแลระบบเห็นหน้าปิดปรับปรุงแทนทั้งระบบ
+// (ดู components/maintenance-gate.tsx) ผู้ดูแลระบบยังใช้งานได้ตามปกติ — คืน { error } แทนการ throw
+// เพราะ production ซ่อนข้อความ error ของ Server Action
+export async function setMaintenanceMode(enabled: boolean, message: string): Promise<{ error?: string }> {
+  let supabase;
+  try {
+    supabase = await requireAdmin();
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "เฉพาะผู้ดูแลระบบเท่านั้น" };
+  }
+  const { error } = await supabase
+    .from("proc_school_settings")
+    .update({
+      maintenance_enabled: enabled,
+      maintenance_message: message.trim().slice(0, 500) || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
+  if (error) return { error: error.message };
+  revalidatePath("/settings");
+  return {};
+}

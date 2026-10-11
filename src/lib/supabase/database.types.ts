@@ -2308,6 +2308,8 @@ export type Database = {
           education_area: string | null
           id: boolean
           logo_url: string | null
+          maintenance_enabled: boolean
+          maintenance_message: string | null
           school_address: string | null
           school_name: string
           updated_at: string
@@ -2317,6 +2319,8 @@ export type Database = {
           education_area?: string | null
           id?: boolean
           logo_url?: string | null
+          maintenance_enabled?: boolean
+          maintenance_message?: string | null
           school_address?: string | null
           school_name?: string
           updated_at?: string
@@ -2326,6 +2330,8 @@ export type Database = {
           education_area?: string | null
           id?: boolean
           logo_url?: string | null
+          maintenance_enabled?: boolean
+          maintenance_message?: string | null
           school_address?: string | null
           school_name?: string
           updated_at?: string

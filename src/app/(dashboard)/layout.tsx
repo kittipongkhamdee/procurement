@@ -1,6 +1,7 @@
 import { logout } from "@/app/login/actions";
 import { AuthProvider } from "@/lib/AuthContext";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { MaintenanceGate } from "@/components/maintenance-gate";
 import {
   ArchiveIcon,
   BoxIcon,
@@ -92,14 +93,16 @@ export default function DashboardLayout({
 
   return (
     <AuthProvider>
-      <DashboardShell
-        baseNavSections={NAV_SECTIONS}
-        adminSection={ADMIN_SECTION}
-        dateLabel={dateLabel}
-        logoutAction={logout}
-      >
-        {children}
-      </DashboardShell>
+      <MaintenanceGate logoutAction={logout}>
+        <DashboardShell
+          baseNavSections={NAV_SECTIONS}
+          adminSection={ADMIN_SECTION}
+          dateLabel={dateLabel}
+          logoutAction={logout}
+        >
+          {children}
+        </DashboardShell>
+      </MaintenanceGate>
     </AuthProvider>
   );
 }
