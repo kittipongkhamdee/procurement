@@ -22,7 +22,9 @@ import {
   deleteDraftProject,
   discardNewDraftProject,
   releaseDraftEditLock,
+  saveDraftActivityBudget,
   saveDraftProject,
+  saveDraftProjectBudget,
 } from "./actions";
 
 type Option = { id: string; name: string };
@@ -89,19 +91,94 @@ function formatDiff(diff: number) {
 }
 
 // แถวกิจกรรมที่จับคู่ฝั่งปีก่อน/ปีนี้ตามชื่อ (ที่ไม่มีคู่แสดงเป็นแถวเดี่ยว)
-type ActivityLine = { name: string; prev: number | null; next: number | null };
+type ActivityLine = { name: string; prev: number | null; next: number | null; draftActivityId?: string };
 
 function mergeActivities(prev: PrevActivity[], next: DraftActivity[]): ActivityLine[] {
   const usedPrev = new Set<number>();
   const lines: ActivityLine[] = next.map((n) => {
     const idx = prev.findIndex((p, i) => !usedPrev.has(i) && norm(p.name) === norm(n.name));
     if (idx >= 0) usedPrev.add(idx);
-    return { name: n.name, prev: idx >= 0 ? prev[idx].budget : null, next: n.budget };
+    return { name: n.name, prev: idx >= 0 ? prev[idx].budget : null, next: n.budget, draftActivityId: n.id };
   });
   prev.forEach((p, i) => {
     if (!usedPrev.has(i)) lines.push({ name: p.name, prev: p.budget, next: null });
   });
   return lines;
+}
+
+// ช่องกรอกงบปีนี้แบบอินไลน์ในตาราง — พิมพ์แล้วกด Enter หรือคลิกออกจากช่องเพื่อบันทึกทันที (Esc = ยกเลิก)
+// ตอนพิมพ์/ส่งออกจะแสดงเป็นตัวเลขธรรมดา ไม่ใช่ช่องกรอก
+function BudgetInput({
+  value,
+  onSave,
+  disabled,
+  ariaLabel,
+}: {
+  value: number;
+  /** คืนข้อความ error ถ้าบันทึกไม่สำเร็จ (ช่องจะย้อนกลับเป็นค่าเดิม) */
+  onSave: (amount: number) => Promise<string | null>;
+  disabled?: boolean;
+  ariaLabel: string;
+}) {
+  const [text, setText] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // ซิงค์ค่าจากข้อมูลล่าสุด (เช่น โพลทุก 8 วินาที) เฉพาะตอนที่ไม่ได้พิมพ์อยู่ ไม่ให้ทับสิ่งที่กำลังกรอก
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!focused && !saving) setText(String(value));
+  }, [value, focused, saving]);
+
+  async function commit() {
+    setFocused(false);
+    const amount = text.trim() === "" ? 0 : Number(text);
+    if (Number.isNaN(amount) || amount < 0) {
+      setText(String(value));
+      void toastError("กรุณากรอกจำนวนเงินให้ถูกต้อง");
+      return;
+    }
+    if (Math.abs(amount - value) < 0.005) {
+      setText(String(value));
+      return;
+    }
+    setSaving(true);
+    const error = await onSave(amount);
+    setSaving(false);
+    if (error) {
+      setText(String(value));
+      void toastError(error);
+    }
+  }
+
+  return (
+    <>
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        inputMode="decimal"
+        aria-label={ariaLabel}
+        value={text}
+        disabled={disabled || saving}
+        onChange={(e) => setText(e.target.value)}
+        onFocus={(e) => {
+          setFocused(true);
+          e.target.select();
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") {
+            setText(String(value));
+            e.currentTarget.blur();
+          }
+        }}
+        className="input w-32 !py-1 text-right tabular-nums print:hidden disabled:bg-slate-100"
+      />
+      <span className="hidden tabular-nums print:inline">{formatBaht(value)}</span>
+    </>
+  );
 }
 
 export function DraftCompare({
@@ -518,6 +595,31 @@ export function DraftCompare({
       await toastError(errorMessage(err));
     } finally {
       setBusyProjectId(null);
+    }
+  }
+
+  // กรอกงบรายกิจกรรม/งบรวมแบบอินไลน์ — บันทึกแล้วโหลดข้อมูลใหม่ (ยอดโครงการ ยอดรวมกลุ่ม ตารางสรุปด้านบนอัปเดตตาม)
+  async function saveActivityInline(draftId: string, activityId: string, amount: number): Promise<string | null> {
+    try {
+      const result = await saveDraftActivityBudget(draftId, budgetYearId, activityId, amount);
+      if (result.error) return result.error;
+      await loadDrafts();
+      onChanged();
+      return null;
+    } catch (err) {
+      return errorMessage(err);
+    }
+  }
+
+  async function saveProjectBudgetInline(draftId: string, amount: number): Promise<string | null> {
+    try {
+      const result = await saveDraftProjectBudget(draftId, budgetYearId, amount);
+      if (result.error) return result.error;
+      await loadDrafts();
+      onChanged();
+      return null;
+    } catch (err) {
+      return errorMessage(err);
     }
   }
 
@@ -1019,9 +1121,19 @@ export function DraftCompare({
                                 <span className="break-words">{l.name}</span>
                                 <span className="ml-1 tabular-nums text-slate-500">
                                   {showPrev && <>{l.prev === null ? "—" : formatBaht(l.prev)} → </>}
-                                  <span className="font-semibold text-slate-800">
-                                    {l.next === null ? "—" : formatBaht(l.next)}
-                                  </span>
+                                  {l.next !== null && l.draftActivityId && canEditDraft && !d.editingByName ? (
+                                    <span className="ml-1 inline-block align-middle">
+                                      <BudgetInput
+                                        value={l.next}
+                                        onSave={(amount) => saveActivityInline(d.id, l.draftActivityId as string, amount)}
+                                        ariaLabel={`งบประมาณปี ${targetYearLabel} ของกิจกรรม ${l.name}`}
+                                      />
+                                    </span>
+                                  ) : (
+                                    <span className="font-semibold text-slate-800">
+                                      {l.next === null ? "—" : formatBaht(l.next)}
+                                    </span>
+                                  )}
                                   {showDiff && l.prev !== null && l.next !== null && (
                                     <span className={`ml-2 ${diffClass(l.next - l.prev)}`}>{formatDiff(l.next - l.prev)}</span>
                                   )}
@@ -1095,7 +1207,7 @@ export function DraftCompare({
                               )}
                               {mismatch && (
                                 <p className="text-xs text-amber-700">
-                                  ผลรวมกิจกรรม {formatBaht(actSum)} ไม่เท่างบโครงการ — กดแก้ไขแล้วบันทึกเพื่อปรับ
+                                  ผลรวมกิจกรรม {formatBaht(actSum)} ไม่เท่างบโครงการ — กรอกงบรายกิจกรรมแล้วงบโครงการจะปรับเป็นผลรวมกิจกรรมให้อัตโนมัติ
                                 </p>
                               )}
                             </td>
@@ -1105,7 +1217,15 @@ export function DraftCompare({
                               </td>
                             )}
                             <td className="whitespace-nowrap text-right tabular-nums font-semibold text-slate-900">
-                              {formatBaht(d.budget)}
+                              {canEditDraft && d.activities.length === 0 && !d.editingByName ? (
+                                <BudgetInput
+                                  value={d.budget}
+                                  onSave={(amount) => saveProjectBudgetInline(d.id, amount)}
+                                  ariaLabel={`งบประมาณปี ${targetYearLabel} ของ ${d.name}`}
+                                />
+                              ) : (
+                                formatBaht(d.budget)
+                              )}
                             </td>
                             {showDiff && (
                               <td
@@ -1132,7 +1252,17 @@ export function DraftCompare({
                                 </td>
                               )}
                               <td className="whitespace-nowrap text-right tabular-nums text-slate-700">
-                                {l.next === null ? "—" : formatBaht(l.next)}
+                                {l.next !== null && l.draftActivityId && canEditDraft && !d.editingByName ? (
+                                  <BudgetInput
+                                    value={l.next}
+                                    onSave={(amount) => saveActivityInline(d.id, l.draftActivityId as string, amount)}
+                                    ariaLabel={`งบประมาณปี ${targetYearLabel} ของกิจกรรม ${l.name}`}
+                                  />
+                                ) : l.next === null ? (
+                                  "—"
+                                ) : (
+                                  formatBaht(l.next)
+                                )}
                               </td>
                               {showDiff && (
                                 <td

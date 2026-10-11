@@ -461,3 +461,124 @@ export async function createDraftFromProject(budgetYearId: string, projectId: st
   revalidatePath("/fund-allocation");
   return {};
 }
+
+// ----- กรอกงบปีนี้แบบอินไลน์ในตารางเทียบ (ไม่ต้องกดแก้ไข) -----
+
+// ร่างนี้มีคนอื่นกดแก้ไขค้างอยู่ (ล็อกยังไม่หมดอายุ) หรือไม่ — ถ้าใช่ ห้ามเขียนทับระหว่างที่เขาแก้
+async function lockedByOtherMessage(
+  supabase: Awaited<ReturnType<typeof requireDraftEditor>>,
+  draftId: string,
+  userId: string,
+) {
+  const { data } = await supabase
+    .from("plan_draft_projects")
+    .select("editing_by, editing_by_name, editing_at")
+    .eq("id", draftId)
+    .maybeSingle();
+  if (
+    data?.editing_by &&
+    data.editing_by !== userId &&
+    data.editing_at &&
+    Date.now() - new Date(data.editing_at).getTime() < EDIT_LOCK_MINUTES * 60 * 1000
+  ) {
+    return `ขณะนี้ ${data.editing_by_name ?? "ผู้ใช้อื่น"} กำลังแก้ไขรายการนี้อยู่ กรุณาลองใหม่อีกครั้ง`;
+  }
+  return null;
+}
+
+// กรอกงบของกิจกรรมย่อยหนึ่งกิจกรรมของร่าง แล้วคำนวณงบโครงการ (= ผลรวมกิจกรรม) ใหม่ให้ทันที
+export async function saveDraftActivityBudget(
+  draftId: string,
+  budgetYearId: string,
+  activityId: string,
+  amount: number,
+): Promise<{ error?: string; projectBudget?: number }> {
+  let supabase;
+  try {
+    supabase = await requireDraftEditor(budgetYearId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "ไม่มีสิทธิ์แก้ไข" };
+  }
+  if (!Number.isFinite(amount) || amount < 0) return { error: "กรุณากรอกจำนวนเงินให้ถูกต้อง" };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "กรุณาเข้าสู่ระบบ" };
+
+  const { data: draft } = await supabase
+    .from("plan_draft_projects")
+    .select("id")
+    .eq("id", draftId)
+    .eq("budget_year_id", budgetYearId)
+    .maybeSingle();
+  if (!draft) return { error: "ไม่พบร่างโครงการนี้" };
+  const locked = await lockedByOtherMessage(supabase, draftId, user.id);
+  if (locked) return { error: locked };
+
+  const { data: updated, error } = await supabase
+    .from("plan_draft_activities")
+    .update({ budget: amount, updated_at: new Date().toISOString() })
+    .eq("id", activityId)
+    .eq("draft_project_id", draftId)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!updated || updated.length === 0) return { error: "ไม่สามารถบันทึกงบกิจกรรมนี้ได้ (ไม่พบกิจกรรม หรือไม่มีสิทธิ์)" };
+
+  const { data: acts, error: sumError } = await supabase
+    .from("plan_draft_activities")
+    .select("budget")
+    .eq("draft_project_id", draftId);
+  if (sumError) return { error: sumError.message };
+  const projectBudget = (acts ?? []).reduce((sum, a) => sum + Number(a.budget ?? 0), 0);
+  const { data: projUpdated, error: projError } = await supabase
+    .from("plan_draft_projects")
+    .update({ budget: projectBudget })
+    .eq("id", draftId)
+    .select("id");
+  if (projError) return { error: projError.message };
+  if (!projUpdated || projUpdated.length === 0) return { error: "บันทึกงบโครงการไม่สำเร็จ" };
+  revalidatePath("/fund-allocation");
+  return { projectBudget };
+}
+
+// กรอกงบรวมของร่างที่ไม่มีกิจกรรมย่อย (งบรวมก้อนเดียว) — ร่างที่มีกิจกรรมต้องกรอกที่รายกิจกรรมแทน
+export async function saveDraftProjectBudget(
+  draftId: string,
+  budgetYearId: string,
+  amount: number,
+): Promise<{ error?: string }> {
+  let supabase;
+  try {
+    supabase = await requireDraftEditor(budgetYearId);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "ไม่มีสิทธิ์แก้ไข" };
+  }
+  if (!Number.isFinite(amount) || amount < 0) return { error: "กรุณากรอกจำนวนเงินให้ถูกต้อง" };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "กรุณาเข้าสู่ระบบ" };
+
+  const { data: draft } = await supabase
+    .from("plan_draft_projects")
+    .select("id, plan_draft_activities(id)")
+    .eq("id", draftId)
+    .eq("budget_year_id", budgetYearId)
+    .maybeSingle();
+  if (!draft) return { error: "ไม่พบร่างโครงการนี้" };
+  if (((draft.plan_draft_activities as unknown as unknown[]) ?? []).length > 0) {
+    return { error: "ร่างนี้มีกิจกรรมย่อย กรุณากรอกงบที่รายกิจกรรม" };
+  }
+  const locked = await lockedByOtherMessage(supabase, draftId, user.id);
+  if (locked) return { error: locked };
+
+  const { data: updated, error } = await supabase
+    .from("plan_draft_projects")
+    .update({ budget: amount })
+    .eq("id", draftId)
+    .select("id");
+  if (error) return { error: error.message };
+  if (!updated || updated.length === 0) return { error: "ไม่สามารถบันทึกงบนี้ได้ (ไม่มีสิทธิ์)" };
+  revalidatePath("/fund-allocation");
+  return {};
+}
