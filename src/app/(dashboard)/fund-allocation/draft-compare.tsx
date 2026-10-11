@@ -63,6 +63,12 @@ type EditForm = {
 // ล็อกแก้ไขหมดอายุหลังเวลานี้ — ต้องตรงกับ EDIT_LOCK_MINUTES ใน actions.ts
 const EDIT_LOCK_MINUTES = 10;
 const NO_GROUP = "__none__";
+// ซ่อนคอลัมน์ปุ่มดำเนินการ (คอลัมน์สุดท้าย) ตอนพิมพ์ — ตำแหน่งเปลี่ยนตามจำนวนคอลัมน์ที่แสดง (ต้องเป็นสตริงตายตัวให้ Tailwind เห็น)
+const PRINT_HIDE_ACTION_COL: Record<number, string> = {
+  4: "print:[&_td:nth-child(4)]:hidden print:[&_th:nth-child(4)]:hidden",
+  5: "print:[&_td:nth-child(5)]:hidden print:[&_th:nth-child(5)]:hidden",
+  6: "print:[&_td:nth-child(6)]:hidden print:[&_th:nth-child(6)]:hidden",
+};
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
@@ -136,6 +142,9 @@ export function DraftCompare({
   const [bulkBusy, setBulkBusy] = useState(false);
   const [busyProjectId, setBusyProjectId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  // เลือกคอลัมน์ที่แสดง (มีผลทั้งบนหน้าจอ ตอนพิมพ์ และตอนส่งออก Excel) — ปีนี้แสดงเสมอ
+  const [showPrev, setShowPrev] = useState(true);
+  const [showDiff, setShowDiff] = useState(true);
   const { schoolName } = useSchoolSettings();
 
   const [search, setSearch] = useState("");
@@ -753,6 +762,8 @@ export function DraftCompare({
     );
   }
 
+  // # + โครงการ + ปีนี้ + ปุ่ม  (+ ปีก่อน) (+ ผลต่าง)
+  const colCount = 4 + (showPrev ? 1 : 0) + (showDiff ? 1 : 0);
   const prevYearLabel = budgetYears.find((y) => y.id === compareYearId)?.year ?? "ก่อน";
   const targetYearLabel = targetYear?.year ?? "";
   // ส่งออก Excel: หนึ่งแผ่นต่อหนึ่งกลุ่มบริหารงาน (ตามตัวกรองกลุ่ม/ค้นหาที่เลือกอยู่) + แผ่นสรุป
@@ -775,11 +786,11 @@ export function DraftCompare({
               name: d.name,
               prev: match ? match.total : null,
               next: d.budget,
-              note: match ? undefined : "ไม่มีโครงการเทียบ",
+              note: match || !(showPrev || showDiff) ? undefined : "ไม่มีโครงการเทียบ",
               activities: mergeActivities(match?.activities ?? [], d.activities),
             };
           }),
-          ...g.prevRows.map((p) => ({
+          ...(showPrev ? g.prevRows : []).map((p) => ({
             name: p.name,
             prev: p.total,
             next: null,
@@ -793,6 +804,8 @@ export function DraftCompare({
         prevYear: prevYearLabel,
         nextYear: targetYearLabel,
         groups: exportGroups,
+        showPrev,
+        showDiff,
       });
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -853,13 +866,39 @@ export function DraftCompare({
         </div>
       </div>
 
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-700 print:hidden">
+        <span className="font-semibold">คอลัมน์ที่แสดง (รวมถึงตอนพิมพ์/ส่งออก Excel):</span>
+        <label className="flex items-center gap-1.5">
+          <input type="checkbox" checked disabled className="h-4 w-4" />
+          ปี {targetYearLabel}
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input type="checkbox" checked={showPrev} onChange={(e) => setShowPrev(e.target.checked)} className="h-4 w-4" />
+          ปี {prevYearLabel}
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input type="checkbox" checked={showDiff} onChange={(e) => setShowDiff(e.target.checked)} className="h-4 w-4" />
+          ผลต่าง
+        </label>
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <p className="text-sm text-slate-600">
-          รวมปี {prevYearLabel}: <span className="tabular-nums font-semibold">{formatBaht(grand.prevTotal)}</span> · รวมปี{" "}
-          {targetYearLabel}: <span className="tabular-nums font-semibold">{formatBaht(grand.nextTotal)}</span> · ผลต่าง:{" "}
-          <span className={`tabular-nums font-semibold ${diffClass(grand.nextTotal - grand.prevTotal)}`}>
-            {formatDiff(grand.nextTotal - grand.prevTotal)}
-          </span>
+          {showPrev && (
+            <>
+              รวมปี {prevYearLabel}: <span className="tabular-nums font-semibold">{formatBaht(grand.prevTotal)}</span> ·{" "}
+            </>
+          )}
+          รวมปี {targetYearLabel}: <span className="tabular-nums font-semibold">{formatBaht(grand.nextTotal)}</span>
+          {showDiff && (
+            <>
+              {" "}
+              · ผลต่าง:{" "}
+              <span className={`tabular-nums font-semibold ${diffClass(grand.nextTotal - grand.prevTotal)}`}>
+                {formatDiff(grand.nextTotal - grand.prevTotal)}
+              </span>
+            </>
+          )}
         </p>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => window.print()} disabled={groups.length === 0} className="btn-secondary btn-sm">
@@ -921,13 +960,15 @@ export function DraftCompare({
               <div className="mb-2 hidden border-b-2 border-navy-800 pb-2 print:block">
                 <div className="text-xs text-slate-600">{schoolName}</div>
                 <div className="text-base font-bold text-navy-800">
-                  ร่างโครงการปีงบประมาณ {targetYearLabel} เทียบกับปีงบประมาณ {prevYearLabel}
+                  ร่างโครงการปีงบประมาณ {targetYearLabel}
+                  {(showPrev || showDiff) && <> เทียบกับปีงบประมาณ {prevYearLabel}</>}
                 </div>
               </div>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                 <h3 className="text-sm font-bold text-navy-800">{g.name}</h3>
                 <p className="text-xs text-slate-500">
-                  ปี {prevYearLabel} {formatBaht(g.prevTotal)} → ปี {targetYearLabel} {formatBaht(g.nextTotal)}
+                  {showPrev && <>ปี {prevYearLabel} {formatBaht(g.prevTotal)} → </>}ปี {targetYearLabel} {formatBaht(g.nextTotal)}
+                  {showDiff && <> ({formatDiff(g.nextTotal - g.prevTotal)})</>}
                   {g.allocated !== null && g.allocated > 0 && remain !== null && (
                     <>
                       {" "}
@@ -956,25 +997,34 @@ export function DraftCompare({
                           </span>
                         </div>
                         <p className="mt-1 text-sm tabular-nums text-slate-700">
-                          ปี {prevYearLabel}: {prevTotal === null ? "—" : formatBaht(prevTotal)} · ปี {targetYearLabel}:{" "}
-                          <span className="font-semibold">{formatBaht(d.budget)}</span>
-                          {prevTotal !== null && (
+                          {showPrev && (
+                            <>
+                              ปี {prevYearLabel}: {prevTotal === null ? "—" : formatBaht(prevTotal)} ·{" "}
+                            </>
+                          )}
+                          ปี {targetYearLabel}: <span className="font-semibold">{formatBaht(d.budget)}</span>
+                          {showDiff && prevTotal !== null && (
                             <span className={`ml-2 font-semibold ${diffClass(d.budget - prevTotal)}`}>
                               {formatDiff(d.budget - prevTotal)}
                             </span>
                           )}
                         </p>
-                        {prevTotal === null && <p className="text-xs text-slate-400">ไม่มีโครงการเทียบในปี {prevYearLabel}</p>}
+                        {(showPrev || showDiff) && prevTotal === null && (
+                          <p className="text-xs text-slate-400">ไม่มีโครงการเทียบในปี {prevYearLabel}</p>
+                        )}
                         {lines.length > 0 && (
                           <ul className="mt-2 space-y-1 border-l-2 border-slate-200 pl-3">
                             {lines.map((l, li) => (
                               <li key={li} className="text-xs text-slate-600">
                                 <span className="break-words">{l.name}</span>
                                 <span className="ml-1 tabular-nums text-slate-500">
-                                  {l.prev === null ? "—" : formatBaht(l.prev)} →{" "}
+                                  {showPrev && <>{l.prev === null ? "—" : formatBaht(l.prev)} → </>}
                                   <span className="font-semibold text-slate-800">
                                     {l.next === null ? "—" : formatBaht(l.next)}
                                   </span>
+                                  {showDiff && l.prev !== null && l.next !== null && (
+                                    <span className={`ml-2 ${diffClass(l.next - l.prev)}`}>{formatDiff(l.next - l.prev)}</span>
+                                  )}
                                 </span>
                               </li>
                             ))}
@@ -988,7 +1038,7 @@ export function DraftCompare({
                     <div key={p.id} className="bg-slate-50 px-4 py-3">
                       <p className="break-words font-medium text-slate-500">{p.name}</p>
                       <p className="text-xs text-slate-500">
-                        ปี {prevYearLabel}: {formatBaht(p.total)} · ยังไม่มีร่างปี {targetYearLabel}
+                        {showPrev && <>ปี {prevYearLabel}: {formatBaht(p.total)} · </>}ยังไม่มีร่างปี {targetYearLabel}
                       </p>
                       {canEditDraft && (
                         <button
@@ -1005,14 +1055,14 @@ export function DraftCompare({
                 </div>
 
                 {/* จอกว้าง md ขึ้นไป: ตารางเทียบ */}
-                <table className="hidden table-base min-w-0 md:table print:table [&_td]:px-3 [&_th]:px-3 print:[&_td:nth-child(6)]:hidden print:[&_th:nth-child(6)]:hidden print:[&_tr]:break-inside-avoid">
+                <table className={`hidden table-base min-w-0 md:table print:table [&_td]:px-3 [&_th]:px-3 ${PRINT_HIDE_ACTION_COL[colCount]} print:[&_tr]:break-inside-avoid`}>
                   <thead>
                     <tr>
                       <th className="w-12 text-center">#</th>
                       <th>โครงการ / กิจกรรม</th>
-                      <th className="whitespace-nowrap text-right">ปี {prevYearLabel}</th>
+                      {showPrev && <th className="whitespace-nowrap text-right">ปี {prevYearLabel}</th>}
                       <th className="whitespace-nowrap text-right">ปี {targetYearLabel}</th>
-                      <th className="whitespace-nowrap text-right">ผลต่าง</th>
+                      {showDiff && <th className="whitespace-nowrap text-right">ผลต่าง</th>}
                       <th></th>
                     </tr>
                   </thead>
@@ -1026,7 +1076,7 @@ export function DraftCompare({
                       if (editingId === d.id) {
                         return (
                           <tr key={d.id}>
-                            <td colSpan={6} className="!p-0">
+                            <td colSpan={colCount} className="!p-0">
                               {renderEditor(d)}
                             </td>
                           </tr>
@@ -1038,7 +1088,7 @@ export function DraftCompare({
                             <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
                             <td className="min-w-[12rem] max-w-[22rem]">
                               <span className="break-words font-semibold text-slate-900">{d.name}</span>
-                              {prevTotal === null && (
+                              {(showPrev || showDiff) && prevTotal === null && (
                                 <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-xs text-sky-700">
                                   ไม่มีโครงการเทียบ
                                 </span>
@@ -1049,19 +1099,23 @@ export function DraftCompare({
                                 </p>
                               )}
                             </td>
-                            <td className="whitespace-nowrap text-right tabular-nums text-slate-600">
-                              {prevTotal === null ? "—" : formatBaht(prevTotal)}
-                            </td>
+                            {showPrev && (
+                              <td className="whitespace-nowrap text-right tabular-nums text-slate-600">
+                                {prevTotal === null ? "—" : formatBaht(prevTotal)}
+                              </td>
+                            )}
                             <td className="whitespace-nowrap text-right tabular-nums font-semibold text-slate-900">
                               {formatBaht(d.budget)}
                             </td>
-                            <td
-                              className={`whitespace-nowrap text-right tabular-nums font-semibold ${
-                                prevTotal === null ? "text-slate-400" : diffClass(d.budget - prevTotal)
-                              }`}
-                            >
-                              {prevTotal === null ? "—" : formatDiff(d.budget - prevTotal)}
-                            </td>
+                            {showDiff && (
+                              <td
+                                className={`whitespace-nowrap text-right tabular-nums font-semibold ${
+                                  prevTotal === null ? "text-slate-400" : diffClass(d.budget - prevTotal)
+                                }`}
+                              >
+                                {prevTotal === null ? "—" : formatDiff(d.budget - prevTotal)}
+                              </td>
+                            )}
                             <td className="whitespace-nowrap text-right">
                               {draftActions(d, (match?.activities.length ?? 0) > 0)}
                             </td>
@@ -1072,19 +1126,23 @@ export function DraftCompare({
                               <td className="pl-6 text-slate-600">
                                 <span className="break-words">– {l.name}</span>
                               </td>
-                              <td className="whitespace-nowrap text-right tabular-nums text-slate-500">
-                                {l.prev === null ? "—" : formatBaht(l.prev)}
-                              </td>
+                              {showPrev && (
+                                <td className="whitespace-nowrap text-right tabular-nums text-slate-500">
+                                  {l.prev === null ? "—" : formatBaht(l.prev)}
+                                </td>
+                              )}
                               <td className="whitespace-nowrap text-right tabular-nums text-slate-700">
                                 {l.next === null ? "—" : formatBaht(l.next)}
                               </td>
-                              <td
-                                className={`whitespace-nowrap text-right tabular-nums ${
-                                  l.prev === null || l.next === null ? "text-slate-300" : diffClass(l.next - l.prev)
-                                }`}
-                              >
-                                {l.prev === null || l.next === null ? "—" : formatDiff(l.next - l.prev)}
-                              </td>
+                              {showDiff && (
+                                <td
+                                  className={`whitespace-nowrap text-right tabular-nums ${
+                                    l.prev === null || l.next === null ? "text-slate-300" : diffClass(l.next - l.prev)
+                                  }`}
+                                >
+                                  {l.prev === null || l.next === null ? "—" : formatDiff(l.next - l.prev)}
+                                </td>
+                              )}
                               <td></td>
                             </tr>
                           ))}
@@ -1093,15 +1151,15 @@ export function DraftCompare({
                     })}
                     {g.prevRows.map((p) => (
                       <Fragment key={p.id}>
-                        <tr className="bg-slate-100/70 text-slate-500">
+                        <tr className={`bg-slate-100/70 text-slate-500 ${showPrev ? "" : "print:hidden"}`}>
                           <td></td>
                           <td className="min-w-[12rem] max-w-[22rem]">
                             <span className="break-words font-semibold">{p.name}</span>
                             <span className="ml-2 text-xs">ยังไม่มีร่างปี {targetYearLabel}</span>
                           </td>
-                          <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(p.total)}</td>
+                          {showPrev && <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(p.total)}</td>}
                           <td className="text-right">—</td>
-                          <td className="text-right">—</td>
+                          {showDiff && <td className="text-right">—</td>}
                           <td className="whitespace-nowrap text-right">
                             {canEditDraft && (
                               <button
@@ -1116,14 +1174,14 @@ export function DraftCompare({
                           </td>
                         </tr>
                         {p.activities.map((a, ai) => (
-                          <tr key={`${p.id}-${ai}`} className="bg-slate-100/40 text-slate-500">
+                          <tr key={`${p.id}-${ai}`} className={`bg-slate-100/40 text-slate-500 ${showPrev ? "" : "hidden"}`}>
                             <td></td>
                             <td className="pl-6">
                               <span className="break-words">– {a.name}</span>
                             </td>
-                            <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(a.budget)}</td>
+                            {showPrev && <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(a.budget)}</td>}
                             <td className="text-right">—</td>
-                            <td className="text-right">—</td>
+                            {showDiff && <td className="text-right">—</td>}
                             <td></td>
                           </tr>
                         ))}
@@ -1134,13 +1192,17 @@ export function DraftCompare({
                     <tr>
                       <td></td>
                       <td className="font-semibold text-slate-700">รวม {g.name}</td>
-                      <td className="whitespace-nowrap text-right tabular-nums font-semibold">{formatBaht(g.prevTotal)}</td>
+                      {showPrev && (
+                        <td className="whitespace-nowrap text-right tabular-nums font-semibold">{formatBaht(g.prevTotal)}</td>
+                      )}
                       <td className="whitespace-nowrap text-right tabular-nums font-semibold">{formatBaht(g.nextTotal)}</td>
-                      <td
-                        className={`whitespace-nowrap text-right tabular-nums font-semibold ${diffClass(g.nextTotal - g.prevTotal)}`}
-                      >
-                        {formatDiff(g.nextTotal - g.prevTotal)}
-                      </td>
+                      {showDiff && (
+                        <td
+                          className={`whitespace-nowrap text-right tabular-nums font-semibold ${diffClass(g.nextTotal - g.prevTotal)}`}
+                        >
+                          {formatDiff(g.nextTotal - g.prevTotal)}
+                        </td>
+                      )}
                       <td></td>
                     </tr>
                   </tfoot>
