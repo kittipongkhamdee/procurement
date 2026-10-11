@@ -823,14 +823,23 @@ export function DraftCompare({
     );
   }
 
-  function draftActions(d: Draft, hasPrevActs: boolean) {
+  // part: "all" = ปุ่มทั้งหมด (คอลัมน์ท้ายตาราง) / "main" = แก้ไข+ลบ (ชิดขวาบรรทัดเดียวกับชื่อในการ์ดมือถือ)
+  // / "extra" = ปุ่ม "ดึงกิจกรรมปีก่อน" (ใต้ชื่อในการ์ดมือถือ เพราะปุ่มยาว)
+  function draftActions(d: Draft, hasPrevActs: boolean, part: "all" | "main" | "extra" = "all") {
     const match = matchByDraft.get(d.id);
     const isAcquiring = acquiringId === d.id;
     const busy = busyProjectId === d.id;
-    if (d.editingByName) return <span className="text-xs text-amber-700">กำลังแก้ไขโดย {d.editingByName}</span>;
+    if (d.editingByName) {
+      return part === "extra" ? null : (
+        <span className="text-xs text-amber-700">กำลังแก้ไขโดย {d.editingByName}</span>
+      );
+    }
+    const showExtra = part !== "main";
+    const showMain = part !== "extra";
+    if (part === "extra" && !(canEditDraft && match && hasPrevActs && d.activities.length === 0)) return null;
     return (
       <div className="flex flex-wrap justify-end gap-2">
-        {canEditDraft && match && hasPrevActs && d.activities.length === 0 && (
+        {showExtra && canEditDraft && match && hasPrevActs && d.activities.length === 0 && (
           <button
             type="button"
             onClick={() => copyActivities([{ draftId: d.id, projectId: match.id }], d.id)}
@@ -840,7 +849,7 @@ export function DraftCompare({
             {busy ? "กำลังดึง..." : "ดึงกิจกรรมปีก่อน"}
           </button>
         )}
-        {canEditDraft && (
+        {showMain && canEditDraft && (
           <button
             type="button"
             onClick={() => startEdit(d)}
@@ -850,7 +859,7 @@ export function DraftCompare({
             {isAcquiring ? "กำลังเปิด..." : "แก้ไข"}
           </button>
         )}
-        {isAdmin && (
+        {showMain && isAdmin && (
           <button
             type="button"
             onClick={() => handleDelete(d)}
@@ -1094,9 +1103,10 @@ export function DraftCompare({
                     return (
                       <div key={d.id} className="px-4 py-3">
                         <div className="flex items-start justify-between gap-3">
-                          <span className="min-w-0 break-words font-medium text-slate-900">
+                          <span className="min-w-0 flex-1 break-words font-medium text-slate-900">
                             <span className="text-xs text-slate-400">#{i + 1}</span> {d.name}
                           </span>
+                          <div className="shrink-0">{draftActions(d, (match?.activities.length ?? 0) > 0, "main")}</div>
                         </div>
                         <p className="mt-1 text-sm tabular-nums text-slate-700">
                           {showPrev && (
@@ -1142,7 +1152,9 @@ export function DraftCompare({
                             ))}
                           </ul>
                         )}
-                        <div className="mt-2">{draftActions(d, (match?.activities.length ?? 0) > 0)}</div>
+                        {draftActions(d, (match?.activities.length ?? 0) > 0, "extra") && (
+                          <div className="mt-2">{draftActions(d, (match?.activities.length ?? 0) > 0, "extra")}</div>
+                        )}
                       </div>
                     );
                   })}
