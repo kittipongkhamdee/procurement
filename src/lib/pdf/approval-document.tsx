@@ -235,7 +235,7 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
             <Text>{t("ไม่ควรอนุญาตและอนุมัติเพราะ")}</Text>
             <Dotted style={{ flex: 1, marginLeft: GAP }}><Text> </Text></Dotted>
           </CheckRow>
-          <SignOff name={data.signer_deputy} />
+          <SignOff name={data.signer_deputy} role={`รองผู้อำนวยการ${data.school_name}`} />
         </View>
         <View style={cellStyle}>
           <OpinionTitle no={4} title="ความเห็นของผู้อำนวยการโรงเรียน" />
