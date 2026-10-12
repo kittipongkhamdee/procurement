@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ChevronLeftIcon } from "@/components/icons";
 import { updateApproval } from "../../actions";
 import { ApprovalForm, type ApprovalFormInitial } from "../../approval-form";
-import { loadItemNameSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions";
+import { loadItemSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions";
 
 export default async function EditApprovalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,9 +42,9 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   const editable = approval.status === "ไม่อนุมัติ" || (approval.status === "รออนุมัติ" && approval.deputy_decision === null);
   if (!editable) notFound();
 
-  const [unitSuggestions, itemNameSuggestions] = await Promise.all([
+  const [unitSuggestions, itemSuggestions] = await Promise.all([
     loadUnitSuggestions(supabase),
-    loadItemNameSuggestions(supabase),
+    loadItemSuggestions(supabase),
   ]);
 
   const budgetByProject = new Map<string, number>();
@@ -113,7 +113,8 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
         teachers={teachers ?? []}
         learningAreas={learningAreas ?? []}
         unitSuggestions={unitSuggestions}
-        itemNameSuggestions={itemNameSuggestions}
+        itemNameSuggestions={itemSuggestions.names}
+        itemDefaults={itemSuggestions.defaults}
         initial={initial}
         submitLabel="บันทึกการแก้ไข"
       />

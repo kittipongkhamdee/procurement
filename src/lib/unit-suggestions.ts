@@ -33,20 +33,61 @@ export async function loadUnitSuggestions(supabase: SupabaseClient<Database>): P
   return out;
 }
 
-/** คำแนะนำชื่อรายการวัสดุ/อุปกรณ์: ชื่อที่เคยขออนุมัติ/ขอซื้อ-จ้างมาแล้ว เรียงตามที่ใช้บ่อยก่อน (เอาไม่เกิน limit ชื่อ) */
-export async function loadItemNameSuggestions(supabase: SupabaseClient<Database>, limit = 300): Promise<string[]> {
+export type ItemDefaults = { unit: string | null; unitPrice: number | null };
+
+/** คำแนะนำชื่อรายการวัสดุ/อุปกรณ์: ชื่อที่เคยขออนุมัติ/ขอซื้อ-จ้างมาแล้ว เรียงตามที่ใช้บ่อยก่อน (เอาไม่เกิน limit ชื่อ)
+ * พร้อมค่าเริ่มต้นของแต่ละชื่อ (หน่วยนับ + ราคาต่อหน่วย ของครั้งล่าสุดที่ใช้) ไว้เติมให้อัตโนมัติเมื่อเลือกชื่อเดิม */
+export async function loadItemSuggestions(
+  supabase: SupabaseClient<Database>,
+  limit = 300,
+): Promise<{ names: string[]; defaults: Record<string, ItemDefaults> }> {
   const [{ data: approvalItems }, { data: purchaseItems }] = await Promise.all([
-    supabase.from("proc_approval_items").select("name").not("name", "is", null).limit(3000),
-    supabase.from("proc_purchase_items").select("name").not("name", "is", null).limit(3000),
+    supabase
+      .from("proc_approval_items")
+      .select("name, unit, unit_price, proc_approvals(created_at)")
+      .not("name", "is", null)
+      .limit(3000),
+    supabase
+      .from("proc_purchase_items")
+      .select("name, unit, unit_price, proc_purchase_requests(created_at)")
+      .not("name", "is", null)
+      .limit(3000),
   ]);
 
+  type Row = { name: string | null; unit: string | null; unit_price: number | null; at: string };
+  const rows: Row[] = [
+    ...(approvalItems ?? []).map((r) => ({
+      name: r.name,
+      unit: r.unit,
+      unit_price: r.unit_price,
+      at: (r.proc_approvals as unknown as { created_at: string } | null)?.created_at ?? "",
+    })),
+    ...(purchaseItems ?? []).map((r) => ({
+      name: r.name,
+      unit: r.unit,
+      unit_price: r.unit_price,
+      at: (r.proc_purchase_requests as unknown as { created_at: string } | null)?.created_at ?? "",
+    })),
+  ];
+
   const counts = new Map<string, number>();
-  for (const r of [...(approvalItems ?? []), ...(purchaseItems ?? [])]) {
+  const latest = new Map<string, Row>();
+  for (const r of rows) {
     const n = (r.name ?? "").trim();
-    if (n) counts.set(n, (counts.get(n) ?? 0) + 1);
+    if (!n) continue;
+    counts.set(n, (counts.get(n) ?? 0) + 1);
+    const prev = latest.get(n);
+    if (!prev || r.at > prev.at) latest.set(n, r);
   }
-  return [...counts.entries()]
+  const names = [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "th"))
     .slice(0, limit)
     .map(([n]) => n);
+
+  const defaults: Record<string, ItemDefaults> = {};
+  for (const n of names) {
+    const r = latest.get(n);
+    if (r) defaults[n] = { unit: r.unit?.trim() || null, unitPrice: r.unit_price != null ? Number(r.unit_price) : null };
+  }
+  return { names, defaults };
 }

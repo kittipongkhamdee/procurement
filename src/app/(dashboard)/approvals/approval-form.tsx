@@ -101,6 +101,7 @@ export function ApprovalForm({
   learningAreas,
   unitSuggestions = [],
   itemNameSuggestions = [],
+  itemDefaults = {},
   initial,
   submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
@@ -114,6 +115,8 @@ export function ApprovalForm({
   unitSuggestions?: string[];
   /** คำแนะนำชื่อรายการวัสดุ (ชื่อที่เคยขออนุมัติ/ขอซื้อ-จ้างมาแล้ว) */
   itemNameSuggestions?: string[];
+  /** ค่าเริ่มต้นของแต่ละชื่อรายการ (หน่วยนับ/ราคาต่อหน่วยครั้งล่าสุด) — เติมให้เมื่อเลือกชื่อเดิม เฉพาะช่องที่ยังว่าง */
+  itemDefaults?: Record<string, { unit: string | null; unitPrice: number | null }>;
   initial?: ApprovalFormInitial;
   submitLabel?: string;
 }) {
@@ -203,6 +206,45 @@ export function ApprovalForm({
 
   function updateItemRow(index: number, patch: Partial<ItemRow>) {
     setItemRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  // เติมหน่วยนับและราคาต่อหน่วยครั้งล่าสุดให้ เมื่อชื่อรายการตรงกับชื่อที่เคยใช้ทุกตัวอักษร — เฉพาะช่องที่ยังว่าง (ไม่ทับค่าที่กรอกไว้)
+  // เรียกตอนเลือกชื่อจากรายการช่วยกรอก หรือตอนออกจากช่องชื่อ (ไม่เรียกทุกตัวอักษรที่พิมพ์ ไม่งั้นพิมพ์ "ปากกา" ค้างจะเติมค่าของ
+  // "ปากกา" ทันทีทั้งที่กำลังจะพิมพ์ "ปากกาลูกลื่น" ต่อ) ผู้ใช้แก้ไขค่าที่เติมได้เสมอ
+  function applyItemDefaults(index: number) {
+    setItemRows((prev) =>
+      prev.map((row, i) => {
+        if (i !== index) return row;
+        const def = itemDefaults[row.name.trim()];
+        if (!def) return row;
+        const next = { ...row };
+        if (!row.unit && def.unit) next.unit = def.unit;
+        if (!row.unitPrice && def.unitPrice != null) next.unitPrice = String(def.unitPrice);
+        return next;
+      }),
+    );
+  }
+
+  function handleItemNameChange(index: number, name: string, fromSuggestion: boolean) {
+    updateItemRow(index, { name });
+    if (fromSuggestion) {
+      // เลือกจากรายการช่วยกรอก → เติมหน่วยนับ/ราคาทันที (เฉพาะช่องที่ว่าง)
+      const def = itemDefaults[name.trim()];
+      if (def) {
+        setItemRows((prev) =>
+          prev.map((row, i) =>
+            i !== index
+              ? row
+              : {
+                  ...row,
+                  name,
+                  unit: row.unit || def.unit || "",
+                  unitPrice: row.unitPrice || (def.unitPrice != null ? String(def.unitPrice) : ""),
+                },
+          ),
+        );
+      }
+    }
   }
 
   function addItemRow() {
@@ -541,7 +583,7 @@ export function ApprovalForm({
                 return (
                   <tr key={i}>
                     <td className="px-2 py-1">
-                      <input value={row.name} onChange={(e) => updateItemRow(i, { name: e.target.value })} list="approval-item-name-suggestions" autoComplete="off" className="input w-full" />
+                      <input value={row.name} onChange={(e) => handleItemNameChange(i, e.target.value, (e.nativeEvent as InputEvent).inputType === "insertReplacementText")} onBlur={() => applyItemDefaults(i)} list="approval-item-name-suggestions" autoComplete="off" className="input w-full" />
                     </td>
                     <td className="px-2 py-1">
                       <input type="number" step="0.01" value={row.qty} onChange={(e) => updateItemRow(i, { qty: e.target.value })} className="input w-full text-center" />
