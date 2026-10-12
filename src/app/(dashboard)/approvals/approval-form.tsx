@@ -7,7 +7,7 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
 type ProjectOption = { id: string; name: string; budget: number; approvedSoFar: number };
-type ActivityOption = { id: string; project_id: string; name: string | null };
+type ActivityOption = { id: string; project_id: string; name: string | null; responsible: string[] };
 type AdminGroupOption = { id: string; name: string };
 type TeacherOption = { id: string; name: string; is_active: boolean };
 // จำนวนแถวสูงสุดที่เทมเพลต PDF หน้า 2 รองรับ (ดู itemRowsY ใน src/lib/pdf-overlay/render-approval-pdf.ts
@@ -93,6 +93,7 @@ export function ApprovalForm({
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial));
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
+  const [requestedBy, setRequestedBy] = useState(initial?.requested_by_name ?? "");
   const [planDateISO, setPlanDateISO] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -113,6 +114,28 @@ export function ApprovalForm({
     () => teachers.filter((t) => t.is_active || t.name === initial?.requested_by_name),
     [teachers, initial?.requested_by_name],
   );
+
+  // ผู้รับผิดชอบที่เป็นตัวเลือกผู้ลงชื่อขออนุมัติ — ถ้าเลือกกิจกรรมแล้วใช้ผู้รับผิดชอบของกิจกรรมนั้น
+  // ไม่งั้นรวมผู้รับผิดชอบทุกกิจกรรมของโครงการ (โครงการที่ไม่มีกิจกรรมย่อยก็เก็บไว้ที่กิจกรรมเดียวไม่มีชื่อ)
+  function candidatesFor(pid: string, aname: string): string[] {
+    const inProject = activities.filter((a) => a.project_id === pid);
+    const matched = aname ? inProject.filter((a) => a.name === aname) : inProject;
+    const names = matched.flatMap((a) => a.responsible.map((n) => n.trim()).filter(Boolean));
+    return Array.from(new Set(names));
+  }
+  // ลงชื่อผู้ขออนุมัติอัตโนมัติเมื่อเปลี่ยนโครงการ/กิจกรรม: มีคนเดียวเลือกให้เลย, มีหลายคนให้เลือกเอง
+  // (คงค่าเดิมไว้ถ้ายังอยู่ในตัวเลือก), ไม่มีข้อมูลผู้รับผิดชอบก็ไม่แตะค่าที่เลือกไว้
+  function autoSelectRequester(pid: string, aname: string) {
+    const list = candidatesFor(pid, aname);
+    if (list.length === 1) setRequestedBy(list[0]);
+    else if (list.length > 1) setRequestedBy((cur) => (list.includes(cur) ? cur : ""));
+  }
+  const requesterCandidates = useMemo(
+    () => candidatesFor(projectId, activityName),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activities, projectId, activityName],
+  );
+  const otherTeachers = visibleTeachers.filter((t) => !requesterCandidates.includes(t.name));
 
   const requestedAmount = summaryRows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
   const remaining = selected ? selected.budget - selected.approvedSoFar - requestedAmount : 0;
@@ -216,7 +239,10 @@ export function ApprovalForm({
           <select
             name="project_id"
             value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
+            onChange={(e) => {
+              setProjectId(e.target.value);
+              autoSelectRequester(e.target.value, "");
+            }}
             required
             className="input sm:col-span-3 border-navy-600 bg-navy-950/[0.03]"
           >
@@ -232,7 +258,10 @@ export function ApprovalForm({
 
           <select
             value={activityName}
-            onChange={(e) => setActivityName(e.target.value)}
+            onChange={(e) => {
+              setActivityName(e.target.value);
+              autoSelectRequester(projectId, e.target.value);
+            }}
             disabled={!projectId}
             className="input sm:col-span-3"
           >
@@ -258,21 +287,53 @@ export function ApprovalForm({
             )}
           </div>
 
-          <select
-            name="requested_by_name"
-            defaultValue={initial?.requested_by_name ?? ""}
-            required
-            className="input sm:col-span-3"
-          >
-            <option value="" disabled>
-              -- ผู้รับผิดชอบโครงการ --
-            </option>
-            {visibleTeachers.map((t) => (
-              <option key={t.id} value={t.name}>
-                {t.name}
+          <div className="sm:col-span-3">
+            <select
+              name="requested_by_name"
+              value={requestedBy}
+              onChange={(e) => setRequestedBy(e.target.value)}
+              required
+              className="input"
+            >
+              <option value="" disabled>
+                -- ผู้รับผิดชอบโครงการ (ผู้ขออนุมัติ) --
               </option>
-            ))}
-          </select>
+              {requesterCandidates.length > 0 ? (
+                <>
+                  <optgroup label="ผู้รับผิดชอบตามโครงการ/กิจกรรมที่เลือก">
+                    {requesterCandidates.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {otherTeachers.length > 0 && (
+                    <optgroup label="บุคลากรอื่น">
+                      {otherTeachers.map((t) => (
+                        <option key={t.id} value={t.name}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </>
+              ) : (
+                visibleTeachers.map((t) => (
+                  <option key={t.id} value={t.name}>
+                    {t.name}
+                  </option>
+                ))
+              )}
+            </select>
+            {requesterCandidates.length > 1 && (
+              <p className="mt-1 text-xs text-amber-700">
+                โครงการ/กิจกรรมนี้มีผู้รับผิดชอบ {requesterCandidates.length} คน — กรุณาเลือกผู้ลงชื่อขออนุมัติ 1 คน
+              </p>
+            )}
+            {requesterCandidates.length === 1 && requestedBy === requesterCandidates[0] && (
+              <p className="mt-1 text-xs text-slate-500">ลงชื่ออัตโนมัติตามผู้รับผิดชอบ (เปลี่ยนได้)</p>
+            )}
+          </div>
         </div>
       </section>
 

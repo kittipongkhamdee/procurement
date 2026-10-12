@@ -27,7 +27,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
       .maybeSingle(),
     supabase.from("proc_approval_items").select("name, qty, unit_price, note").eq("approval_id", id).order("seq"),
     supabase.from("plan_projects").select("id, name").order("sort_order"),
-    supabase.from("plan_activities").select("id, project_id, name, budget"),
+    supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
     supabase.from("proc_approvals").select("id, project_id, requested_amount").eq("status", "อนุมัติ"),
     supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
     supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
@@ -94,7 +94,12 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
       <ApprovalForm
         action={updateApproval.bind(null, id)}
         projects={projectOptions}
-        activities={(activities ?? []).map((a) => ({ id: a.id, project_id: a.project_id, name: a.name }))}
+        activities={(activities ?? []).map((a) => ({
+          id: a.id,
+          project_id: a.project_id,
+          name: a.name,
+          responsible: a.responsible ?? [],
+        }))}
         adminGroups={adminGroups ?? []}
         teachers={teachers ?? []}
         initial={initial}
