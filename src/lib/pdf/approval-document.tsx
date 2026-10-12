@@ -51,7 +51,11 @@ const FS_TITLE = 29; // "บันทึกข้อความ"
 const TITLE_LINE = 35; // ระยะบรรทัดแน่นอนของ "บันทึกข้อความ"
 const FS_TABLE = 15; // ตารางรายการเงิน (หน้า ๑ ต้องเหลือที่ให้กรอบความเห็น จึงเล็กกว่าเนื้อหาเล็กน้อย)
 const FS_P23 = 15; // ตัวอักษรหน้า ๒ (กรอบความเห็น ๔ ช่อง) และหน้า ๓ (รายการวัสดุ) — ผู้ใช้กำหนด ๑๕ พอยท์
-const FS_BOX = 16; // กรอบความเห็น ๔ ช่อง (อยู่ท้ายหน้า ๑) ใช้ 16pt เท่าเนื้อหา — ต้องตรวจว่ายังพอดีหน้า ๑ เมื่อเนื้อหาด้านบนยาวสุด
+const FS_BOX = 16; // กรอบความเห็น ๔ ช่อง (อยู่ท้ายหน้า ๑) ใช้ 16pt เท่าเนื้อหา
+const FS_BOX_COMPACT = 15; // ย่อเหลือ 15pt เมื่อเนื้อหาด้านบนยาวจนกรอบ 16pt จะล้นหน้า ๑ (ดู boxFontSize)
+/** จำนวนบรรทัด (หลังตัดคำ) ของ เรื่อง/ด้วย/จัดกิจกรรม/ตามโครงการ ที่กรอบ 16pt ยังพอดีหน้า ๑ — วัดจากเอกสารทดสอบ:
+ * ๗ บรรทัดเหลือที่ว่างล่างราว ๑๑pt, ๘ บรรทัดเกินราว ๗pt (๑๕pt ประหยัดได้ราว ๑๗pt) */
+const BOX_MAX_BODY_LINES_AT_FULL = 7;
 const GARUDA_H = 1.5 * CM;
 const GARUDA_W = (GARUDA_H * 659) / 738;
 const INDENT = 2.5 * CM; // ย่อหน้า
@@ -113,6 +117,26 @@ const GAP = 4;
 /** เผื่อความกว้างตอนตัดบรรทัดเอง — react-pdf วัดข้อความ (รวมช่องว่างท้าย) กว้างกว่าที่เราวัดเล็กน้อย ถ้าไม่เผื่อจะตัดซ้ำเอง */
 const WRAP_SLACK = 10;
 
+/** ตัดบรรทัดของ FieldRow แบบไม่มี valueWidth — ใช้ร่วมกันระหว่างการวาดและการนับบรรทัดเพื่อเลือกขนาดกรอบความเห็น */
+function fieldRowLines(o: {
+  prefix?: string;
+  prefixBold?: boolean;
+  prefixSize?: number;
+  value: string;
+  suffix?: string;
+  size?: number;
+  indent?: number;
+  width?: number;
+}): string[] {
+  const { prefix = "", prefixBold = false, value, suffix = "", size = FS, indent = 0, width = CONTENT_W } = o;
+  const pSize = o.prefixSize ?? size;
+  const prefixW = prefix ? measureText(prefix, pSize, prefixBold) + GAP : 0;
+  const suffixW = suffix ? measureText(suffix, size) + GAP : 0;
+  const first = width - indent - prefixW - suffixW - WRAP_SLACK;
+  const rest = width - suffixW - WRAP_SLACK;
+  return wrapByWidth(value, size, Math.max(first, 40), Math.max(rest, 40));
+}
+
 /** แถว "ป้ายหน้า + ค่าบนเส้นจุดไข่ปลา + ป้ายท้าย" — ค่ายาวตัดขึ้นบรรทัดใหม่ล่วงหน้าตามความกว้างจริงของฟอนต์
  * โดยแต่ละบรรทัดมีเส้นจุดไข่ปลาของตัวเอง เหมือนฟอร์มกระดาษ */
 function FieldRow({
@@ -129,8 +153,6 @@ function FieldRow({
   rowGap = 1.5,
 }: FieldRowProps) {
   const pSize = prefixSize ?? size;
-  const prefixW = prefix ? measureText(prefix, pSize, prefixBold) + GAP : 0;
-  const suffixW = suffix ? measureText(suffix, size) + GAP : 0;
   const prefixEl = prefix ? (
     <Text style={[prefixBold ? styles.bold : {}, { fontSize: pSize, marginRight: GAP }]}>{t(prefix)}</Text>
   ) : null;
@@ -149,9 +171,7 @@ function FieldRow({
     );
   }
 
-  const first = width - indent - prefixW - suffixW - WRAP_SLACK;
-  const rest = width - suffixW - WRAP_SLACK;
-  const lines = wrapByWidth(value, size, Math.max(first, 40), Math.max(rest, 40));
+  const lines = fieldRowLines({ prefix, prefixBold, prefixSize, value, suffix, size, indent, width });
   return (
     <>
       {lines.map((line, i) => {
@@ -257,32 +277,32 @@ function OpinionTitle({ no, title }: { no: number; title: string }) {
   );
 }
 
-function SignOff({ name, role }: { name: string | null; role?: string }) {
+function SignOff({ name, role, size = FS_BOX }: { name: string | null; role?: string; size?: number }) {
   return (
     <View style={{ alignItems: "center", marginTop: 1, lineHeight: 1.05 }}>
-      <FieldRow prefix="(ลงชื่อ)" value="" valueWidth={120} width={CELL_W} size={FS_BOX} rowGap={0} />
+      <FieldRow prefix="(ลงชื่อ)" value="" valueWidth={120} width={CELL_W} size={size} rowGap={0} />
       <Text>{t(name ? `(${name})` : "(                                    )")}</Text>
       {role ? <Text>{t(role)}</Text> : null}
     </View>
   );
 }
 
-function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
+function OpinionBoxes({ data, size }: { data: ApprovalPdfData; size: number }) {
   const cellStyle = { flex: 1, padding: CELL_PAD };
   const approved = data.status === "อนุมัติ";
   const rejected = data.status === "ไม่อนุมัติ";
   const d = data.approved_at ? new Date(data.approved_at) : null;
   const line = { marginBottom: 0 };
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, fontSize: FS_BOX, lineHeight: 1.05 }} wrap={false}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, fontSize: size, lineHeight: 1.05 }} wrap={false}>
       <View style={{ flexDirection: "row", borderBottomWidth: 0.8, borderColor: INK }}>
         <View style={[cellStyle, { borderRightWidth: 0.8, borderColor: INK }]}>
           <OpinionTitle no={1} title="ความเห็นงานแผนงาน" />
           <Text style={line}>{t("- ตรวจสอบแล้วมีโครงการ")}</Text>
-          <FieldRow size={FS_BOX} prefix="- เงินโครงการทั้งสิ้น" value={data.budget != null ? formatBaht(data.budget) : ""} suffix="บาท" valueWidth={74} align="right" rowGap={0} />
-          <FieldRow size={FS_BOX} prefix="- เงินขอใช้ครั้งนี้" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={86} align="right" rowGap={0} />
-          <FieldRow size={FS_BOX} prefix="- เงินโครงการเหลือ" value={data.remaining != null ? formatBaht(data.remaining) : ""} suffix="บาท" valueWidth={80} align="right" rowGap={0} />
-          <SignOff name={data.signer_planning} />
+          <FieldRow size={size} prefix="- เงินโครงการทั้งสิ้น" value={data.budget != null ? formatBaht(data.budget) : ""} suffix="บาท" valueWidth={74} align="right" rowGap={0} />
+          <FieldRow size={size} prefix="- เงินขอใช้ครั้งนี้" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={86} align="right" rowGap={0} />
+          <FieldRow size={size} prefix="- เงินโครงการเหลือ" value={data.remaining != null ? formatBaht(data.remaining) : ""} suffix="บาท" valueWidth={80} align="right" rowGap={0} />
+          <SignOff size={size} name={data.signer_planning} />
         </View>
         <View style={cellStyle}>
           <OpinionTitle no={2} title="ความเห็นเจ้าหน้าที่การเงิน" />
@@ -290,7 +310,7 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
           <CheckRow checked={data.fund_type === "งบค่าจัดการเรียนการสอน"}><Text>{t("งบค่าจัดการเรียนการสอน")}</Text></CheckRow>
           <CheckRow checked={data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน"}><Text>{t("งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน")}</Text></CheckRow>
           <CheckRow checked={data.fund_type === "เงินรายได้สถานศึกษา"}><Text>{t("เงินรายได้สถานศึกษา")}</Text></CheckRow>
-          <SignOff name={data.signer_finance} />
+          <SignOff size={size} name={data.signer_finance} />
         </View>
       </View>
       <View style={{ flexDirection: "row" }}>
@@ -302,7 +322,7 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
             <Text>{t("ไม่ควรอนุญาตและอนุมัติเพราะ")}</Text>
             <Dotted style={{ flex: 1, marginLeft: GAP }}><Text> </Text></Dotted>
           </CheckRow>
-          <SignOff name={data.signer_deputy} role={`รองผู้อำนวยการ${data.school_name}`} />
+          <SignOff size={size} name={data.signer_deputy} role={`รองผู้อำนวยการ${data.school_name}`} />
         </View>
         <View style={cellStyle}>
           <OpinionTitle no={4} title="ความเห็นของผู้อำนวยการโรงเรียน" />
@@ -312,7 +332,7 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
             <View style={{ width: 28 }} />
             <CheckRow checked={rejected}><Text>{t("ไม่อนุมัติ")}</Text></CheckRow>
           </View>
-          <SignOff name={data.signer_director} role={`ผู้อำนวยการ${data.school_name}`} />
+          <SignOff size={size} name={data.signer_director} role={`ผู้อำนวยการ${data.school_name}`} />
           <View style={[styles.row, { marginTop: 2, marginBottom: 0, justifyContent: "center" }]}>
             <Text>{t("วันที่")}</Text>
             <Dotted style={{ width: 26, marginHorizontal: GAP }}><Text style={{ textAlign: "center" }}>{d ? String(d.getDate()) : " "}</Text></Dotted>
@@ -492,6 +512,16 @@ function DocNumberAndDate({ data }: { data: ApprovalPdfData }) {
   );
 }
 
+/** ขนาดฟอนต์กรอบความเห็น: 16pt ถ้าเนื้อหาด้านบนไม่ยาวเกิน ไม่เช่นนั้นย่อเป็น 15pt ให้ยังพอดีหน้า ๑ */
+function boxFontSize(data: ApprovalPdfData): number {
+  const lines =
+    fieldRowLines({ prefix: "เรื่อง", prefixBold: true, prefixSize: FS_LABEL, value: subjectLine(data) }).length +
+    fieldRowLines({ prefix: "ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)", value: data.department ?? "", indent: INDENT }).length +
+    fieldRowLines({ prefix: "จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)", value: data.activity_name ?? "" }).length +
+    fieldRowLines({ prefix: "ตามโครงการ/งาน", value: data.project_name ?? "" }).length;
+  return lines > BOX_MAX_BODY_LINES_AT_FULL ? FS_BOX_COMPACT : FS_BOX;
+}
+
 export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
   // ไม่มีรายการเลย = ไม่มีหน้ารายการวัสดุ
   const itemPages = data.items.length > 0 ? paginateItems(data.items) : [];
@@ -544,7 +574,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         </View>
 
         {/* กรอบความเห็น ๔ ช่อง — ต่อท้ายหน้า ๑ ถ้าพื้นที่พอ ไม่พอจะย้ายทั้งกรอบไปหน้าถัดไป (wrap={false}) */}
-        <OpinionBoxes data={data} />
+        <OpinionBoxes data={data} size={boxFontSize(data)} />
       </Page>
 
       {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) — ไม่มีรายการเลย = ไม่มีหน้านี้, น้อยกว่า ๕ รายการเติมแถวว่างให้ครบ ๕,
