@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
+import { ChevronRightIcon } from "@/components/icons";
 import { Modal } from "@/components/modal";
 import type { Tables } from "@/lib/supabase/database.types";
 import { ProposalDetailModal } from "./proposal-detail-modal";
@@ -74,6 +75,60 @@ function statusBadgeClass(status: string) {
   return "badge-amber";
 }
 
+function ActivitiesDetail({ activities }: { activities: ActivityRow[] }) {
+  if (activities.length === 0) {
+    return <p className="px-4 py-3 text-sm text-slate-400">ไม่มีกิจกรรมย่อย</p>;
+  }
+  return (
+    <div className="divide-y divide-slate-200 px-4 py-1">
+      {activities.map((a, j) => (
+        <div key={j} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <span className="text-slate-700">
+            <span className="text-slate-400">{j + 1}.</span> {a.name}
+          </span>
+          <span className="text-slate-500">{(a.responsible ?? []).join(", ") || "ไม่ระบุผู้รับผิดชอบ"}</span>
+          <span className="shrink-0 font-medium text-navy-800 tabular-nums">{formatBaht(a.budget)} บาท</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// จอกว้าง: กิจกรรมย่อยเป็น <tr> จริงในตารางเดียวกับแถวโครงการ (คอลัมน์: # | ชื่อ | กลุ่มบริหาร+ผู้เสนอ(ผู้รับผิดชอบ) | งบ | สถานะ | ปุ่ม)
+function ActivityRows({ activities }: { activities: ActivityRow[] }) {
+  if (activities.length === 0) {
+    return (
+      <tr className="bg-slate-50">
+        <td colSpan={7} className="px-4 py-3 pl-[2.375rem] text-sm text-slate-400">
+          ไม่มีกิจกรรมย่อย
+        </td>
+      </tr>
+    );
+  }
+  return (
+    <>
+      {activities.map((a, j) => (
+        <tr key={j} className="bg-slate-50">
+          <td></td>
+          <td className="min-w-[10rem] max-w-[16rem] py-1.5 pl-[2.375rem] text-sm text-slate-700">
+            <span className="break-words">
+              <span className="text-slate-400">{j + 1}.</span> {a.name}
+            </span>
+          </td>
+          <td colSpan={2} className="py-1.5 text-sm text-slate-500">
+            {(a.responsible ?? []).join(", ") || "ไม่ระบุผู้รับผิดชอบ"}
+          </td>
+          <td className="whitespace-nowrap py-1.5 text-right text-sm font-medium tabular-nums text-navy-800">
+            {formatBaht(a.budget)}
+          </td>
+          <td></td>
+          <td></td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export function ProposalsTable({
   rows,
   isAdmin,
@@ -122,6 +177,15 @@ export function ProposalsTable({
   /** ร่างโครงการที่กำหนดกิจกรรม+งบครบแล้ว (draftId -> กิจกรรม) — ครูแก้ชื่อ/งบกิจกรรมของข้อเสนอที่ผูกกับร่างนี้ไม่ได้ */
   lockedActivitiesByDraft?: Record<string, { name: string; budget: number }[]>;
 }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   // จัดกลุ่มตามกลุ่มบริหารงาน (ลำดับตาม sort_order ของกลุ่ม เหมือนหน้า "โครงการ"/"รายงานโครงการ") — Array.sort เสถียร
   // จึงคงลำดับเดิม (ใหม่สุดก่อน) ภายในกลุ่มเดียวกัน
   const sortedRows = [...rows].sort(
@@ -160,6 +224,7 @@ export function ProposalsTable({
         {sortedRows.map((r, i) => {
           const canEdit = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
           const showGroupHeader = i === 0 || sortedRows[i - 1].adminGroup !== r.adminGroup;
+          const isOpen = expanded.has(r.id);
           return (
             <Fragment key={r.id}>
             {showGroupHeader && (
@@ -168,11 +233,19 @@ export function ProposalsTable({
               </div>
             )}
             <div className="px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => toggle(r.id)}
+                aria-expanded={isOpen}
+                className="flex w-full flex-wrap items-center gap-2 text-left"
+              >
                 <span className="text-xs text-slate-400">#{i + 1}</span>
-                <span className="break-words font-medium text-slate-900">{r.name}</span>
+                <ChevronRightIcon
+                  className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                />
+                <span className="min-w-0 break-words font-medium text-slate-900">{r.name}</span>
                 <span className={statusBadgeClass(r.status)}>{r.status}</span>
-              </div>
+              </button>
               <p className="mt-0.5 text-xs text-slate-500">
                 {r.adminGroup} · {r.proposerName ?? "-"}
               </p>
@@ -234,6 +307,11 @@ export function ProposalsTable({
                   defaultOpen={r.id === autoOpenId}
                 />
               </div>
+              {isOpen && (
+                <div className="-mx-4 mt-2 bg-slate-50">
+                  <ActivitiesDetail activities={r.activities} />
+                </div>
+              )}
             </div>
             </Fragment>
           );
@@ -258,6 +336,7 @@ export function ProposalsTable({
           {sortedRows.map((r, i) => {
             const canEdit = r.status === "รอเห็นชอบ" && (isAdmin || r.createdBy === currentUserId);
             const showGroupHeader = i === 0 || sortedRows[i - 1].adminGroup !== r.adminGroup;
+            const isOpen = expanded.has(r.id);
             return (
               <Fragment key={r.id}>
               {showGroupHeader && (
@@ -267,16 +346,23 @@ export function ProposalsTable({
                   </td>
                 </tr>
               )}
-              <tr>
+              <tr onClick={() => toggle(r.id)} className="cursor-pointer">
                 <td className="text-center tabular-nums text-slate-400">{i + 1}</td>
-                <td className="min-w-[10rem] max-w-[16rem] break-words font-medium text-slate-900">{r.name}</td>
+                <td className="min-w-[10rem] max-w-[16rem] font-medium text-slate-900">
+                  <span className="inline-flex items-start gap-1.5">
+                    <ChevronRightIcon
+                      className={`mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                    />
+                    <span className="break-words">{r.name}</span>
+                  </span>
+                </td>
                 <td>{r.adminGroup}</td>
                 <td>{r.proposerName ?? "-"}</td>
                 <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budgetAmount)}</td>
                 <td className="whitespace-nowrap text-center">
                   <span className={`${statusBadgeClass(r.status)} !text-sm`}>{r.status}</span>
                 </td>
-                <td className="text-right">
+                <td className="text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-2">
                     {canEdit && (
                       <Modal lazy title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
@@ -336,6 +422,7 @@ export function ProposalsTable({
                   </div>
                 </td>
               </tr>
+              {isOpen && <ActivityRows activities={r.activities} />}
               </Fragment>
             );
           })}
