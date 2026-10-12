@@ -10,6 +10,21 @@ type ProjectOption = { id: string; name: string; adminGroupId: string; budget: n
 type ActivityOption = { id: string; project_id: string; name: string | null; responsible: string[] };
 type AdminGroupOption = { id: string; name: string };
 type TeacherOption = { id: string; name: string; is_active: boolean };
+// กลุ่มสาระการเรียนรู้ 8 กลุ่ม — เป็นตัวเลือกของช่อง "ฝ่าย/กลุ่ม/สาระฯ/งาน" ต่อจากกลุ่มบริหารงาน
+// keyword ใช้จับคู่กับชื่อโครงการ (เช่น "...กลุ่มสาระการเรียนรู้คณิตศาสตร์") เพื่อกรองตัวเลือกโครงการ
+const LEARNING_AREAS = [
+  { label: "กลุ่มสาระการเรียนรู้ภาษาไทย", keyword: "ภาษาไทย" },
+  { label: "กลุ่มสาระการเรียนรู้คณิตศาสตร์", keyword: "คณิตศาสตร์" },
+  { label: "กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี", keyword: "วิทยาศาสตร์และเทคโนโลยี" },
+  { label: "กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนาและวัฒนธรรม", keyword: "สังคมศึกษา" },
+  { label: "กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา", keyword: "สุขศึกษาและพลศึกษา" },
+  { label: "กลุ่มสาระการเรียนรู้ศิลปะ", keyword: "ศิลปะ" },
+  { label: "กลุ่มสาระการเรียนรู้การงานอาชีพ", keyword: "การงานอาชีพ" },
+  { label: "กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ", keyword: "ภาษาต่างประเทศ" },
+];
+// โครงการที่ใช้ร่วมกันทุกกลุ่มสาระ (เช่น "โครงการยกระดับผลสัมฤทธิ์ทางการเรียน 8 กลุ่มสาระและ O-Net")
+const ALL_AREAS_PATTERN = /8\s*กลุ่มสาระ/;
+
 // จำนวนแถวสูงสุดที่เทมเพลต PDF หน้า 2 รองรับ (ดู itemRowsY ใน src/lib/pdf-overlay/render-approval-pdf.ts
 // — แถวเกินจำนวนนี้จะถูกตัดทิ้งไม่พิมพ์ลง PDF)
 const MAX_ITEM_ROWS = 29;
@@ -99,10 +114,19 @@ export function ApprovalForm({
   const [submitting, setSubmitting] = useState(false);
 
   // เลือกกลุ่มงานแล้วให้แสดงเฉพาะโครงการของกลุ่มนั้น (โครงการที่เลือกอยู่ยังแสดงเสมอ กันค่าเดิมหายตอนแก้ไขบันทึกเก่า)
-  const departmentGroupId = adminGroups.find((g) => g.name === department)?.id ?? null;
+  // กลุ่มบริหารงาน → จับคู่ตามกลุ่มของโครงการ, กลุ่มสาระฯ → จับคู่ตามชื่อโครงการ, ไม่ได้เลือก → ทุกโครงการ
+  function projectMatchesDepartment(p: ProjectOption, dept: string): boolean {
+    if (!dept) return true;
+    const group = adminGroups.find((g) => g.name === dept);
+    if (group) return p.adminGroupId === group.id;
+    const area = LEARNING_AREAS.find((a) => a.label === dept);
+    if (area) return p.name.includes("กลุ่มสาระ") && (p.name.includes(area.keyword) || ALL_AREAS_PATTERN.test(p.name));
+    return true;
+  }
   const projectChoices = useMemo(
-    () => (departmentGroupId ? projects.filter((p) => p.adminGroupId === departmentGroupId || p.id === projectId) : projects),
-    [projects, departmentGroupId, projectId],
+    () => projects.filter((p) => projectMatchesDepartment(p, department) || p.id === projectId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projects, adminGroups, department, projectId],
   );
 
   const selected = useMemo(() => projects.find((p) => p.id === projectId) ?? null, [projects, projectId]);
@@ -147,10 +171,9 @@ export function ApprovalForm({
 
   function handleDepartmentChange(name: string) {
     setDepartment(name);
-    const groupId = adminGroups.find((g) => g.name === name)?.id;
     const current = projects.find((p) => p.id === projectId);
     // โครงการที่เลือกไว้ไม่ใช่ของกลุ่มที่เพิ่งเลือก → ล้างโครงการ/กิจกรรมให้เลือกใหม่
-    if (groupId && current && current.adminGroupId !== groupId) {
+    if (current && !projectMatchesDepartment(current, name)) {
       setProjectId("");
       setActivityName("");
     }
@@ -266,11 +289,20 @@ export function ApprovalForm({
             className="input"
           >
             <option value="">-- ฝ่าย/กลุ่ม/สาระฯ/งาน --</option>
-            {adminGroups.map((g) => (
-              <option key={g.id} value={g.name}>
-                {g.name}
-              </option>
-            ))}
+            <optgroup label="ฝ่าย/กลุ่มบริหาร/งาน">
+              {adminGroups.map((g) => (
+                <option key={g.id} value={g.name}>
+                  {g.name}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="กลุ่มสาระการเรียนรู้">
+              {LEARNING_AREAS.map((a) => (
+                <option key={a.label} value={a.label}>
+                  {a.label}
+                </option>
+              ))}
+            </optgroup>
           </select>
 
           <select
