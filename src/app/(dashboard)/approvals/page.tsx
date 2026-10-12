@@ -336,7 +336,6 @@ export default function ApprovalsPage() {
   const autoOpenId = useSearchParams().get("open");
   const [approvals, setApprovals] = useState<Approval[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [signedPdfUrls, setSignedPdfUrls] = useState<Map<string, string>>(new Map());
   const [canApproveDirector, setCanApproveDirector] = useState(false);
   const [canApproveDeputy, setCanApproveDeputy] = useState(false);
 
@@ -352,18 +351,6 @@ export default function ApprovalsPage() {
     if (error) setError(error.message);
     const rows = (data as unknown as Approval[]) ?? [];
     setApprovals(rows);
-
-    const paths = rows.map((a) => a.approval_pdf_url).filter((p): p is string => !!p);
-    if (paths.length > 0) {
-      const { data: signed } = await supabase.storage.from("procurement-documents").createSignedUrls(paths, 3600);
-      const map = new Map<string, string>();
-      signed?.forEach((s) => {
-        if (s.signedUrl && !s.error) map.set(s.path ?? "", s.signedUrl);
-      });
-      setSignedPdfUrls(map);
-    } else {
-      setSignedPdfUrls(new Map());
-    }
 
     // สิทธิ์เปลี่ยนความเห็น/สถานะ: แอดมิน หรือผู้มีสถานะผู้ใช้งานตรงกับระดับนั้นๆ
     let myGroupNames: string[] = [];
@@ -546,17 +533,12 @@ export default function ApprovalsPage() {
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <a
-                      href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
+                      href={`/approvals/${a.id}/pdf`}
                       target="_blank"
                       className="btn-secondary btn-sm"
                     >
                       PDF
                     </a>
-                    {isAdmin && (
-                      <a href={`/approvals/${a.id}/pdf?engine=new`} target="_blank" className="btn-secondary btn-sm">
-                        PDF แบบใหม่ (ทดลอง)
-                      </a>
-                    )}
                     {isOwnerOrAdmin &&
                       (editableState ? (
                         <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
@@ -638,17 +620,12 @@ export default function ApprovalsPage() {
                     <td className="text-right">
                       <div className="flex flex-wrap justify-end gap-2">
                         <a
-                          href={(a.approval_pdf_url && signedPdfUrls.get(a.approval_pdf_url)) || `/approvals/${a.id}/pdf`}
+                          href={`/approvals/${a.id}/pdf`}
                           target="_blank"
                           className="btn-secondary btn-sm"
                         >
                           PDF
                         </a>
-                        {isAdmin && (
-                          <a href={`/approvals/${a.id}/pdf?engine=new`} target="_blank" className="btn-secondary btn-sm">
-                            PDF แบบใหม่ (ทดลอง)
-                          </a>
-                        )}
                         {isOwnerOrAdmin &&
                           (editableState ? (
                             <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">

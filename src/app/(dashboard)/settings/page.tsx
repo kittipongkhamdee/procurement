@@ -23,7 +23,6 @@ import { StorageProviderToggle } from "./storage-provider-toggle";
 import { SchoolBrandingForm } from "./school-branding-form";
 import { MaintenanceForm } from "./maintenance-form";
 import { PhotoOptimizer } from "./photo-optimizer";
-import { ApprovalTemplateForm } from "./approval-template-form";
 import { ApprovalDocNumberForm } from "./approval-doc-number-form";
 import { AssetCodeTemplateForm } from "./asset-code-template-form";
 import { CloseIcon } from "@/components/icons";
@@ -40,7 +39,6 @@ import {
   deleteBudgetSource,
   deleteTeacher,
   deleteUserGroup,
-  removeApprovalTemplate,
   removeSchoolLogo,
   setAiExtractionEnabled,
   setApprovalDocNumberFormat,
@@ -61,7 +59,6 @@ import {
   updateLearningAreaName,
   updateTeacherName,
   updateUserGroupName,
-  uploadApprovalTemplate,
   uploadSchoolLogo,
 } from "./actions";
 
@@ -89,7 +86,6 @@ type SettingsData = {
   assetCodePrefix: string | null;
   maintenanceEnabled: boolean;
   maintenanceMessage: string | null;
-  hasCustomApprovalTemplate: boolean;
   approvalDocNumberPrefix: string;
   approvalDocNumberSeparator: string;
   assetCodeTemplate: string;
@@ -115,7 +111,6 @@ export default function SettingsPage() {
       { data: aiExtractionEnabledSetting },
       { data: storageProviderSetting },
       { data: schoolSettings },
-      { data: templateFiles },
       { data: numberFormatSettings },
     ] = await Promise.all([
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
@@ -135,7 +130,6 @@ export default function SettingsPage() {
         .select("school_name, logo_url, education_area, school_address, asset_code_prefix, maintenance_enabled, maintenance_message")
         .eq("id", true)
         .maybeSingle(),
-      supabase.storage.from("procurement-documents").list("templates"),
       supabase
         .from("proc_app_settings")
         .select("key, value")
@@ -171,7 +165,6 @@ export default function SettingsPage() {
       assetCodePrefix: schoolSettings?.asset_code_prefix ?? null,
       maintenanceEnabled: schoolSettings?.maintenance_enabled ?? false,
       maintenanceMessage: schoolSettings?.maintenance_message ?? null,
-      hasCustomApprovalTemplate: (templateFiles ?? []).some((f) => f.name === "approval-template.pdf"),
       approvalDocNumberPrefix: numberFormatMap.get("approval_doc_number_prefix") ?? "",
       approvalDocNumberSeparator: numberFormatMap.get("approval_doc_number_separator") || "/",
       assetCodeTemplate: numberFormatMap.get("asset_code_template") || DEFAULT_ASSET_CODE_TEMPLATE,
@@ -297,22 +290,6 @@ export default function SettingsPage() {
               setSchoolName={setSchoolName}
               uploadSchoolLogo={uploadSchoolLogo}
               removeSchoolLogo={removeSchoolLogo}
-              onChanged={reload}
-            />
-          </div>
-        </div>
-
-        <div className="lg:col-span-2">
-          <div className="card">
-            <div className="card-title">เทมเพลต PDF บันทึกขออนุมัติ</div>
-            <p className="mb-4 text-sm text-slate-500">
-              เอกสาร &quot;บันทึกขออนุมัติ&quot; ({"/approvals"}) สร้างโดยเขียนข้อมูลทับลงบนไฟล์เทมเพลต PDF นี้โดยตรง
-              (ไม่ใช่การวาดเอกสารขึ้นใหม่ทั้งหมด) อัปโหลดไฟล์ใหม่ทับได้เองที่นี่โดยไม่ต้องรอแก้โค้ด
-            </p>
-            <ApprovalTemplateForm
-              hasCustomTemplate={data.hasCustomApprovalTemplate}
-              uploadApprovalTemplate={uploadApprovalTemplate}
-              removeApprovalTemplate={removeApprovalTemplate}
               onChanged={reload}
             />
           </div>

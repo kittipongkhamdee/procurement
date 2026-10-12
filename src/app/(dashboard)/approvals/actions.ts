@@ -2,9 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { buildApprovalPdfData, renderApprovalPdfBuffer } from "@/lib/pdf/build-approval-pdf";
-
-const PDF_BUCKET = "procurement-documents";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -86,26 +83,6 @@ async function nextDocNumber(supabase: Awaited<ReturnType<typeof createClient>>,
   return `${prefix}${maxSeq + 1}${suffix}`;
 }
 
-async function generatePdf(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string) {
-  // best-effort: บันทึกหลักถูกบันทึกไปแล้ว การสร้าง PDF ล่วงหน้าล้มเหลวไม่ควรทำให้ทั้งการบันทึกล้มเหลวตาม
-  // (หน้า [id]/pdf ยังพิมพ์สดได้เสมอ)
-  try {
-    const pdfResult = await buildApprovalPdfData(supabase, approvalId);
-    if (pdfResult) {
-      const buffer = await renderApprovalPdfBuffer(supabase, pdfResult.data);
-      const path = `approvals/${approvalId}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from(PDF_BUCKET)
-        .upload(path, buffer, { contentType: "application/pdf", upsert: true });
-      if (!uploadError) {
-        await supabase.from("proc_approvals").update({ approval_pdf_url: path }).eq("id", approvalId);
-      }
-    }
-  } catch {
-    // ignored — see comment above
-  }
-}
-
 export async function createApproval(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -182,7 +159,6 @@ export async function createApproval(formData: FormData) {
     if (itemsError) throw new Error(itemsError.message);
   }
 
-  await generatePdf(supabase, approval.id);
 
   revalidatePath("/approvals");
 }
@@ -280,7 +256,6 @@ export async function updateApproval(id: string, formData: FormData) {
     if (itemsError) throw new Error(itemsError.message);
   }
 
-  await generatePdf(supabase, id);
 
   revalidatePath("/approvals");
 }
@@ -305,7 +280,6 @@ export async function updateApprovalStatus(id: string, decision: "อนุม�
     .eq("id", id)
     .eq("status", "รออนุมัติ");
   if (error) throw new Error(error.message);
-  await generatePdf(supabase, id);
   revalidatePath("/approvals");
 }
 
@@ -317,7 +291,6 @@ export async function resetApprovalStatus(id: string) {
     .update({ status: "รออนุมัติ", approved_by_name: null, approved_at: null, approve_note: null })
     .eq("id", id);
   if (error) throw new Error(error.message);
-  await generatePdf(supabase, id);
   revalidatePath("/approvals");
 }
 
@@ -334,7 +307,6 @@ export async function updateDeputyDecision(id: string, decision: "ควร" | "
     .eq("id", id)
     .is("deputy_decision", null);
   if (error) throw new Error(error.message);
-  await generatePdf(supabase, id);
   revalidatePath("/approvals");
 }
 
@@ -346,6 +318,5 @@ export async function resetDeputyDecision(id: string) {
     .update({ deputy_decision: null, deputy_decided_by_name: null, deputy_decided_at: null, deputy_note: null })
     .eq("id", id);
   if (error) throw new Error(error.message);
-  await generatePdf(supabase, id);
   revalidatePath("/approvals");
 }

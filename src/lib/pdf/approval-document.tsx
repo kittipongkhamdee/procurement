@@ -1,7 +1,7 @@
 import path from "node:path";
 import { Document, Font, Image, Line, Page, Path, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, THAI_MONTHS } from "@/lib/thai";
-import type { ApprovalPdfData } from "@/lib/pdf-overlay/approval-types";
+import type { ApprovalPdfData } from "./approval-types";
 import { registerSarabunFont, t } from "./thai-pdf";
 import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
 

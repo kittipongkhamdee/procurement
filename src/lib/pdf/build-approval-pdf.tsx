@@ -3,8 +3,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { formatThaiDate } from "@/lib/thai";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ApprovalDocument } from "./approval-document";
-import { renderApprovalPdfBuffer as renderOverlayPdfBuffer } from "@/lib/pdf-overlay/render-approval-pdf";
-import type { ApprovalPdfData } from "@/lib/pdf-overlay/approval-types";
+import type { ApprovalPdfData } from "./approval-types";
 
 const SIGNER_KEYS = [
   "approval_signer_planning",
@@ -100,11 +99,7 @@ export async function buildApprovalPdfData(
   return { data, fileLabel: `อนุมัติ-${approval.doc_date}` };
 }
 
-export async function renderApprovalPdfBuffer(supabase: SupabaseClient<Database>, data: ApprovalPdfData): Promise<Buffer> {
-  return renderOverlayPdfBuffer(supabase, data);
-}
-
-/** เวอร์ชันวาดเอกสารใหม่ทั้งหมดด้วย react-pdf (ทดลอง ยังไม่แทนที่ตัวเทมเพลตเดิม) */
-export async function renderApprovalDocumentPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
+/** วาดเอกสารบันทึกข้อความขออนุมัติด้วย react-pdf (ตามแบบกระดาษบันทึกข้อความ ระเบียบงานสารบรรณ) */
+export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
   return renderToBuffer(<ApprovalDocument data={data} />);
 }
