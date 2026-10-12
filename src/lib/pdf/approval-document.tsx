@@ -58,11 +58,13 @@ const GARUDA = path.join(process.cwd(), "src/lib/pdf/assets/garuda-emblem.png");
 
 const styles = StyleSheet.create({
   page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.3, color: INK, paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
-  row: { flexDirection: "row", marginBottom: 3 },
+  // แถวที่มีเส้นจุดไข่ปลา: จัดชิดขอบล่าง + ทุกองค์ประกอบในแถวใช้ lineHeight เท่ากัน เส้นจุดจึงอยู่ห่างจากตัวอักษรเท่ากันทุกแถว
+  // (ถ้าปล่อยเป็น stretch ช่องที่เป็นเส้นจุดจะถูกยืดตามป้ายหน้า/หลังที่สูงกว่า ทำให้เส้นอยู่ห่างตัวอักษรไม่เท่ากัน)
+  row: { flexDirection: "row", alignItems: "flex-end", lineHeight: 1.05, marginBottom: 3 },
   bold: { fontWeight: "bold" },
   // กรอบของช่องที่มีเส้นจุดไข่ปลาอยู่ใต้ค่า — เส้นจุดวาดด้วย <DotLeader /> (ไม่ใช้ borderBottomStyle: "dotted" เพราะ
   // react-pdf วาดเป็นเส้นทึบใต้ตัวหนังสือที่อยู่เหนือมัน)
-  dotted: { position: "relative", paddingBottom: 1, overflow: "hidden", lineHeight: 1.05 },
+  dotted: { position: "relative", paddingBottom: 0.5, overflow: "hidden", lineHeight: 1.05 },
 });
 
 /** เส้นจุดไข่ปลาใต้ช่อง — ใส่เป็นลูกตัวสุดท้ายของ View ที่ใช้ style dotted */
@@ -170,7 +172,7 @@ function PlainRow({ prefix, value, width = CONTENT_W }: { prefix?: string; value
   const prefixW = prefix ? measureText(prefix, FS) + 8 : 0;
   const lines = wrapByWidth(value, FS, width - prefixW - WRAP_SLACK, width - prefixW - WRAP_SLACK);
   return (
-    <View style={[styles.row, { alignItems: "flex-start" }]}>
+    <View style={[styles.row, { alignItems: "flex-start", lineHeight: 1.3 }]}>
       {prefix ? <Text style={{ width: prefixW }}>{t(prefix)}</Text> : null}
       <View style={{ flex: 1 }}>
         {lines.map((l, i) => (
