@@ -113,6 +113,8 @@ export async function createApproval(formData: FormData) {
   } = await supabase.auth.getUser();
 
   const requestedAmount = Number(formData.get("requested_amount") ?? 0);
+  if (!String(formData.get("department") ?? "").trim()) throw new Error("กรุณาเลือกฝ่าย/กลุ่ม/สาระฯ/งาน");
+  if (!(requestedAmount > 0)) throw new Error("ยอดเงินที่ขออนุมัติต้องมากกว่า 0");
 
   const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
   let summaryItems: SummaryItemInput[] = [];
@@ -200,6 +202,8 @@ export async function updateApproval(id: string, formData: FormData) {
   if (!editable) throw new Error("รายการนี้มีผู้เห็นชอบแล้ว ไม่สามารถแก้ไขได้");
 
   const requestedAmount = Number(formData.get("requested_amount") ?? 0);
+  if (!String(formData.get("department") ?? "").trim()) throw new Error("กรุณาเลือกฝ่าย/กลุ่ม/สาระฯ/งาน");
+  if (!(requestedAmount > 0)) throw new Error("ยอดเงินที่ขออนุมัติต้องมากกว่า 0");
 
   const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
   let summaryItems: SummaryItemInput[] = [];

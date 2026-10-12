@@ -9,7 +9,7 @@ export default async function NewApprovalPage() {
 
   const [{ data: projects }, { data: activities }, { data: approvals }, { data: adminGroups }, { data: teachers }] =
     await Promise.all([
-      supabase.from("plan_projects").select("id, name").order("sort_order"),
+      supabase.from("plan_projects").select("id, name, admin_group_id").order("sort_order"),
       supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
       supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
       supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
@@ -32,6 +32,7 @@ export default async function NewApprovalPage() {
   const projectOptions = (projects ?? []).map((p) => ({
     id: p.id,
     name: p.name,
+    adminGroupId: p.admin_group_id,
     budget: budgetByProject.get(p.id) ?? 0,
     approvedSoFar: approvedByProject.get(p.id) ?? 0,
   }));

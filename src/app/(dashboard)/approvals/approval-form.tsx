@@ -6,7 +6,7 @@ import { formatThaiDate } from "@/lib/thai";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
-type ProjectOption = { id: string; name: string; budget: number; approvedSoFar: number };
+type ProjectOption = { id: string; name: string; adminGroupId: string; budget: number; approvedSoFar: number };
 type ActivityOption = { id: string; project_id: string; name: string | null; responsible: string[] };
 type AdminGroupOption = { id: string; name: string };
 type TeacherOption = { id: string; name: string; is_active: boolean };
@@ -93,9 +93,17 @@ export function ApprovalForm({
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial));
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
+  const [department, setDepartment] = useState(initial?.department ?? "");
   const [requestedBy, setRequestedBy] = useState(initial?.requested_by_name ?? "");
   const [planDateISO, setPlanDateISO] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // เลือกกลุ่มงานแล้วให้แสดงเฉพาะโครงการของกลุ่มนั้น (โครงการที่เลือกอยู่ยังแสดงเสมอ กันค่าเดิมหายตอนแก้ไขบันทึกเก่า)
+  const departmentGroupId = adminGroups.find((g) => g.name === department)?.id ?? null;
+  const projectChoices = useMemo(
+    () => (departmentGroupId ? projects.filter((p) => p.adminGroupId === departmentGroupId || p.id === projectId) : projects),
+    [projects, departmentGroupId, projectId],
+  );
 
   const selected = useMemo(() => projects.find((p) => p.id === projectId) ?? null, [projects, projectId]);
   const activityOptions = useMemo(() => activities.filter((a) => a.project_id === projectId), [activities, projectId]);
@@ -137,6 +145,17 @@ export function ApprovalForm({
   );
   const otherTeachers = visibleTeachers.filter((t) => !requesterCandidates.includes(t.name));
 
+  function handleDepartmentChange(name: string) {
+    setDepartment(name);
+    const groupId = adminGroups.find((g) => g.name === name)?.id;
+    const current = projects.find((p) => p.id === projectId);
+    // โครงการที่เลือกไว้ไม่ใช่ของกลุ่มที่เพิ่งเลือก → ล้างโครงการ/กิจกรรมให้เลือกใหม่
+    if (groupId && current && current.adminGroupId !== groupId) {
+      setProjectId("");
+      setActivityName("");
+    }
+  }
+
   const requestedAmount = summaryRows.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
   const remaining = selected ? selected.budget - selected.approvedSoFar - requestedAmount : 0;
   const itemsGrandTotal = itemRows.reduce((sum, r) => sum + (parseFloat(r.qty) || 0) * (parseFloat(r.unitPrice) || 0), 0);
@@ -163,6 +182,18 @@ export function ApprovalForm({
     // ปฏิทิน พ.ศ. ใช้ hidden input ซึ่งเบราว์เซอร์ไม่บังคับ required ให้ — เช็คเองก่อนส่ง
     if (!String(formData.get("doc_date") ?? "").trim()) {
       await toastError("กรุณาเลือกวันที่บันทึกข้อความ");
+      return;
+    }
+    if (!String(formData.get("department") ?? "").trim()) {
+      await toastError("กรุณาเลือกฝ่าย/กลุ่ม/สาระฯ/งาน");
+      return;
+    }
+    if (!planDateISO && !initial?.plan_date_text) {
+      await toastError("กรุณาเลือกวันที่จะดำเนินการ");
+      return;
+    }
+    if (!summaryRows.some((r) => (parseFloat(r.amount) || 0) > 0) || requestedAmount <= 0) {
+      await toastError("กรุณากรอกรายการเงินที่ขออนุมัติอย่างน้อย 1 รายการ และยอดรวมต้องมากกว่า 0");
       return;
     }
     formData.set("summary_items_json", JSON.stringify(summaryRows));
@@ -227,7 +258,13 @@ export function ApprovalForm({
             className="input sm:col-span-3"
           />
 
-          <select name="department" defaultValue={initial?.department ?? ""} className="input">
+          <select
+            name="department"
+            value={department}
+            onChange={(e) => handleDepartmentChange(e.target.value)}
+            required
+            className="input"
+          >
             <option value="">-- ฝ่าย/กลุ่ม/สาระฯ/งาน --</option>
             {adminGroups.map((g) => (
               <option key={g.id} value={g.name}>
@@ -249,7 +286,7 @@ export function ApprovalForm({
             <option value="" disabled>
               -- เลือกโครงการ/งานที่ต้องการเบิก --
             </option>
-            {projects.map((p) => (
+            {projectChoices.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
