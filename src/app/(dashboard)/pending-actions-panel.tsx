@@ -370,7 +370,7 @@ export function PendingActionsPanel() {
         ? supabase
             .from("proc_approvals")
             .select(
-              "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, approval_pdf_url, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
+              "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
             )
             .order("doc_date", { ascending: true })
         : Promise.resolve({ data: [] }),

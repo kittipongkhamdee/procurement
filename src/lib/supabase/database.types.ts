@@ -1762,7 +1762,6 @@ export type Database = {
         Row: {
           activity_name: string | null
           addressed_to: string
-          approval_pdf_url: string | null
           approve_note: string | null
           approved_at: string | null
           approved_by_name: string | null
@@ -1797,7 +1796,6 @@ export type Database = {
         Insert: {
           activity_name?: string | null
           addressed_to: string
-          approval_pdf_url?: string | null
           approve_note?: string | null
           approved_at?: string | null
           approved_by_name?: string | null
@@ -1832,7 +1830,6 @@ export type Database = {
         Update: {
           activity_name?: string | null
           addressed_to?: string
-          approval_pdf_url?: string | null
           approve_note?: string | null
           approved_at?: string | null
           approved_by_name?: string | null
