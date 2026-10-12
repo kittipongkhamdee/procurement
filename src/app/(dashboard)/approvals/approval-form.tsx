@@ -100,6 +100,7 @@ export function ApprovalForm({
   teachers,
   learningAreas,
   unitSuggestions = [],
+  itemNameSuggestions = [],
   initial,
   submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
@@ -111,6 +112,8 @@ export function ApprovalForm({
   learningAreas: LearningAreaOption[];
   /** คำแนะนำหน่วยนับ (ขึ้นช่วยกรอกในช่อง "หน่วยนับ" ของรายการวัสดุ) */
   unitSuggestions?: string[];
+  /** คำแนะนำชื่อรายการวัสดุ (ชื่อที่เคยขออนุมัติ/ขอซื้อ-จ้างมาแล้ว) */
+  itemNameSuggestions?: string[];
   initial?: ApprovalFormInitial;
   submitLabel?: string;
 }) {
@@ -509,6 +512,11 @@ export function ApprovalForm({
 
       <section className="card">
         <h2 className="card-title">รายการวัสดุ อุปกรณ์ (หน้า 2 ของเอกสาร)</h2>
+        <datalist id="approval-item-name-suggestions">
+          {itemNameSuggestions.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
         <datalist id="approval-unit-suggestions">
           {unitSuggestions.map((u) => (
             <option key={u} value={u} />
@@ -533,7 +541,7 @@ export function ApprovalForm({
                 return (
                   <tr key={i}>
                     <td className="px-2 py-1">
-                      <input value={row.name} onChange={(e) => updateItemRow(i, { name: e.target.value })} className="input w-full" />
+                      <input value={row.name} onChange={(e) => updateItemRow(i, { name: e.target.value })} list="approval-item-name-suggestions" autoComplete="off" className="input w-full" />
                     </td>
                     <td className="px-2 py-1">
                       <input type="number" step="0.01" value={row.qty} onChange={(e) => updateItemRow(i, { qty: e.target.value })} className="input w-full text-center" />

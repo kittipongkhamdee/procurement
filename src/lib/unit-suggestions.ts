@@ -32,3 +32,21 @@ export async function loadUnitSuggestions(supabase: SupabaseClient<Database>): P
   }
   return out;
 }
+
+/** คำแนะนำชื่อรายการวัสดุ/อุปกรณ์: ชื่อที่เคยขออนุมัติ/ขอซื้อ-จ้างมาแล้ว เรียงตามที่ใช้บ่อยก่อน (เอาไม่เกิน limit ชื่อ) */
+export async function loadItemNameSuggestions(supabase: SupabaseClient<Database>, limit = 300): Promise<string[]> {
+  const [{ data: approvalItems }, { data: purchaseItems }] = await Promise.all([
+    supabase.from("proc_approval_items").select("name").not("name", "is", null).limit(3000),
+    supabase.from("proc_purchase_items").select("name").not("name", "is", null).limit(3000),
+  ]);
+
+  const counts = new Map<string, number>();
+  for (const r of [...(approvalItems ?? []), ...(purchaseItems ?? [])]) {
+    const n = (r.name ?? "").trim();
+    if (n) counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "th"))
+    .slice(0, limit)
+    .map(([n]) => n);
+}
