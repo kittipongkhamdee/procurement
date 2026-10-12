@@ -49,7 +49,8 @@ const FS_LABEL = 20; // "ส่วนราชการ ที่ วันท�
 const FS_TITLE = 29; // "บันทึกข้อความ"
 const TITLE_LINE = 35; // ระยะบรรทัดแน่นอนของ "บันทึกข้อความ"
 const FS_TABLE = 16; // ตารางรายการ
-const FS_BOX = 16; // กรอบความเห็น ๔ ช่อง
+const FS_P23 = 15; // ตัวอักษรหน้า ๒ (กรอบความเห็น ๔ ช่อง) และหน้า ๓ (รายการวัสดุ) — ผู้ใช้กำหนด ๑๕ พอยท์
+const FS_BOX = FS_P23; // กรอบความเห็น ๔ ช่อง
 const GARUDA_H = 1.5 * CM;
 const GARUDA_W = (GARUDA_H * 659) / 738;
 const INDENT = 2.5 * CM; // ย่อหน้า
@@ -352,7 +353,7 @@ function ItemsTable({ data }: { data: ApprovalPdfData }) {
   const hd = [styles.bold, { textAlign: "center" as const }];
   // lineHeight ต่ำ: Text ในแถวที่กำหนดความสูงตายตัวจะถูกซ่อน/ตัดเป็น "…" ถ้าความสูงบรรทัดเกินความสูงแถว
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, marginTop: 8, fontSize: 16, lineHeight: 1.05 }}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, marginTop: 8, fontSize: FS_P23, lineHeight: 1.05 }}>
       <View style={[row, { height: 38 }]}>
         <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
         <View style={[cell, { width: ITEM_COLS.qty }]}>
@@ -368,11 +369,11 @@ function ItemsTable({ data }: { data: ApprovalPdfData }) {
         const last = i === rowsCount - 1;
         return (
           <View key={i} style={[row, last ? { borderBottomWidth: 0 } : {}]}>
-            <View style={[cell, { flex: 1 }]}><FitText text={item?.name ?? ""} width={nameW - 10} size={16} /></View>
-            <View style={[cell, { width: ITEM_COLS.qty }]}><FitText text={item?.qty != null ? String(item.qty) : ""} width={ITEM_COLS.qty - 10} size={16} align="center" /></View>
-            <View style={[cell, { width: ITEM_COLS.price }]}><FitText text={item?.unit_price != null ? formatBaht(item.unit_price) : ""} width={ITEM_COLS.price - 10} size={16} align="right" /></View>
-            <View style={[cell, { width: ITEM_COLS.total }]}><FitText text={item?.total != null ? formatBaht(item.total) : ""} width={ITEM_COLS.total - 10} size={16} align="right" /></View>
-            <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><FitText text={item?.note ?? ""} width={ITEM_COLS.note - 10} size={16} /></View>
+            <View style={[cell, { flex: 1 }]}><FitText text={item?.name ?? ""} width={nameW - 10} size={FS_P23} /></View>
+            <View style={[cell, { width: ITEM_COLS.qty }]}><FitText text={item?.qty != null ? String(item.qty) : ""} width={ITEM_COLS.qty - 10} size={FS_P23} align="center" /></View>
+            <View style={[cell, { width: ITEM_COLS.price }]}><FitText text={item?.unit_price != null ? formatBaht(item.unit_price) : ""} width={ITEM_COLS.price - 10} size={FS_P23} align="right" /></View>
+            <View style={[cell, { width: ITEM_COLS.total }]}><FitText text={item?.total != null ? formatBaht(item.total) : ""} width={ITEM_COLS.total - 10} size={FS_P23} align="right" /></View>
+            <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><FitText text={item?.note ?? ""} width={ITEM_COLS.note - 10} size={FS_P23} /></View>
           </View>
         );
       })}
@@ -401,18 +402,18 @@ function docNumberText(raw: string | null): string {
   return /^\d/.test(raw) ? `งป/${raw}` : raw;
 }
 
-/** "จะดำเนินการวันที่ … และขออนุมัติงบประมาณในครั้งนี้ จำนวนเงิน … บาท" ต่อกันในบรรทัดเดียว — ช่องวันที่ขยายตาม
+/** "จะดำเนินการวันที่ … และขออนุมัติงบประมาณในครั้งนี้ จำนวนเงิน … บาท ดังนี้" ต่อกันในบรรทัดเดียว — ช่องวันที่ขยายตาม
  * พื้นที่ที่เหลือ (ถ้าแคบเกินไปจริงๆ จะแยกส่วนจำนวนเงินลงบรรทัดใหม่แทน) */
 function PlanDateAndAmount({ data }: { data: ApprovalPdfData }) {
   const lead = "จะดำเนินการวันที่";
   const mid = "และขออนุมัติงบประมาณในครั้งนี้ จำนวนเงิน";
-  const tail = "บาท";
+  const tail = "บาท ดังนี้";
   const amount = formatBaht(data.requested_amount);
-  const amountW = Math.max(56, measureText(amount, FS) + 12);
-  const fixed = [lead, mid, tail].reduce((sum, txt) => sum + measureText(txt, FS), 0) + GAP * 6;
+  const amountW = Math.max(50, measureText(amount, FS) + 10);
+  const fixed = [lead, mid, tail].reduce((sum, txt) => sum + measureText(txt, FS), 0) + GAP * 4;
   const dateW = CONTENT_W - fixed - amountW;
-  // วันที่ที่ยาวที่สุดที่เป็นไปได้ (เช่น "30 กันยายน 2570") ต้องใส่ในช่องได้ ไม่งั้นแยกบรรทัด
-  const dateNeeded = Math.max(measureText(data.plan_date_text ?? "", FS), measureText("30 กันยายน 2570", FS)) + 8;
+  // วันที่จริงต้องใส่ในช่องได้ ไม่งั้นแยกส่วนจำนวนเงินลงบรรทัดใหม่
+  const dateNeeded = measureText(data.plan_date_text ?? "", FS) + 10;
   if (dateW < dateNeeded) {
     return (
       <>
@@ -501,6 +502,12 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         <FieldRow prefix="จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)" value={data.activity_name ?? ""} />
         <FieldRow prefix="ตามโครงการ/งาน" value={data.project_name ?? ""} />
         <PlanDateAndAmount data={data} />
+
+        {/* ตารางรายการเงิน ต่อจาก "ดังนี้" แล้วจึงตามด้วย "จึงเรียนมา…" และลายมือชื่อ */}
+        <View wrap={false} style={{ marginTop: 4 }}>
+          <SummaryTable data={data} />
+        </View>
+
         <View style={[styles.row, { paddingLeft: INDENT }]}>
           <Text>{t("จึงเรียนมาเพื่อโปรดพิจารณาอนุญาตและอนุมัติ")}</Text>
         </View>
@@ -511,14 +518,10 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           <Text>{t(data.requested_by_name ? `(${data.requested_by_name})` : "(                                    )")}</Text>
         </View>
 
-        <View wrap={false}>
-          <SummaryTable data={data} />
-        </View>
-
-        {/* กรอบความเห็น ๔ ช่อง ขึ้นหน้าใหม่เสมอ (ที่ตัวอักษร ๑๖ พอยท์ หน้า ๑ ไม่พอสำหรับทั้งสองส่วน) */}
+        {/* กรอบความเห็น ๔ ช่อง ขึ้นหน้าใหม่เสมอ (หน้า ๑ ไม่พอสำหรับทั้งสองส่วน) */}
         <View break>
-          <Text style={{ fontWeight: "bold", lineHeight: 1.1, marginBottom: 1 }}>{t("ความเห็นประกอบการพิจารณา")}</Text>
-          <Text style={{ lineHeight: 1.1, marginBottom: 6 }}>
+          <Text style={{ fontSize: FS_P23, fontWeight: "bold", lineHeight: 1.1, marginBottom: 1 }}>{t("ความเห็นประกอบการพิจารณา")}</Text>
+          <Text style={{ fontSize: FS_P23, lineHeight: 1.1, marginBottom: 6 }}>
             {t(`ประกอบบันทึกข้อความ ที่ ${docNumberText(data.doc_number)} ลงวันที่ ${data.doc_date ? formatThaiDate(data.doc_date) : ""}`)}
           </Text>
           <OpinionBoxes data={data} />
@@ -527,8 +530,8 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
 
       {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) ใช้ขอบบน/ล่างแคบลงเพื่อให้ตาราง ๒๙ แถวพอดีหน้าเดียว */}
       <Page size="A4" style={[styles.page, { paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }]}>
-        <FieldRow prefix="รายการวัสดุ อุปกรณ์" prefixBold value={data.project_name ?? ""} />
-        <FieldRow prefix="กิจกรรม" prefixBold value={data.activity_name ?? ""} />
+        <FieldRow prefix="รายการวัสดุ อุปกรณ์" prefixBold size={FS_P23} value={data.project_name ?? ""} />
+        <FieldRow prefix="กิจกรรม" prefixBold size={FS_P23} value={data.activity_name ?? ""} />
         <ItemsTable data={data} />
       </Page>
     </Document>
