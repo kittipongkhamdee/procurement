@@ -18,7 +18,8 @@ import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-meas
 //   - คำขึ้นต้นห่างจากเรื่อง ๑ บรรทัด + ๖ พอยท์; ย่อหน้าข้อความ ๒.๕ ซม.
 //   - ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บและตำแหน่งอยู่กึ่งกลางซึ่งกันและกัน
 // ตารางรายการเงิน กรอบความเห็น ๔ ช่อง และตารางรายการวัสดุ (ไม่มีกำหนดในแบบ) ใช้ตัวอักษร ๑๖ พอยท์เท่าเนื้อหา
-// (กรอบความเห็นอยู่หน้า ๒ เพราะหน้า ๑ ไม่พอ; รายการวัสดุอยู่หน้า ๓)
+// (กรอบความเห็นอยู่ท้ายหน้า ๑ ถ้าพื้นที่พอ — ใช้ตัวอักษร ๑๔ พอยท์ และตารางรายการเงินหน้า ๑ ใช้ ๑๕ พอยท์เพื่อให้พอดี;
+//  ถ้าข้อความหน้า ๑ ยาวจนไม่พอ กรอบจะย้ายไปหน้า ๒ ทั้งกรอบ; รายการวัสดุอยู่หน้าสุดท้าย ๑๕ พอยท์)
 // ฟอนต์: TH Sarabun New (ดูด้านล่าง)
 
 registerSarabunFont();
@@ -48,9 +49,9 @@ const FS = 16; // ตัวอักษรเนื้อหา
 const FS_LABEL = 20; // "ส่วนราชการ ที่ วันที่ เรื่อง"
 const FS_TITLE = 29; // "บันทึกข้อความ"
 const TITLE_LINE = 35; // ระยะบรรทัดแน่นอนของ "บันทึกข้อความ"
-const FS_TABLE = 16; // ตารางรายการ
+const FS_TABLE = 15; // ตารางรายการเงิน (หน้า ๑ ต้องเหลือที่ให้กรอบความเห็น จึงเล็กกว่าเนื้อหาเล็กน้อย)
 const FS_P23 = 15; // ตัวอักษรหน้า ๒ (กรอบความเห็น ๔ ช่อง) และหน้า ๓ (รายการวัสดุ) — ผู้ใช้กำหนด ๑๕ พอยท์
-const FS_BOX = FS_P23; // กรอบความเห็น ๔ ช่อง
+const FS_BOX = 14; // กรอบความเห็น ๔ ช่อง (อยู่ท้ายหน้า ๑ จึงต้องเล็กกว่าหน้า ๓ เล็กน้อยเพื่อให้พอดีหน้า)
 const GARUDA_H = 1.5 * CM;
 const GARUDA_W = (GARUDA_H * 659) / 738;
 const INDENT = 2.5 * CM; // ย่อหน้า
@@ -61,11 +62,11 @@ const styles = StyleSheet.create({
   page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.3, color: INK, paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
   // แถวที่มีเส้นจุดไข่ปลา: จัดชิดขอบล่าง + ทุกองค์ประกอบในแถวใช้ lineHeight เท่ากัน เส้นจุดจึงอยู่ห่างจากตัวอักษรเท่ากันทุกแถว
   // (ถ้าปล่อยเป็น stretch ช่องที่เป็นเส้นจุดจะถูกยืดตามป้ายหน้า/หลังที่สูงกว่า ทำให้เส้นอยู่ห่างตัวอักษรไม่เท่ากัน)
-  row: { flexDirection: "row", alignItems: "flex-end", lineHeight: 1.05, marginBottom: 3 },
+  row: { flexDirection: "row", alignItems: "flex-end", lineHeight: 1.0, marginBottom: 1.5 },
   bold: { fontWeight: "bold" },
   // กรอบของช่องที่มีเส้นจุดไข่ปลาอยู่ใต้ค่า — เส้นจุดวาดด้วย <DotLeader /> (ไม่ใช้ borderBottomStyle: "dotted" เพราะ
   // react-pdf วาดเป็นเส้นทึบใต้ตัวหนังสือที่อยู่เหนือมัน)
-  dotted: { position: "relative", paddingBottom: 0.5, overflow: "hidden", lineHeight: 1.05 },
+  dotted: { position: "relative", paddingBottom: 0.5, overflow: "hidden", lineHeight: 1.0 },
 });
 
 /** เส้นจุดไข่ปลาใต้ช่อง — ใส่เป็นลูกตัวสุดท้ายของ View ที่ใช้ style dotted */
@@ -104,7 +105,7 @@ type FieldRowProps = {
   /** ความกว้างคงที่ของช่องค่า (บรรทัดเดียว) แทนการยืดเต็มบรรทัด */
   valueWidth?: number;
   align?: "left" | "center" | "right";
-  /** ระยะห่างใต้แถว (ค่าเริ่มต้น 3pt) */
+  /** ระยะห่างใต้แถว (ค่าเริ่มต้น 2pt) */
   rowGap?: number;
 };
 
@@ -125,7 +126,7 @@ function FieldRow({
   width = CONTENT_W,
   valueWidth,
   align = "left",
-  rowGap = 3,
+  rowGap = 1.5,
 }: FieldRowProps) {
   const pSize = prefixSize ?? size;
   const prefixW = prefix ? measureText(prefix, pSize, prefixBold) + GAP : 0;
@@ -201,7 +202,7 @@ function CheckBox({ checked }: { checked: boolean }) {
 
 function CheckRow({ checked, children }: { checked: boolean; children: React.ReactNode }) {
   return (
-    <View style={[styles.row, { alignItems: "flex-start", marginBottom: 1 }]}>
+    <View style={[styles.row, { alignItems: "flex-start", marginBottom: 0 }]}>
       <CheckBox checked={checked} />
       {children}
     </View>
@@ -216,10 +217,10 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
   const rows = SUMMARY_DEFAULT_LABELS.map((label, i) => data.summary_items[i] ?? { label, amount: null, note: null });
   const total = data.summary_items.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
-  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 18 };
+  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 15 };
   const hd = [styles.bold, { textAlign: "center" as const }];
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 6, fontSize: FS_TABLE }}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 2, fontSize: FS_TABLE }}>
       <View style={rowStyle}>
         <View style={[cell, { width: SUMMARY_COLS.no }]}><Text style={hd}>{t("ที่")}</Text></View>
         <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
@@ -244,12 +245,12 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
   );
 }
 
-const CELL_PAD = 5;
+const CELL_PAD = 2.5;
 const CELL_W = CONTENT_W / 2 - CELL_PAD * 2;
 
 function OpinionTitle({ no, title }: { no: number; title: string }) {
   return (
-    <Text style={{ marginBottom: 1 }}>
+    <Text>
       {t(`${no}. `)}
       <Text style={{ textDecoration: "underline" }}>{t(title)}</Text>
     </Text>
@@ -258,7 +259,7 @@ function OpinionTitle({ no, title }: { no: number; title: string }) {
 
 function SignOff({ name, role }: { name: string | null; role?: string }) {
   return (
-    <View style={{ alignItems: "center", marginTop: 4, lineHeight: 1.1 }}>
+    <View style={{ alignItems: "center", marginTop: 1, lineHeight: 1.05 }}>
       <FieldRow prefix="(ลงชื่อ)" value="" valueWidth={120} width={CELL_W} size={FS_BOX} rowGap={0} />
       <Text>{t(name ? `(${name})` : "(                                    )")}</Text>
       {role ? <Text>{t(role)}</Text> : null}
@@ -271,16 +272,16 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
   const approved = data.status === "อนุมัติ";
   const rejected = data.status === "ไม่อนุมัติ";
   const d = data.approved_at ? new Date(data.approved_at) : null;
-  const line = { marginBottom: 1 };
+  const line = { marginBottom: 0 };
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, fontSize: FS_BOX, lineHeight: 1.1 }} wrap={false}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, fontSize: FS_BOX, lineHeight: 1.05 }} wrap={false}>
       <View style={{ flexDirection: "row", borderBottomWidth: 0.8, borderColor: INK }}>
         <View style={[cellStyle, { borderRightWidth: 0.8, borderColor: INK }]}>
           <OpinionTitle no={1} title="ความเห็นงานแผนงาน" />
           <Text style={line}>{t("- ตรวจสอบแล้วมีโครงการ")}</Text>
-          <FieldRow size={FS_BOX} prefix="- เงินโครงการทั้งสิ้น" value={data.budget != null ? formatBaht(data.budget) : ""} suffix="บาท" valueWidth={74} align="right" rowGap={1} />
-          <FieldRow size={FS_BOX} prefix="- เงินขอใช้ครั้งนี้" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={86} align="right" rowGap={1} />
-          <FieldRow size={FS_BOX} prefix="- เงินโครงการเหลือ" value={data.remaining != null ? formatBaht(data.remaining) : ""} suffix="บาท" valueWidth={80} align="right" rowGap={1} />
+          <FieldRow size={FS_BOX} prefix="- เงินโครงการทั้งสิ้น" value={data.budget != null ? formatBaht(data.budget) : ""} suffix="บาท" valueWidth={74} align="right" rowGap={0} />
+          <FieldRow size={FS_BOX} prefix="- เงินขอใช้ครั้งนี้" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={86} align="right" rowGap={0} />
+          <FieldRow size={FS_BOX} prefix="- เงินโครงการเหลือ" value={data.remaining != null ? formatBaht(data.remaining) : ""} suffix="บาท" valueWidth={80} align="right" rowGap={0} />
           <SignOff name={data.signer_planning} />
         </View>
         <View style={cellStyle}>
@@ -474,7 +475,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
       <Page size="A4" style={styles.page}>
         {/* ตราครุฑสูง 1.5 ซม. ชิดซ้าย — ชื่อ "บันทึกข้อความ" ตัวหนา 29 พอยท์ ระยะบรรทัด 35 พอยท์ อยู่กลางพื้นที่พิมพ์ */}
-        <View style={{ height: GARUDA_H, marginBottom: 6 }}>
+        <View style={{ height: GARUDA_H, marginBottom: 3 }}>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> ของ @react-pdf/renderer ไม่ใช่ <img> ของ HTML (ไม่มี prop alt) */}
           <Image src={GARUDA} style={{ position: "absolute", left: 0, top: 0, width: GARUDA_W, height: GARUDA_H }} />
           <View style={{ position: "absolute", left: 0, right: 0, top: (GARUDA_H - TITLE_LINE) / 2 }}>
@@ -494,7 +495,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         <FieldRow prefix="เรื่อง" prefixBold prefixSize={FS_LABEL} value={subjectLine(data)} />
         <View style={{ borderBottomWidth: 0.9, borderBottomColor: INK, marginTop: 2, marginBottom: 2 }} />
 
-        <View style={{ marginTop: 6 }}>
+        <View style={{ marginTop: 4 }}>
           <PlainRow prefix="เรียน" value={data.addressed_to} />
         </View>
 
@@ -504,7 +505,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         <PlanDateAndAmount data={data} />
 
         {/* ตารางรายการเงิน ต่อจาก "ดังนี้" แล้วจึงตามด้วย "จึงเรียนมา…" และลายมือชื่อ */}
-        <View wrap={false} style={{ marginTop: 4 }}>
+        <View wrap={false} style={{ marginTop: 2 }}>
           <SummaryTable data={data} />
         </View>
 
@@ -513,19 +514,13 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         </View>
 
         {/* ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บอยู่กึ่งกลางใต้ลายมือชื่อ */}
-        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14, marginBottom: 8, alignItems: "center" }}>
+        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 8, marginBottom: 2, alignItems: "center" }}>
           <FieldRow prefix="(ลงชื่อ)" value="" suffix="ผู้รับผิดชอบโครงการ" valueWidth={90} />
           <Text>{t(data.requested_by_name ? `(${data.requested_by_name})` : "(                                    )")}</Text>
         </View>
 
-        {/* กรอบความเห็น ๔ ช่อง ขึ้นหน้าใหม่เสมอ (หน้า ๑ ไม่พอสำหรับทั้งสองส่วน) */}
-        <View break>
-          <Text style={{ fontSize: FS_P23, fontWeight: "bold", lineHeight: 1.1, marginBottom: 1 }}>{t("ความเห็นประกอบการพิจารณา")}</Text>
-          <Text style={{ fontSize: FS_P23, lineHeight: 1.1, marginBottom: 6 }}>
-            {t(`ประกอบบันทึกข้อความ ที่ ${docNumberText(data.doc_number)} ลงวันที่ ${data.doc_date ? formatThaiDate(data.doc_date) : ""}`)}
-          </Text>
-          <OpinionBoxes data={data} />
-        </View>
+        {/* กรอบความเห็น ๔ ช่อง — ต่อท้ายหน้า ๑ ถ้าพื้นที่พอ ไม่พอจะย้ายทั้งกรอบไปหน้าถัดไป (wrap={false}) */}
+        <OpinionBoxes data={data} />
       </Page>
 
       {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) ใช้ขอบบน/ล่างแคบลงเพื่อให้ตาราง ๒๙ แถวพอดีหน้าเดียว */}
