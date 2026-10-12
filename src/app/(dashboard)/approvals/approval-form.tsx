@@ -37,6 +37,16 @@ function emptyItemRows(): ItemRow[] {
   return [{ ...EMPTY_ITEM_ROW }];
 }
 
+// ป้ายกำกับช่องในฟอร์ม มีเลขลำดับกำกับ (เห็นชัดบนมือถือที่ช่องไม่มี placeholder เหลืออยู่หลังกรอกแล้ว)
+function FieldLabel({ n, text, required }: { n: number; text: string; required?: boolean }) {
+  return (
+    <label className="label">
+      {n}. {text}
+      {required && <span className="text-red-600"> *</span>}
+    </label>
+  );
+}
+
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
@@ -250,104 +260,119 @@ export function ApprovalForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {initial ? (
             <div>
-              <label className="label">เลขที่หนังสือ</label>
+              <FieldLabel n={1} text="เลขที่หนังสือ" />
               <input readOnly value={initial.doc_number ?? ""} className="input w-full bg-slate-50" />
             </div>
           ) : (
             <div>
-              <label className="label">เลขที่หนังสือ</label>
+              <FieldLabel n={1} text="เลขที่หนังสือ" />
               <input readOnly value="รันอัตโนมัติเมื่อบันทึก" className="input w-full bg-slate-50 text-slate-400" />
             </div>
           )}
           <div>
-            <label className="label">วันที่บันทึกข้อความ</label>
+            <FieldLabel n={2} text="วันที่บันทึกข้อความ" required />
             <ThaiDatePicker name="doc_date" defaultValue={initial?.doc_date ?? null} />
           </div>
-          <div />
-          <input
-            name="subject"
-            defaultValue={initial?.subject ?? "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ"}
-            required
-            className="input sm:col-span-3"
-          />
-          <input
-            name="addressed_to"
-            defaultValue={initial?.addressed_to ?? "ผู้อำนวยการโรงเรียนตาเบาวิทยา"}
-            required
-            className="input sm:col-span-3"
-          />
+          <div className="hidden sm:block" />
+          <div className="sm:col-span-3">
+            <FieldLabel n={3} text="เรื่อง" required />
+            <input
+              name="subject"
+              defaultValue={initial?.subject ?? "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ"}
+              required
+              className="input w-full"
+            />
+          </div>
+          <div className="sm:col-span-3">
+            <FieldLabel n={4} text="เรียน" required />
+            <input
+              name="addressed_to"
+              defaultValue={initial?.addressed_to ?? "ผู้อำนวยการโรงเรียนตาเบาวิทยา"}
+              required
+              className="input w-full"
+            />
+          </div>
 
-          <select
-            name="department"
-            value={department}
-            onChange={(e) => handleDepartmentChange(e.target.value)}
-            required
-            className="input"
-          >
-            <option value="">-- ฝ่าย/กลุ่ม/สาระฯ/งาน --</option>
-            <optgroup label="ฝ่าย/กลุ่มบริหาร/งาน">
-              {adminGroups.map((g) => (
-                <option key={g.id} value={g.name}>
-                  {g.name}
-                </option>
-              ))}
-            </optgroup>
-            {learningAreas.length > 0 && (
-              <optgroup label="กลุ่มสาระการเรียนรู้">
-                {learningAreas.map((a) => (
-                  <option key={a.id} value={a.name}>
-                    {a.name}
+          <div className="sm:col-span-3">
+            <FieldLabel n={5} text="ฝ่าย/กลุ่ม/สาระฯ/งาน" required />
+            <select
+              name="department"
+              value={department}
+              onChange={(e) => handleDepartmentChange(e.target.value)}
+              required
+              className="input w-full"
+            >
+              <option value="">-- ฝ่าย/กลุ่ม/สาระฯ/งาน --</option>
+              <optgroup label="ฝ่าย/กลุ่มบริหาร/งาน">
+                {adminGroups.map((g) => (
+                  <option key={g.id} value={g.name}>
+                    {g.name}
                   </option>
                 ))}
               </optgroup>
-            )}
-            {/* ค่าเดิมของบันทึกเก่าที่ไม่อยู่ในรายการปัจจุบัน (เช่น กลุ่มสาระที่ปิดใช้งานหรือเปลี่ยนชื่อภายหลัง) */}
-            {department &&
-              !adminGroups.some((g) => g.name === department) &&
-              !learningAreas.some((a) => a.name === department) && <option value={department}>{department}</option>}
-          </select>
-
-          <select
-            name="project_id"
-            value={projectId}
-            onChange={(e) => {
-              setProjectId(e.target.value);
-              autoSelectRequester(e.target.value, "");
-            }}
-            required
-            className="input sm:col-span-3 border-navy-600 bg-navy-950/[0.03]"
-          >
-            <option value="" disabled>
-              -- เลือกโครงการ/งานที่ต้องการเบิก --
-            </option>
-            {projectChoices.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={activityName}
-            onChange={(e) => {
-              setActivityName(e.target.value);
-              autoSelectRequester(projectId, e.target.value);
-            }}
-            disabled={!projectId}
-            className="input sm:col-span-3"
-          >
-            <option value="">
-              {projectId ? "-- เลือกชื่อกิจกรรม --" : "-- เลือกโครงการก่อน --"}
-            </option>
-            {activityOptions.map((a) => (
-              <option key={a.id} value={a.name ?? ""}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+              {learningAreas.length > 0 && (
+                <optgroup label="กลุ่มสาระการเรียนรู้">
+                  {learningAreas.map((a) => (
+                    <option key={a.id} value={a.name}>
+                      {a.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {/* ค่าเดิมของบันทึกเก่าที่ไม่อยู่ในรายการปัจจุบัน (เช่น กลุ่มสาระที่ปิดใช้งานหรือเปลี่ยนชื่อภายหลัง) */}
+              {department &&
+                !adminGroups.some((g) => g.name === department) &&
+                !learningAreas.some((a) => a.name === department) && <option value={department}>{department}</option>}
+            </select>
+          </div>
 
           <div className="sm:col-span-3">
-            <label className="label">จะดำเนินการวันที่</label>
+            <FieldLabel n={6} text="โครงการ/งานที่ต้องการเบิก" required />
+            <select
+              name="project_id"
+              value={projectId}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                autoSelectRequester(e.target.value, "");
+              }}
+              required
+              className="input w-full border-navy-600 bg-navy-950/[0.03]"
+            >
+              <option value="" disabled>
+                -- เลือกโครงการ/งานที่ต้องการเบิก --
+              </option>
+              {projectChoices.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="sm:col-span-3">
+            <FieldLabel n={7} text="กิจกรรม" />
+            <select
+              value={activityName}
+              onChange={(e) => {
+                setActivityName(e.target.value);
+                autoSelectRequester(projectId, e.target.value);
+              }}
+              disabled={!projectId}
+              className="input w-full"
+            >
+              <option value="">
+                {projectId ? "-- เลือกชื่อกิจกรรม --" : "-- เลือกโครงการก่อน --"}
+              </option>
+              {activityOptions.map((a) => (
+                <option key={a.id} value={a.name ?? ""}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="sm:col-span-3">
+            <FieldLabel n={8} text="จะดำเนินการวันที่" required />
             <ThaiDatePicker value={planDateISO || null} onChange={(iso) => setPlanDateISO(iso ?? "")} />
             {(planDateISO || initial?.plan_date_text) && (
               <p className="mt-1 text-xs text-slate-500">
@@ -359,15 +384,16 @@ export function ApprovalForm({
           </div>
 
           <div className="sm:col-span-3">
+            <FieldLabel n={9} text="ผู้รับผิดชอบโครงการ (ผู้ขออนุมัติ)" required />
             <select
               name="requested_by_name"
               value={requestedBy}
               onChange={(e) => setRequestedBy(e.target.value)}
               required
-              className="input"
+              className="input w-full"
             >
               <option value="" disabled>
-                -- ผู้รับผิดชอบโครงการ (ผู้ขออนุมัติ) --
+                -- เลือกผู้ขออนุมัติ --
               </option>
               {requesterCandidates.length > 0 ? (
                 <>
@@ -455,18 +481,24 @@ export function ApprovalForm({
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <input
-            readOnly
-            value={selected ? formatBaht(selected.budget) : ""}
-            placeholder="เงินโครงการทั้งสิ้น"
-            className="input bg-slate-50 text-right"
-          />
-          <input
-            readOnly
-            value={formatBaht(remaining)}
-            placeholder="เงินโครงการเหลือ"
-            className="input bg-slate-50 text-right font-bold text-emerald-700"
-          />
+          <div>
+            <label className="label">เงินโครงการทั้งสิ้น (บาท)</label>
+            <input
+              readOnly
+              value={selected ? formatBaht(selected.budget) : ""}
+              placeholder="เลือกโครงการก่อน"
+              className="input w-full bg-slate-50 text-right"
+            />
+          </div>
+          <div>
+            <label className="label">เงินโครงการเหลือ หลังขออนุมัติครั้งนี้ (บาท)</label>
+            <input
+              readOnly
+              value={selected ? formatBaht(remaining) : ""}
+              placeholder="เลือกโครงการก่อน"
+              className="input w-full bg-slate-50 text-right font-bold text-emerald-700"
+            />
+          </div>
         </div>
       </section>
 
