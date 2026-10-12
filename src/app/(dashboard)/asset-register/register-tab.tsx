@@ -8,7 +8,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ToggleSwitch } from "@/components/toggle-switch";
 import { ExcelFileIcon, PencilIcon, PlusIcon, PrinterIcon, TagIcon } from "@/components/icons";
-import { compressPhotoFile } from "@/lib/image-resize";
+import { compressPhotoFile, createPhotoThumbnail } from "@/lib/image-resize";
 import { QrScanButton } from "./qr-scan-button";
 import {
   createAssetRepair,
@@ -22,6 +22,13 @@ import {
 async function uploadAssetPhoto(file: File): Promise<string> {
   const formData = new FormData();
   formData.set("file", file);
+  // รูปย่อสำหรับรายการ (ทำไม่สำเร็จก็ข้าม — ระบบจะใช้รูปหลักแทน)
+  try {
+    const thumb = await createPhotoThumbnail(file);
+    if (thumb) formData.set("thumb", new File([thumb], "thumb.jpg", { type: "image/jpeg" }));
+  } catch {
+    // ไม่ทำรูปย่อ
+  }
   const res = await fetch("/api/asset-photo-upload", { method: "POST", body: formData });
   let body: { path?: string; error?: string } = {};
   try {

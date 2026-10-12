@@ -92,7 +92,7 @@ export async function upsertAssetItem(id: string | null, formData: FormData) {
       .eq("id", id);
     if (error) throw new Error(error.message);
     if (oldPhotoPath && oldPhotoPath !== newPhotoPath) {
-      await supabase.storage.from("asset-photos").remove([oldPhotoPath]);
+      await supabase.storage.from("asset-photos").remove([oldPhotoPath, `thumbs/${oldPhotoPath}`]);
     }
   } else {
     // รายการที่เจ้าหน้าที่พัสดุพิมพ์เพิ่มเองในทะเบียนโดยตรง (ไม่ผ่านฟอร์มสำรวจสาธารณะ) ถือว่า
@@ -138,7 +138,7 @@ export async function deleteAssetItem(id: string) {
   const { error } = await supabase.from("asset_items").delete().eq("id", id);
   if (error) throw new Error(error.message);
   if (existing?.photo_path) {
-    await supabase.storage.from("asset-photos").remove([existing.photo_path]);
+    await supabase.storage.from("asset-photos").remove([existing.photo_path, `thumbs/${existing.photo_path}`]);
   }
   revalidatePath(PATH);
 }

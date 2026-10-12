@@ -26,6 +26,7 @@ import {
   submitAuditReport,
   updateAuditItemResult,
 } from "../actions";
+import { thumbPathFor } from "@/lib/storage/asset-photo";
 
 const ALL = "__all__";
 const INSPECT_STATUS = {
@@ -104,7 +105,7 @@ function ItemThumbnail({
     <div className={`${sizeCls} shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50`}>
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt={alt} className="h-full w-full object-cover" />
+        <img src={url} alt={alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-slate-300">
           <ArchiveIcon className={size === "sm" ? "h-4 w-4" : "h-6 w-6"} />
@@ -181,7 +182,7 @@ function ResultModal({
       <div>
         {photoUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- รูปจาก signed URL ชั่วคราว ไม่เหมาะกับ next/image ที่ต้อง whitelist โดเมน
-          <img src={photoUrl} alt={row.name} className="mb-3 max-h-56 w-full rounded-lg border border-slate-200 object-contain" />
+          <img src={photoUrl} alt={row.name} loading="lazy" decoding="async" className="mb-3 max-h-56 w-full rounded-lg border border-slate-200 object-contain" />
         )}
         <p className="mb-3 text-sm text-slate-500">
           {row.asset_code ?? "ยังไม่ติดป้าย"} · {row.location} · สภาพตามบัญชี:{" "}
@@ -770,11 +771,22 @@ export default function AssetAuditDetailPage() {
     // purchase-requests/page.tsx) — ขอครั้งเดียวเป็น batch แทนการขอทีละรายการตอน render การ์ด
     const photoPaths = Array.from(new Set((assetItemsData ?? []).map((it) => it.photo_path).filter((p): p is string => !!p)));
     if (photoPaths.length > 0) {
-      const { data: signed } = await supabase.storage.from("asset-photos").createSignedUrls(photoPaths, 3600);
+      // ใช้ "รูปย่อ" (thumbs/<path>) แทนรูปเต็ม — รายการนี้แสดงรูปหลายใบ/กรอบเล็ก ลดข้อมูลที่ส่งออกจาก storage ได้มาก
+      // รายการที่ยังไม่มีรูปย่อ (รูปเก่าก่อนมีระบบรูปย่อ) ย้อนไปขอรูปหลักแทน
       const map = new Map<string, string>();
-      signed?.forEach((s) => {
-        if (s.signedUrl && !s.error) map.set(s.path ?? "", s.signedUrl);
+      const { data: signedThumbs } = await supabase.storage
+        .from("asset-photos")
+        .createSignedUrls(photoPaths.map(thumbPathFor), 3600);
+      signedThumbs?.forEach((s, i) => {
+        if (s.signedUrl && !s.error) map.set(photoPaths[i], s.signedUrl);
       });
+      const missing = photoPaths.filter((p) => !map.has(p));
+      if (missing.length > 0) {
+        const { data: signedFull } = await supabase.storage.from("asset-photos").createSignedUrls(missing, 3600);
+        signedFull?.forEach((s) => {
+          if (s.signedUrl && !s.error) map.set(s.path ?? "", s.signedUrl);
+        });
+      }
       setPhotoUrls(map);
     } else {
       setPhotoUrls(new Map());

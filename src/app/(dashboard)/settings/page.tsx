@@ -21,6 +21,7 @@ import { AiExtractionToggle } from "./ai-extraction-toggle";
 import { StorageProviderToggle } from "./storage-provider-toggle";
 import { SchoolBrandingForm } from "./school-branding-form";
 import { MaintenanceForm } from "./maintenance-form";
+import { PhotoOptimizer } from "./photo-optimizer";
 import { ApprovalTemplateForm } from "./approval-template-form";
 import { ApprovalDocNumberForm } from "./approval-doc-number-form";
 import { AssetCodeTemplateForm } from "./asset-code-template-form";
@@ -256,6 +257,18 @@ export default function SettingsPage() {
               message={data.maintenanceMessage}
               setMaintenanceMode={setMaintenanceMode}
             />
+          </div>
+        </div>
+
+        <div className="lg:col-span-2">
+          <div className="card">
+            <div className="card-title">ย่อรูปทรัพย์สินเก่า (ลดการใช้ข้อมูล)</div>
+            <p className="mb-4 text-sm text-slate-500">
+              ย่อรูปทรัพย์สินที่อัปโหลดไว้ก่อนหน้า (เฉลี่ยรูปละ ~500 kB) ให้เหลือราว 100-200 kB และสร้างรูปย่อสำหรับแสดงในรายการ
+              เพื่อลดปริมาณข้อมูลที่ส่งออกจากระบบจัดเก็บไฟล์ (Supabase egress) ระบบสำรองต้นฉบับไว้ให้ก่อนเสมอ
+              และรูปที่อัปโหลดใหม่จะถูกย่อให้อัตโนมัติอยู่แล้ว
+            </p>
+            <PhotoOptimizer />
           </div>
         </div>
 
