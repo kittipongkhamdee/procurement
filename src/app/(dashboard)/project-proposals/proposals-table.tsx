@@ -178,11 +178,6 @@ export function ProposalsTable({
               </p>
               <p className="mt-1 text-sm tabular-nums text-slate-700">{formatBaht(r.budgetAmount)} บาท</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {r.fileUrlPdf && (
-                  <a href={r.fileUrlPdf} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
-                    ดู PDF
-                  </a>
-                )}
                 {canEdit && (
                   <Modal lazy title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
                     <ProposalForm
@@ -283,11 +278,6 @@ export function ProposalsTable({
                 </td>
                 <td className="text-right">
                   <div className="flex justify-end gap-2">
-                    {r.fileUrlPdf && (
-                      <a href={r.fileUrlPdf} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm">
-                        ดู PDF
-                      </a>
-                    )}
                     {canEdit && (
                       <Modal lazy title="แก้ไขข้อเสนอโครงการ" trigger="แก้ไข" triggerClassName="btn-secondary btn-sm" closeOnSubmit wide>
                         <ProposalForm
