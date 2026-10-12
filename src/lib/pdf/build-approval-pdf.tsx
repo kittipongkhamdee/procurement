@@ -38,7 +38,7 @@ export async function buildApprovalPdfData(
   const project = approval.plan_projects as unknown as { name: string; budget_source_id: string | null } | null;
 
   const [{ data: items }, { data: signerSettings }, { data: schoolSettings }, { data: budgetSource }] = await Promise.all([
-    supabase.from("proc_approval_items").select("seq, name, qty, unit_price, total, note").eq("approval_id", id).order("seq"),
+    supabase.from("proc_approval_items").select("seq, name, qty, unit, unit_price, total, note").eq("approval_id", id).order("seq"),
     supabase.from("proc_app_settings").select("key, value").in("key", SIGNER_KEYS),
     supabase.from("proc_school_settings").select("school_name, logo_url, school_address").eq("id", true).maybeSingle(),
     project?.budget_source_id
@@ -90,6 +90,7 @@ export async function buildApprovalPdfData(
       seq: i.seq,
       name: i.name,
       qty: i.qty,
+      unit: i.unit,
       unit_price: i.unit_price,
       total: i.total,
       note: i.note,

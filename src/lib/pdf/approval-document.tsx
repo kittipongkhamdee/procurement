@@ -363,12 +363,12 @@ function paginateItems<T>(items: T[]): T[][] {
   return pages;
 }
 const ITEM_ROW_H = 20.4;
-const ITEM_COLS = { qty: 54, price: 70, total: 70, note: 62 };
+const ITEM_COLS = { no: 30, qty: 68, price: 68, total: 68, note: 56 };
 
-function ItemsTable({ items }: { items: ApprovalPdfData["items"] }) {
+function ItemsTable({ items, startNo = 1 }: { items: ApprovalPdfData["items"]; startNo?: number }) {
   // พิมพ์เฉพาะแถวที่ใช้จริง ยกเว้นน้อยกว่า ITEMS_MIN_ROWS รายการ ให้เติมแถวว่างจนครบ
   const rowsCount = Math.max(ITEMS_MIN_ROWS, items.length);
-  const nameW = CONTENT_W - ITEM_COLS.qty - ITEM_COLS.price - ITEM_COLS.total - ITEM_COLS.note;
+  const nameW = CONTENT_W - ITEM_COLS.no - ITEM_COLS.qty - ITEM_COLS.price - ITEM_COLS.total - ITEM_COLS.note;
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
   const row = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, height: ITEM_ROW_H };
   const hd = [styles.bold, { textAlign: "center" as const }];
@@ -376,6 +376,7 @@ function ItemsTable({ items }: { items: ApprovalPdfData["items"] }) {
   return (
     <View style={{ borderWidth: 0.8, borderColor: INK, marginTop: 8, fontSize: FS_P23, lineHeight: 1.05 }}>
       <View style={[row, { height: 38 }]}>
+        <View style={[cell, { width: ITEM_COLS.no }]}><Text style={hd}>{t("ที่")}</Text></View>
         <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
         <View style={[cell, { width: ITEM_COLS.qty }]}>
           <Text style={hd}>{t("จำนวน")}</Text>
@@ -390,8 +391,9 @@ function ItemsTable({ items }: { items: ApprovalPdfData["items"] }) {
         const last = i === rowsCount - 1;
         return (
           <View key={i} style={[row, last ? { borderBottomWidth: 0 } : {}]}>
+            <View style={[cell, { width: ITEM_COLS.no }]}><FitText text={String(startNo + i)} width={ITEM_COLS.no - 8} size={FS_P23} align="center" /></View>
             <View style={[cell, { flex: 1 }]}><FitText text={item?.name ?? ""} width={nameW - 10} size={FS_P23} /></View>
-            <View style={[cell, { width: ITEM_COLS.qty }]}><FitText text={item?.qty != null ? String(item.qty) : ""} width={ITEM_COLS.qty - 10} size={FS_P23} align="center" /></View>
+            <View style={[cell, { width: ITEM_COLS.qty }]}><FitText text={item?.qty != null ? `${item.qty}${item.unit ? ` ${item.unit}` : ""}` : ""} width={ITEM_COLS.qty - 10} size={FS_P23} align="center" /></View>
             <View style={[cell, { width: ITEM_COLS.price }]}><FitText text={item?.unit_price != null ? formatBaht(item.unit_price) : ""} width={ITEM_COLS.price - 10} size={FS_P23} align="right" /></View>
             <View style={[cell, { width: ITEM_COLS.total }]}><FitText text={item?.total != null ? formatBaht(item.total) : ""} width={ITEM_COLS.total - 10} size={FS_P23} align="right" /></View>
             <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><FitText text={item?.note ?? ""} width={ITEM_COLS.note - 10} size={FS_P23} /></View>
@@ -554,7 +556,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           {itemPages.length > 1 && (
             <Text style={{ fontSize: FS_P23, textAlign: "right" }}>{t(`แผ่นที่ ${pi + 1}/${itemPages.length}`)}</Text>
           )}
-          <ItemsTable items={pageItems} />
+          <ItemsTable items={pageItems} startNo={itemPages.slice(0, pi).reduce((n, p) => n + p.length, 1)} />
           {pi === itemPages.length - 1 && (
             <View wrap={false} style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14, alignItems: "center" }}>
               <FieldRow prefix="(ลงชื่อ)" value="" suffix="ผู้ขออนุมัติ" size={FS_P23} valueWidth={90} />

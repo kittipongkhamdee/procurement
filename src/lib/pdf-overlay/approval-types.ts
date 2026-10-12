@@ -39,6 +39,7 @@ export type ApprovalPdfData = {
     seq: number;
     name: string | null;
     qty: number | null;
+    unit: string | null;
     unit_price: number | null;
     total: number | null;
     note: string | null;

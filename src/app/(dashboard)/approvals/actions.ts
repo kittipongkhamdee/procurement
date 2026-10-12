@@ -36,7 +36,7 @@ async function requireAdminOrGroup(groupName: string) {
   return { supabase, signerName: profile?.full_name ?? user.email ?? "" };
 }
 
-type ItemInput = { name: string; qty: string; unitPrice: string; note: string };
+type ItemInput = { name: string; qty: string; unit?: string; unitPrice: string; note: string };
 type SummaryItemInput = { label: string; amount: string; note: string };
 
 /** ปีงบประมาณไทย: ต.ค. - ก.ย. นับชื่อปีตาม พ.ศ. ของปีที่ปีงบประมาณสิ้นสุด (เช่น ต.ค. 2569 - ก.ย. 2570 คือ
@@ -172,6 +172,7 @@ export async function createApproval(formData: FormData) {
       seq: index + 1,
       name: item.name,
       qty: item.qty ? Number(item.qty) : null,
+      unit: item.unit?.trim() || null,
       unit_price: item.unitPrice ? Number(item.unitPrice) : null,
       note: item.note || null,
     }));
@@ -269,6 +270,7 @@ export async function updateApproval(id: string, formData: FormData) {
       seq: index + 1,
       name: item.name,
       qty: item.qty ? Number(item.qty) : null,
+      unit: item.unit?.trim() || null,
       unit_price: item.unitPrice ? Number(item.unitPrice) : null,
       note: item.note || null,
     }));

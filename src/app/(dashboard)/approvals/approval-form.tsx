@@ -23,8 +23,8 @@ const ALL_AREAS_PATTERN = /8\s*กลุ่มสาระ/;
 // PDF แบบใหม่ (วาดใหม่ทั้งหมด) พิมพ์ต่อหน้าถัดไปได้ จึงอนุญาตเกิน 29 แถวได้ถึง MAX_ITEM_ROWS
 const TEMPLATE_ITEM_ROWS = 29;
 const MAX_ITEM_ROWS = 100;
-type ItemRow = { name: string; qty: string; unitPrice: string; note: string };
-const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unitPrice: "", note: "" };
+type ItemRow = { name: string; qty: string; unit: string; unitPrice: string; note: string };
+const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unit: "", unitPrice: "", note: "" };
 
 const SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
 
@@ -67,7 +67,7 @@ export type ApprovalFormInitial = {
   requested_by_position: string | null;
   fund_type: string | null;
   summary_items: { label: string; amount: number | null; note: string | null }[];
-  items: { name: string | null; qty: number | null; unit_price: number | null; note: string | null }[];
+  items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; note: string | null }[];
 };
 
 function initialSummaryRows(initial?: ApprovalFormInitial): SummaryRow[] {
@@ -85,6 +85,7 @@ function initialItemRows(initial?: ApprovalFormInitial): ItemRow[] {
     .map((item) => ({
       name: item.name ?? "",
       qty: item.qty != null ? String(item.qty) : "",
+      unit: item.unit ?? "",
       unitPrice: item.unit_price != null ? String(item.unit_price) : "",
       note: item.note ?? "",
     }));
@@ -510,7 +511,8 @@ export function ApprovalForm({
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="px-2 py-2 text-left">รายการ</th>
-                <th className="w-24 px-2 py-2">จำนวน (หน่วย)</th>
+                <th className="w-24 px-2 py-2">จำนวน</th>
+                <th className="w-24 px-2 py-2">หน่วยนับ</th>
                 <th className="w-28 px-2 py-2">ราคา/หน่วย</th>
                 <th className="w-28 px-2 py-2">จำนวนเงิน</th>
                 <th className="w-32 px-2 py-2">หมายเหตุ</th>
@@ -527,6 +529,9 @@ export function ApprovalForm({
                     </td>
                     <td className="px-2 py-1">
                       <input type="number" step="0.01" value={row.qty} onChange={(e) => updateItemRow(i, { qty: e.target.value })} className="input w-full text-center" />
+                    </td>
+                    <td className="px-2 py-1">
+                      <input value={row.unit} onChange={(e) => updateItemRow(i, { unit: e.target.value })} placeholder="เช่น ชิ้น" className="input w-full text-center" />
                     </td>
                     <td className="px-2 py-1">
                       <input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateItemRow(i, { unitPrice: e.target.value })} className="input w-full text-center" />
@@ -553,7 +558,7 @@ export function ApprovalForm({
             </tbody>
             <tfoot className="bg-slate-50">
               <tr>
-                <td colSpan={3} className="px-2 py-2 text-right text-xs font-semibold text-slate-600">
+                <td colSpan={4} className="px-2 py-2 text-right text-xs font-semibold text-slate-600">
                   รวมทั้งหมด
                 </td>
                 <td className="px-2 py-2 text-right font-bold text-emerald-700">{formatBaht(itemsGrandTotal)}</td>

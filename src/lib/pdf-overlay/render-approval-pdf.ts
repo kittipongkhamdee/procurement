@@ -358,7 +358,13 @@ export async function renderApprovalPdfBuffer(supabase: SupabaseClient<Database>
   data.items.slice(0, itemRowsY.length).forEach((item, i) => {
     const y = itemRowsY[i];
     if (item.name) putAutoShrink(page2, font, item.name, 93, 205, y, { yLift: 4.0 });
-    if (item.qty != null) put(page2, font, String(item.qty), 299.5, y, { maxWidth: 46, align: "center", yLift: 4.0 });
+    if (item.qty != null) {
+      // จำนวน + หน่วยนับ ในคอลัมน์ "จำนวน (หน่วย)" — ย่อขนาดให้พอดีช่อง ๔๖ pt
+      const text = `${item.qty}${item.unit ? ` ${item.unit}` : ""}`;
+      const { text: fitted, size } = fitText(font, text, 46 - 2 * INSET, MIN_SHRINK_SIZE);
+      const w = font.widthOfTextAtSize(fitted, size);
+      page2.drawText(fitted, { x: 299.5 + (46 - w) / 2, y: PAGE_H - y + 4.0, size, font, color: BLACK });
+    }
     if (item.unit_price != null)
       put(page2, font, formatBaht(item.unit_price), 349.4, y, { maxWidth: 68.7, align: "right", yLift: 4.0 });
     if (item.total != null) put(page2, font, formatBaht(item.total), 422.1, y, { maxWidth: 66.8, align: "right", yLift: 4.0 });

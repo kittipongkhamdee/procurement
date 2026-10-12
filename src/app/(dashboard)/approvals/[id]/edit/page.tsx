@@ -26,7 +26,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
       )
       .eq("id", id)
       .maybeSingle(),
-    supabase.from("proc_approval_items").select("name, qty, unit_price, note").eq("approval_id", id).order("seq"),
+    supabase.from("proc_approval_items").select("name, qty, unit, unit_price, note").eq("approval_id", id).order("seq"),
     supabase.from("plan_projects").select("id, name, admin_group_id").order("sort_order"),
     supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
     supabase.from("proc_approvals").select("id, project_id, requested_amount").eq("status", "อนุมัติ"),
@@ -77,7 +77,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     fund_type: approval.fund_type,
     summary_items:
       (approval.summary_items as unknown as { label: string; amount: number | null; note: string | null }[]) ?? [],
-    items: (items ?? []).map((i) => ({ name: i.name, qty: i.qty, unit_price: i.unit_price, note: i.note })),
+    items: (items ?? []).map((i) => ({ name: i.name, qty: i.qty, unit: i.unit, unit_price: i.unit_price, note: i.note })),
   };
 
   return (
