@@ -69,6 +69,11 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2 });
 }
 
+// ผู้รับผิดชอบโครงการ (ชื่อที่ระบุในข้อเสนอ) — ถ้าไม่ได้ระบุไว้ ย้อนไปแสดงชื่อผู้เสนอแทน
+function responsibleLabel(r: { responsible: string[]; proposerName: string | null }) {
+  return r.responsible.length > 0 ? r.responsible.join(", ") : (r.proposerName ?? "-");
+}
+
 function statusBadgeClass(status: string) {
   if (status === "อนุมัติแล้ว") return "badge-emerald";
   if (status === "ไม่เห็นชอบ" || status === "ไม่อนุมัติ") return "badge-red";
@@ -247,7 +252,7 @@ export function ProposalsTable({
                 <span className={statusBadgeClass(r.status)}>{r.status}</span>
               </button>
               <p className="mt-0.5 text-xs text-slate-500">
-                {r.adminGroup} · {r.proposerName ?? "-"}
+                {r.adminGroup} · {responsibleLabel(r)}
               </p>
               <p className="mt-1 text-sm tabular-nums text-slate-700">{formatBaht(r.budgetAmount)} บาท</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -326,7 +331,7 @@ export function ProposalsTable({
             <th className="w-10 text-center">#</th>
             <th>ชื่อโครงการ</th>
             <th>กลุ่มบริหาร</th>
-            <th>ผู้เสนอ</th>
+            <th>ผู้รับผิดชอบโครงการ</th>
             <th className="whitespace-nowrap text-right">งบประมาณ</th>
             <th className="whitespace-nowrap text-center">สถานะ</th>
             <th></th>
@@ -357,7 +362,7 @@ export function ProposalsTable({
                   </span>
                 </td>
                 <td>{r.adminGroup}</td>
-                <td>{r.proposerName ?? "-"}</td>
+                <td>{responsibleLabel(r)}</td>
                 <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(r.budgetAmount)}</td>
                 <td className="whitespace-nowrap text-center">
                   <span className={`${statusBadgeClass(r.status)} !text-sm`}>{r.status}</span>
