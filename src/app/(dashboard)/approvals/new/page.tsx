@@ -7,13 +7,14 @@ import { ApprovalForm } from "../approval-form";
 export default async function NewApprovalPage() {
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: activities }, { data: approvals }, { data: adminGroups }, { data: teachers }] =
+  const [{ data: projects }, { data: activities }, { data: approvals }, { data: adminGroups }, { data: teachers }, { data: learningAreas }] =
     await Promise.all([
       supabase.from("plan_projects").select("id, name, admin_group_id").order("sort_order"),
       supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
       supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
       supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
       supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.from("plan_learning_areas").select("id, name").eq("is_active", true).order("sort_order").order("name"),
     ]);
 
   const budgetByProject = new Map<string, number>();
@@ -62,6 +63,7 @@ export default async function NewApprovalPage() {
         }))}
         adminGroups={adminGroups ?? []}
         teachers={teachers ?? []}
+        learningAreas={learningAreas ?? []}
       />
     </div>
   );

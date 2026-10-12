@@ -10,18 +10,12 @@ type ProjectOption = { id: string; name: string; adminGroupId: string; budget: n
 type ActivityOption = { id: string; project_id: string; name: string | null; responsible: string[] };
 type AdminGroupOption = { id: string; name: string };
 type TeacherOption = { id: string; name: string; is_active: boolean };
-// กลุ่มสาระการเรียนรู้ 8 กลุ่ม — เป็นตัวเลือกของช่อง "ฝ่าย/กลุ่ม/สาระฯ/งาน" ต่อจากกลุ่มบริหารงาน
-// keyword ใช้จับคู่กับชื่อโครงการ (เช่น "...กลุ่มสาระการเรียนรู้คณิตศาสตร์") เพื่อกรองตัวเลือกโครงการ
-const LEARNING_AREAS = [
-  { label: "กลุ่มสาระการเรียนรู้ภาษาไทย", keyword: "ภาษาไทย" },
-  { label: "กลุ่มสาระการเรียนรู้คณิตศาสตร์", keyword: "คณิตศาสตร์" },
-  { label: "กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี", keyword: "วิทยาศาสตร์และเทคโนโลยี" },
-  { label: "กลุ่มสาระการเรียนรู้สังคมศึกษา ศาสนาและวัฒนธรรม", keyword: "สังคมศึกษา" },
-  { label: "กลุ่มสาระการเรียนรู้สุขศึกษาและพลศึกษา", keyword: "สุขศึกษาและพลศึกษา" },
-  { label: "กลุ่มสาระการเรียนรู้ศิลปะ", keyword: "ศิลปะ" },
-  { label: "กลุ่มสาระการเรียนรู้การงานอาชีพ", keyword: "การงานอาชีพ" },
-  { label: "กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ", keyword: "ภาษาต่างประเทศ" },
-];
+type LearningAreaOption = { id: string; name: string };
+// กลุ่มสาระการเรียนรู้ (จัดการได้ที่หน้าตั้งค่า) — เป็นตัวเลือกของช่อง "ฝ่าย/กลุ่ม/สาระฯ/งาน" ต่อจากกลุ่มบริหารงาน
+// ใช้ชื่อวิชาที่ตัดคำนำหน้า "กลุ่มสาระการเรียนรู้" ออก มาจับคู่กับชื่อโครงการ เพื่อกรองตัวเลือกโครงการ
+function learningAreaKeyword(name: string) {
+  return name.replace(/^กลุ่มสาระการเรียนรู้\s*/, "").trim() || name;
+}
 // โครงการที่ใช้ร่วมกันทุกกลุ่มสาระ (เช่น "โครงการยกระดับผลสัมฤทธิ์ทางการเรียน 8 กลุ่มสาระและ O-Net")
 const ALL_AREAS_PATTERN = /8\s*กลุ่มสาระ/;
 
@@ -92,6 +86,7 @@ export function ApprovalForm({
   activities,
   adminGroups,
   teachers,
+  learningAreas,
   initial,
   submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
@@ -100,6 +95,7 @@ export function ApprovalForm({
   activities: ActivityOption[];
   adminGroups: AdminGroupOption[];
   teachers: TeacherOption[];
+  learningAreas: LearningAreaOption[];
   initial?: ApprovalFormInitial;
   submitLabel?: string;
 }) {
@@ -119,14 +115,14 @@ export function ApprovalForm({
     if (!dept) return true;
     const group = adminGroups.find((g) => g.name === dept);
     if (group) return p.adminGroupId === group.id;
-    const area = LEARNING_AREAS.find((a) => a.label === dept);
-    if (area) return p.name.includes("กลุ่มสาระ") && (p.name.includes(area.keyword) || ALL_AREAS_PATTERN.test(p.name));
+    const area = learningAreas.find((a) => a.name === dept);
+    if (area) return p.name.includes("กลุ่มสาระ") && (p.name.includes(learningAreaKeyword(area.name)) || ALL_AREAS_PATTERN.test(p.name));
     return true;
   }
   const projectChoices = useMemo(
     () => projects.filter((p) => projectMatchesDepartment(p, department) || p.id === projectId),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [projects, adminGroups, department, projectId],
+    [projects, adminGroups, learningAreas, department, projectId],
   );
 
   const selected = useMemo(() => projects.find((p) => p.id === projectId) ?? null, [projects, projectId]);
@@ -296,13 +292,19 @@ export function ApprovalForm({
                 </option>
               ))}
             </optgroup>
-            <optgroup label="กลุ่มสาระการเรียนรู้">
-              {LEARNING_AREAS.map((a) => (
-                <option key={a.label} value={a.label}>
-                  {a.label}
-                </option>
-              ))}
-            </optgroup>
+            {learningAreas.length > 0 && (
+              <optgroup label="กลุ่มสาระการเรียนรู้">
+                {learningAreas.map((a) => (
+                  <option key={a.id} value={a.name}>
+                    {a.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {/* ค่าเดิมของบันทึกเก่าที่ไม่อยู่ในรายการปัจจุบัน (เช่น กลุ่มสาระที่ปิดใช้งานหรือเปลี่ยนชื่อภายหลัง) */}
+            {department &&
+              !adminGroups.some((g) => g.name === department) &&
+              !learningAreas.some((a) => a.name === department) && <option value={department}>{department}</option>}
           </select>
 
           <select

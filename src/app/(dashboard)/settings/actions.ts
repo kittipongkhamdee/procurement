@@ -103,6 +103,49 @@ export async function deleteAdminGroup(id: string) {
   revalidatePath("/projects");
 }
 
+export async function createLearningArea(formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  // ต่อท้ายลำดับสุดท้าย
+  const { data: last } = await supabase
+    .from("plan_learning_areas")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { error } = await supabase.from("plan_learning_areas").insert({ name, sort_order: (last?.sort_order ?? 0) + 10 });
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/approvals");
+}
+
+export async function updateLearningAreaName(id: string, formData: FormData) {
+  const supabase = await requireAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const { error } = await supabase.from("plan_learning_areas").update({ name }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/approvals");
+}
+
+export async function toggleLearningAreaActive(id: string, isActive: boolean) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_learning_areas").update({ is_active: !isActive }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/approvals");
+}
+
+export async function deleteLearningArea(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from("plan_learning_areas").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/settings");
+  revalidatePath("/approvals");
+}
+
 export async function createTeacher(formData: FormData) {
   const supabase = await requireAdmin();
   const name = String(formData.get("name") ?? "").trim();

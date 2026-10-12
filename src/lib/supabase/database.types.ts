@@ -1143,6 +1143,27 @@ export type Database = {
           },
         ]
       }
+      plan_learning_areas: {
+        Row: {
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       plan_official_rates: {
         Row: {
           id: string

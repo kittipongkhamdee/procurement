@@ -17,6 +17,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     { data: approvals },
     { data: adminGroups },
     { data: teachers },
+    { data: learningAreas },
   ] = await Promise.all([
     supabase
       .from("proc_approvals")
@@ -31,6 +32,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     supabase.from("proc_approvals").select("id, project_id, requested_amount").eq("status", "อนุมัติ"),
     supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
     supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
+    supabase.from("plan_learning_areas").select("id, name").eq("is_active", true).order("sort_order").order("name"),
   ]);
 
   if (!approval) notFound();
@@ -103,6 +105,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
         }))}
         adminGroups={adminGroups ?? []}
         teachers={teachers ?? []}
+        learningAreas={learningAreas ?? []}
         initial={initial}
         submitLabel="บันทึกการแก้ไข"
       />

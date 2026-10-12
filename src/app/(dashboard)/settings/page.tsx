@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { AdminGroupManager } from "./admin-group-manager";
+import { LearningAreaManager } from "./learning-area-manager";
 import { TeacherManager } from "./teacher-manager";
 import { UserGroupManager } from "./user-group-manager";
 import { UserGroupSelect } from "./user-group-select";
@@ -29,11 +30,13 @@ import { CloseIcon } from "@/components/icons";
 import { DEFAULT_ASSET_CODE_TEMPLATE } from "@/lib/format-template";
 import {
   createAdminGroup,
+  createLearningArea,
   createBudgetSource,
   createBudgetYear,
   createTeacher,
   createUserGroup,
   deleteAdminGroup,
+  deleteLearningArea,
   deleteBudgetSource,
   deleteTeacher,
   deleteUserGroup,
@@ -50,10 +53,12 @@ import {
   setStorageProvider,
   setUserGroups,
   toggleAdminGroupActive,
+  toggleLearningAreaActive,
   toggleBudgetSourceActive,
   toggleTeacherActive,
   toggleUserGroupActive,
   updateAdminGroupName,
+  updateLearningAreaName,
   updateTeacherName,
   updateUserGroupName,
   uploadApprovalTemplate,
@@ -68,6 +73,7 @@ type SettingsData = {
   budgetYears: BudgetYear[];
   budgetSources: Item[];
   adminGroups: Item[];
+  learningAreas: Item[];
   teachers: Item[];
   userGroups: Item[];
   users: AppUser[];
@@ -99,6 +105,7 @@ export default function SettingsPage() {
       { data: budgetYears },
       { data: budgetSources },
       { data: adminGroups },
+      { data: learningAreas },
       { data: teachers },
       { data: userGroups },
       { data: users },
@@ -114,6 +121,7 @@ export default function SettingsPage() {
       supabase.from("plan_budget_years").select("id, year, name, is_open").order("year", { ascending: false }),
       supabase.from("plan_budget_sources").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("plan_admin_groups").select("id, name, is_active").order("sort_order").order("name"),
+      supabase.from("plan_learning_areas").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
       supabase.from("proc_user_groups").select("id, name, is_active").order("sort_order").order("name"),
       supabase.rpc("proc_admin_list_users"),
@@ -147,6 +155,7 @@ export default function SettingsPage() {
       budgetYears: budgetYears ?? [],
       budgetSources: budgetSources ?? [],
       adminGroups: adminGroups ?? [],
+      learningAreas: learningAreas ?? [],
       teachers: teachers ?? [],
       userGroups: userGroups ?? [],
       users: (users as unknown as AppUser[]) ?? [],
@@ -477,6 +486,15 @@ export default function SettingsPage() {
           updateAdminGroupName={updateAdminGroupName}
           toggleAdminGroupActive={toggleAdminGroupActive}
           deleteAdminGroup={deleteAdminGroup}
+          onChanged={reload}
+        />
+
+        <LearningAreaManager
+          learningAreas={data.learningAreas}
+          createLearningArea={createLearningArea}
+          updateLearningAreaName={updateLearningAreaName}
+          toggleLearningAreaActive={toggleLearningAreaActive}
+          deleteLearningArea={deleteLearningArea}
           onChanged={reload}
         />
 
