@@ -6,27 +6,48 @@ import { registerSarabunFont, t } from "./thai-pdf";
 import { measureText, wrapByWidth } from "./thai-measure";
 
 // เอกสารบันทึกข้อความขออนุมัติที่วาดขึ้นใหม่ทั้งหมดด้วย react-pdf (ไม่ใช้เทมเพลต PDF เดิมซ้อนทับ) — ใช้ข้อมูลชุดเดียวกับ
-// ApprovalPdfData เหมือนตัวเดิม ตามมาตรฐานขนาดฟอนต์/ระยะห่างใน CLAUDE.md: เนื้อหา 11pt, ชื่อเอกสาร 14pt,
-// lineHeight ~1.2, ระยะห่างระหว่างแถว marginBottom 4
+// ApprovalPdfData เหมือนตัวเดิม
+//
+// รูปแบบหน้า 1 ทำตามแบบกระดาษบันทึกข้อความ (แบบที่ ๒๙ ท้ายระเบียบสำนักนายกรัฐมนตรีว่าด้วยงานสารบรรณ พ.ศ. ๒๕๒๖)
+// และ "คำแนะนำและแบบมาตรฐานการพิมพ์หนังสือราชการภาษาไทยด้วยโปรแกรมการพิมพ์ในเครื่องคอมพิวเตอร์":
+//   - ขอบกระดาษ ซ้าย ๓ ซม. ขวา ๒ ซม. บน ๒.๕ ซม. ล่าง ๒ ซม. (พื้นที่พิมพ์กว้าง ๑๖ ซม.)
+//   - ตราครุฑสูง ๑.๕ ซม. วางห่างขอบบน ๒.๕ ซม. ชิดซ้าย
+//   - ตัวอักษรเนื้อหา ๑๖ พอยท์; "บันทึกข้อความ" ตัวหนา ๒๙ พอยท์ ระยะบรรทัดแน่นอน ๓๕ พอยท์;
+//     "ส่วนราชการ ที่ วันที่ เรื่อง" ตัวหนา ๒๐ พอยท์; ใช้จุดไข่ปลาเป็นเส้นบรรทัดหลังคำเหล่านี้
+//   - "วันที่" ตรงกับตัวอักษร "ข" ของ "บันทึกข้อความ" และตัวแรกของชื่อเดือนตรงกับแนวหลังของ "ม"
+//   - คำขึ้นต้นห่างจากเรื่อง ๑ บรรทัด + ๖ พอยท์; ย่อหน้าข้อความ ๒.๕ ซม.
+//   - ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บและตำแหน่งอยู่กึ่งกลางซึ่งกันและกัน
+// ส่วนตารางรายการเงินและกรอบความเห็น ๔ ช่อง (ไม่มีกำหนดในแบบ) ใช้ตัวอักษร ๑๔ พอยท์ให้พอดีหน้าเดียว
+// ฟอนต์ใช้ Sarabun ที่มีในระบบ (ความกว้างตัวอักษรเท่ากับ TH Sarabun PSK ตามที่ตรวจสอบ) ไม่ใช่ไฟล์ TH Sarabun PSK ตัวจริง
 
 registerSarabunFont();
 
 const PAGE_W = 595.28;
-const PAD_LEFT = 72;
-const PAD_RIGHT = 50;
-const CONTENT_W = PAGE_W - PAD_LEFT - PAD_RIGHT;
-const FS = 11;
+const CM = 28.3465; // 1 ซม. เป็นพอยท์
+const PAD_LEFT = 3 * CM;
+const PAD_RIGHT = 2 * CM;
+const PAD_TOP = 2.5 * CM;
+const PAD_BOTTOM = 2 * CM;
+const CONTENT_W = PAGE_W - PAD_LEFT - PAD_RIGHT; // ≈ 16 ซม.
+const FS = 16; // ตัวอักษรเนื้อหา
+const FS_LABEL = 20; // "ส่วนราชการ ที่ วันที่ เรื่อง"
+const FS_TITLE = 29; // "บันทึกข้อความ"
+const TITLE_LINE = 35; // ระยะบรรทัดแน่นอนของ "บันทึกข้อความ"
+const FS_TABLE = 14; // ตารางรายการ
+const FS_BOX = 12.5; // กรอบความเห็น ๔ ช่อง (ช่องแคบ ต้องเล็กกว่าเล็กน้อยเพื่อให้ข้อความไม่ล้นกรอบ)
+const GARUDA_H = 1.5 * CM;
+const GARUDA_W = (GARUDA_H * 659) / 738;
+const INDENT = 2.5 * CM; // ย่อหน้า
 const INK = "#000000";
 const GARUDA = path.join(process.cwd(), "src/lib/pdf/assets/garuda-emblem.png");
 
 const styles = StyleSheet.create({
-  page: { fontFamily: "Sarabun", fontSize: FS, lineHeight: 1.2, color: INK, paddingTop: 28, paddingBottom: 26, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
-  row: { flexDirection: "row", marginBottom: 4 },
+  page: { fontFamily: "Sarabun", fontSize: FS, lineHeight: 1.25, color: INK, paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
+  row: { flexDirection: "row", marginBottom: 2 },
   bold: { fontWeight: "bold" },
   // กรอบของช่องที่มีเส้นจุดไข่ปลาอยู่ใต้ค่า — เส้นจุดวาดด้วย <DotLeader /> (ไม่ใช้ borderBottomStyle: "dotted" เพราะ
   // react-pdf วาดเป็นเส้นทึบใต้ตัวหนังสือที่อยู่เหนือมัน)
   dotted: { position: "relative", paddingBottom: 1.5, overflow: "hidden" },
-  title: { fontSize: 14, fontWeight: "bold", textAlign: "center" },
 });
 
 /** เส้นจุดไข่ปลาใต้ช่อง — ใส่เป็นลูกตัวสุดท้ายของ View ที่ใช้ style dotted */
@@ -52,8 +73,12 @@ function Dotted({ style, children }: { style?: Style; children: React.ReactNode 
 type FieldRowProps = {
   prefix?: string;
   prefixBold?: boolean;
+  /** ขนาดตัวอักษรของป้ายหน้า (ค่าเริ่มต้น = size) */
+  prefixSize?: number;
   value: string;
   suffix?: string;
+  /** ขนาดตัวอักษรของค่าและป้ายท้าย */
+  size?: number;
   /** ย่อหน้าบรรทัดแรก (pt) */
   indent?: number;
   /** ความกว้างทั้งแถว (ค่าเริ่มต้น = ความกว้างเนื้อหาหน้ากระดาษ) */
@@ -67,26 +92,42 @@ const GAP = 4;
 
 /** แถว "ป้ายหน้า + ค่าบนเส้นจุดไข่ปลา + ป้ายท้าย" — ค่ายาวตัดขึ้นบรรทัดใหม่ล่วงหน้าตามความกว้างจริงของฟอนต์
  * โดยแต่ละบรรทัดมีเส้นจุดไข่ปลาของตัวเอง เหมือนฟอร์มกระดาษ */
-function FieldRow({ prefix = "", prefixBold = false, value, suffix = "", indent = 0, width = CONTENT_W, valueWidth, align = "left" }: FieldRowProps) {
-  const prefixW = prefix ? measureText(prefix, FS, prefixBold) + GAP : 0;
-  const suffixW = suffix ? measureText(suffix, FS) + GAP : 0;
+function FieldRow({
+  prefix = "",
+  prefixBold = false,
+  prefixSize,
+  value,
+  suffix = "",
+  size = FS,
+  indent = 0,
+  width = CONTENT_W,
+  valueWidth,
+  align = "left",
+}: FieldRowProps) {
+  const pSize = prefixSize ?? size;
+  const prefixW = prefix ? measureText(prefix, pSize, prefixBold) + GAP : 0;
+  const suffixW = suffix ? measureText(suffix, size) + GAP : 0;
+  const prefixEl = prefix ? (
+    <Text style={[prefixBold ? styles.bold : {}, { fontSize: pSize, marginRight: GAP }]}>{t(prefix)}</Text>
+  ) : null;
+  const suffixEl = suffix ? <Text style={{ fontSize: size, marginLeft: GAP }}>{t(suffix)}</Text> : null;
 
   if (valueWidth) {
     return (
       <View style={styles.row}>
         {indent > 0 && <View style={{ width: indent }} />}
-        {prefix ? <Text style={[prefixBold ? styles.bold : {}, { marginRight: GAP }]}>{t(prefix)}</Text> : null}
+        {prefixEl}
         <Dotted style={{ width: valueWidth }}>
-          <Text style={{ textAlign: align }}>{value ? t(value) : " "}</Text>
+          <Text style={{ fontSize: size, textAlign: align }}>{value ? t(value) : " "}</Text>
         </Dotted>
-        {suffix ? <Text style={{ marginLeft: GAP }}>{t(suffix)}</Text> : null}
+        {suffixEl}
       </View>
     );
   }
 
   const first = width - indent - prefixW - suffixW;
   const rest = width - suffixW;
-  const lines = wrapByWidth(value, FS, Math.max(first, 40), Math.max(rest, 40));
+  const lines = wrapByWidth(value, size, Math.max(first, 40), Math.max(rest, 40));
   return (
     <>
       {lines.map((line, i) => {
@@ -95,11 +136,11 @@ function FieldRow({ prefix = "", prefixBold = false, value, suffix = "", indent 
         return (
           <View key={i} style={styles.row}>
             {isFirst && indent > 0 && <View style={{ width: indent }} />}
-            {isFirst && prefix ? <Text style={[prefixBold ? styles.bold : {}, { marginRight: GAP }]}>{t(prefix)}</Text> : null}
+            {isFirst ? prefixEl : null}
             <Dotted style={{ flex: 1 }}>
-              <Text style={{ textAlign: align }}>{line ? t(line) : " "}</Text>
+              <Text style={{ fontSize: size, textAlign: align }}>{line ? t(line) : " "}</Text>
             </Dotted>
-            {isLast && suffix ? <Text style={{ marginLeft: GAP }}>{t(suffix)}</Text> : null}
+            {isLast ? suffixEl : null}
           </View>
         );
       })}
@@ -125,7 +166,7 @@ function PlainRow({ prefix, value, width = CONTENT_W }: { prefix?: string; value
 
 function CheckBox({ checked }: { checked: boolean }) {
   return (
-    <View style={{ width: 11, height: 11, borderWidth: 0.8, borderColor: INK, marginRight: 4, marginTop: 1.5 }}>
+    <View style={{ width: 11, height: 11, borderWidth: 0.8, borderColor: INK, marginRight: 4, marginTop: 2 }}>
       {checked && (
         <Svg width={9.4} height={9.4} viewBox="0 0 10 10" style={{ position: "absolute", top: 0, left: 0 }}>
           <Path d="M1.8 5.4 L4.1 7.9 L8.6 1.9" stroke={INK} strokeWidth={1.3} fill="none" />
@@ -146,32 +187,33 @@ function CheckRow({ checked, children }: { checked: boolean; children: React.Rea
 
 const SUMMARY_DEFAULT_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
 
-const SUMMARY_COLS = { no: 28, label: 0 /* flex */, amount: 84, note: 84 };
+const SUMMARY_COLS = { no: 30, amount: 84, note: 84 };
 
 function SummaryTable({ data }: { data: ApprovalPdfData }) {
   const rows = SUMMARY_DEFAULT_LABELS.map((label, i) => data.summary_items[i] ?? { label, amount: null, note: null });
   const total = data.summary_items.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
-  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 17 };
+  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 18 };
+  const hd = [styles.bold, { textAlign: "center" as const }];
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 6 }}>
-      <View style={[rowStyle, { minHeight: 20 }]}>
-        <View style={[cell, { width: SUMMARY_COLS.no }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("ที่")}</Text></View>
-        <View style={[cell, { flex: 1 }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("รายการ")}</Text></View>
-        <View style={[cell, { width: SUMMARY_COLS.amount }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("จำนวนเงิน")}</Text></View>
-        <View style={[cell, { width: SUMMARY_COLS.note, borderRightWidth: 0 }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("หมายเหตุ")}</Text></View>
+    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 6, fontSize: FS_TABLE }}>
+      <View style={rowStyle}>
+        <View style={[cell, { width: SUMMARY_COLS.no }]}><Text style={hd}>{t("ที่")}</Text></View>
+        <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
+        <View style={[cell, { width: SUMMARY_COLS.amount }]}><Text style={hd}>{t("จำนวนเงิน")}</Text></View>
+        <View style={[cell, { width: SUMMARY_COLS.note, borderRightWidth: 0 }]}><Text style={hd}>{t("หมายเหตุ")}</Text></View>
       </View>
       {rows.map((r, i) => (
         <View key={i} style={rowStyle}>
           <View style={[cell, { width: SUMMARY_COLS.no }]}><Text style={{ textAlign: "center" }}>{i + 1}</Text></View>
-          <View style={[cell, { flex: 1 }]}><Text>{t(i === 4 && r.label !== "อื่นๆ (ระบุ)" ? r.label : r.label)}</Text></View>
+          <View style={[cell, { flex: 1 }]}><Text>{t(r.label)}</Text></View>
           <View style={[cell, { width: SUMMARY_COLS.amount }]}><Text style={{ textAlign: "right" }}>{r.amount ? formatBaht(r.amount) : ""}</Text></View>
           <View style={[cell, { width: SUMMARY_COLS.note, borderRightWidth: 0 }]}><Text>{t(r.note ?? "")}</Text></View>
         </View>
       ))}
       <View style={[rowStyle, { borderBottomWidth: 0 }]}>
         <View style={[cell, { width: SUMMARY_COLS.no }]} />
-        <View style={[cell, { flex: 1 }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("รวมทั้งสิ้น")}</Text></View>
+        <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รวมทั้งสิ้น")}</Text></View>
         <View style={[cell, { width: SUMMARY_COLS.amount }]}><Text style={[styles.bold, { textAlign: "right" }]}>{formatBaht(total)}</Text></View>
         <View style={[cell, { width: SUMMARY_COLS.note, borderRightWidth: 0 }]} />
       </View>
@@ -184,7 +226,7 @@ const CELL_W = CONTENT_W / 2 - CELL_PAD * 2;
 
 function OpinionTitle({ no, title }: { no: number; title: string }) {
   return (
-    <Text style={{ marginBottom: 4 }}>
+    <Text style={{ marginBottom: 2 }}>
       {t(`${no}. `)}
       <Text style={{ textDecoration: "underline" }}>{t(title)}</Text>
     </Text>
@@ -194,7 +236,7 @@ function OpinionTitle({ no, title }: { no: number; title: string }) {
 function SignOff({ name, role }: { name: string | null; role?: string }) {
   return (
     <View style={{ alignItems: "center", marginTop: 2 }}>
-      <FieldRow prefix="(ลงชื่อ)" value="" valueWidth={130} width={CELL_W} />
+      <FieldRow prefix="(ลงชื่อ)" value="" valueWidth={120} width={CELL_W} size={FS_BOX} />
       <Text>{t(name ? `(${name})` : "(                                    )")}</Text>
       {role ? <Text>{t(role)}</Text> : null}
     </View>
@@ -206,20 +248,21 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
   const approved = data.status === "อนุมัติ";
   const rejected = data.status === "ไม่อนุมัติ";
   const d = data.approved_at ? new Date(data.approved_at) : null;
+  const line = { marginBottom: 2 };
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK }} wrap={false}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, fontSize: FS_BOX }} wrap={false}>
       <View style={{ flexDirection: "row", borderBottomWidth: 0.8, borderColor: INK }}>
         <View style={[cellStyle, { borderRightWidth: 0.8, borderColor: INK }]}>
           <OpinionTitle no={1} title="ความเห็นงานแผนงาน" />
-          <Text style={{ marginBottom: 4 }}>{t("- ตรวจสอบแล้วมีโครงการ")}</Text>
-          <FieldRow prefix="- เงินโครงการทั้งสิ้น" value={data.budget != null ? formatBaht(data.budget) : ""} suffix="บาท" valueWidth={78} align="right" />
-          <FieldRow prefix="- เงินขอใช้ครั้งนี้" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={92} align="right" />
-          <FieldRow prefix="- เงินโครงการเหลือ" value={data.remaining != null ? formatBaht(data.remaining) : ""} suffix="บาท" valueWidth={88} align="right" />
+          <Text style={line}>{t("- ตรวจสอบแล้วมีโครงการ")}</Text>
+          <FieldRow size={FS_BOX} prefix="- เงินโครงการทั้งสิ้น" value={data.budget != null ? formatBaht(data.budget) : ""} suffix="บาท" valueWidth={74} align="right" />
+          <FieldRow size={FS_BOX} prefix="- เงินขอใช้ครั้งนี้" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={86} align="right" />
+          <FieldRow size={FS_BOX} prefix="- เงินโครงการเหลือ" value={data.remaining != null ? formatBaht(data.remaining) : ""} suffix="บาท" valueWidth={80} align="right" />
           <SignOff name={data.signer_planning} />
         </View>
         <View style={cellStyle}>
           <OpinionTitle no={2} title="ความเห็นเจ้าหน้าที่การเงิน" />
-          <Text style={{ marginBottom: 4 }}>{t("- ตรวจสอบแล้วมีงบประมาณ")}</Text>
+          <Text style={line}>{t("- ตรวจสอบแล้วมีงบประมาณ")}</Text>
           <CheckRow checked={data.fund_type === "งบค่าจัดการเรียนการสอน"}><Text>{t("งบค่าจัดการเรียนการสอน")}</Text></CheckRow>
           <CheckRow checked={data.fund_type === "งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน"}><Text>{t("งบค่าจัดกิจกรรมพัฒนาคุณภาพผู้เรียน")}</Text></CheckRow>
           <CheckRow checked={data.fund_type === "เงินรายได้สถานศึกษา"}><Text>{t("เงินรายได้สถานศึกษา")}</Text></CheckRow>
@@ -229,7 +272,7 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
       <View style={{ flexDirection: "row" }}>
         <View style={[cellStyle, { borderRightWidth: 0.8, borderColor: INK }]}>
           <OpinionTitle no={3} title="ความเห็นของรองผู้อำนวยการ" />
-          <Text style={{ marginBottom: 4 }}>{t("- ตรวจสอบแล้วมีโครงการและงบประมาณ")}</Text>
+          <Text style={line}>{t("- ตรวจสอบแล้วมีโครงการและงบประมาณ")}</Text>
           <CheckRow checked={data.deputy_decision === "ควร"}><Text>{t("ควรอนุญาตและอนุมัติ")}</Text></CheckRow>
           <CheckRow checked={data.deputy_decision === "ไม่ควร"}>
             <Text>{t("ไม่ควรอนุญาตและอนุมัติเพราะ")}</Text>
@@ -239,13 +282,13 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
         </View>
         <View style={cellStyle}>
           <OpinionTitle no={4} title="ความเห็นของผู้อำนวยการโรงเรียน" />
-          <Text style={{ marginBottom: 4 }}>{t("- ตรวจสอบโครงการและงบประมาณ")}</Text>
+          <Text style={line}>{t("- ตรวจสอบโครงการและงบประมาณ")}</Text>
           <View style={styles.row}>
             <CheckRow checked={approved}><Text>{t("อนุมัติ")}</Text></CheckRow>
             <View style={{ width: 28 }} />
             <CheckRow checked={rejected}><Text>{t("ไม่อนุมัติ")}</Text></CheckRow>
           </View>
-          <SignOff name={data.signer_director} role={`ผู้อำนวยการ${data.school_name.replace(/^โรงเรียน/, "โรงเรียน")}`} />
+          <SignOff name={data.signer_director} role={`ผู้อำนวยการ${data.school_name}`} />
           <View style={[styles.row, { marginTop: 2, marginBottom: 0, justifyContent: "center" }]}>
             <Text>{t("วันที่")}</Text>
             <Dotted style={{ width: 26, marginHorizontal: GAP }}><Text style={{ textAlign: "center" }}>{d ? String(d.getDate()) : " "}</Text></Dotted>
@@ -260,36 +303,54 @@ function OpinionBoxes({ data }: { data: ApprovalPdfData }) {
   );
 }
 
+/** ข้อความบรรทัดเดียวในช่องตารางที่กว้างจำกัด — ย่อขนาดตัวอักษรลงทีละน้อยจนพอดีช่อง (ไม่ต่ำกว่า minSize) ก่อนที่
+ * react-pdf จะตัดเป็น "…" เอง เพราะแถวสูงตายตัว ถ้าย่อถึงขั้นต่ำแล้วยังไม่พอจึงปล่อยให้ตัดท้าย */
+function FitText({ text, width, size, minSize = 9.5, bold = false, align = "left" }: {
+  text: string;
+  width: number;
+  size: number;
+  minSize?: number;
+  bold?: boolean;
+  align?: "left" | "center" | "right";
+}) {
+  let fs = size;
+  while (fs > minSize && measureText(text, fs, bold) > width) fs -= 0.5;
+  return <Text style={[bold ? styles.bold : {}, { fontSize: fs, textAlign: align }]}>{text ? t(text) : ""}</Text>;
+}
+
 const ITEM_ROWS = 29;
-const ITEM_ROW_H = 21.6;
-const ITEM_COLS = { qty: 52, price: 74, total: 70, note: 62 };
+const ITEM_ROW_H = 20.4;
+const ITEM_COLS = { qty: 54, price: 70, total: 70, note: 62 };
 
 function ItemsTable({ data }: { data: ApprovalPdfData }) {
   const rowsCount = Math.max(ITEM_ROWS, data.items.length);
+  const nameW = CONTENT_W - ITEM_COLS.qty - ITEM_COLS.price - ITEM_COLS.total - ITEM_COLS.note;
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
   const row = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, height: ITEM_ROW_H };
+  const hd = [styles.bold, { textAlign: "center" as const }];
+  // lineHeight ต่ำ: Text ในแถวที่กำหนดความสูงตายตัวจะถูกซ่อน/ตัดเป็น "…" ถ้าความสูงบรรทัดเกินความสูงแถว
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, marginTop: 14 }}>
-      <View style={[row, { height: 36 }]}>
-        <View style={[cell, { flex: 1 }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("รายการ")}</Text></View>
+    <View style={{ borderWidth: 0.8, borderColor: INK, marginTop: 8, fontSize: 13, lineHeight: 1.05 }}>
+      <View style={[row, { height: 34 }]}>
+        <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
         <View style={[cell, { width: ITEM_COLS.qty }]}>
-          <Text style={[styles.bold, { textAlign: "center" }]}>{t("จำนวน")}</Text>
-          <Text style={[styles.bold, { textAlign: "center" }]}>{t("(หน่วย)")}</Text>
+          <Text style={hd}>{t("จำนวน")}</Text>
+          <Text style={hd}>{t("(หน่วย)")}</Text>
         </View>
-        <View style={[cell, { width: ITEM_COLS.price }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("ราคา/หน่วย")}</Text></View>
-        <View style={[cell, { width: ITEM_COLS.total }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("จำนวนเงิน")}</Text></View>
-        <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><Text style={[styles.bold, { textAlign: "center" }]}>{t("หมายเหตุ")}</Text></View>
+        <View style={[cell, { width: ITEM_COLS.price }]}><Text style={hd}>{t("ราคา/หน่วย")}</Text></View>
+        <View style={[cell, { width: ITEM_COLS.total }]}><Text style={hd}>{t("จำนวนเงิน")}</Text></View>
+        <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><Text style={hd}>{t("หมายเหตุ")}</Text></View>
       </View>
       {Array.from({ length: rowsCount }).map((_, i) => {
         const item = data.items[i];
         const last = i === rowsCount - 1;
         return (
           <View key={i} style={[row, last ? { borderBottomWidth: 0 } : {}]}>
-            <View style={[cell, { flex: 1 }]}><Text>{t(item?.name ?? "")}</Text></View>
-            <View style={[cell, { width: ITEM_COLS.qty }]}><Text style={{ textAlign: "center" }}>{item?.qty != null ? String(item.qty) : ""}</Text></View>
-            <View style={[cell, { width: ITEM_COLS.price }]}><Text style={{ textAlign: "right" }}>{item?.unit_price != null ? formatBaht(item.unit_price) : ""}</Text></View>
-            <View style={[cell, { width: ITEM_COLS.total }]}><Text style={{ textAlign: "right" }}>{item?.total != null ? formatBaht(item.total) : ""}</Text></View>
-            <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><Text>{t(item?.note ?? "")}</Text></View>
+            <View style={[cell, { flex: 1 }]}><FitText text={item?.name ?? ""} width={nameW - 10} size={13} /></View>
+            <View style={[cell, { width: ITEM_COLS.qty }]}><FitText text={item?.qty != null ? String(item.qty) : ""} width={ITEM_COLS.qty - 10} size={13} align="center" /></View>
+            <View style={[cell, { width: ITEM_COLS.price }]}><FitText text={item?.unit_price != null ? formatBaht(item.unit_price) : ""} width={ITEM_COLS.price - 10} size={13} align="right" /></View>
+            <View style={[cell, { width: ITEM_COLS.total }]}><FitText text={item?.total != null ? formatBaht(item.total) : ""} width={ITEM_COLS.total - 10} size={13} align="right" /></View>
+            <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><FitText text={item?.note ?? ""} width={ITEM_COLS.note - 10} size={13} /></View>
           </View>
         );
       })}
@@ -333,7 +394,7 @@ function PlanDateAndAmount({ data }: { data: ApprovalPdfData }) {
   if (dateW < dateNeeded) {
     return (
       <>
-        <FieldRow prefix={lead} value={data.plan_date_text ?? ""} suffix="และขออนุมัติงบประมาณ" valueWidth={170} />
+        <FieldRow prefix={lead} value={data.plan_date_text ?? ""} suffix="และขออนุมัติงบประมาณ" valueWidth={Math.max(dateNeeded, 120)} />
         <FieldRow prefix="ในครั้งนี้ จำนวนเงิน" value={amount} suffix={tail} valueWidth={110} align="right" />
       </>
     );
@@ -353,51 +414,97 @@ function PlanDateAndAmount({ data }: { data: ApprovalPdfData }) {
   );
 }
 
+const TITLE = "บันทึกข้อความ";
+const TITLE_W = measureText(TITLE, FS_TITLE, true);
+const TITLE_LEFT = (CONTENT_W - TITLE_W) / 2;
+/** ตำแหน่ง (จากขอบซ้ายของพื้นที่พิมพ์) ของตัวอักษร "ข" ใน "บันทึกข้อความ" — "วันที่" พิมพ์ตรงกับตำแหน่งนี้ */
+const X_KHO = TITLE_LEFT + measureText("บันทึก", FS_TITLE, true);
+/** แนวหลังของตัวอักษร "ม" — ตัวแรกของชื่อเดือนพิมพ์ตรงกับตำแหน่งนี้ */
+const X_MO_END = TITLE_LEFT + TITLE_W;
+
+/** แถว "ที่ … วันที่ …" ตามแบบ: "วันที่" ตรงกับ "ข", ชื่อเดือนเริ่มที่แนวหลังของ "ม" */
+function DocNumberAndDate({ data }: { data: ApprovalPdfData }) {
+  const thi = "ที่";
+  const wanThi = "วันที่";
+  const thiW = measureText(thi, FS_LABEL, true) + GAP;
+  const wanThiW = measureText(wanThi, FS_LABEL, true) + GAP;
+  const [day, ...rest] = (data.doc_date ? formatThaiDate(data.doc_date) : "").split(" ");
+  return (
+    <View style={[styles.row, { marginBottom: 2 }]}>
+      <Text style={[styles.bold, { fontSize: FS_LABEL, marginRight: GAP }]}>{t(thi)}</Text>
+      <Dotted style={{ width: X_KHO - thiW - GAP }}>
+        <Text>{t(docNumberText(data.doc_number)) || " "}</Text>
+      </Dotted>
+      <Text style={[styles.bold, { fontSize: FS_LABEL, marginLeft: GAP, marginRight: GAP }]}>{t(wanThi)}</Text>
+      <Dotted style={{ width: X_MO_END - X_KHO - wanThiW - GAP }}>
+        <Text style={{ textAlign: "center" }}>{day || " "}</Text>
+      </Dotted>
+      <Dotted style={{ flex: 1, marginLeft: GAP }}>
+        <Text>{rest.length ? t(rest.join(" ")) : " "}</Text>
+      </Dotted>
+    </View>
+  );
+}
+
 export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
   return (
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
       <Page size="A4" style={styles.page}>
-        <View style={{ height: 44, marginBottom: 2 }}>
+        {/* ตราครุฑสูง 1.5 ซม. ชิดซ้าย — ชื่อ "บันทึกข้อความ" ตัวหนา 29 พอยท์ ระยะบรรทัด 35 พอยท์ อยู่กลางพื้นที่พิมพ์ */}
+        <View style={{ height: GARUDA_H, marginBottom: 6 }}>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> ของ @react-pdf/renderer ไม่ใช่ <img> ของ HTML (ไม่มี prop alt) */}
-          <Image src={GARUDA} style={{ position: "absolute", left: 0, top: 0, width: 39, height: 44 }} />
-          <Text style={[styles.title, { paddingTop: 12 }]}>{t("บันทึกข้อความ")}</Text>
+          <Image src={GARUDA} style={{ position: "absolute", left: 0, top: 0, width: GARUDA_W, height: GARUDA_H }} />
+          <View style={{ position: "absolute", left: 0, right: 0, top: (GARUDA_H - TITLE_LINE) / 2 }}>
+            <Text style={{ fontSize: FS_TITLE, fontWeight: "bold", lineHeight: TITLE_LINE / FS_TITLE, textAlign: "center" }}>{t(TITLE)}</Text>
+          </View>
         </View>
 
-        <View style={[styles.row, { marginBottom: 6 }]}>
-          <Text style={[styles.bold, { marginRight: 8 }]}>{t("ส่วนราชการ")}</Text>
-          <Text>{t(governmentUnit(data))}</Text>
+        <View style={[styles.row, { marginBottom: 2 }]}>
+          <Text style={[styles.bold, { fontSize: FS_LABEL, marginRight: GAP }]}>{t("ส่วนราชการ")}</Text>
+          <Dotted style={{ flex: 1 }}>
+            <Text>{t(governmentUnit(data))}</Text>
+          </Dotted>
         </View>
 
-        <View style={[styles.row, { marginBottom: 6 }]}>
-          <Text style={[styles.bold, { marginRight: GAP }]}>{t("ที่")}</Text>
-          <Dotted style={{ width: 150 }}><Text>{t(docNumberText(data.doc_number)) || " "}</Text></Dotted>
-          <Text style={[styles.bold, { marginLeft: 8, marginRight: GAP }]}>{t("วันที่")}</Text>
-          <Dotted style={{ flex: 1 }}><Text>{t(data.doc_date ? formatThaiDate(data.doc_date) : "") || " "}</Text></Dotted>
+        <DocNumberAndDate data={data} />
+
+        <FieldRow prefix="เรื่อง" prefixBold prefixSize={FS_LABEL} value={subjectLine(data)} />
+        <View style={{ borderBottomWidth: 0.9, borderBottomColor: INK, marginTop: 2, marginBottom: 2 }} />
+
+        <View style={{ marginTop: 6 }}>
+          <PlainRow prefix="เรียน" value={data.addressed_to} />
         </View>
 
-        <FieldRow prefix="เรื่อง" prefixBold value={subjectLine(data)} />
-        <View style={{ borderBottomWidth: 0.9, borderBottomColor: INK, marginBottom: 6 }} />
-
-        <PlainRow prefix="เรียน" value={data.addressed_to} />
-
-        <FieldRow prefix="ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)" value={data.department ?? ""} suffix="จะดำเนินการจัดกิจกรรม" indent={28} />
-        <FieldRow prefix="(ชื่อกิจกรรม)" value={data.activity_name ?? ""} />
+        <FieldRow prefix="ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)" value={data.department ?? ""} indent={INDENT} />
+        <FieldRow prefix="จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)" value={data.activity_name ?? ""} />
         <FieldRow prefix="ตามโครงการ/งาน" value={data.project_name ?? ""} />
         <PlanDateAndAmount data={data} />
-        <View style={[styles.row, { paddingLeft: 28 }]}>
+        <View style={[styles.row, { paddingLeft: INDENT }]}>
           <Text>{t("จึงเรียนมาเพื่อโปรดพิจารณาอนุญาตและอนุมัติ")}</Text>
         </View>
 
-        <View style={{ alignSelf: "flex-end", width: 250, marginTop: 4, marginBottom: 6, alignItems: "center" }}>
-          <FieldRow prefix="(ลงชื่อ)" value="" suffix="ผู้รับผิดชอบโครงการ" valueWidth={110} />
+        {/* ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บอยู่กึ่งกลางใต้ลายมือชื่อ */}
+        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14, marginBottom: 8, alignItems: "center" }}>
+          <FieldRow prefix="(ลงชื่อ)" value="" suffix="ผู้รับผิดชอบโครงการ" valueWidth={90} />
           <Text>{t(data.requested_by_name ? `(${data.requested_by_name})` : "(                                    )")}</Text>
         </View>
 
-        <SummaryTable data={data} />
-        <OpinionBoxes data={data} />
+        <View wrap={false}>
+          <SummaryTable data={data} />
+        </View>
+
+        {/* กรอบความเห็น ๔ ช่อง ขึ้นหน้าใหม่เสมอ (ที่ตัวอักษร ๑๖ พอยท์ตามแบบ หน้า ๑ ไม่พอสำหรับทั้งสองส่วน) */}
+        <View break>
+          <Text style={{ fontSize: FS, fontWeight: "bold", marginBottom: 2 }}>{t("ความเห็นประกอบการพิจารณา")}</Text>
+          <Text style={{ marginBottom: 8 }}>
+            {t(`ประกอบบันทึกข้อความ ที่ ${docNumberText(data.doc_number)} ลงวันที่ ${data.doc_date ? formatThaiDate(data.doc_date) : ""}`)}
+          </Text>
+          <OpinionBoxes data={data} />
+        </View>
       </Page>
 
-      <Page size="A4" style={styles.page}>
+      {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) ใช้ขอบบน/ล่างแคบลงเพื่อให้ตาราง ๒๙ แถวพอดีหน้าเดียว */}
+      <Page size="A4" style={[styles.page, { paddingTop: 2 * CM, paddingBottom: 1.5 * CM }]}>
         <FieldRow prefix="รายการวัสดุ อุปกรณ์" prefixBold value={data.project_name ?? ""} />
         <FieldRow prefix="กิจกรรม" prefixBold value={data.activity_name ?? ""} />
         <ItemsTable data={data} />
