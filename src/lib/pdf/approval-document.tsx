@@ -318,6 +318,41 @@ function docNumberText(raw: string | null): string {
   return /^\d/.test(raw) ? `งป/${raw}` : raw;
 }
 
+/** "จะดำเนินการวันที่ … และขออนุมัติงบประมาณในครั้งนี้ จำนวนเงิน … บาท" ต่อกันในบรรทัดเดียว — ช่องวันที่ขยายตาม
+ * พื้นที่ที่เหลือ (ถ้าแคบเกินไปจริงๆ จะแยกส่วนจำนวนเงินลงบรรทัดใหม่แทน) */
+function PlanDateAndAmount({ data }: { data: ApprovalPdfData }) {
+  const lead = "จะดำเนินการวันที่";
+  const mid = "และขออนุมัติงบประมาณในครั้งนี้ จำนวนเงิน";
+  const tail = "บาท";
+  const amount = formatBaht(data.requested_amount);
+  const amountW = Math.max(56, measureText(amount, FS) + 12);
+  const fixed = [lead, mid, tail].reduce((sum, txt) => sum + measureText(txt, FS), 0) + GAP * 6;
+  const dateW = CONTENT_W - fixed - amountW;
+  // วันที่ที่ยาวที่สุดที่เป็นไปได้ (เช่น "30 กันยายน 2570") ต้องใส่ในช่องได้ ไม่งั้นแยกบรรทัด
+  const dateNeeded = Math.max(measureText(data.plan_date_text ?? "", FS), measureText("30 กันยายน 2570", FS)) + 8;
+  if (dateW < dateNeeded) {
+    return (
+      <>
+        <FieldRow prefix={lead} value={data.plan_date_text ?? ""} suffix="และขออนุมัติงบประมาณ" valueWidth={170} />
+        <FieldRow prefix="ในครั้งนี้ จำนวนเงิน" value={amount} suffix={tail} valueWidth={110} align="right" />
+      </>
+    );
+  }
+  return (
+    <View style={styles.row}>
+      <Text style={{ marginRight: GAP }}>{t(lead)}</Text>
+      <Dotted style={{ width: dateW }}>
+        <Text>{data.plan_date_text ? t(data.plan_date_text) : " "}</Text>
+      </Dotted>
+      <Text style={{ marginHorizontal: GAP }}>{t(mid)}</Text>
+      <Dotted style={{ width: amountW }}>
+        <Text style={{ textAlign: "right" }}>{amount}</Text>
+      </Dotted>
+      <Text style={{ marginLeft: GAP }}>{t(tail)}</Text>
+    </View>
+  );
+}
+
 export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
   return (
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
@@ -348,8 +383,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         <FieldRow prefix="ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)" value={data.department ?? ""} suffix="จะดำเนินการจัดกิจกรรม" indent={28} />
         <FieldRow prefix="(ชื่อกิจกรรม)" value={data.activity_name ?? ""} />
         <FieldRow prefix="ตามโครงการ/งาน" value={data.project_name ?? ""} />
-        <FieldRow prefix="จะดำเนินการวันที่" value={data.plan_date_text ?? ""} suffix="และขออนุมัติงบประมาณ" valueWidth={170} />
-        <FieldRow prefix="ในครั้งนี้ จำนวนเงิน" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={110} align="right" />
+        <PlanDateAndAmount data={data} />
         <View style={[styles.row, { paddingLeft: 28 }]}>
           <Text>{t("จึงเรียนมาเพื่อโปรดพิจารณาอนุญาตและอนุมัติ")}</Text>
         </View>
