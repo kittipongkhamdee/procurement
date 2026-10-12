@@ -344,12 +344,30 @@ function FitText({ text, width, size, minSize = 9.5, bold = false, align = "left
 
 /** จำนวนแถวรายการวัสดุต่อหน้า — เกินนี้ขึ้นหน้าถัดไปพร้อมหัวตารางซ้ำ (ผ่านการทดสอบว่าพอดีหน้าแม้หัวตารางยาว ๔ บรรทัด) */
 const ITEMS_PER_PAGE = 29;
+/** จำนวนแถวมากสุดของหน้าสุดท้าย — ต้องเหลือที่ให้บล็อกลงชื่อผู้ขออนุมัติท้ายตาราง */
+const ITEMS_LAST_PAGE = 24;
+/** รายการน้อยกว่านี้ให้เติมแถวว่างจนครบ (ไว้เขียนเพิ่มด้วยมือ) */
+const ITEMS_MIN_ROWS = 5;
+
+/** แบ่งรายการเป็นหน้า: หน้าละไม่เกิน ITEMS_PER_PAGE และหน้าสุดท้ายไม่เกิน ITEMS_LAST_PAGE (เหลือที่ให้ลายมือชื่อ) —
+ * ถ้าเกิน จะดึงแถวมาเหลือไว้หน้าสุดท้ายอย่างน้อย ๕ แถว ไม่ปล่อยให้หน้าสุดท้ายมีแต่ลายมือชื่อ */
+function paginateItems<T>(items: T[]): T[][] {
+  const pages: T[][] = [];
+  let rest = items;
+  while (rest.length > ITEMS_LAST_PAGE) {
+    const take = Math.min(ITEMS_PER_PAGE, rest.length - ITEMS_MIN_ROWS);
+    pages.push(rest.slice(0, take));
+    rest = rest.slice(take);
+  }
+  if (rest.length > 0 || pages.length === 0) pages.push(rest);
+  return pages;
+}
 const ITEM_ROW_H = 20.4;
 const ITEM_COLS = { qty: 54, price: 70, total: 70, note: 62 };
 
 function ItemsTable({ items }: { items: ApprovalPdfData["items"] }) {
-  // พิมพ์เฉพาะแถวที่ใช้จริง (ไม่เติมแถวว่าง)
-  const rowsCount = items.length;
+  // พิมพ์เฉพาะแถวที่ใช้จริง ยกเว้นน้อยกว่า ITEMS_MIN_ROWS รายการ ให้เติมแถวว่างจนครบ
+  const rowsCount = Math.max(ITEMS_MIN_ROWS, items.length);
   const nameW = CONTENT_W - ITEM_COLS.qty - ITEM_COLS.price - ITEM_COLS.total - ITEM_COLS.note;
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
   const row = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, height: ITEM_ROW_H };
@@ -473,8 +491,8 @@ function DocNumberAndDate({ data }: { data: ApprovalPdfData }) {
 }
 
 export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
-  const itemPages: ApprovalPdfData["items"][] = [];
-  for (let i = 0; i < data.items.length; i += ITEMS_PER_PAGE) itemPages.push(data.items.slice(i, i + ITEMS_PER_PAGE));
+  // ไม่มีรายการเลย = ไม่มีหน้ารายการวัสดุ
+  const itemPages = data.items.length > 0 ? paginateItems(data.items) : [];
   return (
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
       <Page size="A4" style={styles.page}>
@@ -527,8 +545,8 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         <OpinionBoxes data={data} />
       </Page>
 
-      {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) — พิมพ์เฉพาะแถวที่ใช้จริง ไม่มีรายการเลยก็ไม่มีหน้านี้
-          แถวเกิน ITEMS_PER_PAGE ต่อหน้าถัดไปพร้อมหัวข้อและหัวตารางซ้ำ */}
+      {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) — ไม่มีรายการเลย = ไม่มีหน้านี้, น้อยกว่า ๕ รายการเติมแถวว่างให้ครบ ๕,
+          แถวเกินต่อหน้าถัดไปพร้อมหัวข้อและหัวตารางซ้ำ, ท้ายตารางหน้าสุดท้ายมีลายมือชื่อผู้ขออนุมัติ */}
       {itemPages.map((pageItems, pi) => (
         <Page key={pi} size="A4" style={[styles.page, { paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }]}>
           <FieldRow prefix="รายการวัสดุ อุปกรณ์" prefixBold size={FS_P23} value={data.project_name ?? ""} />
@@ -537,6 +555,14 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
             <Text style={{ fontSize: FS_P23, textAlign: "right" }}>{t(`แผ่นที่ ${pi + 1}/${itemPages.length}`)}</Text>
           )}
           <ItemsTable items={pageItems} />
+          {pi === itemPages.length - 1 && (
+            <View wrap={false} style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14, alignItems: "center" }}>
+              <FieldRow prefix="(ลงชื่อ)" value="" suffix="ผู้ขออนุมัติ" size={FS_P23} valueWidth={90} />
+              <Text style={{ fontSize: FS_P23 }}>
+                {t(data.requested_by_name ? `(${data.requested_by_name})` : "(                                    )")}
+              </Text>
+            </View>
+          )}
         </Page>
       ))}
     </Document>
