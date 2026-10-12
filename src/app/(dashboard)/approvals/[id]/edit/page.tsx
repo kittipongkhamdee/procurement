@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ChevronLeftIcon } from "@/components/icons";
 import { updateApproval } from "../../actions";
 import { ApprovalForm, type ApprovalFormInitial } from "../../approval-form";
+import { loadUnitSuggestions } from "@/lib/unit-suggestions";
 
 export default async function EditApprovalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -40,6 +41,8 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   // ถ้าผู้อำนวยการ "ไม่อนุมัติ" ยังแก้ไขได้ (ตรงกับเงื่อนไขใน actions.ts:updateApproval)
   const editable = approval.status === "ไม่อนุมัติ" || (approval.status === "รออนุมัติ" && approval.deputy_decision === null);
   if (!editable) notFound();
+
+  const unitSuggestions = await loadUnitSuggestions(supabase);
 
   const budgetByProject = new Map<string, number>();
   (activities ?? []).forEach((a) => {
@@ -106,6 +109,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
         adminGroups={adminGroups ?? []}
         teachers={teachers ?? []}
         learningAreas={learningAreas ?? []}
+        unitSuggestions={unitSuggestions}
         initial={initial}
         submitLabel="บันทึกการแก้ไข"
       />

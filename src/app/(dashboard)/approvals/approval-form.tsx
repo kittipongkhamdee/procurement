@@ -99,6 +99,7 @@ export function ApprovalForm({
   adminGroups,
   teachers,
   learningAreas,
+  unitSuggestions = [],
   initial,
   submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
@@ -108,6 +109,8 @@ export function ApprovalForm({
   adminGroups: AdminGroupOption[];
   teachers: TeacherOption[];
   learningAreas: LearningAreaOption[];
+  /** คำแนะนำหน่วยนับ (ขึ้นช่วยกรอกในช่อง "หน่วยนับ" ของรายการวัสดุ) */
+  unitSuggestions?: string[];
   initial?: ApprovalFormInitial;
   submitLabel?: string;
 }) {
@@ -506,6 +509,11 @@ export function ApprovalForm({
 
       <section className="card">
         <h2 className="card-title">รายการวัสดุ อุปกรณ์ (หน้า 2 ของเอกสาร)</h2>
+        <datalist id="approval-unit-suggestions">
+          {unitSuggestions.map((u) => (
+            <option key={u} value={u} />
+          ))}
+        </datalist>
         <div className="overflow-x-auto rounded-md border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -531,7 +539,7 @@ export function ApprovalForm({
                       <input type="number" step="0.01" value={row.qty} onChange={(e) => updateItemRow(i, { qty: e.target.value })} className="input w-full text-center" />
                     </td>
                     <td className="px-2 py-1">
-                      <input value={row.unit} onChange={(e) => updateItemRow(i, { unit: e.target.value })} placeholder="เช่น ชิ้น" className="input w-full text-center" />
+                      <input value={row.unit} onChange={(e) => updateItemRow(i, { unit: e.target.value })} list="approval-unit-suggestions" placeholder="เช่น ชิ้น" autoComplete="off" className="input w-full text-center" />
                     </td>
                     <td className="px-2 py-1">
                       <input type="number" step="0.01" value={row.unitPrice} onChange={(e) => updateItemRow(i, { unitPrice: e.target.value })} className="input w-full text-center" />

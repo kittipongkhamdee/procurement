@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ChevronLeftIcon } from "@/components/icons";
 import { createApproval } from "../actions";
 import { ApprovalForm } from "../approval-form";
+import { loadUnitSuggestions } from "@/lib/unit-suggestions";
 
 export default async function NewApprovalPage() {
   const supabase = await createClient();
@@ -16,6 +17,8 @@ export default async function NewApprovalPage() {
       supabase.from("plan_teachers").select("id, name, is_active").order("sort_order").order("name"),
     supabase.from("plan_learning_areas").select("id, name").eq("is_active", true).order("sort_order").order("name"),
     ]);
+
+  const unitSuggestions = await loadUnitSuggestions(supabase);
 
   const budgetByProject = new Map<string, number>();
   (activities ?? []).forEach((a) => {
@@ -64,6 +67,7 @@ export default async function NewApprovalPage() {
         adminGroups={adminGroups ?? []}
         teachers={teachers ?? []}
         learningAreas={learningAreas ?? []}
+        unitSuggestions={unitSuggestions}
       />
     </div>
   );
