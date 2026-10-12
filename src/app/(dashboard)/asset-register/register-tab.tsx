@@ -985,10 +985,11 @@ export function RegisterTab({
         )}
       </div>
 
-      <div className="table-shell">
-        {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 9 คอลัมน์ที่เลื่อนดูยาก (แพทเทิร์น
-            เดียวกับ project-reports/summary-tab) */}
-        <div className="divide-y divide-slate-100 md:hidden">
+      {/* @container: สลับการ์ด/ตารางตามความกว้าง "พื้นที่เนื้อหา" จริง ตารางไม่มีแถบเลื่อนแนวนอน
+          ถ้าพื้นที่ไม่พอให้ใช้การ์ดแทน (แพทเทิร์นเดียวกับ summary-tab) */}
+      <div className="table-shell @container">
+        {/* พื้นที่แคบ: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 10 คอลัมน์ */}
+        <div className="divide-y divide-slate-100 @min-[64rem]:hidden">
           {pageRows.map((it) => {
             const sb = statusBadge(it.status);
             const cb = conditionBadge(it.condition_id, conditionLookup);
@@ -1053,15 +1054,15 @@ export function RegisterTab({
           {totalCount === 0 && <p className="table-empty">ไม่พบรายการที่ตรงกับตัวกรอง</p>}
         </div>
 
-        {/* จอกว้าง md ขึ้นไป: ตาราง */}
-        <table className="hidden table-base md:table">
+        {/* พื้นที่กว้างพอ: ตาราง (ลดระยะขอบเซลล์ ยอมให้ข้อความตัดบรรทัด จึงไม่ต้องเลื่อนแนวนอน) */}
+        <table className="hidden table-base w-full min-w-0 @min-[64rem]:table [&_td]:px-3 [&_th]:px-3">
           <thead>
             <tr>
               <th className="w-8"></th>
               <th className="whitespace-nowrap">รหัสครุภัณฑ์</th>
               <th>ชื่อทรัพย์สิน</th>
               <th>หมวดหมู่</th>
-              <th className="whitespace-nowrap">สถานที่</th>
+              <th>สถานที่</th>
               <th className="text-center">จำนวน</th>
               <th className="whitespace-nowrap text-right">ราคา (บาท)</th>
               <th className="text-center">สภาพ</th>
@@ -1086,7 +1087,7 @@ export function RegisterTab({
                   <td className="whitespace-nowrap">{it.asset_code ?? "-"}</td>
                   <td className="max-w-xs whitespace-normal break-words font-medium text-slate-900">{it.name}</td>
                   <td>{it.category_id ? (categoryName.get(it.category_id) ?? "-") : "-"}</td>
-                  <td className="whitespace-nowrap">
+                  <td>
                     {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
                   </td>
                   <td className="text-center tabular-nums">
@@ -1099,7 +1100,7 @@ export function RegisterTab({
                   <td className="text-center">
                     <span className={sb.cls}>{sb.label}</span>
                   </td>
-                  <td className="whitespace-nowrap text-right">
+                  <td className="w-44 text-right">
                     <div className="flex flex-wrap justify-end gap-2">
                       <a
                         href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}

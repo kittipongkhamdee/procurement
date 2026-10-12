@@ -221,9 +221,11 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
         </div>
       </div>
 
-      <div className="table-shell">
-        {/* มือถือ/จอแคบ: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 14 คอลัมน์ที่เลื่อนดูยาก */}
-        <div className="divide-y divide-slate-100 md:hidden">
+      {/* @container: สลับการ์ด/ตารางตามความกว้าง "พื้นที่เนื้อหา" จริง (ไม่ใช่ความกว้างหน้าจอ) เพราะแถบเมนูซ้ายกินที่ไม่เท่ากัน —
+          ตารางไม่มีแถบเลื่อนแนวนอน ถ้าพื้นที่ไม่พอให้ใช้การ์ดแทน */}
+      <div className="table-shell @container">
+        {/* พื้นที่แคบ: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 13 คอลัมน์ */}
+        <div className="divide-y divide-slate-100 @min-[66rem]:hidden">
           {pageRows.map(({ it, category, totals }, i) => {
             const cb = conditionBadge(it.condition_id, conditionLookup);
             return (
@@ -279,23 +281,23 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
 
         {/* จอกว้าง: ตาราง — ลดระยะขอบเซลล์/ขนาดตัวหนังสือลงเหลือ text-xs ทั้งตาราง (เท่ากันทุกคอลัมน์
             รวม badge สภาพ) เพราะมีถึง 13 คอลัมน์ ลดโอกาสล้นจอ/ต้องเลื่อนแนวนอนมากเกินไป */}
-        <div className="hidden overflow-x-auto md:block">
-          <table className="table-base text-xs">
+        <div className="hidden @min-[66rem]:block">
+          <table className="table-base w-full min-w-0 text-xs">
             <thead>
               <tr>
-                <th className="px-2 py-2 text-center">ลำดับ</th>
-                <th className="px-2 py-2">รายการ</th>
-                <th className="px-2 py-2">หมวดหมู่</th>
-                <th className="whitespace-nowrap px-2 py-2">หมายเลขครุภัณฑ์</th>
-                <th className="whitespace-nowrap px-2 py-2 text-center">จำนวน/หน่วย</th>
-                <th className="whitespace-nowrap px-2 py-2">ที่ตั้ง</th>
-                <th className="px-2 py-2 text-center">สภาพ</th>
-                <th className="whitespace-nowrap px-2 py-2 text-center">ปีที่ได้มา</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">ราคาทุน (บาท)</th>
-                <th className="whitespace-nowrap px-2 py-2 text-center">อายุใช้งาน (ปี)</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">ค่าเสื่อม/ปี (บาท)</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">ค่าเสื่อมสะสม (บาท)</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">มูลค่าสุทธิ (บาท)</th>
+                <th className="px-1.5 py-2 text-center">ลำดับ</th>
+                <th className="px-1.5 py-2">รายการ</th>
+                <th className="px-1.5 py-2">หมวดหมู่</th>
+                <th className="px-1.5 py-2">หมายเลขครุภัณฑ์</th>
+                <th className="px-1.5 py-2 text-center">จำนวน/หน่วย</th>
+                <th className="px-1.5 py-2">ที่ตั้ง</th>
+                <th className="px-1.5 py-2 text-center">สภาพ</th>
+                <th className="px-1.5 py-2 text-center">ปีที่ได้มา</th>
+                <th className="px-1.5 py-2 text-right">ราคาทุน (บาท)</th>
+                <th className="px-1.5 py-2 text-center">อายุใช้งาน (ปี)</th>
+                <th className="px-1.5 py-2 text-right">ค่าเสื่อม/ปี (บาท)</th>
+                <th className="px-1.5 py-2 text-right">ค่าเสื่อมสะสม (บาท)</th>
+                <th className="px-1.5 py-2 text-right">มูลค่าสุทธิ (บาท)</th>
               </tr>
             </thead>
             <tbody>
@@ -303,29 +305,29 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
                 const cb = conditionBadge(it.condition_id, conditionLookup);
                 return (
                   <tr key={it.id}>
-                    <td className="px-2 py-2 text-center tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
-                    <td className="max-w-[14rem] whitespace-normal break-words px-2 py-2 font-medium text-slate-900">
+                    <td className="px-1.5 py-2 text-center tabular-nums">{(currentPage - 1) * pageSize + i + 1}</td>
+                    <td className="max-w-[14rem] whitespace-normal break-words px-1.5 py-2 font-medium text-slate-900">
                       {it.name}
                     </td>
-                    <td className="px-2 py-2">{category?.name ?? "-"}</td>
-                    <td className="whitespace-nowrap px-2 py-2">{it.asset_code ?? "ยังไม่ติดป้าย"}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-center tabular-nums">
+                    <td className="px-1.5 py-2">{category?.name ?? "-"}</td>
+                    <td className="whitespace-nowrap px-1.5 py-2">{it.asset_code ?? "ยังไม่ติดป้าย"}</td>
+                    <td className="whitespace-nowrap px-1.5 py-2 text-center tabular-nums">
                       {it.quantity} {it.unit ?? ""}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2">
+                    <td className="px-1.5 py-2">
                       {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-1.5 py-2 text-center">
                       <span className={cb.cls}>{cb.label}</span>
                     </td>
-                    <td className="px-2 py-2 text-center tabular-nums">{it.acquired_year ?? "-"}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{formatBaht(it.price)}</td>
-                    <td className="px-2 py-2 text-center tabular-nums">{category?.useful_life_years ?? "-"}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{formatBaht(totals.annual)}</td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                    <td className="px-1.5 py-2 text-center tabular-nums">{it.acquired_year ?? "-"}</td>
+                    <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">{formatBaht(it.price)}</td>
+                    <td className="px-1.5 py-2 text-center tabular-nums">{category?.useful_life_years ?? "-"}</td>
+                    <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">{formatBaht(totals.annual)}</td>
+                    <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">
                       {formatBaht(totals.cumulative)}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{formatBaht(totals.net)}</td>
+                    <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">{formatBaht(totals.net)}</td>
                   </tr>
                 );
               })}
@@ -340,20 +342,20 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
             {rowsWithTotals.length > 0 && (
               <tfoot>
                 <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-900">
-                  <td colSpan={8} className="whitespace-nowrap px-2 py-2">
+                  <td colSpan={8} className="whitespace-nowrap px-1.5 py-2">
                     รวม {rowsWithTotals.length.toLocaleString("th-TH")} รายการ
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                  <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">
                     {formatBaht(grandTotals.price)}
                   </td>
-                  <td className="px-2 py-2"></td>
-                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                  <td className="px-1.5 py-2"></td>
+                  <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">
                     {formatBaht(grandTotals.annual)}
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                  <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">
                     {formatBaht(grandTotals.cumulative)}
                   </td>
-                  <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">
+                  <td className="whitespace-nowrap px-1.5 py-2 text-right tabular-nums">
                     {formatBaht(grandTotals.net)}
                   </td>
                 </tr>
