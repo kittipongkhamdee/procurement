@@ -217,10 +217,10 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
   const rows = SUMMARY_DEFAULT_LABELS.map((label, i) => data.summary_items[i] ?? { label, amount: null, note: null });
   const total = data.summary_items.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
-  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 15 };
+  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 17 };
   const hd = [styles.bold, { textAlign: "center" as const }];
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 2, fontSize: FS_TABLE }}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 2, fontSize: FS_TABLE, lineHeight: 1.05 }}>
       <View style={rowStyle}>
         <View style={[cell, { width: SUMMARY_COLS.no }]}><Text style={hd}>{t("ที่")}</Text></View>
         <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
