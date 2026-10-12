@@ -342,12 +342,14 @@ function FitText({ text, width, size, minSize = 9.5, bold = false, align = "left
   return <Text style={[bold ? styles.bold : {}, { fontSize: fs, textAlign: align }]}>{text ? t(text) : ""}</Text>;
 }
 
-const ITEM_ROWS = 29;
+/** จำนวนแถวรายการวัสดุต่อหน้า — เกินนี้ขึ้นหน้าถัดไปพร้อมหัวตารางซ้ำ (ผ่านการทดสอบว่าพอดีหน้าแม้หัวตารางยาว ๔ บรรทัด) */
+const ITEMS_PER_PAGE = 29;
 const ITEM_ROW_H = 20.4;
 const ITEM_COLS = { qty: 54, price: 70, total: 70, note: 62 };
 
-function ItemsTable({ data }: { data: ApprovalPdfData }) {
-  const rowsCount = Math.max(ITEM_ROWS, data.items.length);
+function ItemsTable({ items }: { items: ApprovalPdfData["items"] }) {
+  // พิมพ์เฉพาะแถวที่ใช้จริง (ไม่เติมแถวว่าง)
+  const rowsCount = items.length;
   const nameW = CONTENT_W - ITEM_COLS.qty - ITEM_COLS.price - ITEM_COLS.total - ITEM_COLS.note;
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
   const row = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, height: ITEM_ROW_H };
@@ -366,7 +368,7 @@ function ItemsTable({ data }: { data: ApprovalPdfData }) {
         <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><Text style={hd}>{t("หมายเหตุ")}</Text></View>
       </View>
       {Array.from({ length: rowsCount }).map((_, i) => {
-        const item = data.items[i];
+        const item = items[i];
         const last = i === rowsCount - 1;
         return (
           <View key={i} style={[row, last ? { borderBottomWidth: 0 } : {}]}>
@@ -471,6 +473,8 @@ function DocNumberAndDate({ data }: { data: ApprovalPdfData }) {
 }
 
 export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
+  const itemPages: ApprovalPdfData["items"][] = [];
+  for (let i = 0; i < data.items.length; i += ITEMS_PER_PAGE) itemPages.push(data.items.slice(i, i + ITEMS_PER_PAGE));
   return (
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
       <Page size="A4" style={styles.page}>
@@ -523,12 +527,18 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         <OpinionBoxes data={data} />
       </Page>
 
-      {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) ใช้ขอบบน/ล่างแคบลงเพื่อให้ตาราง ๒๙ แถวพอดีหน้าเดียว */}
-      <Page size="A4" style={[styles.page, { paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }]}>
-        <FieldRow prefix="รายการวัสดุ อุปกรณ์" prefixBold size={FS_P23} value={data.project_name ?? ""} />
-        <FieldRow prefix="กิจกรรม" prefixBold size={FS_P23} value={data.activity_name ?? ""} />
-        <ItemsTable data={data} />
-      </Page>
+      {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) — พิมพ์เฉพาะแถวที่ใช้จริง ไม่มีรายการเลยก็ไม่มีหน้านี้
+          แถวเกิน ITEMS_PER_PAGE ต่อหน้าถัดไปพร้อมหัวข้อและหัวตารางซ้ำ */}
+      {itemPages.map((pageItems, pi) => (
+        <Page key={pi} size="A4" style={[styles.page, { paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM }]}>
+          <FieldRow prefix="รายการวัสดุ อุปกรณ์" prefixBold size={FS_P23} value={data.project_name ?? ""} />
+          <FieldRow prefix="กิจกรรม" prefixBold size={FS_P23} value={data.activity_name ?? ""} />
+          {itemPages.length > 1 && (
+            <Text style={{ fontSize: FS_P23, textAlign: "right" }}>{t(`แผ่นที่ ${pi + 1}/${itemPages.length}`)}</Text>
+          )}
+          <ItemsTable items={pageItems} />
+        </Page>
+      ))}
     </Document>
   );
 }

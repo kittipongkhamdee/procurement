@@ -19,9 +19,10 @@ function learningAreaKeyword(name: string) {
 // โครงการที่ใช้ร่วมกันทุกกลุ่มสาระ (เช่น "โครงการยกระดับผลสัมฤทธิ์ทางการเรียน 8 กลุ่มสาระและ O-Net")
 const ALL_AREAS_PATTERN = /8\s*กลุ่มสาระ/;
 
-// จำนวนแถวสูงสุดที่เทมเพลต PDF หน้า 2 รองรับ (ดู itemRowsY ใน src/lib/pdf-overlay/render-approval-pdf.ts
-// — แถวเกินจำนวนนี้จะถูกตัดทิ้งไม่พิมพ์ลง PDF)
-const MAX_ITEM_ROWS = 29;
+// PDF แบบเดิม (เขียนทับเทมเพลต) รองรับ 29 แถว (ดู itemRowsY ใน src/lib/pdf-overlay/render-approval-pdf.ts — แถวเกินจะถูกตัดทิ้ง)
+// PDF แบบใหม่ (วาดใหม่ทั้งหมด) พิมพ์ต่อหน้าถัดไปได้ จึงอนุญาตเกิน 29 แถวได้ถึง MAX_ITEM_ROWS
+const TEMPLATE_ITEM_ROWS = 29;
+const MAX_ITEM_ROWS = 100;
 type ItemRow = { name: string; qty: string; unitPrice: string; note: string };
 const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unitPrice: "", note: "" };
 
@@ -569,6 +570,12 @@ export function ApprovalForm({
         >
           + เพิ่มรายการ
         </button>
+        {itemRows.length > TEMPLATE_ITEM_ROWS && (
+          <p className="mt-2 text-xs text-amber-700">
+            เกิน {TEMPLATE_ITEM_ROWS} รายการ — PDF แบบเดิมพิมพ์ได้แค่ {TEMPLATE_ITEM_ROWS} รายการแรก ใช้ปุ่ม &quot;PDF แบบใหม่ (ทดลอง)&quot;
+            เพื่อพิมพ์ครบทุกรายการ (ต่อหน้าถัดไปให้อัตโนมัติ)
+          </p>
+        )}
       </section>
 
       <div className="flex justify-end gap-3">
