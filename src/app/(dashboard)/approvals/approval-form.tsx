@@ -26,10 +26,29 @@ const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unit: "", unitPrice: "", no
 
 const SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
 
+// แถวสุดท้าย "อื่นๆ (ระบุ)" ให้กรอกข้อความระบุเองได้ — ใน state เก็บเฉพาะข้อความที่พิมพ์ (label ของแถวนี้) แล้วค่อยประกอบเป็น
+// "อื่นๆ (ข้อความ)" ตอนบันทึก ถ้าเว้นว่างจะเก็บเป็น "อื่นๆ (ระบุ)" เหมือนเดิม
+const OTHER_INDEX = SUMMARY_LABELS.length - 1;
+const OTHER_DEFAULT_LABEL = SUMMARY_LABELS[OTHER_INDEX];
+
 type SummaryRow = { label: string; amount: string; note: string };
 
 function emptySummaryRows(): SummaryRow[] {
-  return SUMMARY_LABELS.map((label) => ({ label, amount: "", note: "" }));
+  return SUMMARY_LABELS.map((label, i) => ({ label: i === OTHER_INDEX ? "" : label, amount: "", note: "" }));
+}
+
+function otherLabelText(saved: string | undefined): string {
+  const match = saved?.match(/^อื่นๆ\s*\((.*)\)\s*$/);
+  const text = match ? match[1].trim() : "";
+  return text === "ระบุ" ? "" : text;
+}
+
+function buildSummaryPayload(rows: SummaryRow[]): SummaryRow[] {
+  return rows.map((row, i) => {
+    if (i !== OTHER_INDEX) return row;
+    const text = row.label.trim();
+    return { ...row, label: text ? `อื่นๆ (${text})` : OTHER_DEFAULT_LABEL };
+  });
 }
 
 function emptyItemRows(): ItemRow[] {
@@ -72,7 +91,11 @@ function initialSummaryRows(initial?: ApprovalFormInitial): SummaryRow[] {
   if (!initial) return emptySummaryRows();
   return SUMMARY_LABELS.map((label, i) => {
     const row = initial.summary_items[i];
-    return { label, amount: row?.amount != null ? String(row.amount) : "", note: row?.note ?? "" };
+    return {
+      label: i === OTHER_INDEX ? otherLabelText(row?.label) : label,
+      amount: row?.amount != null ? String(row.amount) : "",
+      note: row?.note ?? "",
+    };
   });
 }
 
@@ -273,7 +296,7 @@ export function ApprovalForm({
       await toastError("กรุณากรอกรายการเงินที่ขออนุมัติอย่างน้อย 1 รายการ และยอดรวมต้องมากกว่า 0");
       return;
     }
-    formData.set("summary_items_json", JSON.stringify(summaryRows));
+    formData.set("summary_items_json", JSON.stringify(buildSummaryPayload(summaryRows)));
     formData.set("items_json", JSON.stringify(itemRows));
     formData.set("budget", selected ? String(selected.budget) : "");
     formData.set("requested_amount", String(requestedAmount));
@@ -498,7 +521,24 @@ export function ApprovalForm({
               {summaryRows.map((row, i) => (
                 <tr key={i}>
                   <td className="px-2 py-1 text-center text-slate-400">{i + 1}</td>
-                  <td className="px-2 py-1 text-slate-700">{row.label}</td>
+                  <td className="px-2 py-1 text-slate-700">
+                    {i === OTHER_INDEX ? (
+                      <div className="flex items-center gap-1">
+                        <span className="shrink-0">อื่นๆ (</span>
+                        <input
+                          value={row.label}
+                          onChange={(e) => updateSummaryRow(i, { label: e.target.value })}
+                          placeholder="ระบุรายการ"
+                          maxLength={80}
+                          aria-label="ระบุรายการอื่นๆ"
+                          className="input min-w-0 flex-1"
+                        />
+                        <span className="shrink-0">)</span>
+                      </div>
+                    ) : (
+                      row.label
+                    )}
+                  </td>
                   <td className="px-2 py-1">
                     <input
                       type="number"
