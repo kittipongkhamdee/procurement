@@ -31,6 +31,7 @@ export type ApprovalPdfData = {
 
   school_name: string;
   school_logo_url: string | null;
+  school_address: string | null;
 
   group_name: string | null;
   budget_year_text: string | null;

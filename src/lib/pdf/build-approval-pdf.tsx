@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { formatThaiDate } from "@/lib/thai";
+import { renderToBuffer } from "@react-pdf/renderer";
+import { ApprovalDocument } from "./approval-document";
 import { renderApprovalPdfBuffer as renderOverlayPdfBuffer } from "@/lib/pdf-overlay/render-approval-pdf";
 import type { ApprovalPdfData } from "@/lib/pdf-overlay/approval-types";
 
@@ -38,7 +40,7 @@ export async function buildApprovalPdfData(
   const [{ data: items }, { data: signerSettings }, { data: schoolSettings }, { data: budgetSource }] = await Promise.all([
     supabase.from("proc_approval_items").select("seq, name, qty, unit_price, total, note").eq("approval_id", id).order("seq"),
     supabase.from("proc_app_settings").select("key, value").in("key", SIGNER_KEYS),
-    supabase.from("proc_school_settings").select("school_name, logo_url").eq("id", true).maybeSingle(),
+    supabase.from("proc_school_settings").select("school_name, logo_url, school_address").eq("id", true).maybeSingle(),
     project?.budget_source_id
       ? supabase.from("plan_budget_sources").select("name").eq("id", project.budget_source_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -80,6 +82,7 @@ export async function buildApprovalPdfData(
 
     school_name: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
     school_logo_url: schoolSettings?.logo_url ?? null,
+    school_address: schoolSettings?.school_address ?? null,
 
     group_name: approval.group_name,
     budget_year_text: approval.budget_year_text,
@@ -98,4 +101,9 @@ export async function buildApprovalPdfData(
 
 export async function renderApprovalPdfBuffer(supabase: SupabaseClient<Database>, data: ApprovalPdfData): Promise<Buffer> {
   return renderOverlayPdfBuffer(supabase, data);
+}
+
+/** เวอร์ชันวาดเอกสารใหม่ทั้งหมดด้วย react-pdf (ทดลอง ยังไม่แทนที่ตัวเทมเพลตเดิม) */
+export async function renderApprovalDocumentPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
+  return renderToBuffer(<ApprovalDocument data={data} />);
 }

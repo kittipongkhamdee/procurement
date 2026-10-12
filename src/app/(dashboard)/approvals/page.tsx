@@ -552,6 +552,11 @@ export default function ApprovalsPage() {
                     >
                       PDF
                     </a>
+                    {isAdmin && (
+                      <a href={`/approvals/${a.id}/pdf?engine=new`} target="_blank" className="btn-secondary btn-sm">
+                        PDF แบบใหม่ (ทดลอง)
+                      </a>
+                    )}
                     {isOwnerOrAdmin &&
                       (editableState ? (
                         <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
@@ -639,6 +644,11 @@ export default function ApprovalsPage() {
                         >
                           PDF
                         </a>
+                        {isAdmin && (
+                          <a href={`/approvals/${a.id}/pdf?engine=new`} target="_blank" className="btn-secondary btn-sm">
+                            PDF แบบใหม่ (ทดลอง)
+                          </a>
+                        )}
                         {isOwnerOrAdmin &&
                           (editableState ? (
                             <a href={`/approvals/${a.id}/edit`} className="btn-secondary btn-sm">
