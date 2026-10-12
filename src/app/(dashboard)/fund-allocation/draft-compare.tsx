@@ -222,6 +222,9 @@ export function DraftCompare({
   // เลือกคอลัมน์ที่แสดง (มีผลทั้งบนหน้าจอ ตอนพิมพ์ และตอนส่งออก Excel) — ปีนี้แสดงเสมอ
   const [showPrev, setShowPrev] = useState(true);
   const [showDiff, setShowDiff] = useState(true);
+  // ช่องกรอกงบอินไลน์ปิดไว้เป็นค่าเริ่มต้น (กันกรอก/พิมพ์โดนโดยไม่ตั้งใจ) — แอดมินกดปุ่ม "เปิดแก้ไขงบ" ก่อนถึงจะกรอกได้
+  const [budgetEditing, setBudgetEditing] = useState(false);
+  const canEditBudgets = canEditDraft && budgetEditing;
   const { schoolName } = useSchoolSettings();
 
   const [search, setSearch] = useState("");
@@ -1028,6 +1031,14 @@ export function DraftCompare({
         </div>
         {canEditDraft && (
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setBudgetEditing((v) => !v)}
+              aria-pressed={budgetEditing}
+              className={budgetEditing ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+            >
+              {budgetEditing ? "ปิดการแก้ไขงบ" : "เปิดแก้ไขงบ"}
+            </button>
             {pendingPairs.length > 0 && (
               <button
                 type="button"
@@ -1131,7 +1142,7 @@ export function DraftCompare({
                                 <span className="break-words">{l.name}</span>
                                 <span className="ml-1 tabular-nums text-slate-500">
                                   {showPrev && <>{l.prev === null ? "—" : formatBaht(l.prev)} → </>}
-                                  {l.next !== null && l.draftActivityId && canEditDraft && !d.editingByName ? (
+                                  {l.next !== null && l.draftActivityId && canEditBudgets && !d.editingByName ? (
                                     <span className="ml-1 inline-block align-middle">
                                       <BudgetInput
                                         value={l.next}
@@ -1229,7 +1240,7 @@ export function DraftCompare({
                               </td>
                             )}
                             <td className="whitespace-nowrap text-right tabular-nums font-semibold text-slate-900">
-                              {canEditDraft && d.activities.length === 0 && !d.editingByName ? (
+                              {canEditBudgets && d.activities.length === 0 && !d.editingByName ? (
                                 <BudgetInput
                                   value={d.budget}
                                   onSave={(amount) => saveProjectBudgetInline(d.id, amount)}
@@ -1264,7 +1275,7 @@ export function DraftCompare({
                                 </td>
                               )}
                               <td className="whitespace-nowrap text-right tabular-nums text-slate-700">
-                                {l.next !== null && l.draftActivityId && canEditDraft && !d.editingByName ? (
+                                {l.next !== null && l.draftActivityId && canEditBudgets && !d.editingByName ? (
                                   <BudgetInput
                                     value={l.next}
                                     onSave={(amount) => saveActivityInline(d.id, l.draftActivityId as string, amount)}
