@@ -224,6 +224,7 @@ export function ProposalDetailModal({
       trigger={trigger ?? "ดูรายละเอียด"}
       triggerClassName={triggerClassName ?? "btn-secondary btn-sm"}
       defaultOpen={defaultOpen}
+      wide
     >
       <div className="grid grid-cols-1 gap-4 text-left">
         <div className="flex flex-wrap items-center gap-2 text-sm">
