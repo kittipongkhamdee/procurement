@@ -357,9 +357,9 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
   return (
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
       <Page size="A4" style={styles.page}>
-        <View style={{ height: 42, marginBottom: 2 }}>
+        <View style={{ height: 44, marginBottom: 2 }}>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> ของ @react-pdf/renderer ไม่ใช่ <img> ของ HTML (ไม่มี prop alt) */}
-          <Image src={GARUDA} style={{ position: "absolute", left: 0, top: 0, width: 42, height: 42 }} />
+          <Image src={GARUDA} style={{ position: "absolute", left: 0, top: 0, width: 39, height: 44 }} />
           <Text style={[styles.title, { paddingTop: 12 }]}>{t("บันทึกข้อความ")}</Text>
         </View>
 
