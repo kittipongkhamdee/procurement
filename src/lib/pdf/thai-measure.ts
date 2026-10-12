@@ -9,7 +9,7 @@ type MeasuringFont = { unitsPerEm: number; layout(text: string): { advanceWidth:
 
 const cache = new Map<string, MeasuringFont>();
 
-function load(file: "Sarabun-Regular.ttf" | "Sarabun-Bold.ttf"): MeasuringFont {
+function load(file: string): MeasuringFont {
   let font = cache.get(file);
   if (!font) {
     const buf = fs.readFileSync(path.join(process.cwd(), "src/lib/pdf/fonts", file));
@@ -19,17 +19,26 @@ function load(file: "Sarabun-Regular.ttf" | "Sarabun-Bold.ttf"): MeasuringFont {
   return font;
 }
 
-/** ความกว้างของข้อความ (หน่วย pt) ที่ขนาดฟอนต์ size */
-export function measureText(text: string, size: number, bold = false): number {
+export type MeasureFamily = "Sarabun" | "THSarabunNew";
+
+/** ความกว้างของข้อความ (หน่วย pt) ที่ขนาดฟอนต์ size — family เริ่มต้น Sarabun */
+export function measureText(text: string, size: number, bold = false, family: MeasureFamily = "Sarabun"): number {
   if (!text) return 0;
-  const font = load(bold ? "Sarabun-Bold.ttf" : "Sarabun-Regular.ttf");
+  const font = load(`${family}-${bold ? "Bold" : "Regular"}.ttf`);
   return (font.layout(text).advanceWidth * size) / font.unitsPerEm;
 }
 
 /** ตัดข้อความขึ้นบรรทัดใหม่ที่ขอบเขต "คำ" จริง (Intl.Segmenter มีพจนานุกรมภาษาไทยในตัว) ให้แต่ละบรรทัดกว้าง
  * ไม่เกินความกว้างที่กำหนด — บรรทัดแรกกว้างได้ firstWidth ส่วนบรรทัดถัดไปกว้างได้ restWidth คำเดียวที่ยาวเกิน
  * ทั้งบรรทัดจะตัดระดับตัวอักษรเป็นทางเลือกสุดท้าย (ไม่มีการทิ้งข้อความ) */
-export function wrapByWidth(text: string, size: number, firstWidth: number, restWidth: number, bold = false): string[] {
+export function wrapByWidth(
+  text: string,
+  size: number,
+  firstWidth: number,
+  restWidth: number,
+  bold = false,
+  family: MeasureFamily = "Sarabun",
+): string[] {
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) return [""];
   const segments = [...new Intl.Segmenter("th", { granularity: "word" }).segment(clean)].map((s) => s.segment);
@@ -40,7 +49,7 @@ export function wrapByWidth(text: string, size: number, firstWidth: number, rest
   for (let seg of segments) {
     while (seg) {
       const candidate = current + seg;
-      if (measureText(candidate.trimEnd(), size, bold) <= limit()) {
+      if (measureText(candidate.trimEnd(), size, bold, family) <= limit()) {
         current = candidate;
         seg = "";
       } else if (current.trim() !== "") {
@@ -50,7 +59,7 @@ export function wrapByWidth(text: string, size: number, firstWidth: number, rest
       } else {
         // คำเดียวยาวเกินทั้งบรรทัด — ตัดระดับตัวอักษร
         let cut = seg.length;
-        while (cut > 1 && measureText(seg.slice(0, cut), size, bold) > limit()) cut -= 1;
+        while (cut > 1 && measureText(seg.slice(0, cut), size, bold, family) > limit()) cut -= 1;
         lines.push(seg.slice(0, cut));
         seg = seg.slice(cut);
       }

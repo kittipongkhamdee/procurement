@@ -1,9 +1,9 @@
 import path from "node:path";
-import { Document, Image, Line, Page, Path, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
+import { Document, Font, Image, Line, Page, Path, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, THAI_MONTHS } from "@/lib/thai";
 import type { ApprovalPdfData } from "@/lib/pdf-overlay/approval-types";
 import { registerSarabunFont, t } from "./thai-pdf";
-import { measureText, wrapByWidth } from "./thai-measure";
+import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
 
 // เอกสารบันทึกข้อความขออนุมัติที่วาดขึ้นใหม่ทั้งหมดด้วย react-pdf (ไม่ใช้เทมเพลต PDF เดิมซ้อนทับ) — ใช้ข้อมูลชุดเดียวกับ
 // ApprovalPdfData เหมือนตัวเดิม
@@ -17,10 +17,25 @@ import { measureText, wrapByWidth } from "./thai-measure";
 //   - "วันที่" ตรงกับตัวอักษร "ข" ของ "บันทึกข้อความ" และตัวแรกของชื่อเดือนตรงกับแนวหลังของ "ม"
 //   - คำขึ้นต้นห่างจากเรื่อง ๑ บรรทัด + ๖ พอยท์; ย่อหน้าข้อความ ๒.๕ ซม.
 //   - ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บและตำแหน่งอยู่กึ่งกลางซึ่งกันและกัน
-// ส่วนตารางรายการเงินและกรอบความเห็น ๔ ช่อง (ไม่มีกำหนดในแบบ) ใช้ตัวอักษร ๑๔ พอยท์ให้พอดีหน้าเดียว
-// ฟอนต์ใช้ Sarabun ที่มีในระบบ (ความกว้างตัวอักษรเท่ากับ TH Sarabun PSK ตามที่ตรวจสอบ) ไม่ใช่ไฟล์ TH Sarabun PSK ตัวจริง
+// ตารางรายการเงิน กรอบความเห็น ๔ ช่อง และตารางรายการวัสดุ (ไม่มีกำหนดในแบบ) ใช้ตัวอักษร ๑๖ พอยท์เท่าเนื้อหา
+// (กรอบความเห็นอยู่หน้า ๒ เพราะหน้า ๑ ไม่พอ; รายการวัสดุอยู่หน้า ๓)
+// ฟอนต์: TH Sarabun New (ดูด้านล่าง)
 
 registerSarabunFont();
+
+// ฟอนต์ TH Sarabun New (ออกแบบโดย คุณศุภกิจ เฉลิมลาภ, ลิขสิทธิ์ SIPA) — ฟอนต์สารบรรณตามที่ระเบียบกำหนด (ตระกูลเดียวกับ TH Sarabun PSK)
+// ไฟล์ต้นฉบับจากชุดดาวน์โหลดของ f0nt.com (SIPA) ใช้เฉพาะเอกสารนี้ เอกสารอื่นยังใช้ Sarabun เดิม
+const FAMILY = "THSarabunNew";
+Font.register({
+  family: FAMILY,
+  fonts: [
+    { src: path.join(process.cwd(), "src/lib/pdf/fonts/THSarabunNew-Regular.ttf"), fontWeight: "normal" },
+    { src: path.join(process.cwd(), "src/lib/pdf/fonts/THSarabunNew-Bold.ttf"), fontWeight: "bold" },
+  ],
+});
+const measureText = (text: string, size: number, bold = false) => measureWith(text, size, bold, FAMILY);
+const wrapByWidth = (text: string, size: number, first: number, rest: number, bold = false) =>
+  wrapWith(text, size, first, rest, bold, FAMILY);
 
 const PAGE_W = 595.28;
 const CM = 28.3465; // 1 ซม. เป็นพอยท์
@@ -33,8 +48,8 @@ const FS = 16; // ตัวอักษรเนื้อหา
 const FS_LABEL = 20; // "ส่วนราชการ ที่ วันที่ เรื่อง"
 const FS_TITLE = 29; // "บันทึกข้อความ"
 const TITLE_LINE = 35; // ระยะบรรทัดแน่นอนของ "บันทึกข้อความ"
-const FS_TABLE = 14; // ตารางรายการ
-const FS_BOX = 12.5; // กรอบความเห็น ๔ ช่อง (ช่องแคบ ต้องเล็กกว่าเล็กน้อยเพื่อให้ข้อความไม่ล้นกรอบ)
+const FS_TABLE = 16; // ตารางรายการ
+const FS_BOX = 16; // กรอบความเห็น ๔ ช่อง
 const GARUDA_H = 1.5 * CM;
 const GARUDA_W = (GARUDA_H * 659) / 738;
 const INDENT = 2.5 * CM; // ย่อหน้า
@@ -42,12 +57,12 @@ const INK = "#000000";
 const GARUDA = path.join(process.cwd(), "src/lib/pdf/assets/garuda-emblem.png");
 
 const styles = StyleSheet.create({
-  page: { fontFamily: "Sarabun", fontSize: FS, lineHeight: 1.25, color: INK, paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
-  row: { flexDirection: "row", marginBottom: 2 },
+  page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.3, color: INK, paddingTop: PAD_TOP, paddingBottom: PAD_BOTTOM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
+  row: { flexDirection: "row", marginBottom: 3 },
   bold: { fontWeight: "bold" },
   // กรอบของช่องที่มีเส้นจุดไข่ปลาอยู่ใต้ค่า — เส้นจุดวาดด้วย <DotLeader /> (ไม่ใช้ borderBottomStyle: "dotted" เพราะ
   // react-pdf วาดเป็นเส้นทึบใต้ตัวหนังสือที่อยู่เหนือมัน)
-  dotted: { position: "relative", paddingBottom: 1.5, overflow: "hidden" },
+  dotted: { position: "relative", paddingBottom: 1, overflow: "hidden", lineHeight: 1.05 },
 });
 
 /** เส้นจุดไข่ปลาใต้ช่อง — ใส่เป็นลูกตัวสุดท้ายของ View ที่ใช้ style dotted */
@@ -89,6 +104,8 @@ type FieldRowProps = {
 };
 
 const GAP = 4;
+/** เผื่อความกว้างตอนตัดบรรทัดเอง — react-pdf วัดข้อความ (รวมช่องว่างท้าย) กว้างกว่าที่เราวัดเล็กน้อย ถ้าไม่เผื่อจะตัดซ้ำเอง */
+const WRAP_SLACK = 10;
 
 /** แถว "ป้ายหน้า + ค่าบนเส้นจุดไข่ปลา + ป้ายท้าย" — ค่ายาวตัดขึ้นบรรทัดใหม่ล่วงหน้าตามความกว้างจริงของฟอนต์
  * โดยแต่ละบรรทัดมีเส้นจุดไข่ปลาของตัวเอง เหมือนฟอร์มกระดาษ */
@@ -125,8 +142,8 @@ function FieldRow({
     );
   }
 
-  const first = width - indent - prefixW - suffixW;
-  const rest = width - suffixW;
+  const first = width - indent - prefixW - suffixW - WRAP_SLACK;
+  const rest = width - suffixW - WRAP_SLACK;
   const lines = wrapByWidth(value, size, Math.max(first, 40), Math.max(rest, 40));
   return (
     <>
@@ -151,7 +168,7 @@ function FieldRow({
 /** ข้อความหลายบรรทัดแบบไม่มีเส้นจุด (เช่น "เรียน ...") ตัดคำเองล่วงหน้า */
 function PlainRow({ prefix, value, width = CONTENT_W }: { prefix?: string; value: string; width?: number }) {
   const prefixW = prefix ? measureText(prefix, FS) + 8 : 0;
-  const lines = wrapByWidth(value, FS, width - prefixW, width - prefixW);
+  const lines = wrapByWidth(value, FS, width - prefixW - WRAP_SLACK, width - prefixW - WRAP_SLACK);
   return (
     <View style={[styles.row, { alignItems: "flex-start" }]}>
       {prefix ? <Text style={{ width: prefixW }}>{t(prefix)}</Text> : null}
@@ -330,8 +347,8 @@ function ItemsTable({ data }: { data: ApprovalPdfData }) {
   const hd = [styles.bold, { textAlign: "center" as const }];
   // lineHeight ต่ำ: Text ในแถวที่กำหนดความสูงตายตัวจะถูกซ่อน/ตัดเป็น "…" ถ้าความสูงบรรทัดเกินความสูงแถว
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, marginTop: 8, fontSize: 13, lineHeight: 1.05 }}>
-      <View style={[row, { height: 34 }]}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, marginTop: 8, fontSize: 16, lineHeight: 1.05 }}>
+      <View style={[row, { height: 38 }]}>
         <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
         <View style={[cell, { width: ITEM_COLS.qty }]}>
           <Text style={hd}>{t("จำนวน")}</Text>
@@ -346,11 +363,11 @@ function ItemsTable({ data }: { data: ApprovalPdfData }) {
         const last = i === rowsCount - 1;
         return (
           <View key={i} style={[row, last ? { borderBottomWidth: 0 } : {}]}>
-            <View style={[cell, { flex: 1 }]}><FitText text={item?.name ?? ""} width={nameW - 10} size={13} /></View>
-            <View style={[cell, { width: ITEM_COLS.qty }]}><FitText text={item?.qty != null ? String(item.qty) : ""} width={ITEM_COLS.qty - 10} size={13} align="center" /></View>
-            <View style={[cell, { width: ITEM_COLS.price }]}><FitText text={item?.unit_price != null ? formatBaht(item.unit_price) : ""} width={ITEM_COLS.price - 10} size={13} align="right" /></View>
-            <View style={[cell, { width: ITEM_COLS.total }]}><FitText text={item?.total != null ? formatBaht(item.total) : ""} width={ITEM_COLS.total - 10} size={13} align="right" /></View>
-            <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><FitText text={item?.note ?? ""} width={ITEM_COLS.note - 10} size={13} /></View>
+            <View style={[cell, { flex: 1 }]}><FitText text={item?.name ?? ""} width={nameW - 10} size={16} /></View>
+            <View style={[cell, { width: ITEM_COLS.qty }]}><FitText text={item?.qty != null ? String(item.qty) : ""} width={ITEM_COLS.qty - 10} size={16} align="center" /></View>
+            <View style={[cell, { width: ITEM_COLS.price }]}><FitText text={item?.unit_price != null ? formatBaht(item.unit_price) : ""} width={ITEM_COLS.price - 10} size={16} align="right" /></View>
+            <View style={[cell, { width: ITEM_COLS.total }]}><FitText text={item?.total != null ? formatBaht(item.total) : ""} width={ITEM_COLS.total - 10} size={16} align="right" /></View>
+            <View style={[cell, { width: ITEM_COLS.note, borderRightWidth: 0 }]}><FitText text={item?.note ?? ""} width={ITEM_COLS.note - 10} size={16} /></View>
           </View>
         );
       })}
@@ -493,9 +510,9 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           <SummaryTable data={data} />
         </View>
 
-        {/* กรอบความเห็น ๔ ช่อง ขึ้นหน้าใหม่เสมอ (ที่ตัวอักษร ๑๖ พอยท์ตามแบบ หน้า ๑ ไม่พอสำหรับทั้งสองส่วน) */}
+        {/* กรอบความเห็น ๔ ช่อง ขึ้นหน้าใหม่เสมอ (ที่ตัวอักษร ๑๖ พอยท์ หน้า ๑ ไม่พอสำหรับทั้งสองส่วน) */}
         <View break>
-          <Text style={{ fontSize: FS, fontWeight: "bold", marginBottom: 2 }}>{t("ความเห็นประกอบการพิจารณา")}</Text>
+          <Text style={{ fontWeight: "bold", marginBottom: 2 }}>{t("ความเห็นประกอบการพิจารณา")}</Text>
           <Text style={{ marginBottom: 8 }}>
             {t(`ประกอบบันทึกข้อความ ที่ ${docNumberText(data.doc_number)} ลงวันที่ ${data.doc_date ? formatThaiDate(data.doc_date) : ""}`)}
           </Text>
