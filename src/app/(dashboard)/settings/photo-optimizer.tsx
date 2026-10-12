@@ -3,6 +3,10 @@
 // เครื่องมือ "ย่อรูปทรัพย์สินเก่า" (เฉพาะผู้ดูแลระบบ) — ลดขนาดรูปใน bucket asset-photos ที่เก็บไว้ก่อนมีการย่อรูป เพื่อลดปริมาณข้อมูล
 // ที่ส่งออกจาก Supabase (egress) ทำงานฝั่งเบราว์เซอร์ทีละรูป: ดาวน์โหลด → ย่อ (ด้านยาว 1280px, JPEG 75%) → อัปโหลดทับพาธเดิม
 // (พาธใน asset_items.photo_path จึงไม่เปลี่ยน) พร้อมสร้างรูปย่อ thumbs/<path> ไว้ใช้ในรายการ
+// - รูป HEIC/HEIF (จาก iPhone — เบราว์เซอร์ Android/Windows ถอดรหัสเองไม่ได้ และใหญ่เฉลี่ย ~1.6 MB) แปลงเป็น JPEG ด้วย heic2any
+//   (โหลดเฉพาะเมื่อมีรูป HEIC) แล้วเขียนทับพาธเดิม โดยตั้ง Content-Type เป็น image/jpeg จึงแสดงผลได้ทุกเครื่อง
+// - ไฟล์ว่าง (0 byte — อัปโหลดไม่สมบูรณ์) ข้ามและรายงานแยก / รูป JPEG ที่เล็กอยู่แล้วจะไม่ถูกเขียนทับถ้าย่อแล้วประหยัดไม่ถึง 25%
+//   (ได้แค่รูปย่อ) เพื่อไม่ให้เสียเวลาและพื้นที่สำรองโดยไม่จำเป็น
 // - ก่อนเขียนทับ คัดลอกต้นฉบับไปเก็บที่ bucket สำรอง asset-photos-backup ก่อนเสมอ (ลบทิ้งภายหลังได้เมื่อมั่นใจแล้ว)
 // - ทำซ้ำได้ปลอดภัย: ข้ามรูปที่เล็กพอและมีรูปย่อแล้ว / หยุดกลางทางแล้วกดเริ่มต่อได้ / ไม่เขียนทับถ้าย่อแล้วไม่เล็กลง
 
@@ -18,6 +22,9 @@ import {
 import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
 const BIG_BYTES = 250 * 1024;
+// JPEG ที่ย่อแล้วต้องเล็กลงอย่างน้อยเท่านี้ (เทียบขนาดเดิม) ถึงจะเขียนทับ — ต่ำกว่านี้ไม่คุ้มกับการสำรอง/อัปโหลดซ้ำ
+const MIN_SAVING_RATIO = 0.75;
+const isHeic = (name: string, type: string) => /\.(heic|heif)$/i.test(name) || /image\/hei[cf]/i.test(type);
 const PAGE = 100;
 
 type Entry = { name: string; size: number };
@@ -52,6 +59,9 @@ export function PhotoOptimizer() {
   const [done, setDone] = useState(0);
   const [savedBytes, setSavedBytes] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
+  const [errorGroups, setErrorGroups] = useState<[string, number][]>([]);
+  const [emptyFiles, setEmptyFiles] = useState(0);
+  const [convertedHeic, setConvertedHeic] = useState(0);
   const [backupInfo, setBackupInfo] = useState<{ count: number; bytes: number } | null>(null);
   const [removingBackup, setRemovingBackup] = useState(false);
   const stopRef = useRef(false);
@@ -72,6 +82,9 @@ export function PhotoOptimizer() {
       setDone(0);
       setSavedBytes(0);
       setErrors([]);
+      setErrorGroups([]);
+      setEmptyFiles(0);
+      setConvertedHeic(0);
       const backups = await listAll(ASSET_PHOTO_BACKUP_BUCKET, "").catch(() => []);
       setBackupInfo({ count: backups.length, bytes: backups.reduce((s, o) => s + o.size, 0) });
     } catch (err) {
@@ -95,20 +108,46 @@ export function PhotoOptimizer() {
     stopRef.current = false;
     setRunning(true);
     setErrors([]);
+    setErrorGroups([]);
+    setEmptyFiles(0);
+    setConvertedHeic(0);
     let doneCount = 0;
     let saved = 0;
+    let empties = 0;
+    let heicCount = 0;
     const errs: string[] = [];
+    const groups = new Map<string, number>();
     const thumbNames = new Set((await listAll(ASSET_PHOTO_BUCKET, "thumbs").catch(() => [])).map((t) => t.name));
 
     for (const entry of scan.candidates) {
       if (stopRef.current) break;
       try {
+        if (entry.size === 0) {
+          // ไฟล์ว่าง (อัปโหลดไม่สมบูรณ์) — ไม่มีอะไรให้ย่อ
+          empties += 1;
+          setEmptyFiles(empties);
+          doneCount += 1;
+          setDone(doneCount);
+          continue;
+        }
         const { data: blob, error: dlError } = await bucket.download(entry.name);
-        if (dlError || !blob) throw new Error(dlError?.message ?? "ดาวน์โหลดไม่สำเร็จ");
-        const original = new File([blob], entry.name, { type: blob.type || "image/jpeg" });
+        if (dlError || !blob) throw new Error(`ดาวน์โหลดไม่สำเร็จ: ${dlError?.message ?? "ไม่มีข้อมูล"}`);
+        let original = new File([blob], entry.name, { type: blob.type || "image/jpeg" });
+        const heic = isHeic(entry.name, blob.type);
+        if (heic) {
+          // HEIC ถอดรหัสในเบราว์เซอร์ทั่วไปไม่ได้ — แปลงเป็น JPEG ก่อน (ตัวแปลงโหลดเฉพาะตอนนี้)
+          const { default: heic2any } = await import("heic2any");
+          const converted = await heic2any({ blob, toType: "image/jpeg", quality: 0.8 });
+          const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
+          original = new File([jpegBlob], entry.name, { type: "image/jpeg" });
+        }
 
-        const compressed = await compressPhotoFile(original);
-        const shouldOverwrite = compressed !== original && compressed.size < blob.size * 0.9;
+        const compressedRaw = await compressPhotoFile(original);
+        // HEIC ที่แปลงแล้วต้องเขียนทับเสมอ (ไม่งั้นยังเป็น HEIC ที่เปิดไม่ได้) ส่วน JPEG เดิมเขียนทับเมื่อประหยัดได้พอ
+        const compressed = compressedRaw;
+        const shouldOverwrite = heic
+          ? compressed.size < blob.size
+          : compressed !== original && compressed.size < blob.size * MIN_SAVING_RATIO;
         if (shouldOverwrite) {
           // สำรองต้นฉบับก่อนเขียนทับ (ถ้ามีสำรองอยู่แล้วจากรอบก่อน ถือว่าผ่าน)
           const { error: copyError } = await bucket.copy(entry.name, entry.name, { destinationBucket: ASSET_PHOTO_BACKUP_BUCKET });
@@ -116,10 +155,14 @@ export function PhotoOptimizer() {
           const { error: upError } = await bucket.upload(entry.name, compressed, { upsert: true, contentType: "image/jpeg" });
           if (upError) throw new Error(`อัปโหลดทับไม่สำเร็จ: ${upError.message}`);
           saved += blob.size - compressed.size;
+          if (heic) {
+            heicCount += 1;
+            setConvertedHeic(heicCount);
+          }
         }
 
         if (!thumbNames.has(entry.name)) {
-          const thumb = await createPhotoThumbnail(blob);
+          const thumb = await createPhotoThumbnail(original);
           if (thumb) {
             const { error: thumbError } = await bucket.upload(thumbPathFor(entry.name), thumb, { upsert: true, contentType: "image/jpeg" });
             if (thumbError) throw new Error(`สร้างรูปย่อไม่สำเร็จ: ${thumbError.message}`);
@@ -127,15 +170,19 @@ export function PhotoOptimizer() {
           }
         }
       } catch (err) {
-        errs.push(`${entry.name}: ${errorMessage(err)}`);
+        const message = errorMessage(err);
+        errs.push(`${entry.name}: ${message}`);
+        groups.set(message, (groups.get(message) ?? 0) + 1);
+        setErrors([...errs]);
+        setErrorGroups([...groups.entries()].sort((a, b) => b[1] - a[1]));
       }
       doneCount += 1;
       setDone(doneCount);
       setSavedBytes(saved);
-      if (errs.length !== errors.length) setErrors([...errs]);
     }
 
     setErrors([...errs]);
+    setErrorGroups([...groups.entries()].sort((a, b) => b[1] - a[1]));
     setRunning(false);
     const stopped = stopRef.current;
     await toastSuccess(
@@ -212,11 +259,26 @@ export function PhotoOptimizer() {
         </div>
       )}
 
+      {(convertedHeic > 0 || emptyFiles > 0) && (
+        <p className="text-xs text-slate-500">
+          {convertedHeic > 0 && <>แปลง HEIC เป็น JPEG แล้ว {convertedHeic.toLocaleString("th-TH")} รูป · </>}
+          {emptyFiles > 0 && <>ข้ามไฟล์ว่าง (0 byte) {emptyFiles.toLocaleString("th-TH")} ไฟล์ (อัปโหลดไม่สมบูรณ์ ไม่มีรูปให้ย่อ)</>}
+        </p>
+      )}
+
       {errors.length > 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-          <p className="font-semibold">รูปที่ไม่สำเร็จ {errors.length} รูป (กดตรวจสอบรูปแล้วเริ่มใหม่เพื่อลองอีกครั้ง):</p>
-          <ul className="mt-1 max-h-32 list-disc space-y-0.5 overflow-y-auto pl-4">
-            {errors.slice(0, 20).map((e, i) => (
+          <p className="font-semibold">รูปที่ไม่สำเร็จ {errors.length} รูป (กดตรวจสอบรูปแล้วเริ่มใหม่เพื่อลองอีกครั้ง) แยกตามสาเหตุ:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {errorGroups.map(([message, count]) => (
+              <li key={message} className="break-words">
+                {count.toLocaleString("th-TH")} รูป — {message}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 font-semibold">ตัวอย่างชื่อไฟล์:</p>
+          <ul className="mt-1 max-h-24 list-disc space-y-0.5 overflow-y-auto pl-4">
+            {errors.slice(0, 10).map((e, i) => (
               <li key={i} className="break-all">
                 {e}
               </li>
