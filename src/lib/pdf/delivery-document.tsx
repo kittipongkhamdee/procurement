@@ -71,16 +71,37 @@ export type DeliveryPdfData = {
   director: string | null;
 };
 
-/** ย่อหน้า — ตัดบรรทัดเองตามความกว้างจริงของฟอนต์ (Thai ไม่มีช่องว่างระหว่างคำ react-pdf ตัดเองผิด) */
+const graphemes = new Intl.Segmenter("th", { granularity: "grapheme" });
+
+/** บรรทัดแบบ "กระจายแบบไทย" (Thai Distributed) — แบ่งเป็นกลุ่มอักษร (grapheme: พยัญชนะ+สระ/วรรณยุกต์ไม่แยกกัน)
+ * แล้วเกลี่ยช่องว่างระหว่างกลุ่มอักษรให้เต็มความกว้างบรรทัด */
+function DistributedLine({ text, style }: { text: string; style?: Styles[string] }) {
+  const parts = [...graphemes.segment(text)].map((g) => g.segment);
+  return (
+    <View style={[{ flexDirection: "row", justifyContent: "space-between" }, style ?? {}]}>
+      {parts.map((g, i) => (
+        <Text key={i}>{g === " " ? "\u00a0" : g}</Text>
+      ))}
+    </View>
+  );
+}
+
+/** ย่อหน้า — ตัดบรรทัดเองตามความกว้างจริงของฟอนต์ (Thai ไม่มีช่องว่างระหว่างคำ react-pdf ตัดเองผิด)
+ * ทุกบรรทัดยกเว้นบรรทัดสุดท้ายจัดแบบกระจายแบบไทยให้เต็มความกว้าง */
 function Para({ text, indent = INDENT, style }: { text: string; indent?: number; style?: Styles[string] }) {
   const lines = wrap(text, FS, CONTENT_W - indent - SLACK, CONTENT_W - SLACK);
   return (
     <View style={[styles.gap, style ?? {}]}>
-      {lines.map((l, i) => (
-        <Text key={i} style={i === 0 ? { marginLeft: indent } : undefined}>
-          {t(l)}
-        </Text>
-      ))}
+      {lines.map((l, i) => {
+        const lineStyle = i === 0 ? { marginLeft: indent } : undefined;
+        return i < lines.length - 1 ? (
+          <DistributedLine key={i} text={l} style={lineStyle} />
+        ) : (
+          <Text key={i} style={lineStyle}>
+            {t(l)}
+          </Text>
+        );
+      })}
     </View>
   );
 }
