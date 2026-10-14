@@ -113,6 +113,12 @@ export async function createApproval(formData: FormData) {
   }
 
   const docDate = String(formData.get("doc_date") ?? "");
+  // สร้างจากงวดส่งมอบตามสัญญา — งวดหนึ่งมีบันทึกขออนุมัติได้ครั้งเดียว (unique index กันซ้ำอีกชั้น)
+  const deliveryId = String(formData.get("delivery_id") ?? "") || null;
+  if (deliveryId) {
+    const { data: existing } = await supabase.from("proc_approvals").select("id").eq("delivery_id", deliveryId).maybeSingle();
+    if (existing) throw new Error("งวดส่งมอบนี้มีบันทึกขออนุมัติแล้ว");
+  }
   const docNumber = docDate ? await nextDocNumber(supabase, docDate) : null;
 
   const { data: approval, error } = await supabase
@@ -120,6 +126,7 @@ export async function createApproval(formData: FormData) {
     .insert({
       doc_number: docNumber,
       doc_date: docDate,
+      delivery_id: deliveryId,
       subject: String(formData.get("subject") ?? ""),
       addressed_to: String(formData.get("addressed_to") ?? ""),
       department: String(formData.get("department") ?? "").trim() || null,

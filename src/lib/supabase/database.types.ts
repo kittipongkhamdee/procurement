@@ -1771,6 +1771,7 @@ export type Database = {
           created_by: string | null
           department: string | null
           deputy_decided_at: string | null
+          delivery_id: string | null
           deputy_decided_by_name: string | null
           deputy_decision: string | null
           deputy_note: string | null
@@ -1805,6 +1806,7 @@ export type Database = {
           created_by?: string | null
           department?: string | null
           deputy_decided_at?: string | null
+          delivery_id?: string | null
           deputy_decided_by_name?: string | null
           deputy_decision?: string | null
           deputy_note?: string | null
@@ -1839,6 +1841,7 @@ export type Database = {
           created_by?: string | null
           department?: string | null
           deputy_decided_at?: string | null
+          delivery_id?: string | null
           deputy_decided_by_name?: string | null
           deputy_decision?: string | null
           deputy_note?: string | null

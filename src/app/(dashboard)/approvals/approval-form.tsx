@@ -97,6 +97,8 @@ export type ApprovalFormPrefill = Pick<ApprovalFormInitial, "project_id" | "subj
   doc_date?: string | null;
   /** วันที่จะดำเนินการ (ISO) */
   plan_date?: string | null;
+  /** งวดส่งมอบตามสัญญาที่เป็นต้นเรื่อง */
+  delivery_id?: string | null;
 };
 
 function initialSummaryRows(initial?: Pick<ApprovalFormInitial, "summary_items">): SummaryRow[] {
@@ -350,6 +352,7 @@ export function ApprovalForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {!initial && prefill?.delivery_id && <input type="hidden" name="delivery_id" value={prefill.delivery_id} />}
       <section className="card">
         <h2 className="card-title">ข้อมูลทั่วไป</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

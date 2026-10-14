@@ -439,9 +439,11 @@ export default function ContractDeliveryPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
+  // งวดที่ทำบันทึกขออนุมัติแล้ว → เลขที่บันทึก (งวดละครั้งเดียว)
+  const [approvalByDelivery, setApprovalByDelivery] = useState<Map<string, string>>(new Map());
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: d, error }, { data: c }, { data: t }] = await Promise.all([
+    const [{ data: d, error }, { data: c }, { data: t }, { data: ap }] = await Promise.all([
       supabase
         .from("proc_deliveries")
         .select("id, contract_id, installment_no, delivery_date, period_month, amount, late_days, penalty_amount, withholding_tax, inspector_name, note")
@@ -452,7 +454,9 @@ export default function ContractDeliveryPage() {
         .in("contract_type", ["จ้าง", "ซื้อ"])
         .order("contract_date", { ascending: false }),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
+      supabase.from("proc_approvals").select("delivery_id, doc_number").not("delivery_id", "is", null),
     ]);
+    setApprovalByDelivery(new Map((ap ?? []).map((a) => [a.delivery_id as string, a.doc_number ?? "-"])));
     setError(error?.message ?? null);
     setDeliveries((d as Delivery[]) ?? []);
     setContracts((c as Contract[]) ?? []);
@@ -496,11 +500,21 @@ export default function ContractDeliveryPage() {
           <PrinterIcon className="h-3.5 w-3.5" />
           พิมพ์เอกสาร
         </a>
-        {isProcStaff && (
-          <Link href={`/approvals/new?delivery=${d.id}`} className="btn-secondary btn-sm">
-            สร้างบันทึกขออนุมัติ
-          </Link>
-        )}
+        {isProcStaff &&
+          (approvalByDelivery.has(d.id) ? (
+            <button
+              type="button"
+              disabled
+              title="งวดนี้มีบันทึกขออนุมัติแล้ว"
+              className="btn-secondary btn-sm cursor-not-allowed opacity-60"
+            >
+              มีบันทึกขออนุมัติแล้ว ({approvalByDelivery.get(d.id)})
+            </button>
+          ) : (
+            <Link href={`/approvals/new?delivery=${d.id}`} className="btn-secondary btn-sm">
+              สร้างบันทึกขออนุมัติ
+            </Link>
+          ))}
         {isProcStaff && <DeliveryModal delivery={d} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />}
         {isAdmin && (
           <button type="button" onClick={() => handleDelete(d)} className="btn-danger btn-sm">

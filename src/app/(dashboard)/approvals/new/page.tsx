@@ -10,7 +10,12 @@ const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "�
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 
 /** เตรียมข้อมูลบันทึกขออนุมัติจากการส่งมอบตามสัญญา (เปิดจากหน้าส่งมอบหลังบันทึกงวดใหม่) */
-async function prefillFromDelivery(supabase: SupabaseServer, deliveryId: string): Promise<{ prefill: ApprovalFormPrefill; label: string } | null> {
+async function prefillFromDelivery(
+  supabase: SupabaseServer,
+  deliveryId: string,
+): Promise<{ prefill: ApprovalFormPrefill; label: string } | { existingDocNumber: string } | null> {
+  const { data: existing } = await supabase.from("proc_approvals").select("doc_number").eq("delivery_id", deliveryId).maybeSingle();
+  if (existing) return { existingDocNumber: existing.doc_number ?? "-" };
   const { data: d } = await supabase
     .from("proc_deliveries")
     .select("contract_id, installment_no, period_month, amount, delivery_date")
@@ -41,6 +46,7 @@ async function prefillFromDelivery(supabase: SupabaseServer, deliveryId: string)
       department: (c.plan_projects as unknown as { plan_admin_groups: { name: string } | null } | null)?.plan_admin_groups?.name ?? null,
       doc_date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" }),
       plan_date: d.delivery_date,
+      delivery_id: deliveryId,
       items: [],
     },
   };
@@ -49,7 +55,21 @@ async function prefillFromDelivery(supabase: SupabaseServer, deliveryId: string)
 export default async function NewApprovalPage({ searchParams }: { searchParams: Promise<{ delivery?: string }> }) {
   const supabase = await createClient();
   const { delivery: deliveryId } = await searchParams;
-  const fromDelivery = deliveryId ? await prefillFromDelivery(supabase, deliveryId) : null;
+  const deliveryResult = deliveryId ? await prefillFromDelivery(supabase, deliveryId) : null;
+  if (deliveryResult && "existingDocNumber" in deliveryResult) {
+    return (
+      <div>
+        <Link href="/contracts/delivery" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+          <ChevronLeftIcon className="h-4 w-4" />
+          กลับไปส่งมอบตามสัญญา
+        </Link>
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          งวดส่งมอบนี้มีบันทึกขออนุมัติแล้ว (เลขที่ {deliveryResult.existingDocNumber}) — สร้างซ้ำไม่ได้
+        </div>
+      </div>
+    );
+  }
+  const fromDelivery = deliveryResult;
 
   // บันทึกขออนุมัติทำได้เฉพาะโครงการของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน) — ไม่มีปีที่เปิดอยู่ก็ใช้ปีล่าสุด
   const { data: budgetYears } = await supabase.from("plan_budget_years").select("id, year, is_open").order("year", { ascending: false });
