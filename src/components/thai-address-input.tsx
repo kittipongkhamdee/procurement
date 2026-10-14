@@ -147,7 +147,8 @@ export function ThaiAddressInput({
             className="input w-full"
           />
           {active === field && suggestions.length > 0 && (
-            <ul className="absolute left-0 z-20 mt-1 max-h-64 w-72 max-w-[85vw] overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
+            // ช่องคอลัมน์ขวา (อำเภอ, รหัสไปรษณีย์) ชิดขวา ไม่งั้นรายการล้นขอบจอบนมือถือ
+            <ul className={`absolute ${field === "amphoe" || field === "zipcode" ? "right-0" : "left-0"} z-20 mt-1 max-h-64 w-72 max-w-[calc(100vw-3rem)] overflow-auto rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg`}>
               {suggestions.map((s, i) => (
                 <li key={`${s.tambon}-${s.amphoe}-${s.province}-${s.zipcode}`}>
                   <button
