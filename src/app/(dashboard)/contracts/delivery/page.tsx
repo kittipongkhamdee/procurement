@@ -63,6 +63,56 @@ function suggestPenalty(contract: Contract, deliveryAmount: number, lateDays: nu
   return Math.round(base * (contract.penalty_rate / 100) * lateDays * 100) / 100;
 }
 
+// รายละเอียดการส่งมอบงวดนี้ พร้อมข้อมูลสัญญาและยอดส่งมอบสะสม/คงเหลือ ณ งวดนี้
+function DeliveryDetailModal({ delivery: d, contract: c, deliveries }: { delivery: Delivery; contract: Contract | undefined; deliveries: Delivery[] }) {
+  const sameContract = deliveries.filter((x) => x.contract_id === d.contract_id);
+  const upToThis = sameContract.filter(
+    (x) => x.delivery_date < d.delivery_date || (x.delivery_date === d.delivery_date && (x.installment_no ?? 0) <= (d.installment_no ?? 0)),
+  );
+  const cumulative = upToThis.reduce((sum, x) => sum + Number(x.amount), 0);
+  const net = Number(d.amount) - Number(d.penalty_amount ?? 0) - Number(d.withholding_tax ?? 0);
+  const rows: [string, React.ReactNode][] = [
+    ["สัญญา", c ? `สัญญา${c.contract_type} เลขที่ ${c.contract_no}` : "-"],
+    ["คู่สัญญา", c?.vendor_name ?? "-"],
+    ["มูลค่าสัญญา", c ? `${formatBaht(Number(c.amount))} บาท` : "-"],
+    ["วันสิ้นสุดสัญญา / กำหนดส่งมอบ", c?.end_date ? formatThaiDate(c.end_date) : "-"],
+    ["งวดที่", d.installment_no ?? "-"],
+    ["ประจำเดือน", formatPeriod(d.period_month)],
+    ["วันที่ส่งมอบ", formatThaiDate(d.delivery_date)],
+    ["จำนวนเงินงวดนี้", `${formatBaht(Number(d.amount))} บาท`],
+    ["เกินกำหนด", d.late_days ? `${d.late_days} วัน` : "ไม่เกินกำหนด"],
+    ["ค่าปรับ", d.penalty_amount ? `${formatBaht(Number(d.penalty_amount))} บาท` : "-"],
+    ["ภาษีหัก ณ ที่จ่าย", d.withholding_tax ? `${formatBaht(Number(d.withholding_tax))} บาท` : "-"],
+    ["คงเหลือจ่ายงวดนี้", `${formatBaht(net)} บาท`],
+    ["ส่งมอบสะสมถึงงวดนี้", `${formatBaht(cumulative)} บาท (${upToThis.length} งวด)`],
+    ["คงเหลือตามสัญญา", c ? `${formatBaht(Number(c.amount) - cumulative)} บาท` : "-"],
+    ["ผู้ตรวจรับ", d.inspector_name || "-"],
+    ["หมายเหตุ", d.note || "-"],
+  ];
+  return (
+    <Modal
+      title={`ส่งมอบ ${c?.contract_no ?? ""} งวดที่ ${d.installment_no ?? "-"}`}
+      wide
+      lazy
+      trigger={
+        <span className="btn-secondary btn-sm">
+          <SearchIcon className="h-3.5 w-3.5" />
+          รายละเอียด
+        </span>
+      }
+    >
+      <dl className="divide-y divide-slate-100 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-3 sm:gap-3">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="whitespace-pre-line text-slate-900 sm:col-span-2">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </Modal>
+  );
+}
+
 function DeliveryModal({
   delivery,
   contracts,
@@ -429,6 +479,7 @@ export default function ContractDeliveryPage() {
   function actions(d: Delivery) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <DeliveryDetailModal delivery={d} contract={contractById.get(d.contract_id)} deliveries={deliveries ?? []} />
         <a href={`/contracts/delivery/${d.id}/pdf`} target="_blank" rel="noopener" className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />
           พิมพ์เอกสาร
