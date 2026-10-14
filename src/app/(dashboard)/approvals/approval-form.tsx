@@ -526,7 +526,55 @@ export function ApprovalForm({
 
       <section className="card">
         <h2 className="card-title">รายการเงินที่ขออนุมัติ</h2>
-        <div className="overflow-hidden rounded-md border border-slate-200">
+        {/* มือถือ: แต่ละหมวดเป็นการ์ด มีป้ายกำกับทุกช่อง (ตารางสี่คอลัมน์บนจอแคบช่องเล็กเกินกรอกไม่สะดวก) */}
+        <div className="space-y-3 sm:hidden">
+          {summaryRows.map((row, i) => (
+            <div key={i} className="rounded-md border border-slate-200 p-3">
+              <div className="mb-2 text-sm font-semibold text-slate-600">
+                {i + 1}. {i === OTHER_INDEX ? "อื่นๆ" : row.label}
+              </div>
+              {i === OTHER_INDEX && (
+                <div className="mb-3">
+                  <label className="label">ระบุรายการ</label>
+                  <input
+                    value={row.label}
+                    onChange={(e) => updateSummaryRow(i, { label: e.target.value })}
+                    placeholder="เช่น ค่าซ่อมแซม"
+                    maxLength={80}
+                    className="input w-full"
+                  />
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="label">จำนวนเงิน (บาท)</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    value={row.amount}
+                    onChange={(e) => updateSummaryRow(i, { amount: e.target.value })}
+                    className="input w-full text-right"
+                  />
+                </div>
+                <div>
+                  <label className="label">หมายเหตุ</label>
+                  <input
+                    value={row.note}
+                    onChange={(e) => updateSummaryRow(i, { note: e.target.value })}
+                    className="input w-full"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+            <span className="font-semibold text-slate-600">รวมทั้งสิ้น (บาท)</span>
+            <span className="font-bold text-red-600">{formatBaht(requestedAmount)}</span>
+          </div>
+        </div>
+
+        <div className="hidden overflow-hidden rounded-md border border-slate-200 sm:block">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
