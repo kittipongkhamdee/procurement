@@ -24,11 +24,11 @@ function contractFields(formData: FormData) {
   const amount = num(formData, "amount");
   if (!contractNo) throw new ValidationError("กรุณากรอกเลขที่สัญญา");
   if (!contractDate) throw new ValidationError("กรุณาเลือกวันที่ทำสัญญา");
-  if (!vendorName) throw new ValidationError("กรุณากรอกชื่อผู้รับจ้าง");
+  if (!vendorName) throw new ValidationError("กรุณากรอกชื่อคู่สัญญา");
   if (!(amount && amount > 0)) throw new ValidationError("จำนวนเงินตามสัญญาต้องมากกว่า 0");
   const startDate = text(formData, "start_date");
   const endDate = text(formData, "end_date");
-  if (startDate && endDate && endDate < startDate) throw new ValidationError("วันสิ้นสุดสัญญาต้องไม่ก่อนวันเริ่มงาน");
+  if (startDate && endDate && endDate < startDate) throw new ValidationError("วันสิ้นสุดสัญญาต้องไม่ก่อนวันเริ่มสัญญา");
 
   const contractType = text(formData, "contract_type") ?? "จ้าง";
   if (!CONTRACT_TYPES.includes(contractType)) throw new ValidationError("ประเภทสัญญาไม่ถูกต้อง");

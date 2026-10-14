@@ -50,6 +50,33 @@ type Project = { id: string; name: string };
 
 const GUARANTEE_TYPES = ["เงินสด", "เช็คธนาคาร", "หนังสือค้ำประกันของธนาคาร", "พันธบัตรรัฐบาล", "ไม่มีหลักประกัน"];
 
+export type ContractType = "จ้าง" | "ซื้อ" | "เช่า";
+
+/** คำเรียกในฟอร์ม/ตารางที่ต่างกันตามประเภทสัญญา */
+const TERMS: Record<ContractType, { party: string; detail: string; start: string; end: string; penalty: string }> = {
+  จ้าง: {
+    party: "ผู้รับจ้าง",
+    detail: "รายละเอียดงานจ้าง",
+    start: "วันเริ่มงาน",
+    end: "วันสิ้นสุดสัญญา (ส่งมอบงาน)",
+    penalty: "ค่าปรับต่อวัน (ร้อยละของค่าจ้าง)",
+  },
+  ซื้อ: {
+    party: "ผู้ขาย",
+    detail: "รายการพัสดุที่ซื้อ",
+    start: "วันเริ่มสัญญา",
+    end: "กำหนดส่งมอบพัสดุ",
+    penalty: "ค่าปรับต่อวัน (ร้อยละของราคาพัสดุที่ยังไม่ได้รับ)",
+  },
+  เช่า: {
+    party: "ผู้เช่า",
+    detail: "รายละเอียดพื้นที่เช่า",
+    start: "วันเริ่มเช่า",
+    end: "วันสิ้นสุดการเช่า",
+    penalty: "ค่าปรับต่อวัน (ร้อยละ)",
+  },
+};
+
 /** สถานะสัญญาจากวันสิ้นสุด: ยังไม่ระบุ / ยังไม่ครบกำหนด / ใกล้ครบ (≤7 วัน) / เลยกำหนด */
 function contractStatus(endDate: string | null): { label: string; cls: string } {
   if (!endDate) return { label: "ไม่ระบุวันสิ้นสุด", cls: "badge-slate" };
@@ -75,6 +102,7 @@ function ContractModal({
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
+  const terms = TERMS[type];
   // โครงการเดิมของสัญญาที่ไม่อยู่ในรายการปีปัจจุบัน — ให้ยังเลือกค้างไว้ได้ตอนแก้ไข
   const projectOptions =
     contract?.project_id && !projects.some((p) => p.id === contract.project_id)
@@ -90,7 +118,7 @@ function ContractModal({
       const start = String(formData.get("start_date") ?? "");
       const end = String(formData.get("end_date") ?? "");
       if (start && end && end < start) {
-        await toastError("วันสิ้นสุดสัญญาต้องไม่ก่อนวันเริ่มงาน");
+        await toastError(`${terms.end}ต้องไม่ก่อน${terms.start}`);
         return;
       }
       const res = contract ? await updateContract(contract.id, formData) : await createContract(formData);
@@ -157,24 +185,24 @@ function ContractModal({
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className="label">รายละเอียดงานจ้าง</label>
+            <label className="label">{terms.detail}</label>
             <textarea name="detail" defaultValue={contract?.detail ?? ""} rows={3} className="input w-full" />
           </div>
           <div>
-            <label className="label">วันเริ่มงาน</label>
+            <label className="label">{terms.start}</label>
             <ThaiDatePicker name="start_date" defaultValue={contract?.start_date ?? null} />
           </div>
           <div>
-            <label className="label">วันสิ้นสุดสัญญา (ส่งมอบงาน)</label>
+            <label className="label">{terms.end}</label>
             <ThaiDatePicker name="end_date" defaultValue={contract?.end_date ?? null} />
           </div>
         </fieldset>
 
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <legend className="mb-2 text-sm font-semibold text-navy-800">ผู้รับจ้าง</legend>
+          <legend className="mb-2 text-sm font-semibold text-navy-800">{terms.party}</legend>
           <div className="sm:col-span-2">
             <label className="label">
-              ชื่อผู้รับจ้าง <span className="text-red-600">*</span>
+              ชื่อ{terms.party} <span className="text-red-600">*</span>
             </label>
             <input name="vendor_name" defaultValue={contract?.vendor_name ?? ""} required className="input w-full" />
           </div>
@@ -232,7 +260,7 @@ function ContractModal({
             <input type="number" inputMode="decimal" step="0.01" min="0" name="guarantee_amount" defaultValue={contract?.guarantee_amount ?? ""} className="input w-full text-right" />
           </div>
           <div>
-            <label className="label">ค่าปรับต่อวัน (ร้อยละของค่าจ้าง)</label>
+            <label className="label">{terms.penalty}</label>
             <input type="number" inputMode="decimal" step="0.01" min="0" name="penalty_rate" defaultValue={contract?.penalty_rate ?? ""} className="input w-full text-right" />
           </div>
           <div>
@@ -263,7 +291,6 @@ function ContractModal({
   );
 }
 
-export type ContractType = "จ้าง" | "ซื้อ" | "เช่า";
 
 export function ContractList({ type, title, subtitle }: { type: ContractType; title: string; subtitle: string }) {
   const [contracts, setContracts] = useState<Contract[] | null>(null);
@@ -310,7 +337,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
   const total = filtered.reduce((sum, c) => sum + Number(c.amount), 0);
 
   async function handleDelete(c: Contract) {
-    const ok = await confirmDelete({ title: `ลบสัญญา ${c.contract_no}?`, text: `ผู้รับจ้าง ${c.vendor_name}` });
+    const ok = await confirmDelete({ title: `ลบสัญญา ${c.contract_no}?`, text: `${TERMS[type].party} ${c.vendor_name}` });
     if (!ok) return;
     try {
       const res = await deleteContract(c.id);
@@ -361,7 +388,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="ค้นหาเลขที่สัญญา ผู้รับจ้าง โครงการ"
+                placeholder={`ค้นหาเลขที่สัญญา ${TERMS[type].party} โครงการ`}
                 className="input w-full pl-9"
               />
             </div>
@@ -404,7 +431,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
                   <th>เลขที่สัญญา</th>
                   <th>วันที่ทำสัญญา</th>
                   <th>โครงการ</th>
-                  <th>ผู้รับจ้าง</th>
+                  <th>{TERMS[type].party}</th>
                   <th>สิ้นสุดสัญญา</th>
                   <th className="text-right">จำนวนเงิน</th>
                   <th></th>
