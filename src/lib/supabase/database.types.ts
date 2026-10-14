@@ -1873,6 +1873,12 @@ export type Database = {
       }
       proc_contracts: {
         Row: {
+          end_date: string | null
+          guarantee_amount: number | null
+          guarantee_type: string | null
+          note: string | null
+          penalty_rate: number | null
+          start_date: string | null
           amount: number
           amphoe: string | null
           budget: number | null
@@ -1894,6 +1900,12 @@ export type Database = {
           zipcode: string | null
         }
         Insert: {
+          end_date?: string | null
+          guarantee_amount?: number | null
+          guarantee_type?: string | null
+          note?: string | null
+          penalty_rate?: number | null
+          start_date?: string | null
           amount?: number
           amphoe?: string | null
           budget?: number | null
@@ -1915,6 +1927,12 @@ export type Database = {
           zipcode?: string | null
         }
         Update: {
+          end_date?: string | null
+          guarantee_amount?: number | null
+          guarantee_type?: string | null
+          note?: string | null
+          penalty_rate?: number | null
+          start_date?: string | null
           amount?: number
           amphoe?: string | null
           budget?: number | null
