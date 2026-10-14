@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { ChevronLeftIcon, SearchIcon } from "@/components/icons";
+import { ChevronLeftIcon, ExcelFileIcon, PrinterIcon, SearchIcon } from "@/components/icons";
 
 type Row = {
   id: string;
@@ -77,6 +77,10 @@ export default function ContractRegisterPage() {
     );
   }, [rows, type, year, stat, query]);
   const total = filtered.reduce((s, r) => s + Number(r.amount), 0);
+  // ตัวกรองชุดเดียวกันส่งไปให้หน้าพิมพ์ PDF / ส่งออก Excel
+  const exportQuery = new URLSearchParams(
+    Object.entries({ type, year, status: stat, q: query.trim() }).filter(([, v]) => v),
+  ).toString();
 
   return (
     <div>
@@ -122,9 +126,21 @@ export default function ContractRegisterPage() {
               <option value="none">ไม่ระบุวันสิ้นสุด</option>
             </select>
           </div>
-          <p className="mb-3 text-sm text-slate-500">
-            {filtered.length} สัญญา · รวม <span className="font-semibold text-slate-800">{formatBaht(total)}</span> บาท
-          </p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-slate-500">
+              {filtered.length} สัญญา · รวม <span className="font-semibold text-slate-800">{formatBaht(total)}</span> บาท
+            </p>
+            <div className="flex gap-2">
+              <a href={`/contracts/register/pdf?${exportQuery}`} target="_blank" rel="noopener" className="btn-secondary btn-sm">
+                <PrinterIcon className="h-3.5 w-3.5" />
+                พิมพ์
+              </a>
+              <a href={`/contracts/register/xlsx?${exportQuery}`} className="btn-secondary btn-sm">
+                <ExcelFileIcon className="h-3.5 w-3.5" />
+                ส่งออก Excel
+              </a>
+            </div>
+          </div>
 
           <div className="table-shell @container">
             {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
