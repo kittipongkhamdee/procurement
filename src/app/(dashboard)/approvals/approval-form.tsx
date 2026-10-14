@@ -164,7 +164,20 @@ export function ApprovalForm({
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial ?? prefill));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
   const [department, setDepartment] = useState(initial?.department ?? prefill?.department ?? "");
-  const [requestedBy, setRequestedBy] = useState(initial?.requested_by_name ?? "");
+  // ฟอร์มที่ระบบเตรียมให้ (เช่น จากงวดส่งมอบ) เลือกโครงการไว้แล้ว — ลงชื่อผู้ขออนุมัติให้เหมือนตอนผู้ใช้เลือกโครงการเอง
+  // (ผู้รับผิดชอบที่เป็นชื่อครูของทุกกิจกรรมในโครงการ ถ้ามีคนเดียวเลือกให้เลย)
+  const [requestedBy, setRequestedBy] = useState(() => {
+    if (initial) return initial.requested_by_name ?? "";
+    const pid = prefill?.project_id;
+    if (!pid) return "";
+    const byKey = new Map(teachers.filter((t) => t.is_active).map((t) => [nameKey(t.name), t.name] as const));
+    const names = new Set(
+      activities
+        .filter((a) => a.project_id === pid)
+        .flatMap((a) => a.responsible.map((n) => byKey.get(nameKey(n))).filter((n): n is string => !!n)),
+    );
+    return names.size === 1 ? [...names][0] : "";
+  });
   const [planDateISO, setPlanDateISO] = useState(initial ? "" : (prefill?.plan_date ?? ""));
   const [submitting, setSubmitting] = useState(false);
 
