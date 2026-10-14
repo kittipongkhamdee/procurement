@@ -82,8 +82,17 @@ function ContractModal({
     setSaving(true);
     try {
       const formData = new FormData(form);
-      if (contract) await updateContract(contract.id, formData);
-      else await createContract(formData);
+      const start = String(formData.get("start_date") ?? "");
+      const end = String(formData.get("end_date") ?? "");
+      if (start && end && end < start) {
+        await toastError("วันสิ้นสุดสัญญาต้องไม่ก่อนวันเริ่มงาน");
+        return;
+      }
+      const res = contract ? await updateContract(contract.id, formData) : await createContract(formData);
+      if (res.error) {
+        await toastError(res.error);
+        return;
+      }
       modalRef.current?.close();
       if (!contract) form.reset();
       await toastSuccess(contract ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกสัญญาเรียบร้อยแล้ว");
@@ -305,7 +314,11 @@ export default function ContractsPage() {
     const ok = await confirmDelete({ title: `ลบสัญญา ${c.contract_no}?`, text: `ผู้รับจ้าง ${c.vendor_name}` });
     if (!ok) return;
     try {
-      await deleteContract(c.id);
+      const res = await deleteContract(c.id);
+      if (res.error) {
+        await toastError(res.error);
+        return;
+      }
       await toastSuccess("ลบสัญญาเรียบร้อยแล้ว");
       reload();
     } catch (err) {
