@@ -60,7 +60,7 @@ type Contract = {
   plan_budget_sources: { name: string } | null;
 };
 type BudgetSource = { id: string; name: string };
-type Project = { id: string; name: string };
+type Project = { id: string; name: string; budget_source_id?: string | null };
 
 const GUARANTEE_TYPES = ["เงินสด", "เช็คธนาคาร", "หนังสือค้ำประกันของธนาคาร", "พันธบัตรรัฐบาล", "ไม่มีหลักประกัน"];
 
@@ -181,6 +181,7 @@ function ContractModal({
           );
       });
   }
+  const [budgetSourceId, setBudgetSourceId] = useState(contract?.budget_source_id ?? "");
   // โครงการเดิมของสัญญาที่ไม่อยู่ในรายการปีปัจจุบัน — ให้ยังเลือกค้างไว้ได้ตอนแก้ไข
   const projectOptions =
     contract?.project_id && !projects.some((p) => p.id === contract.project_id)
@@ -282,7 +283,16 @@ function ContractModal({
           </div>
           <div className="sm:col-span-2">
             <label className="label">โครงการ</label>
-            <select name="project_id" defaultValue={contract?.project_id ?? ""} className="input w-full">
+            <select
+              name="project_id"
+              defaultValue={contract?.project_id ?? ""}
+              onChange={(e) => {
+                // ดึงแหล่งงบประมาณเริ่มต้นตามโครงการที่เลือก (แก้ทับได้)
+                const src = projectOptions.find((p) => p.id === e.target.value)?.budget_source_id;
+                if (src) setBudgetSourceId(src);
+              }}
+              className="input w-full"
+            >
               <option value="">-- ไม่ระบุ --</option>
               {projectOptions.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -293,7 +303,12 @@ function ContractModal({
           </div>
           <div className="sm:col-span-2">
             <label className="label">แหล่งงบประมาณ</label>
-            <select name="budget_source_id" defaultValue={contract?.budget_source_id ?? ""} className="input w-full">
+            <select
+              name="budget_source_id"
+              value={budgetSourceId}
+              onChange={(e) => setBudgetSourceId(e.target.value)}
+              className="input w-full"
+            >
               <option value="">-- ไม่ระบุ --</option>
               {budgetSources.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -624,7 +639,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
         .eq("contract_type", type)
         .order("contract_date", { ascending: false }),
       currentYear
-        ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order")
+        ? supabase.from("plan_projects").select("id, name, budget_source_id").eq("budget_year_id", currentYear.id).order("sort_order")
         : Promise.resolve({ data: [] as Project[] }),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order"),
