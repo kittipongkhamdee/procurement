@@ -8,6 +8,7 @@ import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-meas
 // ชุดเอกสารส่งมอบงานตามสัญญา ๔ หน้า (ตามแบบที่โรงเรียนใช้): ใบส่งมอบงาน, ใบตรวจรับพัสดุ (ระเบียบฯ ข้อ ๑๗๕),
 // บันทึกข้อความรายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน, ใบสำคัญรับเงิน
 // ฟอนต์ TH Sarabun New ๑๖ พอยท์ ขอบกระดาษเดียวกับบันทึกขออนุมัติ (ซ้าย ๒.๕ ขวา ๒ บน ๑.๕ ล่าง ๑ ซม.)
+// ยกเว้นหน้า ๑ ๒ ๔ (ไม่มีตราครุฑ) ขอบบน ๒.๕ ซม. ตามที่ผู้ใช้ขอ
 
 registerSarabunFont();
 const FAMILY = "THSarabunNew";
@@ -158,7 +159,7 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
   return (
     <Document title={`ส่งมอบงาน ${d.contract_no} ${month}`}>
       {/* ๑. ใบส่งมอบงาน */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
         <Text style={styles.title}>{t("ใบส่งมอบงาน")}</Text>
         <View style={[styles.right, styles.gap]}>
           <Text>{t(`เขียนที่ ${d.school_name}`)}</Text>
@@ -174,7 +175,7 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
       </Page>
 
       {/* ๒. ใบตรวจรับพัสดุ */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
         <Text style={[styles.title, { marginBottom: 2 }]}>{t("ใบตรวจรับพัสดุ")}</Text>
         <Text style={{ textAlign: "center", marginBottom: 8 }}>{t("ตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560 ข้อ 175")}</Text>
         <View style={[styles.right, styles.gap]}>
@@ -227,7 +228,7 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
       </Page>
 
       {/* ๔. ใบสำคัญรับเงิน */}
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
         <Text style={styles.title}>{t("ใบสำคัญรับเงิน")}</Text>
         <View style={[styles.right, styles.gap]}>
           {(() => {
