@@ -5,10 +5,11 @@
 
 import { useAuth } from "@/lib/AuthContext";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
-import { confirmDelete, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, confirmWarning, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
@@ -126,6 +127,7 @@ function DeliveryModal({
   teachers: string[];
   onSaved: () => void;
 }) {
+  const router = useRouter();
   const modalRef = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
   const [contractId, setContractId] = useState(delivery?.contract_id ?? "");
@@ -201,8 +203,18 @@ function DeliveryModal({
         setPenalty("");
         setPenaltyTouched(false);
       }
-      await toastSuccess(delivery ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกการส่งมอบเรียบร้อยแล้ว");
       onSaved();
+      if (delivery || !res.id) {
+        await toastSuccess(delivery ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกการส่งมอบเรียบร้อยแล้ว");
+        return;
+      }
+      // ส่งมอบใหม่ — ถามต่อว่าจะทำบันทึกขออนุมัติ (เบิกจ่าย) เลยไหม ถ้าตกลงเปิดฟอร์มที่กรอกข้อมูลจากสัญญา/งวดนี้ไว้ให้
+      const goApproval = await confirmWarning({
+        title: "บันทึกการส่งมอบเรียบร้อยแล้ว",
+        text: "ต้องการทำบันทึกขออนุมัติต่อเลยไหม? ระบบจะกรอกข้อมูลจากสัญญาและงวดนี้ไว้ให้",
+        confirmButtonText: "ทำบันทึกขออนุมัติ",
+      });
+      if (goApproval) router.push(`/approvals/new?delivery=${res.id}`);
     } finally {
       setSaving(false);
     }

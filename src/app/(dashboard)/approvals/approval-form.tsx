@@ -91,7 +91,10 @@ export type ApprovalFormInitial = {
   items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; note: string | null }[];
 };
 
-function initialSummaryRows(initial?: ApprovalFormInitial): SummaryRow[] {
+/** ค่าเริ่มต้นของฟอร์มสร้างใหม่ที่ระบบเตรียมให้ (เช่น จากการส่งมอบตามสัญญา) — ต่างจาก initial ที่หมายถึงแก้ไขบันทึกเดิม */
+export type ApprovalFormPrefill = Pick<ApprovalFormInitial, "project_id" | "subject" | "summary_items" | "items">;
+
+function initialSummaryRows(initial?: Pick<ApprovalFormInitial, "summary_items">): SummaryRow[] {
   if (!initial) return emptySummaryRows();
   return SUMMARY_LABELS.map((label, i) => {
     const row = initial.summary_items[i];
@@ -103,7 +106,7 @@ function initialSummaryRows(initial?: ApprovalFormInitial): SummaryRow[] {
   });
 }
 
-function initialItemRows(initial?: ApprovalFormInitial): ItemRow[] {
+function initialItemRows(initial?: Pick<ApprovalFormInitial, "items">): ItemRow[] {
   if (!initial) return emptyItemRows();
   const rows = initial.items
     .filter((item) => item.name || item.qty != null || item.unit_price != null || item.note)
@@ -128,6 +131,7 @@ export function ApprovalForm({
   itemNameSuggestions = [],
   itemDefaults = {},
   initial,
+  prefill,
   submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
   action: (formData: FormData) => void | Promise<void>;
@@ -143,12 +147,13 @@ export function ApprovalForm({
   /** ค่าเริ่มต้นของแต่ละชื่อรายการ (หน่วยนับ/ราคาต่อหน่วยครั้งล่าสุด) — เติมให้เมื่อเลือกชื่อเดิม เฉพาะช่องที่ยังว่าง */
   itemDefaults?: Record<string, { unit: string | null; unitPrice: number | null }>;
   initial?: ApprovalFormInitial;
+  prefill?: ApprovalFormPrefill;
   submitLabel?: string;
 }) {
   const router = useRouter();
-  const [projectId, setProjectId] = useState(initial?.project_id ?? "");
-  const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial));
-  const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial));
+  const [projectId, setProjectId] = useState(initial?.project_id ?? prefill?.project_id ?? "");
+  const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial ?? prefill));
+  const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial ?? prefill));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
   const [department, setDepartment] = useState(initial?.department ?? "");
   const [requestedBy, setRequestedBy] = useState(initial?.requested_by_name ?? "");
@@ -362,7 +367,7 @@ export function ApprovalForm({
             <FieldLabel n={3} text="เรื่อง" required />
             <input
               name="subject"
-              defaultValue={initial?.subject ?? "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ"}
+              defaultValue={initial?.subject ?? prefill?.subject ?? "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ"}
               required
               className="input w-full"
             />

@@ -2,11 +2,63 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronLeftIcon } from "@/components/icons";
 import { createApproval } from "../actions";
-import { ApprovalForm } from "../approval-form";
+import { ApprovalForm, type ApprovalFormPrefill } from "../approval-form";
 import { loadItemSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions";
 
-export default async function NewApprovalPage() {
+const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
+
+/** เตรียมข้อมูลบันทึกขออนุมัติจากการส่งมอบตามสัญญา (เปิดจากหน้าส่งมอบหลังบันทึกงวดใหม่) */
+async function prefillFromDelivery(supabase: SupabaseServer, deliveryId: string): Promise<{ prefill: ApprovalFormPrefill; label: string } | null> {
+  const { data: d } = await supabase
+    .from("proc_deliveries")
+    .select("contract_id, installment_no, period_month, amount")
+    .eq("id", deliveryId)
+    .maybeSingle();
+  if (!d) return null;
+  const { data: c } = await supabase
+    .from("proc_contracts")
+    .select("id, contract_type, contract_no, vendor_name, detail, amount, project_id")
+    .eq("id", d.contract_id)
+    .maybeSingle();
+  if (!c) return null;
+  const amount = Number(d.amount);
+  const installment = d.installment_no ? ` งวดที่ ${d.installment_no}` : "";
+  const period = d.period_month
+    ? ` ประจำเดือน${THAI_MONTHS[Number(d.period_month.slice(5, 7)) - 1]} ${Number(d.period_month.slice(0, 4)) + 543}`
+    : "";
+  const ref = `สัญญา${c.contract_type}เลขที่ ${c.contract_no}${installment}`;
+
+  // สัญญาซื้อที่ส่งมอบครบในงวดเดียว ใช้รายการพัสดุตามสัญญา ที่เหลือใช้รายการเดียวตามยอดงวดนี้
+  let items: ApprovalFormPrefill["items"] = [];
+  if (c.contract_type === "ซื้อ" && Math.abs(amount - Number(c.amount)) < 0.005) {
+    const { data: rows } = await supabase
+      .from("proc_contract_items")
+      .select("name, qty, unit, unit_price, note")
+      .eq("contract_id", c.id)
+      .order("seq");
+    items = rows ?? [];
+  }
+  if (items.length === 0) {
+    items = [{ name: `${c.detail || `ตามสัญญา${c.contract_type}`}${period}`, qty: 1, unit: "งวด", unit_price: amount, note: ref }];
+  }
+
+  return {
+    label: `${ref} (${c.vendor_name})`,
+    prefill: {
+      project_id: c.project_id,
+      subject: "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ",
+      summary_items: [{ label: "จัดซื้อจัดจ้าง", amount, note: ref }],
+      items,
+    },
+  };
+}
+
+export default async function NewApprovalPage({ searchParams }: { searchParams: Promise<{ delivery?: string }> }) {
   const supabase = await createClient();
+  const { delivery: deliveryId } = await searchParams;
+  const fromDelivery = deliveryId ? await prefillFromDelivery(supabase, deliveryId) : null;
 
   // บันทึกขออนุมัติทำได้เฉพาะโครงการของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน) — ไม่มีปีที่เปิดอยู่ก็ใช้ปีล่าสุด
   const { data: budgetYears } = await supabase.from("plan_budget_years").select("id, year, is_open").order("year", { ascending: false });
@@ -74,7 +126,24 @@ export default async function NewApprovalPage() {
           บันทึกขออนุมัติทำได้เฉพาะโครงการของปีงบประมาณปัจจุบัน
         </div>
       )}
+      {fromDelivery && (
+        <div className="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+          กรอกข้อมูลจาก{fromDelivery.label}ไว้ให้แล้ว — ตรวจสอบและเลือกกิจกรรม/ผู้ขออนุมัติ ก่อนบันทึก
+          {fromDelivery.prefill.project_id && !currentProjectIds.has(fromDelivery.prefill.project_id) && (
+            <span className="block text-amber-700">โครงการของสัญญาไม่อยู่ในปีงบประมาณปัจจุบัน กรุณาเลือกโครงการเอง</span>
+          )}
+        </div>
+      )}
       <ApprovalForm
+        prefill={
+          fromDelivery
+            ? {
+                ...fromDelivery.prefill,
+                project_id:
+                  fromDelivery.prefill.project_id && currentProjectIds.has(fromDelivery.prefill.project_id) ? fromDelivery.prefill.project_id : null,
+              }
+            : undefined
+        }
         action={createApproval}
         projects={projectOptions}
         activities={activities.map((a) => ({

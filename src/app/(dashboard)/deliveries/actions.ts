@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { thaiBahtText } from "@/lib/thai";
 
 // คืน { error } แทนการ throw — production ของ Next ซ่อนข้อความ error ที่ throw จาก server action
-type Result = { error?: string };
+type Result = { error?: string; id?: string };
 
 function text(formData: FormData, key: string): string | null {
   return String(formData.get(key) ?? "").trim() || null;
@@ -54,8 +54,8 @@ export async function createDelivery(formData: FormData): Promise<Result> {
   const parsed = deliveryFields(formData);
   if ("error" in parsed) return parsed;
   const supabase = await createClient();
-  const { error } = await supabase.from("proc_deliveries").insert(parsed.fields as never);
-  return error ? { error: error.message } : done();
+  const { data, error } = await supabase.from("proc_deliveries").insert(parsed.fields as never).select("id").single();
+  return error ? { error: error.message } : { ...done(), id: data.id };
 }
 
 export async function updateDelivery(id: string, formData: FormData): Promise<Result> {
