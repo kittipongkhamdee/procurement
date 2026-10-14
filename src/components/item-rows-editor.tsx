@@ -117,6 +117,10 @@ export function ItemRowsEditor({
     if (next !== rows[index]) onChange(rows.map((r, i) => (i === index ? next : r)));
   }
 
+  function addRow() {
+    if (rows.length < MAX_ROWS) onChange([...rows, { ...EMPTY_ITEM_ROW }]);
+  }
+
   function remove(index: number) {
     if (rows.length > 1) onChange(rows.filter((_, i) => i !== index));
   }
@@ -177,6 +181,9 @@ export function ItemRowsEditor({
             </div>
           );
         })}
+        <button type="button" onClick={addRow} disabled={rows.length >= MAX_ROWS} className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-navy-800/40 bg-navy-800/5 px-4 py-3 text-base font-semibold text-navy-800 transition hover:border-navy-800 hover:bg-navy-800/10 disabled:cursor-not-allowed disabled:opacity-50">
+          + เพิ่มรายการ
+        </button>
         <div className="space-y-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-600">{t ? "รวมเป็นเงิน" : "รวมทั้งหมด"} (บาท)</span>
@@ -296,12 +303,8 @@ export function ItemRowsEditor({
           </tfoot>
         </table>
       </div>
-      <button
-        type="button"
-        onClick={() => rows.length < MAX_ROWS && onChange([...rows, { ...EMPTY_ITEM_ROW }])}
-        disabled={rows.length >= MAX_ROWS}
-        className="btn-secondary btn-sm mt-3 disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      {/* จอกว้าง: ปุ่มเพิ่มรายการใต้ตาราง (จอแคบ/แท็บเล็ตอยู่ท้ายการ์ดรายการสุดท้าย) */}
+      <button type="button" onClick={addRow} disabled={rows.length >= MAX_ROWS} className="mt-3 hidden w-full lg:flex items-center justify-center gap-2 rounded-md border-2 border-dashed border-navy-800/40 bg-navy-800/5 px-4 py-3 text-base font-semibold text-navy-800 transition hover:border-navy-800 hover:bg-navy-800/10 disabled:cursor-not-allowed disabled:opacity-50">
         + เพิ่มรายการ
       </button>
     </div>

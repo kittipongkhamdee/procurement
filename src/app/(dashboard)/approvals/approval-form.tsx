@@ -712,6 +712,14 @@ export function ApprovalForm({
               </div>
             );
           })}
+          <button
+            type="button"
+            onClick={addItemRow}
+            disabled={itemRows.length >= MAX_ITEM_ROWS}
+            className="flex w-full items-center justify-center gap-2 rounded-md border-2 border-dashed border-navy-800/40 bg-navy-800/5 px-4 py-3 text-base font-semibold text-navy-800 transition hover:border-navy-800 hover:bg-navy-800/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            + เพิ่มรายการ
+          </button>
           <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
             <span className="font-semibold text-slate-600">รวมทั้งหมด (บาท)</span>
             <span className="font-bold text-emerald-700">{formatBaht(itemsGrandTotal)}</span>
@@ -779,11 +787,12 @@ export function ApprovalForm({
             </tfoot>
           </table>
         </div>
+        {/* จอกว้าง: ปุ่มเพิ่มรายการใต้ตาราง (จอแคบ/แท็บเล็ตอยู่ท้ายการ์ดรายการสุดท้าย) */}
         <button
           type="button"
           onClick={addItemRow}
           disabled={itemRows.length >= MAX_ITEM_ROWS}
-          className="btn-secondary btn-sm mt-3 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-3 hidden w-full lg:flex items-center justify-center gap-2 rounded-md border-2 border-dashed border-navy-800/40 bg-navy-800/5 px-4 py-3 text-base font-semibold text-navy-800 transition hover:border-navy-800 hover:bg-navy-800/10 disabled:cursor-not-allowed disabled:opacity-50"
         >
           + เพิ่มรายการ
         </button>
