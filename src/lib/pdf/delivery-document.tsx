@@ -40,6 +40,20 @@ const styles = StyleSheet.create({
   gap: { marginBottom: 6 },
 });
 
+// ตำแหน่งตามแบบบันทึกข้อความ: "วันที่" ตรงกับ "ข" ของ "บันทึกข้อความ" (ตัวหนา ๒๙pt กึ่งกลาง) ชื่อเดือนเริ่มที่แนวหลัง "ม"
+const TITLE_W = measureText("บันทึกข้อความ", 29, true);
+const TITLE_LEFT = (CONTENT_W - TITLE_W) / 2;
+const X_KHO = TITLE_LEFT + measureText("บันทึก", 29, true);
+const X_MO_END = TITLE_LEFT + TITLE_W;
+const DAY_W = 28;
+
+function dayOf(iso: string) {
+  return String(Number(iso.slice(8, 10)));
+}
+function monthYearOf(iso: string) {
+  return formatThaiDate(iso).split(" ").slice(1).join(" ");
+}
+
 export type DeliveryPdfData = {
   contract_type: string; // จ้าง | ซื้อ
   contract_no: string;
@@ -203,12 +217,13 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
           <Text style={[styles.bold, { fontSize: 20 }]}>{t("ส่วนราชการ")}</Text>
           {t(`  ${d.school_name}${d.education_area ? `  ${d.education_area}` : ""}`)}
         </Text>
-        <Text>
-          <Text style={[styles.bold, { fontSize: 20 }]}>{t("ที่")}</Text>
-          {t("..................................")}
-          <Text style={[styles.bold, { fontSize: 20 }]}>{t("   วันที่")}</Text>
-          {t(` ${deliveryDate}`)}
-        </Text>
+        {/* "วันที่" ตรงกับตัว "ข" ของ "บันทึกข้อความ" และชื่อเดือนเริ่มที่แนวหลังตัว "ม" (แบบเดียวกับบันทึกขออนุมัติ) */}
+        <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
+          <Text style={[styles.bold, { fontSize: 20, width: X_KHO }]}>{t("ที่")}</Text>
+          <Text style={[styles.bold, { fontSize: 20, width: X_MO_END - X_KHO - DAY_W }]}>{t("วันที่")}</Text>
+          <Text style={{ width: DAY_W, textAlign: "center" }}>{t(dayOf(d.delivery_date))}</Text>
+          <Text>{t(monthYearOf(d.delivery_date))}</Text>
+        </View>
         <Text>
           <Text style={[styles.bold, { fontSize: 20 }]}>{t("เรื่อง")}</Text>
           {t("  รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน")}
