@@ -18,7 +18,7 @@ const CARDS: { key: string; title: string; description: string; href: string | n
   { key: "purchase", title: "สัญญาซื้อ", description: "สัญญาซื้อขายพัสดุ/ครุภัณฑ์", href: null, icon: <ShoppingCartIcon className={ICON} />, type: "ซื้อ" },
   { key: "delivery", title: "ส่งมอบตามสัญญา", description: "บันทึกการส่งมอบและตรวจรับตามสัญญา", href: null, icon: <TruckIcon className={ICON} /> },
   { key: "rental", title: "สัญญาเช่าที่ขายของ", description: "สัญญาเช่าพื้นที่ขายของในโรงเรียน", href: null, icon: <StoreIcon className={ICON} />, type: "เช่า" },
-  { key: "register", title: "ทะเบียนสัญญา", description: "รวมสัญญาทุกประเภทในที่เดียว", href: null, icon: <ArchiveIcon className={ICON} /> },
+  { key: "register", title: "ทะเบียนสัญญา", description: "รวมสัญญาทุกประเภทในที่เดียว", href: "/contracts/register", icon: <ArchiveIcon className={ICON} /> },
 ];
 
 function formatBaht(n: number) {
