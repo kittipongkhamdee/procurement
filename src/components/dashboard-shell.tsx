@@ -38,7 +38,6 @@ const BOTTOM_TABS = [
 const DISABLED_HREFS = new Set([
   "/purchase-requests",
   "/vendors",
-  "/contracts",
   "/deliveries",
   "/project-disbursements",
   "/allowance",
