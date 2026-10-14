@@ -411,10 +411,12 @@ function ContractModal({
               <input type="number" inputMode="decimal" step="0.01" min="0" name="amount" defaultValue={contract?.amount ?? ""} required className="input w-full text-right font-semibold" />
             )}
           </div>
-          <div>
-            <label className="label">งบประมาณโครงการ (บาท)</label>
-            <input type="number" inputMode="decimal" step="0.01" min="0" name="budget" defaultValue={contract?.budget ?? ""} className="input w-full text-right" />
-          </div>
+          {!isRental && (
+            <div>
+              <label className="label">งบประมาณโครงการ (บาท)</label>
+              <input type="number" inputMode="decimal" step="0.01" min="0" name="budget" defaultValue={contract?.budget ?? ""} className="input w-full text-right" />
+            </div>
+          )}
           <div>
             <label className="label">หลักประกันสัญญา</label>
             <select name="guarantee_type" defaultValue={contract?.guarantee_type ?? ""} className="input w-full">
@@ -434,10 +436,12 @@ function ContractModal({
             <label className="label">{terms.penalty}</label>
             <input type="number" inputMode="decimal" step="0.01" min="0" name="penalty_rate" defaultValue={contract?.penalty_rate ?? ""} className="input w-full text-right" />
           </div>
-          <div>
-            <label className="label">ผู้ตรวจรับ</label>
-            <input name="inspector_name" defaultValue={contract?.inspector_name ?? ""} list="contract-teacher-names" autoComplete="off" className="input w-full" />
-          </div>
+          {!isRental && (
+            <div>
+              <label className="label">ผู้ตรวจรับ</label>
+              <input name="inspector_name" defaultValue={contract?.inspector_name ?? ""} list="contract-teacher-names" autoComplete="off" className="input w-full" />
+            </div>
+          )}
           <div className="sm:col-span-2">
             <label className="label">หมายเหตุ</label>
             <textarea name="note" defaultValue={contract?.note ?? ""} rows={2} className="input w-full" />
@@ -462,6 +466,116 @@ function ContractModal({
   );
 }
 
+
+/** ปุ่ม "รายละเอียด" — ดูข้อมูลสัญญาทั้งหมดแบบอ่านอย่างเดียว (รวมรายการพัสดุของสัญญาซื้อ) */
+function ContractDetailModal({ type, contract: c }: { type: ContractType; contract: Contract }) {
+  const terms = TERMS[type];
+  const [items, setItems] = useState<{ name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null; note: string | null }[] | null>(null);
+
+  function load() {
+    if (type !== "ซื้อ" || items) return;
+    createClient()
+      .from("proc_contract_items")
+      .select("name, qty, unit, unit_price, total, note")
+      .eq("contract_id", c.id)
+      .order("seq")
+      .then(({ data }) => setItems(data ?? []));
+  }
+
+  const money = (n: number | null | undefined) => (n != null ? `${formatBaht(Number(n))} บาท` : "-");
+  const address = [c.house_no && `บ้านเลขที่ ${c.house_no}`, c.moo && `หมู่ที่ ${c.moo}`, c.tambon && `ตำบล${c.tambon}`, c.amphoe && `อำเภอ${c.amphoe}`, c.province && `จังหวัด${c.province}`, c.zipcode]
+    .filter(Boolean)
+    .join(" ");
+  const st = contractStatus(c.end_date);
+  const rows: [string, React.ReactNode][] = [
+    ["เลขที่สัญญา", c.contract_no],
+    ["วันที่ทำสัญญา", formatThaiDate(c.contract_date)],
+    ["โครงการ", c.plan_projects?.name ?? "ไม่ระบุ"],
+    [type === "ซื้อ" ? "รายละเอียดเพิ่มเติม" : terms.detail, c.detail || "-"],
+    [terms.start, c.start_date ? formatThaiDate(c.start_date) : "-"],
+    [terms.end, <span key="e">{c.end_date ? formatThaiDate(c.end_date) : "-"} <span className={st.cls}>{st.label}</span></span>],
+    ...(type === "เช่า"
+      ? ([
+          ["พื้นที่/ล็อกที่เช่า", c.rental_area || "-"],
+          ["อัตราค่าเช่า", c.rent_monthly != null ? `${formatBaht(Number(c.rent_monthly))} บาท ต่อ${c.rent_unit ?? "เดือน"} × ${c.rent_periods ?? "-"} ${c.rent_unit ?? "เดือน"}` : "-"],
+        ] as [string, React.ReactNode][])
+      : []),
+    [`ชื่อ${terms.party}`, c.vendor_name],
+    ["เลขประจำตัวผู้เสียภาษี / บัตรประชาชน", c.id_card || "-"],
+    ["ที่อยู่", address || "-"],
+    ["โทรศัพท์", c.phone || "-"],
+    ["จำนวนเงินตามสัญญา", <span key="a" className="font-semibold">{money(c.amount)}</span>],
+    ...(type !== "เช่า" ? ([["งบประมาณโครงการ", money(c.budget)]] as [string, React.ReactNode][]) : []),
+    ["หลักประกันสัญญา", c.guarantee_type ? `${c.guarantee_type}${c.guarantee_amount != null ? ` ${money(c.guarantee_amount)}` : ""}` : "-"],
+    [terms.penalty, c.penalty_rate != null ? `ร้อยละ ${c.penalty_rate}` : "-"],
+    ...(type !== "เช่า" ? ([["ผู้ตรวจรับ", c.inspector_name || "-"]] as [string, React.ReactNode][]) : []),
+    ["หมายเหตุ", c.note || "-"],
+  ];
+
+  return (
+    <Modal
+      title={`สัญญา${type} ${c.contract_no}`}
+      wide
+      lazy
+      onOpenChange={(open) => open && load()}
+      trigger={
+        <span className="btn-secondary btn-sm">
+          <SearchIcon className="h-3.5 w-3.5" />
+          รายละเอียด
+        </span>
+      }
+    >
+      <dl className="divide-y divide-slate-100 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-3 sm:gap-3">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="whitespace-pre-line text-slate-900 sm:col-span-2">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {type === "ซื้อ" && (
+        <div className="mt-4">
+          <h3 className="mb-2 text-sm font-semibold text-navy-800">{terms.detail}</h3>
+          {items === null ? (
+            <p className="text-sm text-slate-500">กำลังโหลด...</p>
+          ) : items.length === 0 ? (
+            <p className="text-sm text-slate-500">ไม่มีรายการ</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border border-slate-200">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs text-slate-500">
+                  <tr>
+                    <th className="px-2 py-2">ที่</th>
+                    <th className="px-2 py-2 text-left">รายการ</th>
+                    <th className="px-2 py-2 text-right">จำนวน</th>
+                    <th className="px-2 py-2 text-right">ราคา/หน่วย</th>
+                    <th className="px-2 py-2 text-right">จำนวนเงิน</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {items.map((it, i) => (
+                    <tr key={i}>
+                      <td className="px-2 py-1 text-center text-slate-400">{i + 1}</td>
+                      <td className="px-2 py-1">
+                        {it.name}
+                        {it.note ? <span className="text-slate-500"> ({it.note})</span> : null}
+                      </td>
+                      <td className="px-2 py-1 text-right">
+                        {it.qty ?? "-"} {it.unit ?? ""}
+                      </td>
+                      <td className="px-2 py-1 text-right">{it.unit_price != null ? formatBaht(Number(it.unit_price)) : "-"}</td>
+                      <td className="px-2 py-1 text-right">{it.total != null ? formatBaht(Number(it.total)) : "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
 
 export function ContractList({ type, title, subtitle }: { type: ContractType; title: string; subtitle: string }) {
   const [contracts, setContracts] = useState<Contract[] | null>(null);
@@ -535,6 +649,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
   function actions(c: Contract) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <ContractDetailModal type={type} contract={c} />
         <ContractModal type={type} contract={c} projects={projects} teachers={teachers} itemSuggestions={itemSuggestions} onSaved={reload} />
         <button type="button" onClick={() => handleDelete(c)} className="btn-danger btn-sm">
           <TrashIcon className="h-3.5 w-3.5" />
