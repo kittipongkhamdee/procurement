@@ -80,17 +80,12 @@ const NAV_SECTIONS = [
     items: [
       { href: "/supplies/prices", label: "ราคาพัสดุ", icon: <TagIcon className={ICON_CLASS} /> },
       { href: "/vendors", label: "ร้านค้า / ผู้ขาย", icon: <StoreIcon className={ICON_CLASS} /> },
+      { href: "/standards-strategies", label: "มาตรฐานและกลยุทธ์", icon: <GridIcon className={ICON_CLASS} /> },
     ],
   },
   {
     heading: "คลังเอกสาร",
     items: [{ href: "/documents", label: "คลังเอกสารดาวน์โหลด", icon: <ArchiveIcon className={ICON_CLASS} /> }],
-  },
-  {
-    heading: "กำหนดรายการ",
-    items: [
-      { href: "/standards-strategies", label: "มาตรฐานและกลยุทธ์", icon: <GridIcon className={ICON_CLASS} /> },
-    ],
   },
 ];
 
