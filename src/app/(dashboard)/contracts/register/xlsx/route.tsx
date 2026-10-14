@@ -17,8 +17,8 @@ export async function GET(request: Request) {
       { header: "วันที่ทำสัญญา", key: "contractDate", width: 18 },
       { header: "คู่สัญญา", key: "vendor", width: 30 },
       { header: "โครงการ", key: "project", width: 40 },
-      { header: "วันสิ้นสุดสัญญา", key: "endDate", width: 18 },
       { header: "แหล่งงบประมาณ", key: "source", width: 28 },
+      { header: "วันสิ้นสุดสัญญา", key: "endDate", width: 18 },
       { header: "จำนวนเงิน (บาท)", key: "amount", width: 16, numFmt: "#,##0.00" },
     ],
     rows.map((r, i) => ({

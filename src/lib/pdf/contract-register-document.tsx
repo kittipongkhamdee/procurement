@@ -26,8 +26,8 @@ const COLS = [
   { key: "contractDate", label: "วันที่ทำสัญญา", width: 82 },
   { key: "vendor", label: "คู่สัญญา", width: 128, wrap: true },
   { key: "project", label: "โครงการ", width: 170, wrap: true },
-  { key: "endDate", label: "สิ้นสุดสัญญา", width: 82 },
   { key: "source", label: "แหล่งงบประมาณ", width: 82, wrap: true },
+  { key: "endDate", label: "สิ้นสุดสัญญา", width: 82 },
   { key: "amount", label: "จำนวนเงิน (บาท)", width: 84, align: "right" as const },
 ];
 
