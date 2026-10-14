@@ -61,6 +61,8 @@ function contractFields(formData: FormData) {
     discount: num(formData, "discount"),
     rental_area: text(formData, "rental_area"),
     rent_monthly: num(formData, "rent_monthly"),
+    rent_unit: text(formData, "rent_unit"),
+    rent_periods: num(formData, "rent_periods"),
     vat_type: vatType,
     inspector_name: text(formData, "inspector_name"),
     note: text(formData, "note"),

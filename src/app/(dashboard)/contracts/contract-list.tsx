@@ -51,6 +51,8 @@ type Contract = {
   vat_type: string | null;
   rental_area: string | null;
   rent_monthly: number | null;
+  rent_unit: string | null;
+  rent_periods: number | null;
   inspector_name: string | null;
   note: string | null;
   plan_projects: { name: string } | null;
@@ -96,6 +98,15 @@ function rentalMonths(start: string | null, end: string | null): number {
   return Math.max(months, 0);
 }
 
+const RENT_UNITS = ["วัน", "เดือน", "ภาคเรียน", "ปีการศึกษา"] as const;
+type RentUnit = (typeof RENT_UNITS)[number];
+
+/** จำนวนวันของช่วงเช่า นับวันแรกและวันสุดท้ายรวม */
+function rentalDays(start: string | null, end: string | null): number {
+  if (!start || !end || end < start) return 0;
+  return Math.round((Date.parse(end) - Date.parse(start)) / 86_400_000) + 1;
+}
+
 /** สถานะสัญญาจากวันสิ้นสุด: ยังไม่ระบุ / ยังไม่ครบกำหนด / ใกล้ครบ (≤7 วัน) / เลยกำหนด */
 function contractStatus(endDate: string | null): { label: string; cls: string } {
   if (!endDate) return { label: "ไม่ระบุวันสิ้นสุด", cls: "badge-slate" };
@@ -137,10 +148,11 @@ function ContractModal({
   const [startDate, setStartDate] = useState<string | null>(contract?.start_date ?? null);
   const [endDate, setEndDate] = useState<string | null>(contract?.end_date ?? null);
   const [rent, setRent] = useState(contract?.rent_monthly != null ? String(contract.rent_monthly) : "");
-  const [monthsInput, setMonthsInput] = useState("");
-  const autoMonths = rentalMonths(startDate, endDate);
-  const savedMonths = contract?.rent_monthly ? Math.round(Number(contract.amount) / Number(contract.rent_monthly)) : 0;
-  const months = monthsInput !== "" ? Number(monthsInput) || 0 : autoMonths || savedMonths;
+  const [rentUnit, setRentUnit] = useState<RentUnit>((contract?.rent_unit as RentUnit | null) ?? "เดือน");
+  // จำนวนหน่วย: วัน/เดือน คำนวณจากวันเริ่ม–สิ้นสุด (แก้เองได้), ภาคเรียน/ปีการศึกษา กรอกเอง (ค่าเริ่มต้น 1)
+  const [periodsInput, setPeriodsInput] = useState(contract?.rent_periods != null ? String(contract.rent_periods) : "");
+  const autoPeriods = rentUnit === "เดือน" ? rentalMonths(startDate, endDate) : rentUnit === "วัน" ? rentalDays(startDate, endDate) : 1;
+  const months = periodsInput !== "" ? Number(periodsInput) || 0 : autoPeriods;
   const rentalTotal = Math.round((parseFloat(rent) || 0) * months * 100) / 100;
 
   function loadItems() {
@@ -193,10 +205,11 @@ function ContractModal({
       }
       if (isRental) {
         if (!(rentalTotal > 0)) {
-          await toastError("กรุณากรอกค่าเช่าต่อเดือนและวันเริ่ม–สิ้นสุดการเช่า (หรือจำนวนเดือน)");
+          await toastError("กรุณากรอกอัตราค่าเช่าและจำนวน (หรือวันเริ่ม–สิ้นสุดการเช่า)");
           return;
         }
         formData.set("amount", String(rentalTotal));
+        formData.set("rent_periods", String(months));
       }
       const start = String(formData.get("start_date") ?? "");
       const end = String(formData.get("end_date") ?? "");
@@ -309,21 +322,42 @@ function ContractModal({
               </div>
               <div>
                 <label className="label">
-                  ค่าเช่าต่อเดือน (บาท) <span className="text-red-600">*</span>
+                  อัตราค่าเช่า (บาท) <span className="text-red-600">*</span>
                 </label>
-                <input type="number" inputMode="decimal" step="0.01" min="0" name="rent_monthly" value={rent} onChange={(e) => setRent(e.target.value)} className="input w-full text-right" />
+                <div className="flex gap-2">
+                  <input type="number" inputMode="decimal" step="0.01" min="0" name="rent_monthly" value={rent} onChange={(e) => setRent(e.target.value)} className="input min-w-0 flex-1 text-right" />
+                  <select
+                    name="rent_unit"
+                    value={rentUnit}
+                    onChange={(e) => {
+                      setRentUnit(e.target.value as RentUnit);
+                      setPeriodsInput("");
+                    }}
+                    aria-label="หน่วยค่าเช่า"
+                    className="input w-36"
+                  >
+                    {RENT_UNITS.map((u) => (
+                      <option key={u} value={u}>
+                        ต่อ{u}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
-                <label className="label">จำนวนเดือน</label>
+                <label className="label">จำนวน ({rentUnit})</label>
                 <input
                   type="number"
-                  inputMode="numeric"
+                  inputMode="decimal"
+                  step="0.5"
                   min="0"
-                  value={monthsInput !== "" ? monthsInput : months ? String(months) : ""}
-                  onChange={(e) => setMonthsInput(e.target.value)}
-                  placeholder="คำนวณจากวันเริ่ม–สิ้นสุด"
+                  value={periodsInput !== "" ? periodsInput : autoPeriods ? String(autoPeriods) : ""}
+                  onChange={(e) => setPeriodsInput(e.target.value)}
                   className="input w-full text-right"
                 />
+                {(rentUnit === "เดือน" || rentUnit === "วัน") && (
+                  <p className="mt-1 text-xs text-slate-500">คำนวณจากวันเริ่ม–สิ้นสุดการเช่า แก้เองได้</p>
+                )}
               </div>
             </>
           )}
@@ -370,7 +404,7 @@ function ContractModal({
               จำนวนเงินตามสัญญา (บาท) <span className="text-red-600">*</span>
             </label>
             {isRental ? (
-              <input readOnly value={rentalTotal > 0 ? rentalTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : ""} placeholder="ค่าเช่า × จำนวนเดือน" className="input w-full bg-slate-50 text-right font-semibold" />
+              <input readOnly value={rentalTotal > 0 ? rentalTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : ""} placeholder="อัตราค่าเช่า × จำนวน" className="input w-full bg-slate-50 text-right font-semibold" />
             ) : hasItems ? (
               <input readOnly value={itemsTotal > 0 ? itemsTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : ""} placeholder="คำนวณจากรายการพัสดุ" className="input w-full bg-slate-50 text-right font-semibold" />
             ) : (
@@ -453,7 +487,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
       supabase
         .from("proc_contracts")
         .select(
-          "id, contract_no, contract_date, start_date, end_date, project_id, vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, rental_area, rent_monthly, inspector_name, note, plan_projects(name)",
+          "id, contract_no, contract_date, start_date, end_date, project_id, vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, rental_area, rent_monthly, rent_unit, rent_periods, inspector_name, note, plan_projects(name)",
         )
         .eq("contract_type", type)
         .order("contract_date", { ascending: false }),
