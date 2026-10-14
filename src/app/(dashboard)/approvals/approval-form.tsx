@@ -670,7 +670,7 @@ export function ApprovalForm({
           ))}
         </datalist>
         {/* มือถือ: แต่ละรายการเป็นการ์ด มีป้ายกำกับทุกช่อง (ตารางหกคอลัมน์บนจอแคบช่องเล็กเกินกรอกไม่สะดวก) */}
-        <div className="space-y-3 sm:hidden">
+        <div className="space-y-3 lg:hidden">
           {itemRows.map((row, i) => {
             const total = (parseFloat(row.qty) || 0) * (parseFloat(row.unitPrice) || 0);
             return (
@@ -718,11 +718,11 @@ export function ApprovalForm({
           </div>
         </div>
 
-        <div className="hidden overflow-x-auto rounded-md border border-slate-200 sm:block">
+        <div className="hidden overflow-x-auto rounded-md border border-slate-200 lg:block">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
-                <th className="px-2 py-2 text-left">รายการ</th>
+                <th className="min-w-48 px-2 py-2 text-left">รายการ</th>
                 <th className="w-24 px-2 py-2">จำนวน</th>
                 <th className="w-24 px-2 py-2">หน่วยนับ</th>
                 <th className="w-28 px-2 py-2">ราคา/หน่วย</th>
