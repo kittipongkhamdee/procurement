@@ -38,10 +38,31 @@ export function wrapByWidth(
   restWidth: number,
   bold = false,
   family: MeasureFamily = "Sarabun",
+  /** คำ/วลีที่ห้ามตัดกลาง เช่น ชื่อเฉพาะ (ชื่อโรงเรียน ชื่อคน ชื่อตำบล) — ตัวตัดคำแยก "ตาเบาวิทยา" เป็น "ตา|เบา|วิทยา" */
+  keepTogether: string[] = [],
 ): string[] {
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) return [""];
-  const segments = [...new Intl.Segmenter("th", { granularity: "word" }).segment(clean)].map((s) => s.segment);
+  const segmenter = new Intl.Segmenter("th", { granularity: "word" });
+  const keep = [...new Set(keepTogether.map((k) => k.trim()).filter((k) => k.length > 1))].sort((a, b) => b.length - a.length);
+  const segments: string[] = [];
+  let rest = clean;
+  while (rest) {
+    let at = -1;
+    let hit = "";
+    for (const k of keep) {
+      const i = rest.indexOf(k);
+      if (i !== -1 && (at === -1 || i < at)) {
+        at = i;
+        hit = k;
+      }
+    }
+    const plain = at === -1 ? rest : rest.slice(0, at);
+    segments.push(...[...segmenter.segment(plain)].map((s) => s.segment));
+    if (at === -1) break;
+    segments.push(hit);
+    rest = rest.slice(at + hit.length);
+  }
   const lines: string[] = [];
   let current = "";
   const limit = () => (lines.length === 0 ? firstWidth : restWidth);

@@ -19,7 +19,9 @@ Font.register({
   ],
 });
 const measureText = (text: string, size: number, bold = false) => measureWith(text, size, bold, FAMILY);
-const wrap = (text: string, size: number, first: number, rest: number) => wrapWith(text, size, first, rest, false, FAMILY);
+/** keep = ชื่อเฉพาะที่ห้ามตัดกลางบรรทัด */
+const wrap = (text: string, size: number, first: number, rest: number, keep: string[] = []) =>
+  wrapWith(text, size, first, rest, false, FAMILY, keep);
 
 const CM = 28.3465;
 const PAGE_W = 595.28;
@@ -86,8 +88,8 @@ function DistributedLine({ text, style }: { text: string; style?: Styles[string]
 
 /** ย่อหน้า — ตัดบรรทัดเองตามความกว้างจริงของฟอนต์ (Thai ไม่มีช่องว่างระหว่างคำ react-pdf ตัดเองผิด)
  * ทุกบรรทัดยกเว้นบรรทัดสุดท้ายจัดแบบกระจายแบบไทยให้เต็มความกว้าง */
-function Para({ text, indent = INDENT, style }: { text: string; indent?: number; style?: Styles[string] }) {
-  const lines = wrap(text, FS, CONTENT_W - indent - SLACK, CONTENT_W - SLACK);
+function Para({ text, indent = INDENT, style, keep }: { text: string; indent?: number; style?: Styles[string]; keep?: string[] }) {
+  const lines = wrap(text, FS, CONTENT_W - indent - SLACK, CONTENT_W - SLACK, keep);
   return (
     <View style={[styles.gap, style ?? {}]}>
       {lines.map((l, i) => {
@@ -134,6 +136,9 @@ function partyIntro(d: DeliveryPdfData) {
 }
 
 export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
+  // ชื่อโรงเรียนตัดได้หลังคำว่า "โรงเรียน" แต่ห้ามตัดกลางชื่อ เช่น "ตาเบาวิทยา"; ชื่อคนและชื่อท้องที่ก็ห้ามตัดกลาง
+  const schoolCore = d.school_name.replace(/^โรงเรียน/, "");
+  const keep = [schoolCore, ...d.vendor_name.split(/\s+/), d.tambon, d.amphoe, d.province].filter((x): x is string => !!x);
   const verb = d.contract_type === "ซื้อ" ? "ซื้อ" : "จ้าง";
   const party = d.contract_type === "ซื้อ" ? "ผู้ขาย" : "ผู้รับจ้าง";
   const work = d.detail?.trim() || (verb === "จ้าง" ? "งานจ้าง" : "พัสดุ");
@@ -162,8 +167,8 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
         <Text style={[styles.gap, { marginLeft: CONTENT_W / 2 - 40 }]}>{t(`วันที่ ${deliveryDate}`)}</Text>
         <Text>{t(`เรื่อง    ส่งมอบงาน${verb}และแจ้งหนี้ขอเบิกเงิน`)}</Text>
         <Text style={styles.gap}>{t(`เรียน    ผู้อำนวยการ${d.school_name}`)}</Text>
-        <Para text={`ตามที่${d.school_name} ได้ตกลง${verb === "จ้าง" ? "ให้" : "ซื้อจาก"}ข้าพเจ้า${d.vendor_name} ${address} เพื่อดำเนินการ${work} ${contractRef}`} />
-        <Para text={`บัดนี้ ข้าพเจ้าได้ปฏิบัติตามสัญญา${verb} งวดเดือน ${month} เสร็จเรียบร้อยแล้ว จึงขอส่งมอบงาน${verb}เพื่อตรวจรับและขอเบิกจ่ายเงินค่า${verb}ให้กับข้าพเจ้า จำนวน ${amount} บาท ${amountText} ต่อไป`} />
+        <Para keep={keep} text={`ตามที่${d.school_name} ได้ตกลง${verb === "จ้าง" ? "ให้" : "ซื้อจาก"}ข้าพเจ้า${d.vendor_name} ${address} เพื่อดำเนินการ${work} ${contractRef}`} />
+        <Para keep={keep} text={`บัดนี้ ข้าพเจ้าได้ปฏิบัติตามสัญญา${verb} งวดเดือน ${month} เสร็จเรียบร้อยแล้ว จึงขอส่งมอบงาน${verb}เพื่อตรวจรับและขอเบิกจ่ายเงินค่า${verb}ให้กับข้าพเจ้า จำนวน ${amount} บาท ${amountText} ต่อไป`} />
         <Text style={{ marginLeft: PAGE_W / 2 - PAD_LEFT + 30, marginTop: 10 }}>{t("ขอแสดงความนับถือ")}</Text>
         <Sign role="" name={d.vendor_name} />
       </Page>
@@ -176,7 +181,7 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
           <Text>{t(`เขียนที่ ${d.school_name}`)}</Text>
         </View>
         <Text style={[styles.gap, { marginLeft: CONTENT_W / 2 - 40 }]}>{t(`วันที่ ${deliveryDate}`)}</Text>
-        <Para text={`ตามที่${d.school_name} ได้ตกลง${verb} ${d.vendor_name} ${address}${phone} เพื่อดำเนินการ${work} ${contractRef} เพื่อให้ผู้ตรวจรับ ทำการตรวจรับพัสดุ ซึ่งผลการตรวจรับเป็นดังนี้`} />
+        <Para keep={keep} text={`ตามที่${d.school_name} ได้ตกลง${verb} ${d.vendor_name} ${address}${phone} เพื่อดำเนินการ${work} ${contractRef} เพื่อให้ผู้ตรวจรับ ทำการตรวจรับพัสดุ ซึ่งผลการตรวจรับเป็นดังนี้`} />
         <View style={{ marginLeft: INDENT / 2 }}>
           <Text>{t(`1. ครบกำหนดส่งมอบวันที่ ${d.end_date ? formatThaiDate(d.end_date) : deliveryDate}`)}</Text>
           <Text>{t(`2. ส่งมอบเมื่อวันที่ ${deliveryDate}`)}</Text>
@@ -186,7 +191,7 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
             {t(`5. ส่งมอบงานเกินกำหนด ${late > 0 ? late : "-"} วัน ค่าปรับวันละ ${dash(penaltyPerDay)} บาท รวมค่าปรับ ${dash(d.penalty_amount ?? 0)} บาท`)}
           </Text>
         </View>
-        <Para text={`จึงขอเสนอรายงานต่อผู้อำนวยการ${d.school_name} เพื่อโปรดทราบ ตามนัยข้อ 175 (4) แห่งระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560`} />
+        <Para keep={keep} text={`จึงขอเสนอรายงานต่อผู้อำนวยการ${d.school_name} เพื่อโปรดทราบ ตามนัยข้อ 175 (4) แห่งระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560`} />
         <Sign role="ผู้ตรวจรับพัสดุ" name={d.inspector_name} />
       </Page>
 
@@ -200,8 +205,8 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
         />
         <View style={{ marginBottom: 6 }} />
         <Text style={styles.gap}>{t(`เรียน   ผู้อำนวยการ${d.school_name}`)}</Text>
-        <Para text={`ตามที่ ${d.school_name} ได้ตกลง${verb} ${d.vendor_name} ${address}${phone} เพื่อดำเนินการ${work} ${contractRef}`} />
-        <Para text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveryDate} ซึ่งจะต้องจ่ายเงินให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย ${dash(tax)} บาท คงเหลือ ${formatBaht(net)} บาท`} />
+        <Para keep={keep} text={`ตามที่ ${d.school_name} ได้ตกลง${verb} ${d.vendor_name} ${address}${phone} เพื่อดำเนินการ${work} ${contractRef}`} />
+        <Para keep={keep} text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveryDate} ซึ่งจะต้องจ่ายเงินให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย ${dash(tax)} บาท คงเหลือ ${formatBaht(net)} บาท`} />
         <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนเพื่อโปรด")}</Text>
         <View style={{ marginLeft: INDENT + 20 }}>
           <Text>{t("1. ทราบผลการตรวจรับตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและ")}</Text>
@@ -225,11 +230,22 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
       <Page size="A4" style={styles.page}>
         <Text style={styles.title}>{t("ใบสำคัญรับเงิน")}</Text>
         <View style={[styles.right, styles.gap]}>
-          <Text>{t(`เขียนที่ ${d.school_name}`)}</Text>
-          {d.school_address ? <Text>{t(d.school_address)}</Text> : null}
+          {(() => {
+            // "เขียนที่ <โรงเรียน> เลขที่ .. หมู่ที่ .." บรรทัดแรก แล้วขึ้นบรรทัดใหม่ที่ "ตำบล..."
+            const addr = d.school_address ?? "";
+            const cut = addr.search(/ตำบล|แขวง/);
+            const head = cut > 0 ? addr.slice(0, cut).trim() : "";
+            const tail = cut > 0 ? addr.slice(cut).trim() : addr;
+            return (
+              <>
+                <Text>{t(`เขียนที่ ${d.school_name}${head ? ` ${head}` : ""}`)}</Text>
+                {tail ? <Text>{t(tail)}</Text> : null}
+              </>
+            );
+          })()}
         </View>
         <Text style={[styles.gap, { marginLeft: CONTENT_W / 2 - 40 }]}>{t("วันที่............เดือน...........................พ.ศ.............")}</Text>
-        <Para text={`ข้าพเจ้า ${d.vendor_name} ${address}${phone} ได้รับเงินจาก${d.school_name} ดังรายการต่อไปนี้`} />
+        <Para keep={keep} text={`ข้าพเจ้า ${d.vendor_name} ${address}${phone} ได้รับเงินจาก${d.school_name} ดังรายการต่อไปนี้`} />
         <View style={{ borderWidth: 0.8, marginTop: 4 }}>
           <View style={{ flexDirection: "row", borderBottomWidth: 0.8 }}>
             <Text style={[styles.bold, { width: 60, textAlign: "center", borderRightWidth: 0.8, padding: 3 }]}>{t("ลำดับที่")}</Text>
@@ -239,7 +255,7 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
           <View style={{ flexDirection: "row", borderBottomWidth: 0.8, minHeight: 60 }}>
             <Text style={{ width: 60, textAlign: "center", borderRightWidth: 0.8, padding: 3 }}>1.</Text>
             <View style={{ flex: 1, borderRightWidth: 0.8, padding: 3 }}>
-              {wrap(`ค่า${work.replace(/^จ้าง/, "จ้าง")} ประจำเดือน ${month}`, FS, CONTENT_W - 160 - 6 - SLACK, CONTENT_W - 160 - 6 - SLACK).map((l, i) => (
+              {wrap(`ค่า${work.replace(/^จ้าง/, "จ้าง")} ประจำเดือน ${month}`, FS, CONTENT_W - 160 - 6 - SLACK, CONTENT_W - 160 - 6 - SLACK, keep).map((l, i) => (
                 <Text key={i}>{t(l)}</Text>
               ))}
             </View>
