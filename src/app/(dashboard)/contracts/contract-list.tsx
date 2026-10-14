@@ -15,6 +15,11 @@ import { ThaiAddressInput } from "@/components/thai-address-input";
 import Link from "next/link";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { createContract, deleteContract, updateContract } from "./actions";
+import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
+import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
+
+/** คำแนะนำชื่อรายการ/หน่วยนับ สำหรับตารางรายการพัสดุของสัญญาซื้อ */
+type ItemSuggestions = { names: string[]; units: string[]; defaults: Record<string, ItemDefaults> };
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -92,17 +97,46 @@ function ContractModal({
   contract,
   projects,
   teachers,
+  itemSuggestions,
   onSaved,
 }: {
   type: ContractType;
   contract: Contract | null;
   projects: Project[];
   teachers: string[];
+  itemSuggestions: ItemSuggestions | null;
   onSaved: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
   const terms = TERMS[type];
+  // สัญญาซื้อ: กรอกรายการพัสดุเป็นตาราง (แบบเดียวกับบันทึกขออนุมัติ) และจำนวนเงินตามสัญญา = ยอดรวมรายการ
+  const hasItems = type === "ซื้อ";
+  const [items, setItems] = useState<ItemRow[]>([{ ...EMPTY_ITEM_ROW }]);
+  const itemsTotal = itemRowsTotal(items);
+  const [itemsLoaded, setItemsLoaded] = useState(!contract);
+
+  function loadItems() {
+    if (!hasItems || itemsLoaded || !contract) return;
+    setItemsLoaded(true);
+    createClient()
+      .from("proc_contract_items")
+      .select("name, qty, unit, unit_price, note")
+      .eq("contract_id", contract.id)
+      .order("seq")
+      .then(({ data }) => {
+        if (data && data.length > 0)
+          setItems(
+            data.map((r) => ({
+              name: r.name ?? "",
+              qty: r.qty != null ? String(r.qty) : "",
+              unit: r.unit ?? "",
+              unitPrice: r.unit_price != null ? String(r.unit_price) : "",
+              note: r.note ?? "",
+            })),
+          );
+      });
+  }
   // โครงการเดิมของสัญญาที่ไม่อยู่ในรายการปีปัจจุบัน — ให้ยังเลือกค้างไว้ได้ตอนแก้ไข
   const projectOptions =
     contract?.project_id && !projects.some((p) => p.id === contract.project_id)
@@ -115,6 +149,15 @@ function ContractModal({
     setSaving(true);
     try {
       const formData = new FormData(form);
+      if (hasItems) {
+        const filled = items.filter((r) => r.name.trim());
+        if (filled.length === 0 || itemsTotal <= 0) {
+          await toastError("กรุณากรอกรายการพัสดุอย่างน้อย 1 รายการ และยอดรวมต้องมากกว่า 0");
+          return;
+        }
+        formData.set("items_json", JSON.stringify(filled));
+        formData.set("amount", String(itemsTotal));
+      }
       const start = String(formData.get("start_date") ?? "");
       const end = String(formData.get("end_date") ?? "");
       if (start && end && end < start) {
@@ -127,7 +170,10 @@ function ContractModal({
         return;
       }
       modalRef.current?.close();
-      if (!contract) form.reset();
+      if (!contract) {
+        form.reset();
+        setItems([{ ...EMPTY_ITEM_ROW }]);
+      }
       await toastSuccess(contract ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกสัญญาเรียบร้อยแล้ว");
       onSaved();
     } catch (err) {
@@ -143,6 +189,7 @@ function ContractModal({
       title={contract ? `แก้ไขสัญญา ${contract.contract_no}` : `บันทึกสัญญา${type}ใหม่`}
       wide
       lazy
+      onOpenChange={(open) => open && loadItems()}
       trigger={
         contract ? (
           <span className="btn-secondary btn-sm">
@@ -185,9 +232,24 @@ function ContractModal({
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className="label">{terms.detail}</label>
-            <textarea name="detail" defaultValue={contract?.detail ?? ""} rows={3} className="input w-full" />
+            <label className="label">{hasItems ? "รายละเอียดเพิ่มเติม" : terms.detail}</label>
+            <textarea name="detail" defaultValue={contract?.detail ?? ""} rows={hasItems ? 2 : 3} className="input w-full" />
           </div>
+          {hasItems && (
+            <div className="sm:col-span-2">
+              <label className="label">
+                {terms.detail} <span className="text-red-600">*</span>
+              </label>
+              <ItemRowsEditor
+                rows={items}
+                onChange={setItems}
+                idPrefix={`contract-${contract?.id ?? "new"}`}
+                nameSuggestions={itemSuggestions?.names}
+                unitSuggestions={itemSuggestions?.units}
+                itemDefaults={itemSuggestions?.defaults}
+              />
+            </div>
+          )}
           <div>
             <label className="label">{terms.start}</label>
             <ThaiDatePicker name="start_date" defaultValue={contract?.start_date ?? null} />
@@ -238,7 +300,11 @@ function ContractModal({
             <label className="label">
               จำนวนเงินตามสัญญา (บาท) <span className="text-red-600">*</span>
             </label>
-            <input type="number" inputMode="decimal" step="0.01" min="0" name="amount" defaultValue={contract?.amount ?? ""} required className="input w-full text-right font-semibold" />
+            {hasItems ? (
+              <input readOnly value={itemsTotal > 0 ? itemsTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : ""} placeholder="คำนวณจากรายการพัสดุ" className="input w-full bg-slate-50 text-right font-semibold" />
+            ) : (
+              <input type="number" inputMode="decimal" step="0.01" min="0" name="amount" defaultValue={contract?.amount ?? ""} required className="input w-full text-right font-semibold" />
+            )}
           </div>
           <div>
             <label className="label">งบประมาณโครงการ (บาท)</label>
@@ -298,6 +364,15 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
   const [teachers, setTeachers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [itemSuggestions, setItemSuggestions] = useState<ItemSuggestions | null>(null);
+
+  useEffect(() => {
+    if (type !== "ซื้อ") return;
+    const supabase = createClient();
+    Promise.all([loadItemSuggestions(supabase), loadUnitSuggestions(supabase)]).then(([items, units]) =>
+      setItemSuggestions({ names: items.names, units, defaults: items.defaults }),
+    );
+  }, [type]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -355,7 +430,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
   function actions(c: Contract) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <ContractModal type={type} contract={c} projects={projects} teachers={teachers} onSaved={reload} />
+        <ContractModal type={type} contract={c} projects={projects} teachers={teachers} itemSuggestions={itemSuggestions} onSaved={reload} />
         <button type="button" onClick={() => handleDelete(c)} className="btn-danger btn-sm">
           <TrashIcon className="h-3.5 w-3.5" />
           ลบ
@@ -375,7 +450,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
           <h1 className="page-title">{title}</h1>
           <p className="page-subtitle">{subtitle}</p>
         </div>
-        <ContractModal type={type} contract={null} projects={projects} teachers={teachers} onSaved={reload} />
+        <ContractModal type={type} contract={null} projects={projects} teachers={teachers} itemSuggestions={itemSuggestions} onSaved={reload} />
       </div>
 
       {contracts === null ? (

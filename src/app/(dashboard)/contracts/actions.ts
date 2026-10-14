@@ -76,14 +76,73 @@ async function run(fn: () => Promise<{ error: { message: string } | null }>): Pr
   return {};
 }
 
+type ItemInput = { name: string; qty: string; unit: string; unitPrice: string; note: string };
+
+function parseItems(formData: FormData): ItemInput[] | null {
+  const raw = formData.get("items_json");
+  if (raw === null) return null; // ฟอร์มประเภทนี้ไม่มีตารางรายการ
+  try {
+    const items = JSON.parse(String(raw)) as ItemInput[];
+    return items.filter((i) => i.name?.trim()).slice(0, 100);
+  } catch {
+    throw new ValidationError("รายการพัสดุไม่ถูกต้อง");
+  }
+}
+
+async function replaceItems(supabase: Awaited<ReturnType<typeof createClient>>, contractId: string, items: ItemInput[]) {
+  const { error: delError } = await supabase.from("proc_contract_items").delete().eq("contract_id", contractId);
+  if (delError) return delError.message;
+  if (items.length === 0) return null;
+  const { error } = await supabase.from("proc_contract_items").insert(
+    items.map((i, idx) => ({
+      contract_id: contractId,
+      seq: idx + 1,
+      name: i.name.trim(),
+      qty: i.qty ? Number(i.qty) : null,
+      unit: i.unit?.trim() || null,
+      unit_price: i.unitPrice ? Number(i.unitPrice) : null,
+      note: i.note?.trim() || null,
+    })),
+  );
+  return error?.message ?? null;
+}
+
 export async function createContract(formData: FormData): Promise<Result> {
   const supabase = await createClient();
-  return run(async () => supabase.from("proc_contracts").insert(contractFields(formData)));
+  try {
+    const fields = contractFields(formData);
+    const items = parseItems(formData);
+    const { data, error } = await supabase.from("proc_contracts").insert(fields).select("id").single();
+    if (error) return { error: error.message };
+    if (items) {
+      const itemError = await replaceItems(supabase, data.id, items);
+      if (itemError) return { error: `บันทึกสัญญาแล้ว แต่บันทึกรายการพัสดุไม่สำเร็จ: ${itemError}` };
+    }
+  } catch (err) {
+    if (err instanceof ValidationError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath("/contracts");
+  return {};
 }
 
 export async function updateContract(id: string, formData: FormData): Promise<Result> {
   const supabase = await createClient();
-  return run(async () => supabase.from("proc_contracts").update(contractFields(formData)).eq("id", id));
+  try {
+    const fields = contractFields(formData);
+    const items = parseItems(formData);
+    const { error } = await supabase.from("proc_contracts").update(fields).eq("id", id);
+    if (error) return { error: error.message };
+    if (items) {
+      const itemError = await replaceItems(supabase, id, items);
+      if (itemError) return { error: `บันทึกสัญญาแล้ว แต่บันทึกรายการพัสดุไม่สำเร็จ: ${itemError}` };
+    }
+  } catch (err) {
+    if (err instanceof ValidationError) return { error: err.message };
+    throw err;
+  }
+  revalidatePath("/contracts");
+  return {};
 }
 
 export async function deleteContract(id: string): Promise<Result> {

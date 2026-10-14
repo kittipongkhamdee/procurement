@@ -1871,6 +1871,51 @@ export type Database = {
           },
         ]
       }
+      proc_contract_items: {
+        Row: {
+          contract_id: string
+          created_at: string
+          id: string
+          name: string | null
+          note: string | null
+          qty: number | null
+          seq: number
+          total: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          id?: string
+          name?: string | null
+          note?: string | null
+          qty?: number | null
+          seq: number
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          id?: string
+          name?: string | null
+          note?: string | null
+          qty?: number | null
+          seq?: number
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_contract_items_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "proc_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_contracts: {
         Row: {
           contract_type: string
