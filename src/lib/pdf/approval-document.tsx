@@ -265,6 +265,17 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
   );
 }
 
+/** ลายมือชื่อ "(ลงชื่อ)……… <ตำแหน่ง>" + ชื่อในวงเล็บใต้เส้น — ชื่อเริ่มที่แนวเดียวกับ ")" ของ "(ลงชื่อ)" */
+function SignatureBlock({ suffix, name, size = FS, valueWidth = 90 }: { suffix: string; name: string | null; size?: number; valueWidth?: number }) {
+  const nameLeft = measureText("(ลงชื่อ", size);
+  return (
+    <View style={{ alignItems: "flex-start" }}>
+      <FieldRow prefix="(ลงชื่อ)" value="" suffix={suffix} size={size} valueWidth={valueWidth} />
+      <Text style={{ fontSize: size, marginLeft: nameLeft }}>{t(name ? `(${name})` : "(                                    )")}</Text>
+    </View>
+  );
+}
+
 const CELL_PAD = 2.5;
 const CELL_W = CONTENT_W / 2 - CELL_PAD * 2;
 
@@ -567,10 +578,9 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           <Text>{t("จึงเรียนมาเพื่อโปรดพิจารณาอนุญาตและอนุมัติ")}</Text>
         </View>
 
-        {/* ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บอยู่กึ่งกลางใต้ลายมือชื่อ */}
-        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 8, marginBottom: 2, alignItems: "center" }}>
-          <FieldRow prefix="(ลงชื่อ)" value="" suffix="ผู้รับผิดชอบโครงการ" valueWidth={90} />
-          <Text>{t(data.requested_by_name ? `(${data.requested_by_name})` : "(                                    )")}</Text>
+        {/* ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บเริ่มที่แนวเดียวกับ ")" ของ "(ลงชื่อ)" */}
+        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 8, marginBottom: 2 }}>
+          <SignatureBlock suffix="ผู้รับผิดชอบโครงการ" name={data.requested_by_name} />
         </View>
 
         {/* กรอบความเห็น ๔ ช่อง — ต่อท้ายหน้า ๑ ถ้าพื้นที่พอ ไม่พอจะย้ายทั้งกรอบไปหน้าถัดไป (wrap={false}) */}
@@ -588,11 +598,8 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           )}
           <ItemsTable items={pageItems} startNo={itemPages.slice(0, pi).reduce((n, p) => n + p.length, 1)} />
           {pi === itemPages.length - 1 && (
-            <View wrap={false} style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14, alignItems: "center" }}>
-              <FieldRow prefix="(ลงชื่อ)" value="" suffix="ผู้ขออนุมัติ" size={FS_P23} valueWidth={90} />
-              <Text style={{ fontSize: FS_P23 }}>
-                {t(data.requested_by_name ? `(${data.requested_by_name})` : "(                                    )")}
-              </Text>
+            <View wrap={false} style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14 }}>
+              <SignatureBlock suffix="ผู้ขออนุมัติ" name={data.requested_by_name} size={FS_P23} />
             </View>
           )}
         </Page>
