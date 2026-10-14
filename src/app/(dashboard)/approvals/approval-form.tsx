@@ -623,7 +623,56 @@ export function ApprovalForm({
             <option key={u} value={u} />
           ))}
         </datalist>
-        <div className="overflow-x-auto rounded-md border border-slate-200">
+        {/* มือถือ: แต่ละรายการเป็นการ์ด มีป้ายกำกับทุกช่อง (ตารางหกคอลัมน์บนจอแคบช่องเล็กเกินกรอกไม่สะดวก) */}
+        <div className="space-y-3 sm:hidden">
+          {itemRows.map((row, i) => {
+            const total = (parseFloat(row.qty) || 0) * (parseFloat(row.unitPrice) || 0);
+            return (
+              <div key={i} className="rounded-md border border-slate-200 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-600">รายการที่ {i + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeItemRow(i)}
+                    disabled={itemRows.length <= 1}
+                    aria-label={`ลบรายการที่ ${i + 1}`}
+                    className="rounded px-2 py-1 text-sm text-slate-500 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    ✕ ลบ
+                  </button>
+                </div>
+                <label className="label">รายการ</label>
+                <input value={row.name} onChange={(e) => handleItemNameChange(i, e.target.value, (e.nativeEvent as InputEvent).inputType === "insertReplacementText")} onBlur={() => applyItemDefaults(i)} list="approval-item-name-suggestions" autoComplete="off" placeholder="ชื่อวัสดุ/อุปกรณ์" className="input w-full" />
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="label">จำนวน</label>
+                    <input type="number" inputMode="decimal" step="0.01" value={row.qty} onChange={(e) => updateItemRow(i, { qty: e.target.value })} className="input w-full text-center" />
+                  </div>
+                  <div>
+                    <label className="label">หน่วยนับ</label>
+                    <input value={row.unit} onChange={(e) => updateItemRow(i, { unit: e.target.value })} list="approval-unit-suggestions" placeholder="เช่น ชิ้น" autoComplete="off" className="input w-full text-center" />
+                  </div>
+                  <div>
+                    <label className="label">ราคา/หน่วย</label>
+                    <input type="number" inputMode="decimal" step="0.01" value={row.unitPrice} onChange={(e) => updateItemRow(i, { unitPrice: e.target.value })} className="input w-full text-center" />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between rounded bg-slate-50 px-3 py-2 text-sm">
+                  <span className="text-slate-500">จำนวนเงิน (บาท)</span>
+                  <span className="font-semibold text-slate-700">{total > 0 ? formatBaht(total) : "-"}</span>
+                </div>
+                <label className="label mt-3">หมายเหตุ</label>
+                <input value={row.note} onChange={(e) => updateItemRow(i, { note: e.target.value })} className="input w-full" />
+              </div>
+            );
+          })}
+          <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
+            <span className="font-semibold text-slate-600">รวมทั้งหมด (บาท)</span>
+            <span className="font-bold text-emerald-700">{formatBaht(itemsGrandTotal)}</span>
+          </div>
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-md border border-slate-200 sm:block">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
