@@ -182,13 +182,34 @@ function FieldRow({
             {isFirst && indent > 0 && <View style={{ width: indent }} />}
             {isFirst ? prefixEl : null}
             <Dotted style={{ flex: 1 }}>
-              <Text style={{ fontSize: size, textAlign: align }}>{line ? t(line) : " "}</Text>
+              {!isLast && line ? (
+                <DistributedLine text={line} size={size} />
+              ) : (
+                <Text style={{ fontSize: size, textAlign: align }}>{line ? t(line) : " "}</Text>
+              )}
             </Dotted>
             {isLast ? suffixEl : null}
           </View>
         );
       })}
     </>
+  );
+}
+
+const graphemes = new Intl.Segmenter("th", { granularity: "grapheme" });
+
+/** บรรทัดแบบ "กระจายแบบไทย" (Thai Distributed) — ใช้กับทุกบรรทัดของข้อความหลายบรรทัดยกเว้นบรรทัดสุดท้าย:
+ * แบ่งเป็นกลุ่มอักษร (พยัญชนะ+สระ/วรรณยุกต์ไม่แยกกัน) แล้วเกลี่ยช่องว่างให้เต็มความกว้าง */
+function DistributedLine({ text, size }: { text: string; size: number }) {
+  const parts = [...graphemes.segment(text)].map((g) => g.segment);
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+      {parts.map((g, i) => (
+        <Text key={i} style={{ fontSize: size }}>
+          {g === " " ? "\u00a0" : g}
+        </Text>
+      ))}
+    </View>
   );
 }
 
@@ -200,9 +221,7 @@ function PlainRow({ prefix, value, width = CONTENT_W }: { prefix?: string; value
     <View style={[styles.row, { alignItems: "flex-start", lineHeight: 1.3 }]}>
       {prefix ? <Text style={{ width: prefixW }}>{t(prefix)}</Text> : null}
       <View style={{ flex: 1 }}>
-        {lines.map((l, i) => (
-          <Text key={i}>{t(l)}</Text>
-        ))}
+        {lines.map((l, i) => (i < lines.length - 1 ? <DistributedLine key={i} text={l} size={FS} /> : <Text key={i}>{t(l)}</Text>))}
       </View>
     </View>
   );
