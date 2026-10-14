@@ -527,15 +527,15 @@ function DocNumberAndDate({ data }: { data: ApprovalPdfData }) {
   const [day, ...rest] = (data.doc_date ? formatThaiDate(data.doc_date) : "").split(" ");
   return (
     <View style={[styles.row, { marginBottom: 2 }]}>
-      <Text style={[styles.bold, { fontSize: FS_LABEL, marginRight: GAP }]}>{t(thi)}</Text>
+      <Text style={[styles.bold, { fontSize: FS_LABEL, width: thiW }]}>{t(thi)}</Text>
       <Dotted style={{ width: X_KHO - thiW - GAP }}>
         <Text>{t(docNumberText(data.doc_number)) || " "}</Text>
       </Dotted>
-      <Text style={[styles.bold, { fontSize: FS_LABEL, marginLeft: GAP, marginRight: GAP }]}>{t(wanThi)}</Text>
-      <Dotted style={{ width: X_MO_END - X_KHO - wanThiW - GAP }}>
+      <Text style={[styles.bold, { fontSize: FS_LABEL, marginLeft: GAP, width: wanThiW }]}>{t(wanThi)}</Text>
+      <Dotted style={{ width: X_MO_END - X_KHO - wanThiW }}>
         <Text style={{ textAlign: "center" }}>{day || " "}</Text>
       </Dotted>
-      <Dotted style={{ flex: 1, marginLeft: GAP }}>
+      <Dotted style={{ flex: 1 }}>
         <Text>{rest.length ? t(rest.join(" ")) : " "}</Text>
       </Dotted>
     </View>
@@ -564,15 +564,15 @@ export function MemoHeader({ unit, docNumber, isoDate, subject }: { unit: string
         </Dotted>
       </View>
       <View style={[styles.row, { marginBottom: 2 }]}>
-        <Text style={[styles.bold, { fontSize: FS_LABEL, marginRight: GAP }]}>{t("ที่")}</Text>
+        <Text style={[styles.bold, { fontSize: FS_LABEL, width: thiW }]}>{t("ที่")}</Text>
         <Dotted style={{ width: X_KHO - thiW - GAP }}>
           <Text>{t(docNumber ?? "") || " "}</Text>
         </Dotted>
-        <Text style={[styles.bold, { fontSize: FS_LABEL, marginLeft: GAP, marginRight: GAP }]}>{t("วันที่")}</Text>
-        <Dotted style={{ width: X_MO_END - X_KHO - wanThiW - GAP }}>
+        <Text style={[styles.bold, { fontSize: FS_LABEL, marginLeft: GAP, width: wanThiW }]}>{t("วันที่")}</Text>
+        <Dotted style={{ width: X_MO_END - X_KHO - wanThiW }}>
           <Text style={{ textAlign: "center" }}>{day || " "}</Text>
         </Dotted>
-        <Dotted style={{ flex: 1, marginLeft: GAP }}>
+        <Dotted style={{ flex: 1 }}>
           <Text>{rest.length ? t(rest.join(" ")) : " "}</Text>
         </Dotted>
       </View>
