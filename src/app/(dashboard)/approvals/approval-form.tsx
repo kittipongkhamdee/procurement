@@ -51,6 +51,10 @@ function buildSummaryPayload(rows: SummaryRow[]): SummaryRow[] {
   });
 }
 
+function nameKey(name: string): string {
+  return name.replace(/\s+/g, " ").trim();
+}
+
 function emptyItemRows(): ItemRow[] {
   return [{ ...EMPTY_ITEM_ROW }];
 }
@@ -184,13 +188,22 @@ export function ApprovalForm({
     () => teachers.filter((t) => t.is_active || t.name === initial?.requested_by_name),
     [teachers, initial?.requested_by_name],
   );
+  // เทียบชื่อโดยไม่สนช่องว่างซ้ำ (ชื่อในรายชื่อบุคลากรบางคนมีเว้นวรรคสองช่อง) — ค่าที่ใช้จริงเป็นชื่อตามรายชื่อบุคลากร
+  const teacherNameByKey = useMemo(
+    () => new Map(visibleTeachers.map((t) => [nameKey(t.name), t.name] as const)),
+    [visibleTeachers],
+  );
 
   // ผู้รับผิดชอบที่เป็นตัวเลือกผู้ลงชื่อขออนุมัติ — ถ้าเลือกกิจกรรมแล้วใช้ผู้รับผิดชอบของกิจกรรมนั้น
   // ไม่งั้นรวมผู้รับผิดชอบทุกกิจกรรมของโครงการ (โครงการที่ไม่มีกิจกรรมย่อยก็เก็บไว้ที่กิจกรรมเดียวไม่มีชื่อ)
+  // นับเฉพาะ "ชื่อครู/บุคลากร" ในรายชื่อบุคลากร — ผู้รับผิดชอบบางกิจกรรมเก็บเป็นชื่อกลุ่ม/ฝ่าย (เช่น "กลุ่มบริหารวิชาการ")
+  // ซึ่งลงชื่อขออนุมัติไม่ได้ จึงไม่ใช้เป็นตัวเลือกหรือค่าเริ่มต้น
   function candidatesFor(pid: string, aname: string): string[] {
     const inProject = activities.filter((a) => a.project_id === pid);
     const matched = aname ? inProject.filter((a) => a.name === aname) : inProject;
-    const names = matched.flatMap((a) => a.responsible.map((n) => n.trim()).filter(Boolean));
+    const names = matched.flatMap((a) =>
+      a.responsible.map((n) => teacherNameByKey.get(nameKey(n))).filter((n): n is string => !!n),
+    );
     return Array.from(new Set(names));
   }
   // ลงชื่อผู้ขออนุมัติอัตโนมัติเมื่อเปลี่ยนโครงการ/กิจกรรม: มีคนเดียวเลือกให้เลย, มีหลายคนให้เลือกเอง
@@ -203,7 +216,7 @@ export function ApprovalForm({
   const requesterCandidates = useMemo(
     () => candidatesFor(projectId, activityName),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activities, projectId, activityName],
+    [activities, projectId, activityName, teacherNameByKey],
   );
   const otherTeachers = visibleTeachers.filter((t) => !requesterCandidates.includes(t.name));
 
@@ -466,6 +479,7 @@ export function ApprovalForm({
               <option value="" disabled>
                 -- เลือกผู้ขออนุมัติ --
               </option>
+              {requestedBy && !teacherNameByKey.has(nameKey(requestedBy)) && <option value={requestedBy}>{requestedBy}</option>}
               {requesterCandidates.length > 0 ? (
                 <>
                   <optgroup label="ผู้รับผิดชอบตามโครงการ/กิจกรรมที่เลือก">
@@ -501,6 +515,11 @@ export function ApprovalForm({
             {requesterCandidates.length === 1 && requestedBy === requesterCandidates[0] && (
               <p className="mt-1 text-xs text-slate-500">ลงชื่ออัตโนมัติตามผู้รับผิดชอบ (เปลี่ยนได้)</p>
             )}
+            {projectId && requesterCandidates.length === 0 && (
+              <p className="mt-1 text-xs text-slate-500">
+                โครงการ/กิจกรรมนี้ยังไม่ได้ระบุชื่อครูผู้รับผิดชอบ — กรุณาเลือกชื่อครูเอง
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -523,17 +542,19 @@ export function ApprovalForm({
                   <td className="px-2 py-1 text-center text-slate-400">{i + 1}</td>
                   <td className="px-2 py-1 text-slate-700">
                     {i === OTHER_INDEX ? (
-                      <div className="flex items-center gap-1">
-                        <span className="shrink-0">อื่นๆ (</span>
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
+                        <span className="shrink-0">
+                          อื่นๆ<span className="hidden sm:inline"> (</span>
+                        </span>
                         <input
                           value={row.label}
                           onChange={(e) => updateSummaryRow(i, { label: e.target.value })}
                           placeholder="ระบุรายการ"
                           maxLength={80}
                           aria-label="ระบุรายการอื่นๆ"
-                          className="input min-w-0 flex-1"
+                          className="input w-full min-w-0 sm:flex-1"
                         />
-                        <span className="shrink-0">)</span>
+                        <span className="hidden shrink-0 sm:inline">)</span>
                       </div>
                     ) : (
                       row.label
