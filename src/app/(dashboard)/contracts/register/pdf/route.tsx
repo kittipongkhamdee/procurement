@@ -16,6 +16,6 @@ export async function GET(request: Request) {
     <ContractRegisterDocument rows={rows} schoolName={school?.school_name ?? "โรงเรียนตาเบาวิทยา"} filterText={describeFilter(filter)} />,
   );
   return new NextResponse(new Uint8Array(buffer), {
-    headers: { "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", "ทะเบียนสัญญา.pdf") },
+    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", "ทะเบียนสัญญา.pdf") },
   });
 }

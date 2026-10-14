@@ -35,6 +35,7 @@ export async function GET(request: Request) {
   );
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
+      "Cache-Control": "no-store",
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": contentDisposition("attachment", "ทะเบียนสัญญา.xlsx"),
     },
