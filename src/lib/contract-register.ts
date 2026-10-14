@@ -11,6 +11,7 @@ export type ContractRegisterRow = {
   vendor_name: string;
   amount: number;
   project_name: string | null;
+  budget_source_name: string | null;
 };
 
 export type ContractRegisterFilter = { type?: string; year?: string; status?: string; q?: string };
@@ -72,7 +73,7 @@ export async function fetchContractRegister(
 ): Promise<ContractRegisterRow[]> {
   const { data, error } = await supabase
     .from("proc_contracts")
-    .select("contract_type, contract_no, contract_date, end_date, vendor_name, amount, plan_projects(name)")
+    .select("contract_type, contract_no, contract_date, end_date, vendor_name, amount, plan_projects(name), plan_budget_sources(name)")
     .order("contract_date", { ascending: true });
   if (error) throw new Error(error.message);
   const rows = (data ?? []).map((r) => ({
@@ -83,6 +84,7 @@ export async function fetchContractRegister(
     vendor_name: r.vendor_name,
     amount: Number(r.amount),
     project_name: (r.plan_projects as unknown as { name: string } | null)?.name ?? null,
+    budget_source_name: (r.plan_budget_sources as unknown as { name: string } | null)?.name ?? null,
   }));
   return applyContractFilter(rows, f);
 }

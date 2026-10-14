@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
-import { contractStatusKey, type ContractRegisterRow } from "@/lib/contract-register";
+import type { ContractRegisterRow } from "@/lib/contract-register";
 import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
 
@@ -27,12 +27,11 @@ const COLS = [
   { key: "vendor", label: "คู่สัญญา", width: 128, wrap: true },
   { key: "project", label: "โครงการ", width: 170, wrap: true },
   { key: "endDate", label: "สิ้นสุดสัญญา", width: 82 },
-  { key: "status", label: "สถานะ", width: 82 },
+  { key: "source", label: "แหล่งงบประมาณ", width: 82, wrap: true },
   { key: "amount", label: "จำนวนเงิน (บาท)", width: 84, align: "right" as const },
 ];
 
 export function ContractRegisterDocument({ rows, schoolName, filterText }: { rows: ContractRegisterRow[]; schoolName: string; filterText: string }) {
-  const total = rows.reduce((s, r) => s + r.amount, 0);
   const colStyle = (c: (typeof COLS)[number]) => ({ width: c.width });
   // ข้อความไทยยาว react-pdf ตัดบรรทัดเองไม่ได้ (ไม่มีช่องว่างระหว่างคำ) — ตัดล่วงหน้าตามความกว้างคอลัมน์ (หักขอบเซลล์)
   const cellLines = (text: string, width: number) =>
@@ -59,7 +58,7 @@ export function ContractRegisterDocument({ rows, schoolName, filterText }: { row
               vendor: r.vendor_name,
               project: r.project_name ?? "-",
               endDate: r.end_date ? formatThaiDate(r.end_date) : "-",
-              status: contractStatusKey(r.end_date).label,
+              source: r.budget_source_name ?? "-",
               amount: formatBaht(r.amount),
             };
             return (
@@ -85,10 +84,6 @@ export function ContractRegisterDocument({ rows, schoolName, filterText }: { row
               <Text style={[styles.cell, { flex: 1, textAlign: "center" }]}>{t("ไม่มีสัญญา")}</Text>
             </View>
           )}
-          <View style={styles.row}>
-            <Text style={[styles.cell, { flex: 1, textAlign: "right", fontWeight: "bold" }]}>{t(`รวม ${rows.length} สัญญา`)}</Text>
-            <Text style={[styles.cell, { width: 84, textAlign: "right", fontWeight: "bold" }]}>{formatBaht(total)}</Text>
-          </View>
         </View>
         <Text
           style={{ position: "absolute", bottom: 14, right: 28, fontSize: 12, color: "#64748b" }}

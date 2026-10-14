@@ -1918,6 +1918,7 @@ export type Database = {
       }
       proc_contracts: {
         Row: {
+          budget_source_id: string | null
           rent_periods: number | null
           rent_unit: string | null
           rent_monthly: number | null
@@ -1952,6 +1953,7 @@ export type Database = {
           zipcode: string | null
         }
         Insert: {
+          budget_source_id?: string | null
           rent_periods?: number | null
           rent_unit?: string | null
           rent_monthly?: number | null
@@ -1986,6 +1988,7 @@ export type Database = {
           zipcode?: string | null
         }
         Update: {
+          budget_source_id?: string | null
           rent_periods?: number | null
           rent_unit?: string | null
           rent_monthly?: number | null
@@ -2020,6 +2023,14 @@ export type Database = {
           zipcode?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "proc_contracts_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+
           {
             foreignKeyName: "proc_contracts_project_id_fkey"
             columns: ["project_id"]

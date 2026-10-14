@@ -40,6 +40,7 @@ function contractFields(formData: FormData) {
     contract_type: contractType,
     contract_no: contractNo,
     project_id: text(formData, "project_id"),
+    budget_source_id: text(formData, "budget_source_id"),
     contract_date: contractDate,
     start_date: startDate,
     end_date: endDate,

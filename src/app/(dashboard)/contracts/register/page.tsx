@@ -19,6 +19,7 @@ type Row = {
   vendor_name: string;
   amount: number;
   plan_projects: { name: string } | null;
+  plan_budget_sources: { name: string } | null;
 };
 
 const TYPE_PAGE: Record<string, string | null> = { จ้าง: "/contracts/hire", ซื้อ: "/contracts/purchase", เช่า: "/contracts/rental" };
@@ -53,7 +54,7 @@ export default function ContractRegisterPage() {
   useEffect(() => {
     createClient()
       .from("proc_contracts")
-      .select("id, contract_type, contract_no, contract_date, end_date, vendor_name, amount, plan_projects(name)")
+      .select("id, contract_type, contract_no, contract_date, end_date, vendor_name, amount, plan_projects(name), plan_budget_sources(name)")
       .order("contract_date", { ascending: false })
       .then(({ data, error }) => {
         setError(error?.message ?? null);
@@ -156,7 +157,10 @@ export default function ContractRegisterPage() {
                       <span className={st.cls}>{st.label}</span>
                     </div>
                     <p className="mt-0.5 text-sm text-slate-700">{r.vendor_name}</p>
-                    <p className="text-xs text-slate-500">{r.plan_projects?.name ?? "ไม่ระบุโครงการ"}</p>
+                    <p className="text-xs text-slate-500">
+                      {r.plan_projects?.name ?? "ไม่ระบุโครงการ"}
+                      {r.plan_budget_sources ? ` · ${r.plan_budget_sources.name}` : ""}
+                    </p>
                     <p className="mt-1 text-xs text-slate-500">
                       ทำสัญญา {formatThaiDate(r.contract_date)}
                       {r.end_date ? ` · สิ้นสุด ${formatThaiDate(r.end_date)}` : ""}
@@ -183,6 +187,7 @@ export default function ContractRegisterPage() {
                   <th>วันที่ทำสัญญา</th>
                   <th>คู่สัญญา</th>
                   <th>โครงการ</th>
+                  <th>แหล่งงบประมาณ</th>
                   <th>สิ้นสุดสัญญา</th>
                   <th className="text-right">จำนวนเงิน</th>
                   <th></th>
@@ -201,6 +206,7 @@ export default function ContractRegisterPage() {
                       <td>{formatThaiDate(r.contract_date)}</td>
                       <td>{r.vendor_name}</td>
                       <td>{r.plan_projects?.name ?? "-"}</td>
+                      <td>{r.plan_budget_sources?.name ?? "-"}</td>
                       <td>
                         <div>{r.end_date ? formatThaiDate(r.end_date) : "-"}</div>
                         <span className={`${st.cls} text-sm`}>{st.label}</span>
@@ -218,7 +224,7 @@ export default function ContractRegisterPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="table-empty">
+                    <td colSpan={9} className="table-empty">
                       ไม่พบสัญญา
                     </td>
                   </tr>

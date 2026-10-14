@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buildExcelBuffer } from "@/lib/excel";
 import { contentDisposition } from "@/lib/http";
 import { formatThaiDate } from "@/lib/thai";
-import { contractStatusKey, fetchContractRegister, filterFromSearchParams } from "@/lib/contract-register";
+import { fetchContractRegister, filterFromSearchParams } from "@/lib/contract-register";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       { header: "คู่สัญญา", key: "vendor", width: 30 },
       { header: "โครงการ", key: "project", width: 40 },
       { header: "วันสิ้นสุดสัญญา", key: "endDate", width: 18 },
-      { header: "สถานะ", key: "status", width: 18 },
+      { header: "แหล่งงบประมาณ", key: "source", width: 28 },
       { header: "จำนวนเงิน (บาท)", key: "amount", width: 16, numFmt: "#,##0.00" },
     ],
     rows.map((r, i) => ({
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
       vendor: r.vendor_name,
       project: r.project_name ?? "-",
       endDate: r.end_date ? formatThaiDate(r.end_date) : "-",
-      status: contractStatusKey(r.end_date).label,
+      source: r.budget_source_name ?? "-",
       amount: r.amount,
     })),
   );

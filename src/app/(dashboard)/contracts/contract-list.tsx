@@ -32,6 +32,7 @@ type Contract = {
   start_date: string | null;
   end_date: string | null;
   project_id: string | null;
+  budget_source_id: string | null;
   vendor_name: string;
   id_card: string | null;
   house_no: string | null;
@@ -56,7 +57,9 @@ type Contract = {
   inspector_name: string | null;
   note: string | null;
   plan_projects: { name: string } | null;
+  plan_budget_sources: { name: string } | null;
 };
+type BudgetSource = { id: string; name: string };
 type Project = { id: string; name: string };
 
 const GUARANTEE_TYPES = ["เงินสด", "เช็คธนาคาร", "หนังสือค้ำประกันของธนาคาร", "พันธบัตรรัฐบาล", "ไม่มีหลักประกัน"];
@@ -122,6 +125,7 @@ function ContractModal({
   contract,
   projects,
   teachers,
+  budgetSources,
   itemSuggestions,
   onSaved,
 }: {
@@ -129,6 +133,7 @@ function ContractModal({
   contract: Contract | null;
   projects: Project[];
   teachers: string[];
+  budgetSources: BudgetSource[];
   itemSuggestions: ItemSuggestions | null;
   onSaved: () => void;
 }) {
@@ -282,6 +287,17 @@ function ContractModal({
               {projectOptions.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="label">แหล่งงบประมาณ</label>
+            <select name="budget_source_id" defaultValue={contract?.budget_source_id ?? ""} className="input w-full">
+              <option value="">-- ไม่ระบุ --</option>
+              {budgetSources.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
                 </option>
               ))}
             </select>
@@ -491,6 +507,7 @@ function ContractDetailModal({ type, contract: c }: { type: ContractType; contra
     ["เลขที่สัญญา", c.contract_no],
     ["วันที่ทำสัญญา", formatThaiDate(c.contract_date)],
     ["โครงการ", c.plan_projects?.name ?? "ไม่ระบุ"],
+    ["แหล่งงบประมาณ", c.plan_budget_sources?.name ?? "ไม่ระบุ"],
     [type === "ซื้อ" ? "รายละเอียดเพิ่มเติม" : terms.detail, c.detail || "-"],
     [terms.start, c.start_date ? formatThaiDate(c.start_date) : "-"],
     [terms.end, <span key="e">{c.end_date ? formatThaiDate(c.end_date) : "-"} <span className={st.cls}>{st.label}</span></span>],
@@ -581,6 +598,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
   const [contracts, setContracts] = useState<Contract[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [teachers, setTeachers] = useState<string[]>([]);
+  const [budgetSources, setBudgetSources] = useState<BudgetSource[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [itemSuggestions, setItemSuggestions] = useState<ItemSuggestions | null>(null);
@@ -597,11 +615,11 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
     const supabase = createClient();
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
-    const [{ data: contractsData, error }, { data: projectsData }, { data: teacherData }] = await Promise.all([
+    const [{ data: contractsData, error }, { data: projectsData }, { data: teacherData }, { data: sourceData }] = await Promise.all([
       supabase
         .from("proc_contracts")
         .select(
-          "id, contract_no, contract_date, start_date, end_date, project_id, vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, rental_area, rent_monthly, rent_unit, rent_periods, inspector_name, note, plan_projects(name)",
+          "id, contract_no, contract_date, start_date, end_date, project_id, budget_source_id, plan_budget_sources(name), vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, rental_area, rent_monthly, rent_unit, rent_periods, inspector_name, note, plan_projects(name)",
         )
         .eq("contract_type", type)
         .order("contract_date", { ascending: false }),
@@ -609,11 +627,13 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
         ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order")
         : Promise.resolve({ data: [] as Project[] }),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
+      supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order"),
     ]);
     setError(error?.message ?? null);
     setContracts((contractsData as unknown as Contract[]) ?? []);
     setProjects(projectsData ?? []);
     setTeachers((teacherData ?? []).map((t) => t.name));
+    setBudgetSources(sourceData ?? []);
   }, [type]);
 
   useEffect(() => {
@@ -650,7 +670,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
     return (
       <div className="flex flex-wrap items-center gap-2">
         <ContractDetailModal type={type} contract={c} />
-        <ContractModal type={type} contract={c} projects={projects} teachers={teachers} itemSuggestions={itemSuggestions} onSaved={reload} />
+        <ContractModal type={type} contract={c} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
         <button type="button" onClick={() => handleDelete(c)} className="btn-danger btn-sm">
           <TrashIcon className="h-3.5 w-3.5" />
           ลบ
@@ -670,7 +690,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
           <h1 className="page-title">{title}</h1>
           <p className="page-subtitle">{subtitle}</p>
         </div>
-        <ContractModal type={type} contract={null} projects={projects} teachers={teachers} itemSuggestions={itemSuggestions} onSaved={reload} />
+        <ContractModal type={type} contract={null} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
       </div>
 
       {contracts === null ? (
