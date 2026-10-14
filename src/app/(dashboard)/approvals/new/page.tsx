@@ -30,27 +30,14 @@ async function prefillFromDelivery(supabase: SupabaseServer, deliveryId: string)
     : "";
   const ref = `สัญญา${c.contract_type}เลขที่ ${c.contract_no}${installment}`;
 
-  // สัญญาซื้อที่ส่งมอบครบในงวดเดียว ใช้รายการพัสดุตามสัญญา ที่เหลือใช้รายการเดียวตามยอดงวดนี้
-  let items: ApprovalFormPrefill["items"] = [];
-  if (c.contract_type === "ซื้อ" && Math.abs(amount - Number(c.amount)) < 0.005) {
-    const { data: rows } = await supabase
-      .from("proc_contract_items")
-      .select("name, qty, unit, unit_price, note")
-      .eq("contract_id", c.id)
-      .order("seq");
-    items = rows ?? [];
-  }
-  if (items.length === 0) {
-    items = [{ name: `${c.detail || `ตามสัญญา${c.contract_type}`}${period}`, qty: 1, unit: "งวด", unit_price: amount, note: ref }];
-  }
-
   return {
     label: `${ref} (${c.vendor_name})`,
     prefill: {
       project_id: c.project_id,
       subject: "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ",
-      summary_items: [{ label: "จัดซื้อจัดจ้าง", amount, note: ref }],
-      items,
+      // หน้า ๑ ตารางสรุป แถว "จัดซื้อจัดจ้าง" ต่อท้ายรายละเอียดงานตามสัญญา + ประจำเดือน; ไม่สร้างรายการวัสดุ (หน้า ๒)
+      summary_items: [{ label: `จัดซื้อจัดจ้าง ${c.detail || `ตามสัญญา${c.contract_type}`}${period}`, amount, note: null }],
+      items: [],
     },
   };
 }

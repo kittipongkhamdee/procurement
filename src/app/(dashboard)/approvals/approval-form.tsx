@@ -99,7 +99,8 @@ function initialSummaryRows(initial?: Pick<ApprovalFormInitial, "summary_items">
   return SUMMARY_LABELS.map((label, i) => {
     const row = initial.summary_items[i];
     return {
-      label: i === OTHER_INDEX ? otherLabelText(row?.label) : label,
+      // แถวทั่วไปใช้ชื่อมาตรฐาน แต่ถ้าชื่อที่บันทึกไว้ต่อท้ายรายละเอียด (เช่น "จัดซื้อจัดจ้าง ค่าจ้าง... ประจำเดือน...") ให้คงไว้
+      label: i === OTHER_INDEX ? otherLabelText(row?.label) : row?.label?.startsWith(label) ? row.label : label,
       amount: row?.amount != null ? String(row.amount) : "",
       note: row?.note ?? "",
     };
