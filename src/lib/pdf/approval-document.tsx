@@ -542,6 +542,46 @@ function DocNumberAndDate({ data }: { data: ApprovalPdfData }) {
   );
 }
 
+/** หัวบันทึกข้อความ (ตราครุฑ + "บันทึกข้อความ" + ส่วนราชการ / ที่ … วันที่ … / เรื่อง + เส้นคั่น) ตามแบบที่ ๒๙ —
+ * ใช้ร่วมกับเอกสารอื่นที่เป็นบันทึกข้อความ (เช่น หน้า ๓ ของชุดเอกสารส่งมอบงาน) ให้ตำแหน่งและเส้นจุดเหมือนกัน */
+export function MemoHeader({ unit, docNumber, isoDate, subject }: { unit: string; docNumber: string | null; isoDate: string | null; subject: string }) {
+  const thiW = measureText("ที่", FS_LABEL, true) + GAP;
+  const wanThiW = measureText("วันที่", FS_LABEL, true) + GAP;
+  const [day, ...rest] = (isoDate ? formatThaiDate(isoDate) : "").split(" ");
+  return (
+    <View style={{ fontFamily: FAMILY, fontSize: FS }}>
+      <View style={{ height: GARUDA_H, marginBottom: 3 }}>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> ของ @react-pdf/renderer ไม่ใช่ <img> ของ HTML (ไม่มี prop alt) */}
+        <Image src={GARUDA} style={{ position: "absolute", left: 0, top: 0, width: GARUDA_W, height: GARUDA_H }} />
+        <View style={{ position: "absolute", left: 0, right: 0, top: (GARUDA_H - TITLE_LINE) / 2 }}>
+          <Text style={{ fontSize: FS_TITLE, fontWeight: "bold", lineHeight: TITLE_LINE / FS_TITLE, textAlign: "center" }}>{t(TITLE)}</Text>
+        </View>
+      </View>
+      <View style={[styles.row, { marginBottom: 2 }]}>
+        <Text style={[styles.bold, { fontSize: FS_LABEL, marginRight: GAP }]}>{t("ส่วนราชการ")}</Text>
+        <Dotted style={{ flex: 1 }}>
+          <Text>{t(unit)}</Text>
+        </Dotted>
+      </View>
+      <View style={[styles.row, { marginBottom: 2 }]}>
+        <Text style={[styles.bold, { fontSize: FS_LABEL, marginRight: GAP }]}>{t("ที่")}</Text>
+        <Dotted style={{ width: X_KHO - thiW - GAP }}>
+          <Text>{t(docNumber ?? "") || " "}</Text>
+        </Dotted>
+        <Text style={[styles.bold, { fontSize: FS_LABEL, marginLeft: GAP, marginRight: GAP }]}>{t("วันที่")}</Text>
+        <Dotted style={{ width: X_MO_END - X_KHO - wanThiW - GAP }}>
+          <Text style={{ textAlign: "center" }}>{day || " "}</Text>
+        </Dotted>
+        <Dotted style={{ flex: 1, marginLeft: GAP }}>
+          <Text>{rest.length ? t(rest.join(" ")) : " "}</Text>
+        </Dotted>
+      </View>
+      <FieldRow prefix="เรื่อง" prefixBold prefixSize={FS_LABEL} value={subject} />
+      <View style={{ borderBottomWidth: 0.9, borderBottomColor: INK, marginTop: 2, marginBottom: 2 }} />
+    </View>
+  );
+}
+
 /** ขนาดฟอนต์กรอบความเห็น: 16pt ถ้าเนื้อหาด้านบนไม่ยาวเกิน ไม่เช่นนั้นย่อเป็น 15pt ให้ยังพอดีหน้า ๑ */
 function boxFontSize(data: ApprovalPdfData): number {
   const lines =

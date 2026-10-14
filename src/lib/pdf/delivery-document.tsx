@@ -1,7 +1,8 @@
 import path from "node:path";
-import { Document, Font, Image, Page, StyleSheet, Text, View, type Styles } from "@react-pdf/renderer";
+import { Document, Font, Page, StyleSheet, Text, View, type Styles } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, thaiBahtText, THAI_MONTHS } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
+import { MemoHeader } from "./approval-document";
 import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
 
 // ชุดเอกสารส่งมอบงานตามสัญญา ๔ หน้า (ตามแบบที่โรงเรียนใช้): ใบส่งมอบงาน, ใบตรวจรับพัสดุ (ระเบียบฯ ข้อ ๑๗๕),
@@ -28,9 +29,6 @@ const CONTENT_W = PAGE_W - PAD_LEFT - PAD_RIGHT;
 const FS = 16;
 const INDENT = 2.5 * CM;
 const SLACK = 10; // เผื่อความกว้างตอนตัดบรรทัดเอง (react-pdf วัดกว้างกว่าเล็กน้อย)
-const GARUDA = path.join(process.cwd(), "src/lib/pdf/assets/garuda-emblem.png");
-const GARUDA_H = 1.5 * CM;
-const GARUDA_W = (GARUDA_H * 659) / 738;
 
 const styles = StyleSheet.create({
   page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.25, paddingTop: 1.5 * CM, paddingBottom: 1 * CM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
@@ -39,20 +37,6 @@ const styles = StyleSheet.create({
   right: { alignItems: "flex-end" },
   gap: { marginBottom: 6 },
 });
-
-// ตำแหน่งตามแบบบันทึกข้อความ: "วันที่" ตรงกับ "ข" ของ "บันทึกข้อความ" (ตัวหนา ๒๙pt กึ่งกลาง) ชื่อเดือนเริ่มที่แนวหลัง "ม"
-const TITLE_W = measureText("บันทึกข้อความ", 29, true);
-const TITLE_LEFT = (CONTENT_W - TITLE_W) / 2;
-const X_KHO = TITLE_LEFT + measureText("บันทึก", 29, true);
-const X_MO_END = TITLE_LEFT + TITLE_W;
-const DAY_W = 28;
-
-function dayOf(iso: string) {
-  return String(Number(iso.slice(8, 10)));
-}
-function monthYearOf(iso: string) {
-  return formatThaiDate(iso).split(" ").slice(1).join(" ");
-}
 
 export type DeliveryPdfData = {
   contract_type: string; // จ้าง | ซื้อ
@@ -208,27 +192,13 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
 
       {/* ๓. บันทึกข้อความ รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน */}
       <Page size="A4" style={styles.page}>
-        <View style={{ height: GARUDA_H, marginBottom: 4 }}>
-          {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> ของ @react-pdf/renderer ไม่มี prop alt */}
-          <Image src={GARUDA} style={{ position: "absolute", left: 0, top: 0, width: GARUDA_W, height: GARUDA_H }} />
-          <Text style={{ fontSize: 29, fontWeight: "bold", textAlign: "center", lineHeight: 35 / 29, marginTop: (GARUDA_H - 35) / 2 }}>{t("บันทึกข้อความ")}</Text>
-        </View>
-        <Text>
-          <Text style={[styles.bold, { fontSize: 20 }]}>{t("ส่วนราชการ")}</Text>
-          {t(`  ${d.school_name}${d.education_area ? `  ${d.education_area}` : ""}`)}
-        </Text>
-        {/* "วันที่" ตรงกับตัว "ข" ของ "บันทึกข้อความ" และชื่อเดือนเริ่มที่แนวหลังตัว "ม" (แบบเดียวกับบันทึกขออนุมัติ) */}
-        <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-          <Text style={[styles.bold, { fontSize: 20, width: X_KHO }]}>{t("ที่")}</Text>
-          <Text style={[styles.bold, { fontSize: 20, width: X_MO_END - X_KHO - DAY_W }]}>{t("วันที่")}</Text>
-          <Text style={{ width: DAY_W, textAlign: "center" }}>{t(dayOf(d.delivery_date))}</Text>
-          <Text>{t(monthYearOf(d.delivery_date))}</Text>
-        </View>
-        <Text>
-          <Text style={[styles.bold, { fontSize: 20 }]}>{t("เรื่อง")}</Text>
-          {t("  รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน")}
-        </Text>
-        <View style={{ borderBottomWidth: 0.9, marginTop: 2, marginBottom: 8 }} />
+        <MemoHeader
+          unit={`${d.school_name}${d.education_area ? `  ${d.education_area}` : ""}`}
+          docNumber={null}
+          isoDate={d.delivery_date}
+          subject="รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน"
+        />
+        <View style={{ marginBottom: 6 }} />
         <Text style={styles.gap}>{t(`เรียน   ผู้อำนวยการ${d.school_name}`)}</Text>
         <Para text={`ตามที่ ${d.school_name} ได้ตกลง${verb} ${d.vendor_name} ${address}${phone} เพื่อดำเนินการ${work} ${contractRef}`} />
         <Para text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveryDate} ซึ่งจะต้องจ่ายเงินให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย ${dash(tax)} บาท คงเหลือ ${formatBaht(net)} บาท`} />
