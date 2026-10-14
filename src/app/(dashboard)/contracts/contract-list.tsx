@@ -132,9 +132,11 @@ function ContractModal({
   budgetSources,
   itemSuggestions,
   onSaved,
+  suggestedNo = "",
 }: {
   type: ContractType;
   contract: Contract | null;
+  suggestedNo?: string;
   projects: Project[];
   teachers: string[];
   budgetSources: BudgetSource[];
@@ -277,7 +279,7 @@ function ContractModal({
             <label className="label">
               เลขที่สัญญา <span className="text-red-600">*</span>
             </label>
-            <input name="contract_no" defaultValue={contract?.contract_no ?? ""} required className="input w-full" />
+            <input name="contract_no" key={contract?.id ?? suggestedNo} defaultValue={contract?.contract_no ?? suggestedNo} required className="input w-full" />
           </div>
           <div>
             <label className="label">
@@ -755,10 +757,25 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
     );
   }, [type]);
 
+  const [fiscalYear, setFiscalYear] = useState<number | null>(null);
+  // เลขที่สัญญาถัดไป รูปแบบ <ลำดับที่>/<ปีงบประมาณ> — นับแยกตามประเภทสัญญา (แก้เองได้)
+  const nextContractNo = useMemo(() => {
+    if (!fiscalYear || !contracts) return "";
+    const suffix = `/${fiscalYear}`;
+    const max = contracts.reduce((m, c) => {
+      const no = c.contract_no.trim();
+      if (!no.endsWith(suffix)) return m;
+      const n = Number(no.slice(0, -suffix.length));
+      return Number.isInteger(n) && n > m ? n : m;
+    }, 0);
+    return `${max + 1}${suffix}`;
+  }, [contracts, fiscalYear]);
+
   const reload = useCallback(async () => {
     const supabase = createClient();
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
+    setFiscalYear(currentYear?.year ?? null);
     const [{ data: contractsData, error }, { data: projectsData }, { data: teacherData }, { data: sourceData }] = await Promise.all([
       supabase
         .from("proc_contracts")
@@ -844,7 +861,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
           <p className="page-subtitle">{subtitle}</p>
         </div>
         {isProcStaff && (
-          <ContractModal type={type} contract={null} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
+          <ContractModal type={type} contract={null} suggestedNo={nextContractNo} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
         )}
       </div>
 
