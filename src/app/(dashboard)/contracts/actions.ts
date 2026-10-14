@@ -14,6 +14,8 @@ function num(formData: FormData, key: string): number | null {
 
 class ValidationError extends Error {}
 
+const CONTRACT_TYPES = ["จ้าง", "ซื้อ", "เช่า"];
+
 /** ค่าจากฟอร์มสัญญา (ใช้ร่วมกันทั้งสร้างและแก้ไข) — ข้อมูลไม่ครบโยน ValidationError */
 function contractFields(formData: FormData) {
   const contractNo = text(formData, "contract_no");
@@ -28,7 +30,11 @@ function contractFields(formData: FormData) {
   const endDate = text(formData, "end_date");
   if (startDate && endDate && endDate < startDate) throw new ValidationError("วันสิ้นสุดสัญญาต้องไม่ก่อนวันเริ่มงาน");
 
+  const contractType = text(formData, "contract_type") ?? "จ้าง";
+  if (!CONTRACT_TYPES.includes(contractType)) throw new ValidationError("ประเภทสัญญาไม่ถูกต้อง");
+
   return {
+    contract_type: contractType,
     contract_no: contractNo,
     project_id: text(formData, "project_id"),
     contract_date: contractDate,

@@ -55,7 +55,7 @@ const NAV_SECTIONS = [
       { href: "/supplies/quarterly-announcements", label: "ประกาศผลรายไตรมาส", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/purchase-requests", label: "รายการขอซื้อ-ขอจ้าง", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
-      { href: "/contracts", label: "งานสัญญาจ้าง", icon: <FileSignatureIcon className={ICON_CLASS} /> },
+      { href: "/contracts", label: "งานสัญญา", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/deliveries", label: "บันทึกส่งมอบงาน", icon: <TruckIcon className={ICON_CLASS} /> },
     ],
   },
