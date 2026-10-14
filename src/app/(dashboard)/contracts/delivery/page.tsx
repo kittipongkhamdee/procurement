@@ -1,0 +1,463 @@
+"use client";
+
+// ส่งมอบตามสัญญา — บันทึกการส่งมอบ/ตรวจรับแต่ละงวดของสัญญาจ้างและสัญญาซื้อ แสดงยอดส่งมอบแล้ว/คงเหลือของสัญญา
+// และคำนวณวันเกินกำหนดกับค่าปรับให้อัตโนมัติจาก "วันสิ้นสุดสัญญา/กำหนดส่งมอบ" และ "ค่าปรับต่อวัน" ของสัญญา (แก้ไขได้)
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { formatThaiDate } from "@/lib/thai";
+import { confirmDelete, toastError, toastSuccess } from "@/lib/swal";
+import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { Modal, type ModalHandle } from "@/components/modal";
+import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { createDelivery, deleteDelivery, updateDelivery } from "../../deliveries/actions";
+
+type Contract = {
+  id: string;
+  contract_type: string;
+  contract_no: string;
+  vendor_name: string;
+  amount: number;
+  end_date: string | null;
+  penalty_rate: number | null;
+  inspector_name: string | null;
+};
+type Delivery = {
+  id: string;
+  contract_id: string;
+  installment_no: number | null;
+  delivery_date: string;
+  amount: number;
+  late_days: number | null;
+  penalty_amount: number | null;
+  inspector_name: string | null;
+  note: string | null;
+};
+
+function formatBaht(n: number) {
+  return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function daysBetween(fromIso: string, toIso: string) {
+  return Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 86_400_000);
+}
+
+/** ค่าปรับต่อวัน = อัตรา% × ฐาน — สัญญาจ้างคิดจากค่าจ้างทั้งสัญญา, สัญญาซื้อคิดจากราคาพัสดุที่ส่งมอบล่าช้า (งวดนี้) */
+function suggestPenalty(contract: Contract, deliveryAmount: number, lateDays: number) {
+  if (!contract.penalty_rate || lateDays <= 0) return 0;
+  const base = contract.contract_type === "ซื้อ" ? deliveryAmount : Number(contract.amount);
+  return Math.round(base * (contract.penalty_rate / 100) * lateDays * 100) / 100;
+}
+
+function DeliveryModal({
+  delivery,
+  contracts,
+  deliveries,
+  teachers,
+  onSaved,
+}: {
+  delivery: Delivery | null;
+  contracts: Contract[];
+  deliveries: Delivery[];
+  teachers: string[];
+  onSaved: () => void;
+}) {
+  const modalRef = useRef<ModalHandle>(null);
+  const [saving, setSaving] = useState(false);
+  const [contractId, setContractId] = useState(delivery?.contract_id ?? "");
+  const [date, setDate] = useState<string | null>(delivery?.delivery_date ?? null);
+  const [amount, setAmount] = useState(delivery ? String(delivery.amount) : "");
+  const [penalty, setPenalty] = useState(delivery?.penalty_amount != null ? String(delivery.penalty_amount) : "");
+  const [penaltyTouched, setPenaltyTouched] = useState(!!delivery);
+  const contract = contracts.find((c) => c.id === contractId) ?? null;
+
+  const others = deliveries.filter((d) => d.contract_id === contractId && d.id !== delivery?.id);
+  const deliveredOthers = others.reduce((s, d) => s + Number(d.amount), 0);
+  const remaining = contract ? Number(contract.amount) - deliveredOthers : 0;
+  const lateDays = contract?.end_date && date ? Math.max(daysBetween(contract.end_date, date), 0) : 0;
+  const suggested = contract ? suggestPenalty(contract, parseFloat(amount) || 0, lateDays) : 0;
+  const penaltyValue = penaltyTouched ? penalty : suggested ? String(suggested) : "";
+
+  function selectContract(id: string) {
+    setContractId(id);
+    const c = contracts.find((x) => x.id === id);
+    if (c && !delivery) {
+      const left = Number(c.amount) - deliveries.filter((d) => d.contract_id === id).reduce((s, d) => s + Number(d.amount), 0);
+      setAmount(left > 0 ? String(Math.round(left * 100) / 100) : "");
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    if (!date) {
+      await toastError("กรุณาเลือกวันที่ส่งมอบ");
+      return;
+    }
+    if ((parseFloat(amount) || 0) > remaining + 0.005) {
+      await toastError(`จำนวนเงินที่ส่งมอบเกินยอดคงเหลือของสัญญา (${formatBaht(remaining)} บาท)`);
+      return;
+    }
+    formData.set("late_days", String(lateDays));
+    formData.set("penalty_amount", penaltyValue);
+    setSaving(true);
+    try {
+      const res = delivery ? await updateDelivery(delivery.id, formData) : await createDelivery(formData);
+      if (res.error) {
+        await toastError(res.error);
+        return;
+      }
+      modalRef.current?.close();
+      if (!delivery) {
+        form.reset();
+        setContractId("");
+        setDate(null);
+        setAmount("");
+        setPenalty("");
+        setPenaltyTouched(false);
+      }
+      await toastSuccess(delivery ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกการส่งมอบเรียบร้อยแล้ว");
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const groups: [string, Contract[]][] = [
+    ["สัญญาจ้าง", contracts.filter((c) => c.contract_type === "จ้าง")],
+    ["สัญญาซื้อ", contracts.filter((c) => c.contract_type === "ซื้อ")],
+  ];
+
+  return (
+    <Modal
+      ref={modalRef}
+      title={delivery ? "แก้ไขการส่งมอบ" : "บันทึกการส่งมอบใหม่"}
+      wide
+      lazy
+      trigger={
+        delivery ? (
+          <span className="btn-secondary btn-sm">
+            <PencilIcon className="h-3.5 w-3.5" />
+            แก้ไข
+          </span>
+        ) : (
+          <span className="btn-gold inline-flex items-center gap-2">
+            <PlusIcon className="h-4 w-4" />
+            บันทึกการส่งมอบ
+          </span>
+        )
+      }
+    >
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="label">
+            สัญญา <span className="text-red-600">*</span>
+          </label>
+          <select name="contract_id" value={contractId} onChange={(e) => selectContract(e.target.value)} required className="input w-full">
+            <option value="" disabled>
+              -- เลือกสัญญา --
+            </option>
+            {groups.map(([label, list]) =>
+              list.length ? (
+                <optgroup key={label} label={label}>
+                  {list.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.contract_no} : {c.vendor_name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null,
+            )}
+          </select>
+        </div>
+
+        {contract && (
+          <div className="grid grid-cols-2 gap-2 rounded-md bg-slate-50 p-3 text-sm sm:col-span-2 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-slate-500">ตามสัญญา</p>
+              <p className="font-semibold">{formatBaht(Number(contract.amount))}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">ส่งมอบงวดอื่นแล้ว</p>
+              <p className="font-semibold">{formatBaht(deliveredOthers)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">คงเหลือ</p>
+              <p className="font-semibold text-emerald-700">{formatBaht(remaining)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">กำหนดส่งมอบ</p>
+              <p className="font-semibold">{contract.end_date ? formatThaiDate(contract.end_date) : "ไม่ระบุ"}</p>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="label">งวดที่</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min="1"
+            name="installment_no"
+            key={`inst-${contractId}`}
+            defaultValue={delivery?.installment_no ?? (contractId ? others.length + 1 : "")}
+            className="input w-full"
+          />
+        </div>
+        <div>
+          <label className="label">
+            วันที่ส่งมอบ <span className="text-red-600">*</span>
+          </label>
+          <ThaiDatePicker name="delivery_date" value={date} onChange={setDate} />
+        </div>
+        <div>
+          <label className="label">
+            จำนวนเงินที่ส่งมอบ (บาท) <span className="text-red-600">*</span>
+          </label>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            name="amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+            className="input w-full text-right font-semibold"
+          />
+        </div>
+        <div>
+          <label className="label">ผู้ตรวจรับ</label>
+          <input
+            name="inspector_name"
+            key={`insp-${contractId}`}
+            defaultValue={delivery?.inspector_name ?? contract?.inspector_name ?? ""}
+            list="delivery-teacher-names"
+            autoComplete="off"
+            className="input w-full"
+          />
+          <datalist id="delivery-teacher-names">
+            {teachers.map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
+        </div>
+        <div>
+          <label className="label">ส่งมอบเกินกำหนด (วัน)</label>
+          <input readOnly value={contract && date ? lateDays : ""} className="input w-full bg-slate-50 text-right" />
+        </div>
+        <div>
+          <label className="label">ค่าปรับ (บาท)</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            value={penaltyValue}
+            onChange={(e) => {
+              setPenaltyTouched(true);
+              setPenalty(e.target.value);
+            }}
+            className="input w-full text-right"
+          />
+          {lateDays > 0 && (
+            <p className="mt-1 text-xs text-slate-500">
+              {contract?.penalty_rate
+                ? `คำนวณ: ร้อยละ ${contract.penalty_rate} ต่อวัน × ${lateDays} วัน = ${formatBaht(suggested)} บาท`
+                : "สัญญานี้ไม่ได้ระบุอัตราค่าปรับ กรอกเองได้"}
+            </p>
+          )}
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">หมายเหตุ</label>
+          <textarea name="note" defaultValue={delivery?.note ?? ""} rows={2} className="input w-full" />
+        </div>
+        <div className="flex justify-end gap-3 sm:col-span-2">
+          <button type="button" onClick={() => modalRef.current?.close()} className="btn-secondary">
+            ยกเลิก
+          </button>
+          <button type="submit" disabled={saving} className="btn-primary px-6">
+            {saving ? "กำลังบันทึก..." : delivery ? "บันทึกการแก้ไข" : "บันทึกการส่งมอบ"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export default function ContractDeliveryPage() {
+  const [deliveries, setDeliveries] = useState<Delivery[] | null>(null);
+  const [contracts, setContracts] = useState<Contract[]>([]);
+  const [teachers, setTeachers] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  const reload = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: d, error }, { data: c }, { data: t }] = await Promise.all([
+      supabase
+        .from("proc_deliveries")
+        .select("id, contract_id, installment_no, delivery_date, amount, late_days, penalty_amount, inspector_name, note")
+        .order("delivery_date", { ascending: false }),
+      supabase
+        .from("proc_contracts")
+        .select("id, contract_type, contract_no, vendor_name, amount, end_date, penalty_rate, inspector_name")
+        .in("contract_type", ["จ้าง", "ซื้อ"])
+        .order("contract_date", { ascending: false }),
+      supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
+    ]);
+    setError(error?.message ?? null);
+    setDeliveries((d as Delivery[]) ?? []);
+    setContracts((c as Contract[]) ?? []);
+    setTeachers((t ?? []).map((x) => x.name));
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    reload();
+  }, [reload]);
+
+  const contractById = useMemo(() => new Map(contracts.map((c) => [c.id, c])), [contracts]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (deliveries ?? []).filter((d) => {
+      if (!q) return true;
+      const c = contractById.get(d.contract_id);
+      return [c?.contract_no, c?.vendor_name, d.inspector_name].some((v) => v?.toLowerCase().includes(q));
+    });
+  }, [deliveries, query, contractById]);
+  const total = filtered.reduce((s, d) => s + Number(d.amount), 0);
+
+  async function handleDelete(d: Delivery) {
+    const c = contractById.get(d.contract_id);
+    const ok = await confirmDelete({ title: "ลบการส่งมอบนี้?", text: `${c?.contract_no ?? ""} งวดที่ ${d.installment_no ?? "-"}` });
+    if (!ok) return;
+    const res = await deleteDelivery(d.id);
+    if (res.error) {
+      await toastError(res.error);
+      return;
+    }
+    await toastSuccess("ลบเรียบร้อยแล้ว");
+    reload();
+  }
+
+  function actions(d: Delivery) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <DeliveryModal delivery={d} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />
+        <button type="button" onClick={() => handleDelete(d)} className="btn-danger btn-sm">
+          <TrashIcon className="h-3.5 w-3.5" />
+          ลบ
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <Link href="/contracts" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            งานสัญญา
+          </Link>
+          <h1 className="page-title">ส่งมอบตามสัญญา</h1>
+          <p className="page-subtitle">บันทึกการส่งมอบและตรวจรับตามสัญญาจ้าง/สัญญาซื้อ</p>
+        </div>
+        <DeliveryModal delivery={null} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />
+      </div>
+
+      {deliveries === null ? (
+        <PageLoadingSkeleton />
+      ) : (
+        <>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="relative w-full sm:w-80">
+              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาเลขที่สัญญา คู่สัญญา ผู้ตรวจรับ" className="input w-full pl-9" />
+            </div>
+            <p className="text-sm text-slate-500">
+              {filtered.length} รายการ · รวม <span className="font-semibold text-slate-800">{formatBaht(total)}</span> บาท
+            </p>
+          </div>
+
+          <div className="table-shell @container">
+            {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
+            <div className="divide-y divide-slate-100 @min-[56rem]:hidden">
+              {filtered.map((d) => {
+                const c = contractById.get(d.contract_id);
+                return (
+                  <div key={d.id} className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {c && <span className="badge-navy">สัญญา{c.contract_type}</span>}
+                      <span className="font-medium text-slate-900">{c?.contract_no ?? "-"}</span>
+                      <span className="text-sm text-slate-500">งวดที่ {d.installment_no ?? "-"}</span>
+                      {(d.late_days ?? 0) > 0 && <span className="badge-red">เกินกำหนด {d.late_days} วัน</span>}
+                    </div>
+                    <p className="mt-0.5 text-sm text-slate-700">{c?.vendor_name}</p>
+                    <p className="text-xs text-slate-500">
+                      ส่งมอบ {formatThaiDate(d.delivery_date)}
+                      {d.inspector_name ? ` · ผู้ตรวจรับ ${d.inspector_name}` : ""}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {formatBaht(Number(d.amount))} บาท
+                      {d.penalty_amount ? <span className="ml-2 font-normal text-red-600">ค่าปรับ {formatBaht(Number(d.penalty_amount))}</span> : null}
+                    </p>
+                    <div className="mt-2">{actions(d)}</div>
+                  </div>
+                );
+              })}
+              {filtered.length === 0 && <p className="table-empty">{query ? "ไม่พบรายการที่ค้นหา" : "ยังไม่มีการส่งมอบ"}</p>}
+            </div>
+
+            <table className="hidden table-base w-full min-w-0 @min-[56rem]:table [&_td]:px-3 [&_th]:px-3">
+              <thead>
+                <tr>
+                  <th>สัญญา</th>
+                  <th>งวดที่</th>
+                  <th>วันที่ส่งมอบ</th>
+                  <th>ผู้ตรวจรับ</th>
+                  <th className="text-right">จำนวนเงิน</th>
+                  <th className="text-right">ค่าปรับ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((d) => {
+                  const c = contractById.get(d.contract_id);
+                  return (
+                    <tr key={d.id}>
+                      <td>
+                        <div className="font-medium text-slate-900">{c?.contract_no ?? "-"}</div>
+                        <div className="text-slate-500">{c?.vendor_name}</div>
+                      </td>
+                      <td>{d.installment_no ?? "-"}</td>
+                      <td>
+                        <div>{formatThaiDate(d.delivery_date)}</div>
+                        {(d.late_days ?? 0) > 0 && <span className="badge-red text-sm">เกินกำหนด {d.late_days} วัน</span>}
+                      </td>
+                      <td>{d.inspector_name ?? "-"}</td>
+                      <td className="text-right font-semibold text-slate-900">{formatBaht(Number(d.amount))}</td>
+                      <td className="text-right text-red-600">{d.penalty_amount ? formatBaht(Number(d.penalty_amount)) : "-"}</td>
+                      <td className="text-right">{actions(d)}</td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="table-empty">
+                      {query ? "ไม่พบรายการที่ค้นหา" : "ยังไม่มีการส่งมอบ"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

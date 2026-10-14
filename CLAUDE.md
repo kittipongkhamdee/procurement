@@ -54,6 +54,6 @@ defaultValue={item?.acquired_date ?? null} />` — จะ render hidden input �
 ธรรมดา (ไม่ต้องแยกกรอกวัน/เดือน/ปีเป็นช่องละคอลัมน์เอง)
 
 ยังมีจุดอื่นในระบบที่ใช้ `input type="date"` เดิมอยู่ (`project-reports/project-report-form.tsx`,
-`deliveries/delivery-form.tsx`, `purchase-requests/new/purchase-request-form.tsx`,
+`purchase-requests/new/purchase-request-form.tsx`,
 `approvals/approval-form.tsx`) — ยังไม่ได้ปรับ รอทยอยเปลี่ยนเป็น
 `ThaiDatePicker` เมื่อได้แก้ไขหน้านั้นๆ ครั้งต่อไป

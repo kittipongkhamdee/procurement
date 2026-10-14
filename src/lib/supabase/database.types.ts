@@ -2019,6 +2019,10 @@ export type Database = {
       }
       proc_deliveries: {
         Row: {
+          installment_no: number | null
+          late_days: number | null
+          note: string | null
+          penalty_amount: number | null
           amount: number
           amount_text: string | null
           contract_id: string
@@ -2030,6 +2034,10 @@ export type Database = {
           pdf_url: string | null
         }
         Insert: {
+          installment_no?: number | null
+          late_days?: number | null
+          note?: string | null
+          penalty_amount?: number | null
           amount?: number
           amount_text?: string | null
           contract_id: string
@@ -2041,6 +2049,10 @@ export type Database = {
           pdf_url?: string | null
         }
         Update: {
+          installment_no?: number | null
+          late_days?: number | null
+          note?: string | null
+          penalty_amount?: number | null
           amount?: number
           amount_text?: string | null
           contract_id?: string
