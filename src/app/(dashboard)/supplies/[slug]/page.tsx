@@ -1,0 +1,38 @@
+import { notFound } from "next/navigation";
+
+// หน้าชั่วคราวของเมนูงานพัสดุที่ยังไม่ได้พัฒนา (ลิงก์จากเมนูด้านซ้ายใน layout.tsx) —
+// เมื่อสร้างหน้าจริงของเมนูไหน ให้สร้างโฟลเดอร์ /supplies/<slug> แยกของตัวเอง (จะถูกใช้แทนหน้านี้อัตโนมัติ)
+// แล้วลบ slug นั้นออกจากรายการด้านล่าง
+const PAGES: Record<string, { title: string; description: string }> = {
+  purchase: { title: "งานซื้อ", description: "จัดทำเอกสารขั้นตอนการจัดซื้อวัสดุ/ครุภัณฑ์" },
+  hire: { title: "งานจ้าง", description: "จัดทำเอกสารขั้นตอนการจัดจ้าง" },
+  "procurement-register": { title: "ทะเบียนคุมจัดซื้อจัดจ้าง", description: "ทะเบียนคุมการจัดซื้อจัดจ้างทั้งหมดของปีงบประมาณ" },
+  w804: { title: "ว.804 ซื้อไม่เกิน 50,000", description: "การจัดซื้อจัดจ้างวงเงินไม่เกิน 50,000 บาท ตามหนังสือ ว.804" },
+  w119: { title: "ว.119 ค่าใช้จ่ายบริหารงาน", description: "ค่าใช้จ่ายในการบริหารงาน ตามหนังสือ ว.119" },
+  textbooks: { title: "หนังสือเรียน (เรียนฟรี 15 ปี)", description: "จัดซื้อหนังสือเรียนตามโครงการสนับสนุนค่าใช้จ่ายในการจัดการศึกษา" },
+  "quarterly-announcements": { title: "ประกาศผลรายไตรมาส", description: "สรุปผลการจัดซื้อจัดจ้างรายไตรมาสเพื่อประกาศเผยแพร่" },
+  "withholding-tax": { title: "ภาษีหัก ณ ที่จ่าย", description: "หนังสือรับรองการหักภาษี ณ ที่จ่าย" },
+  stock: { title: "บัญชีวัสดุ", description: "บัญชีรับ-จ่ายวัสดุคงคลัง" },
+  requisitions: { title: "ใบเบิกพัสดุ", description: "ใบเบิกวัสดุจากคลัง" },
+  loans: { title: "ยืม-คืนพัสดุ", description: "บันทึกการยืมและคืนพัสดุ" },
+  reports: { title: "รายงานวัสดุ", description: "รายงานวัสดุคงเหลือและการเบิกจ่าย" },
+  prices: { title: "ราคาพัสดุ", description: "ราคากลาง/ราคาอ้างอิงของพัสดุที่ใช้บ่อย" },
+  "audit-log": { title: "ประวัติการแก้ไข", description: "ประวัติการเพิ่ม/แก้ไข/ลบข้อมูลในระบบ" },
+};
+
+export default async function SuppliesPlaceholderPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const page = PAGES[slug];
+  if (!page) notFound();
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">{page.title}</h1>
+          <p className="page-subtitle">{page.description}</p>
+        </div>
+      </div>
+      <div className="card text-center text-sm text-slate-500">อยู่ระหว่างพัฒนา</div>
+    </div>
+  );
+}

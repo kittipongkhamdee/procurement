@@ -5,6 +5,7 @@ import { MaintenanceGate } from "@/components/maintenance-gate";
 import {
   ArchiveIcon,
   BoxIcon,
+  CoinsIcon,
   ClipboardCheckIcon,
   FileSignatureIcon,
   FileTextIcon,
@@ -12,11 +13,14 @@ import {
   GridIcon,
   HomeIcon,
   LightbulbIcon,
+  LockIcon,
   PieChartIcon,
   SettingsIcon,
   ShoppingCartIcon,
   StoreIcon,
+  TagIcon,
   TruckIcon,
+  UploadIcon,
   UsersIcon,
 } from "@/components/icons";
 
@@ -38,15 +42,44 @@ const NAV_SECTIONS = [
       { href: "/approvals", label: "บันทึกขออนุมัติ", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
     ],
   },
+  // งานพัสดุ — แบ่งกลุ่มตามขั้นตอนงาน; เมนูที่ขึ้นต้น /supplies/ ยังเป็นหน้า "อยู่ระหว่างพัฒนา"
   {
-    heading: "งานพัสดุ",
+    heading: "งานจัดซื้อจัดจ้าง",
     items: [
+      { href: "/supplies/purchase", label: "งานซื้อ", icon: <FileTextIcon className={ICON_CLASS} /> },
+      { href: "/supplies/hire", label: "งานจ้าง", icon: <HomeIcon className={ICON_CLASS} /> },
+      { href: "/supplies/procurement-register", label: "ทะเบียนคุมจัดซื้อจัดจ้าง", icon: <FileTextIcon className={ICON_CLASS} /> },
+      { href: "/supplies/w804", label: "ว.804 ซื้อไม่เกิน 50,000", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
+      { href: "/supplies/w119", label: "ว.119 ค่าใช้จ่ายบริหารงาน", icon: <FileTextIcon className={ICON_CLASS} /> },
+      { href: "/supplies/textbooks", label: "หนังสือเรียน (เรียนฟรี 15 ปี)", icon: <FileTextIcon className={ICON_CLASS} /> },
+      { href: "/supplies/quarterly-announcements", label: "ประกาศผลรายไตรมาส", icon: <FileSignatureIcon className={ICON_CLASS} /> },
+      { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/purchase-requests", label: "รายการขอซื้อ-ขอจ้าง", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
-      { href: "/vendors", label: "ข้อมูลผู้ขาย/ผู้รับจ้าง", icon: <StoreIcon className={ICON_CLASS} /> },
       { href: "/contracts", label: "งานสัญญาจ้าง", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/deliveries", label: "บันทึกส่งมอบงาน", icon: <TruckIcon className={ICON_CLASS} /> },
+    ],
+  },
+  {
+    heading: "คลังและการเบิก",
+    items: [
+      { href: "/supplies/stock", label: "บัญชีวัสดุ", icon: <ArchiveIcon className={ICON_CLASS} /> },
+      { href: "/supplies/requisitions", label: "ใบเบิกพัสดุ", icon: <UploadIcon className={ICON_CLASS} /> },
+      { href: "/supplies/loans", label: "ยืม-คืนพัสดุ", icon: <TruckIcon className={ICON_CLASS} /> },
+      { href: "/supplies/reports", label: "รายงานวัสดุ", icon: <PieChartIcon className={ICON_CLASS} /> },
+    ],
+  },
+  {
+    heading: "ทรัพย์สิน",
+    items: [
       { href: "/asset-register", label: "ทะเบียนคุมทรัพย์สิน", icon: <BoxIcon className={ICON_CLASS} /> },
       { href: "/asset-audits", label: "ตรวจสอบพัสดุประจำปี", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
+    ],
+  },
+  {
+    heading: "ข้อมูลตั้งต้น",
+    items: [
+      { href: "/supplies/prices", label: "ราคาพัสดุ", icon: <TagIcon className={ICON_CLASS} /> },
+      { href: "/vendors", label: "ร้านค้า / ผู้ขาย", icon: <StoreIcon className={ICON_CLASS} /> },
     ],
   },
   {
@@ -66,6 +99,7 @@ const ADMIN_SECTION = {
   items: [
     { href: "/admin/users", label: "จัดการผู้ใช้และสิทธิ์", icon: <UsersIcon className={ICON_CLASS} /> },
     { href: "/settings", label: "ตั้งค่าระบบ", icon: <SettingsIcon className={ICON_CLASS} /> },
+    { href: "/supplies/audit-log", label: "ประวัติการแก้ไข", icon: <LockIcon className={ICON_CLASS} /> },
   ],
 };
 
