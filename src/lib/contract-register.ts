@@ -47,15 +47,9 @@ export function filterFromSearchParams(sp: URLSearchParams): ContractRegisterFil
   };
 }
 
-/** คำอธิบายตัวกรองที่ใช้ (พิมพ์ใต้หัวเอกสาร) */
+/** บรรทัดใต้หัวเอกสาร — แสดงเฉพาะปีงบประมาณที่เลือก (ไม่เลือกปี = ไม่แสดง) */
 export function describeFilter(f: ContractRegisterFilter): string {
-  const parts = [
-    f.type ? `สัญญา${f.type}` : "ทุกประเภท",
-    f.year ? `ปีงบประมาณ ${f.year}` : "ทุกปีงบประมาณ",
-    f.status ? STATUS_FILTER_LABEL[f.status] ?? f.status : "ทุกสถานะ",
-  ];
-  if (f.q) parts.push(`ค้นหา "${f.q}"`);
-  return parts.join(" · ");
+  return f.year ? `ปีงบประมาณ ${f.year}` : "";
 }
 
 export function applyContractFilter<T extends { contract_type: string; contract_date: string; end_date: string | null; contract_no: string; vendor_name: string; project_name?: string | null }>(

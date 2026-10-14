@@ -22,6 +22,22 @@ export function registerSarabunFont() {
   Font.registerHyphenationCallback((word) => [word]);
 }
 
+let thRegistered = false;
+
+/** ฟอนต์มาตรฐานเอกสารของระบบ: TH Sarabun New (ไฟล์ต้นฉบับ SIPA) — family "THSarabunNew" */
+export function registerThSarabunFont() {
+  registerSarabunFont();
+  if (thRegistered) return;
+  thRegistered = true;
+  Font.register({
+    family: "THSarabunNew",
+    fonts: [
+      { src: path.join(process.cwd(), "src/lib/pdf/fonts/THSarabunNew-Regular.ttf"), fontWeight: "normal" },
+      { src: path.join(process.cwd(), "src/lib/pdf/fonts/THSarabunNew-Bold.ttf"), fontWeight: "bold" },
+    ],
+  });
+}
+
 /**
  * @react-pdf/renderer (fontkit + yoga) reproducibly undercounts the measured width of a
  * Text node that ends exactly on a non-space glyph, silently clipping the last character —

@@ -1,20 +1,21 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
 import { contractStatusKey, type ContractRegisterRow } from "@/lib/contract-register";
-import { registerSarabunFont, t } from "./thai-pdf";
+import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
 
-// ทะเบียนสัญญา (A4 แนวนอน) — ขนาดตัวอักษรตามมาตรฐานเอกสาร PDF ของระบบ: หัวเรื่อง 14pt เนื้อหา/ตาราง 11pt
+// ทะเบียนสัญญา (A4 แนวนอน) — ฟอนต์ TH Sarabun New 16pt (มาตรฐานเอกสารของระบบ) หัวเรื่องตัวหนา 20pt
 
-registerSarabunFont();
+registerThSarabunFont();
+const FS = 16;
 
 const styles = StyleSheet.create({
-  page: { fontFamily: "Sarabun", fontSize: 11, padding: 28, lineHeight: 1.2 },
-  title: { fontSize: 14, fontWeight: "bold", textAlign: "center", marginBottom: 4 },
-  sub: { textAlign: "center", marginBottom: 8, color: "#334155" },
+  page: { fontFamily: "THSarabunNew", fontSize: FS, padding: 28, lineHeight: 1.15 },
+  title: { fontSize: 20, fontWeight: "bold", textAlign: "center", lineHeight: 1.3, marginBottom: 2 },
+  sub: { textAlign: "center", lineHeight: 1.3, marginBottom: 10 },
   table: { borderTopWidth: 0.8, borderLeftWidth: 0.8, marginBottom: 4 },
   row: { flexDirection: "row" },
-  cell: { borderRightWidth: 0.8, borderBottomWidth: 0.8, padding: 3 },
+  cell: { borderRightWidth: 0.8, borderBottomWidth: 0.8, paddingHorizontal: 4, paddingVertical: 2 },
   head: { fontWeight: "bold", backgroundColor: "#f1f5f9", textAlign: "center" },
 });
 
@@ -35,12 +36,12 @@ export function ContractRegisterDocument({ rows, schoolName, filterText }: { row
   const colStyle = (c: (typeof COLS)[number]) => ({ width: c.width });
   // ข้อความไทยยาว react-pdf ตัดบรรทัดเองไม่ได้ (ไม่มีช่องว่างระหว่างคำ) — ตัดล่วงหน้าตามความกว้างคอลัมน์ (หักขอบเซลล์)
   const cellLines = (text: string, width: number) =>
-    wrapByWidth(text, 11, width - 10, width - 10, false, "Sarabun", text.split(/\s+/).filter((w) => w.length <= 12));
+    wrapByWidth(text, FS, width - 12, width - 12, false, "THSarabunNew", text.split(/\s+/).filter((w) => w.length <= 12));
   return (
     <Document title="ทะเบียนสัญญา">
       <Page size="A4" orientation="landscape" style={styles.page}>
         <Text style={styles.title}>{t(`ทะเบียนสัญญา ${schoolName}`)}</Text>
-        <Text style={styles.sub}>{t(filterText)}</Text>
+        {filterText ? <Text style={styles.sub}>{t(filterText)}</Text> : <View style={{ marginBottom: 8 }} />}
         <View style={styles.table}>
           <View style={styles.row} fixed>
             {COLS.map((c) => (
@@ -90,7 +91,7 @@ export function ContractRegisterDocument({ rows, schoolName, filterText }: { row
           </View>
         </View>
         <Text
-          style={{ position: "absolute", bottom: 14, right: 28, fontSize: 9, color: "#64748b" }}
+          style={{ position: "absolute", bottom: 14, right: 28, fontSize: 12, color: "#64748b" }}
           render={({ pageNumber, totalPages }) => `หน้า ${pageNumber}/${totalPages}`}
           fixed
         />
