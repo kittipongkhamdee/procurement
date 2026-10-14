@@ -758,25 +758,26 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
   }, [type]);
 
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
-  // เลขที่สัญญาถัดไป รูปแบบ <ลำดับที่>/<ปีงบประมาณ> — นับแยกตามประเภทสัญญา (แก้เองได้)
+  const [allContractNos, setAllContractNos] = useState<string[]>([]);
+  // เลขที่สัญญาถัดไป รูปแบบ <ลำดับที่>/<ปีงบประมาณ> — ลำดับเดียวกันทุกประเภท (จ้าง/ซื้อ/เช่า) แก้เองได้
   const nextContractNo = useMemo(() => {
-    if (!fiscalYear || !contracts) return "";
+    if (!fiscalYear) return "";
     const suffix = `/${fiscalYear}`;
-    const max = contracts.reduce((m, c) => {
-      const no = c.contract_no.trim();
+    const max = allContractNos.reduce((m, raw) => {
+      const no = raw.trim();
       if (!no.endsWith(suffix)) return m;
       const n = Number(no.slice(0, -suffix.length));
       return Number.isInteger(n) && n > m ? n : m;
     }, 0);
     return `${max + 1}${suffix}`;
-  }, [contracts, fiscalYear]);
+  }, [allContractNos, fiscalYear]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
     setFiscalYear(currentYear?.year ?? null);
-    const [{ data: contractsData, error }, { data: projectsData }, { data: teacherData }, { data: sourceData }] = await Promise.all([
+    const [{ data: contractsData, error }, { data: projectsData }, { data: teacherData }, { data: sourceData }, { data: noData }] = await Promise.all([
       supabase
         .from("proc_contracts")
         .select(
@@ -789,7 +790,9 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
         : Promise.resolve({ data: [] as Project[] }),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order"),
+      supabase.from("proc_contracts").select("contract_no"),
     ]);
+    setAllContractNos((noData ?? []).map((r) => r.contract_no));
     setError(error?.message ?? null);
     setContracts((contractsData as unknown as Contract[]) ?? []);
     setProjects(projectsData ?? []);
