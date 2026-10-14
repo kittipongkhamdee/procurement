@@ -10,11 +10,14 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = await createClient();
 
+  const { data: budgetYears } = await supabase.from("plan_budget_years").select("id, year, is_open").order("year", { ascending: false });
+  const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
+
   const [
     { data: approval },
     { data: items },
-    { data: projects },
-    { data: activities },
+    { data: allProjects },
+    { data: allActivities },
     { data: approvals },
     { data: adminGroups },
     { data: teachers },
@@ -28,7 +31,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
       .eq("id", id)
       .maybeSingle(),
     supabase.from("proc_approval_items").select("name, qty, unit, unit_price, note").eq("approval_id", id).order("seq"),
-    supabase.from("plan_projects").select("id, name, admin_group_id").order("sort_order"),
+    supabase.from("plan_projects").select("id, name, admin_group_id, budget_year_id").order("sort_order"),
     supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
     supabase.from("proc_approvals").select("id, project_id, requested_amount").eq("status", "อนุมัติ"),
     supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
@@ -47,8 +50,13 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     loadItemSuggestions(supabase),
   ]);
 
+  // เลือกโครงการได้เฉพาะของปีงบประมาณปัจจุบัน — ยกเว้นโครงการที่บันทึกนี้อ้างอยู่เดิม (บันทึกเก่าของปีก่อนแก้ไขต่อได้)
+  const projects = (allProjects ?? []).filter((p) => p.budget_year_id === currentYear?.id || p.id === approval.project_id);
+  const projectIds = new Set(projects.map((p) => p.id));
+  const activities = (allActivities ?? []).filter((a) => projectIds.has(a.project_id));
+
   const budgetByProject = new Map<string, number>();
-  (activities ?? []).forEach((a) => {
+  activities.forEach((a) => {
     budgetByProject.set(a.project_id, (budgetByProject.get(a.project_id) ?? 0) + Number(a.budget));
   });
 
@@ -59,7 +67,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     approvedByProject.set(a.project_id, (approvedByProject.get(a.project_id) ?? 0) + Number(a.requested_amount));
   });
 
-  const projectOptions = (projects ?? []).map((p) => ({
+  const projectOptions = projects.map((p) => ({
     id: p.id,
     name: p.name,
     adminGroupId: p.admin_group_id,
@@ -103,7 +111,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
       <ApprovalForm
         action={updateApproval.bind(null, id)}
         projects={projectOptions}
-        activities={(activities ?? []).map((a) => ({
+        activities={activities.map((a) => ({
           id: a.id,
           project_id: a.project_id,
           name: a.name,

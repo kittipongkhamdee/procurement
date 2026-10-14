@@ -83,6 +83,16 @@ async function nextDocNumber(supabase: Awaited<ReturnType<typeof createClient>>,
   return `${prefix}${maxSeq + 1}${suffix}`;
 }
 
+/** บันทึกขออนุมัติทำได้เฉพาะโครงการของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน) — กันกรณีส่งฟอร์มตรงหรือหน้าเว็บเก่าค้าง */
+async function assertProjectInOpenYear(supabase: Awaited<ReturnType<typeof createClient>>, projectId: string | null) {
+  if (!projectId) return;
+  const { data } = await supabase.from("plan_projects").select("plan_budget_years(year, is_open)").eq("id", projectId).maybeSingle();
+  const year = data?.plan_budget_years as unknown as { year: number; is_open: boolean } | null;
+  if (year && !year.is_open) {
+    throw new Error(`โครงการนี้เป็นของปีงบประมาณ ${year.year} ซึ่งปิดแล้ว — บันทึกขออนุมัติทำได้เฉพาะโครงการของปีงบประมาณปัจจุบัน`);
+  }
+}
+
 export async function createApproval(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -92,6 +102,7 @@ export async function createApproval(formData: FormData) {
   const requestedAmount = Number(formData.get("requested_amount") ?? 0);
   if (!String(formData.get("department") ?? "").trim()) throw new Error("กรุณาเลือกฝ่าย/กลุ่ม/สาระฯ/งาน");
   if (!(requestedAmount > 0)) throw new Error("ยอดเงินที่ขออนุมัติต้องมากกว่า 0");
+  await assertProjectInOpenYear(supabase, String(formData.get("project_id") ?? "") || null);
 
   const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
   let summaryItems: SummaryItemInput[] = [];
@@ -171,7 +182,7 @@ export async function updateApproval(id: string, formData: FormData) {
   // ยังแก้ไขได้ (แก้แล้วจะย้อนสถานะเป็น "รอเสนอ" ใหม่ด้านล่าง)
   const { data: current } = await supabase
     .from("proc_approvals")
-    .select("status, deputy_decision")
+    .select("status, deputy_decision, project_id")
     .eq("id", id)
     .maybeSingle();
   if (!current) throw new Error("ไม่พบบันทึกนี้");
@@ -181,6 +192,9 @@ export async function updateApproval(id: string, formData: FormData) {
   const requestedAmount = Number(formData.get("requested_amount") ?? 0);
   if (!String(formData.get("department") ?? "").trim()) throw new Error("กรุณาเลือกฝ่าย/กลุ่ม/สาระฯ/งาน");
   if (!(requestedAmount > 0)) throw new Error("ยอดเงินที่ขออนุมัติต้องมากกว่า 0");
+  // เปลี่ยนไปโครงการอื่นต้องเป็นของปีงบประมาณปัจจุบัน — ถ้ายังเป็นโครงการเดิม (แม้เป็นของปีก่อน) แก้ไขต่อได้
+  const newProjectId = String(formData.get("project_id") ?? "") || null;
+  if (newProjectId !== current.project_id) await assertProjectInOpenYear(supabase, newProjectId);
 
   const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
   let summaryItems: SummaryItemInput[] = [];

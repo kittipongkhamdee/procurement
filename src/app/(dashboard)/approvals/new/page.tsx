@@ -8,9 +8,15 @@ import { loadItemSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions
 export default async function NewApprovalPage() {
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: activities }, { data: approvals }, { data: adminGroups }, { data: teachers }, { data: learningAreas }] =
+  // บันทึกขออนุมัติทำได้เฉพาะโครงการของปีงบประมาณปัจจุบัน (ปีที่เปิดใช้งาน) — ไม่มีปีที่เปิดอยู่ก็ใช้ปีล่าสุด
+  const { data: budgetYears } = await supabase.from("plan_budget_years").select("id, year, is_open").order("year", { ascending: false });
+  const currentYear = budgetYears?.find((y) => y.is_open) ?? budgetYears?.[0] ?? null;
+
+  const [{ data: projects }, { data: allActivities }, { data: approvals }, { data: adminGroups }, { data: teachers }, { data: learningAreas }] =
     await Promise.all([
-      supabase.from("plan_projects").select("id, name, admin_group_id").order("sort_order"),
+      currentYear
+        ? supabase.from("plan_projects").select("id, name, admin_group_id").eq("budget_year_id", currentYear.id).order("sort_order")
+        : Promise.resolve({ data: [] as { id: string; name: string; admin_group_id: string }[] }),
       supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
       supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
       supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
@@ -18,13 +24,16 @@ export default async function NewApprovalPage() {
     supabase.from("plan_learning_areas").select("id, name").eq("is_active", true).order("sort_order").order("name"),
     ]);
 
+  const currentProjectIds = new Set((projects ?? []).map((p) => p.id));
+  const activities = (allActivities ?? []).filter((a) => currentProjectIds.has(a.project_id));
+
   const [unitSuggestions, itemSuggestions] = await Promise.all([
     loadUnitSuggestions(supabase),
     loadItemSuggestions(supabase),
   ]);
 
   const budgetByProject = new Map<string, number>();
-  (activities ?? []).forEach((a) => {
+  activities.forEach((a) => {
     budgetByProject.set(a.project_id, (budgetByProject.get(a.project_id) ?? 0) + Number(a.budget));
   });
 
@@ -56,12 +65,19 @@ export default async function NewApprovalPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">สร้างบันทึกข้อความขออนุมัติ</h1>
+          {currentYear && <p className="page-subtitle">ปีงบประมาณ {currentYear.year}</p>}
         </div>
       </div>
+      {projectOptions.length === 0 && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ปีงบประมาณปัจจุบัน{currentYear ? ` ${currentYear.year}` : ""} ยังไม่มีโครงการในแผนปฏิบัติการ จึงยังเลือกโครงการเพื่อขออนุมัติไม่ได้ —
+          บันทึกขออนุมัติทำได้เฉพาะโครงการของปีงบประมาณปัจจุบัน
+        </div>
+      )}
       <ApprovalForm
         action={createApproval}
         projects={projectOptions}
-        activities={(activities ?? []).map((a) => ({
+        activities={activities.map((a) => ({
           id: a.id,
           project_id: a.project_id,
           name: a.name,
