@@ -49,6 +49,8 @@ type Contract = {
   penalty_rate: number | null;
   discount: number | null;
   vat_type: string | null;
+  rental_area: string | null;
+  rent_monthly: number | null;
   inspector_name: string | null;
   note: string | null;
   plan_projects: { name: string } | null;
@@ -83,6 +85,16 @@ const TERMS: Record<ContractType, { party: string; detail: string; start: string
     penalty: "ค่าปรับต่อวัน (ร้อยละ)",
   },
 };
+
+/** จำนวนเดือนเต็มของช่วงเช่า (นับวันสุดท้ายรวม) เช่น 1 พ.ย. 68 – 31 ต.ค. 69 = 12 เดือน, 15 มิ.ย. – 14 ก.ค. = 1 เดือน */
+function rentalMonths(start: string | null, end: string | null): number {
+  if (!start || !end || end < start) return 0;
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const e = new Date(end + "T00:00:00Z");
+  e.setUTCDate(e.getUTCDate() + 1);
+  const months = (e.getUTCFullYear() - sy) * 12 + (e.getUTCMonth() + 1 - sm) - (e.getUTCDate() >= sd ? 0 : 1);
+  return Math.max(months, 0);
+}
 
 /** สถานะสัญญาจากวันสิ้นสุด: ยังไม่ระบุ / ยังไม่ครบกำหนด / ใกล้ครบ (≤7 วัน) / เลยกำหนด */
 function contractStatus(endDate: string | null): { label: string; cls: string } {
@@ -120,6 +132,16 @@ function ContractModal({
   const totals = computeTotals(itemRowsTotal(items), parseFloat(discount) || 0, vatType);
   const itemsTotal = totals.net;
   const [itemsLoaded, setItemsLoaded] = useState(!contract);
+  // สัญญาเช่า: จำนวนเงินตามสัญญา = ค่าเช่าต่อเดือน × จำนวนเดือน (นับจากวันเริ่ม–สิ้นสุดการเช่า แก้จำนวนเดือนเองได้)
+  const isRental = type === "เช่า";
+  const [startDate, setStartDate] = useState<string | null>(contract?.start_date ?? null);
+  const [endDate, setEndDate] = useState<string | null>(contract?.end_date ?? null);
+  const [rent, setRent] = useState(contract?.rent_monthly != null ? String(contract.rent_monthly) : "");
+  const [monthsInput, setMonthsInput] = useState("");
+  const autoMonths = rentalMonths(startDate, endDate);
+  const savedMonths = contract?.rent_monthly ? Math.round(Number(contract.amount) / Number(contract.rent_monthly)) : 0;
+  const months = monthsInput !== "" ? Number(monthsInput) || 0 : autoMonths || savedMonths;
+  const rentalTotal = Math.round((parseFloat(rent) || 0) * months * 100) / 100;
 
   function loadItems() {
     if (!hasItems || itemsLoaded || !contract) return;
@@ -168,6 +190,13 @@ function ContractModal({
         formData.set("amount", String(itemsTotal));
         formData.set("discount", discount);
         formData.set("vat_type", vatType);
+      }
+      if (isRental) {
+        if (!(rentalTotal > 0)) {
+          await toastError("กรุณากรอกค่าเช่าต่อเดือนและวันเริ่ม–สิ้นสุดการเช่า (หรือจำนวนเดือน)");
+          return;
+        }
+        formData.set("amount", String(rentalTotal));
       }
       const start = String(formData.get("start_date") ?? "");
       const end = String(formData.get("end_date") ?? "");
@@ -266,12 +295,38 @@ function ContractModal({
           )}
           <div>
             <label className="label">{terms.start}</label>
-            <ThaiDatePicker name="start_date" defaultValue={contract?.start_date ?? null} />
+            <ThaiDatePicker name="start_date" value={startDate} onChange={setStartDate} />
           </div>
           <div>
             <label className="label">{terms.end}</label>
-            <ThaiDatePicker name="end_date" defaultValue={contract?.end_date ?? null} />
+            <ThaiDatePicker name="end_date" value={endDate} onChange={setEndDate} />
           </div>
+          {isRental && (
+            <>
+              <div className="sm:col-span-2">
+                <label className="label">พื้นที่/ล็อกที่เช่า</label>
+                <input name="rental_area" defaultValue={contract?.rental_area ?? ""} placeholder="เช่น โรงอาหาร ล็อกที่ 3" className="input w-full" />
+              </div>
+              <div>
+                <label className="label">
+                  ค่าเช่าต่อเดือน (บาท) <span className="text-red-600">*</span>
+                </label>
+                <input type="number" inputMode="decimal" step="0.01" min="0" name="rent_monthly" value={rent} onChange={(e) => setRent(e.target.value)} className="input w-full text-right" />
+              </div>
+              <div>
+                <label className="label">จำนวนเดือน</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={monthsInput !== "" ? monthsInput : months ? String(months) : ""}
+                  onChange={(e) => setMonthsInput(e.target.value)}
+                  placeholder="คำนวณจากวันเริ่ม–สิ้นสุด"
+                  className="input w-full text-right"
+                />
+              </div>
+            </>
+          )}
         </fieldset>
 
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -314,7 +369,9 @@ function ContractModal({
             <label className="label">
               จำนวนเงินตามสัญญา (บาท) <span className="text-red-600">*</span>
             </label>
-            {hasItems ? (
+            {isRental ? (
+              <input readOnly value={rentalTotal > 0 ? rentalTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : ""} placeholder="ค่าเช่า × จำนวนเดือน" className="input w-full bg-slate-50 text-right font-semibold" />
+            ) : hasItems ? (
               <input readOnly value={itemsTotal > 0 ? itemsTotal.toLocaleString("th-TH", { minimumFractionDigits: 2 }) : ""} placeholder="คำนวณจากรายการพัสดุ" className="input w-full bg-slate-50 text-right font-semibold" />
             ) : (
               <input type="number" inputMode="decimal" step="0.01" min="0" name="amount" defaultValue={contract?.amount ?? ""} required className="input w-full text-right font-semibold" />
@@ -396,7 +453,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
       supabase
         .from("proc_contracts")
         .select(
-          "id, contract_no, contract_date, start_date, end_date, project_id, vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, inspector_name, note, plan_projects(name)",
+          "id, contract_no, contract_date, start_date, end_date, project_id, vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, rental_area, rent_monthly, inspector_name, note, plan_projects(name)",
         )
         .eq("contract_type", type)
         .order("contract_date", { ascending: false }),

@@ -1918,6 +1918,8 @@ export type Database = {
       }
       proc_contracts: {
         Row: {
+          rent_monthly: number | null
+          rental_area: string | null
           discount: number | null
           vat_type: string | null
           contract_type: string
@@ -1948,6 +1950,8 @@ export type Database = {
           zipcode: string | null
         }
         Insert: {
+          rent_monthly?: number | null
+          rental_area?: string | null
           discount?: number | null
           vat_type?: string | null
           contract_type?: string
@@ -1978,6 +1982,8 @@ export type Database = {
           zipcode?: string | null
         }
         Update: {
+          rent_monthly?: number | null
+          rental_area?: string | null
           discount?: number | null
           vat_type?: string | null
           contract_type?: string

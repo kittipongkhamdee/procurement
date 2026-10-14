@@ -17,7 +17,7 @@ const CARDS: { key: string; title: string; description: string; href: string | n
   { key: "hire", title: "สัญญาจ้าง", description: "สัญญาจ้างทำของ/จ้างเหมาบริการ", href: "/contracts/hire", icon: <FileSignatureIcon className={ICON} />, type: "จ้าง" },
   { key: "purchase", title: "สัญญาซื้อ", description: "สัญญาซื้อขายพัสดุ/ครุภัณฑ์", href: "/contracts/purchase", icon: <ShoppingCartIcon className={ICON} />, type: "ซื้อ" },
   { key: "delivery", title: "ส่งมอบตามสัญญา", description: "บันทึกการส่งมอบและตรวจรับตามสัญญา", href: "/contracts/delivery", icon: <TruckIcon className={ICON} /> },
-  { key: "rental", title: "สัญญาเช่าที่ขายของ", description: "สัญญาเช่าพื้นที่ขายของในโรงเรียน", href: null, icon: <StoreIcon className={ICON} />, type: "เช่า" },
+  { key: "rental", title: "สัญญาเช่าที่ขายของ", description: "สัญญาเช่าพื้นที่ขายของในโรงเรียน", href: "/contracts/rental", icon: <StoreIcon className={ICON} />, type: "เช่า" },
   { key: "register", title: "ทะเบียนสัญญา", description: "รวมสัญญาทุกประเภทในที่เดียว", href: "/contracts/register", icon: <ArchiveIcon className={ICON} /> },
 ];
 
