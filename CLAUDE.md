@@ -65,3 +65,15 @@ defaultValue={item?.acquired_date ?? null} />` — จะ render hidden input �
 `purchase-requests/new/purchase-request-form.tsx`,
 `approvals/approval-form.tsx`) — ยังไม่ได้ปรับ รอทยอยเปลี่ยนเป็น
 `ThaiDatePicker` เมื่อได้แก้ไขหน้านั้นๆ ครั้งต่อไป
+
+## ข้อควรจำ: Deploy Vercel ให้ประหยัดโควตา (แพ็กเกจฟรี 100 ครั้ง/วัน)
+
+เคยสั่ง `create_deployment` ผ่าน Vercel API จนเกินโควตา (402 `api-deployments-free-per-day`) จน deploy production
+ไม่ได้ทั้งวัน — สาเหตุหลักคือสั่งซ้ำกับที่ Vercel build จาก GitHub ให้เองอยู่แล้ว ต่อไปให้ทำตามนี้:
+
+1. **เช็คก่อนสั่งเสมอ** — หลัง push ให้ `list_deployments` กรองด้วย `sha` ของ commit ก่อน ถ้ามี deployment แล้ว
+   (BUILDING/READY) ใช้ลิงก์นั้นเลย สั่ง `create_deployment` เองเฉพาะเมื่อไม่มีจริงๆ หลังรอสักครู่แล้ว
+2. **Production ให้ Vercel build เองหลัง merge `main`** — push เข้า `main` ปกติจะ build production อัตโนมัติ
+   ให้เช็คด้วย `list_deployments` (sha + target production) ก่อน ถ้าไม่มีภายในไม่กี่นาทีจึงสั่งเอง
+3. **รวมงานแก้เล็กๆ เป็นรอบเดียว** — ถ้าผู้ใช้ส่งคำขอแก้ต่อเนื่องหลายเรื่อง ทำให้ครบแล้วค่อย push/เปิด preview ครั้งเดียว
+   ไม่ต้อง deploy ทุกการแก้ย่อย
