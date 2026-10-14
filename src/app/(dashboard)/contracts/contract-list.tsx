@@ -13,6 +13,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ThaiAddressInput } from "@/components/thai-address-input";
 import Link from "next/link";
+import { useAuth } from "@/lib/AuthContext";
 import { uploadFileDirect } from "@/lib/storage/client-upload";
 import { driveFileId, driveViewUrl, isDriveRef } from "@/lib/storage/ref";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
@@ -615,7 +616,7 @@ function ContractDetailModal({ type, contract: c }: { type: ContractType; contra
 const CONTRACT_BUCKET = "procurement-files";
 
 // อัปโหลด/ดู/เปลี่ยนไฟล์สัญญาฉบับจริง (PDF) — เพิ่มภายหลังบันทึกสัญญาได้
-function ContractFileButtons({ contract: c, onChanged }: { contract: Contract; onChanged: () => void }) {
+function ContractFileButtons({ contract: c, onChanged, viewOnly = false }: { contract: Contract; onChanged: () => void; viewOnly?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -687,9 +688,11 @@ function ContractFileButtons({ contract: c, onChanged }: { contract: Contract; o
           ดูสัญญา
         </button>
       )}
-      <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="btn-secondary btn-sm">
-        {busy ? `กำลังอัปโหลด ${progress}%` : c.contract_file_path ? "เปลี่ยนไฟล์" : "อัปโหลดสัญญา"}
-      </button>
+      {!viewOnly && (
+        <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="btn-secondary btn-sm">
+          {busy ? `กำลังอัปโหลด ${progress}%` : c.contract_file_path ? "เปลี่ยนไฟล์" : "อัปโหลดสัญญา"}
+        </button>
+      )}
     </>
   );
 }
@@ -701,6 +704,7 @@ const NO_FILE_BADGE = (
 );
 
 export function ContractList({ type, title, subtitle }: { type: ContractType; title: string; subtitle: string }) {
+  const { isAdmin, isProcStaff } = useAuth();
   const [contracts, setContracts] = useState<Contract[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [teachers, setTeachers] = useState<string[]>([]);
@@ -776,12 +780,20 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
     return (
       <div className="flex flex-wrap items-center gap-2">
         <ContractDetailModal type={type} contract={c} />
-        <ContractFileButtons contract={c} onChanged={reload} />
-        <ContractModal type={type} contract={c} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
-        <button type="button" onClick={() => handleDelete(c)} className="btn-danger btn-sm">
-          <TrashIcon className="h-3.5 w-3.5" />
-          ลบ
-        </button>
+        {isProcStaff ? (
+          <ContractFileButtons contract={c} onChanged={reload} />
+        ) : (
+          c.contract_file_path && <ContractFileButtons contract={c} onChanged={reload} viewOnly />
+        )}
+        {isProcStaff && (
+          <ContractModal type={type} contract={c} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
+        )}
+        {isAdmin && (
+          <button type="button" onClick={() => handleDelete(c)} className="btn-danger btn-sm">
+            <TrashIcon className="h-3.5 w-3.5" />
+            ลบ
+          </button>
+        )}
       </div>
     );
   }
@@ -797,7 +809,9 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
           <h1 className="page-title">{title}</h1>
           <p className="page-subtitle">{subtitle}</p>
         </div>
-        <ContractModal type={type} contract={null} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
+        {isProcStaff && (
+          <ContractModal type={type} contract={null} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
+        )}
       </div>
 
       {contracts === null ? (

@@ -62,12 +62,14 @@ export async function updateDelivery(id: string, formData: FormData): Promise<Re
   const parsed = deliveryFields(formData);
   if ("error" in parsed) return parsed;
   const supabase = await createClient();
-  const { error } = await supabase.from("proc_deliveries").update(parsed.fields as never).eq("id", id);
-  return error ? { error: error.message } : done();
+  const { data, error } = await supabase.from("proc_deliveries").update(parsed.fields as never).eq("id", id).select("id");
+  if (error) return { error: error.message };
+  return data?.length ? done() : { error: "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล" };
 }
 
 export async function deleteDelivery(id: string): Promise<Result> {
   const supabase = await createClient();
-  const { error } = await supabase.from("proc_deliveries").delete().eq("id", id);
-  return error ? { error: error.message } : done();
+  const { data, error } = await supabase.from("proc_deliveries").delete().eq("id", id).select("id");
+  if (error) return { error: error.message };
+  return data?.length ? done() : { error: "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล" };
 }

@@ -29,6 +29,8 @@ const ROLE_LABELS: Record<string, string> = {
 type AuthContextValue = {
   user: CurrentUser | null;
   isAdmin: boolean;
+  /** admin / เจ้าหน้าที่พัสดุ / เจ้าหน้าที่การเงิน — ตรงกับ proc_is_staff() ในฐานข้อมูล */
+  isProcStaff: boolean;
   roleLabel: string;
   displayName: string;
   avatarUrl: string | null;
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const role = user?.role ?? "";
   const isAdmin = role === "admin";
+  const isProcStaff = ["admin", "supply_officer", "finance_officer"].includes(role);
   const roleLabel = role ? (ROLE_LABELS[role] ?? role) : "";
   const pendingApproval = user?.status === "pending";
 
@@ -94,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user: user ?? null,
         isAdmin,
+        isProcStaff,
         roleLabel,
         displayName: user?.displayName ?? "",
         avatarUrl: user?.avatarUrl ?? null,

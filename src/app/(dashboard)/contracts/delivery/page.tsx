@@ -3,6 +3,7 @@
 // ส่งมอบตามสัญญา — บันทึกการส่งมอบ/ตรวจรับแต่ละงวดของสัญญาจ้างและสัญญาซื้อ แสดงยอดส่งมอบแล้ว/คงเหลือของสัญญา
 // และคำนวณวันเกินกำหนดกับค่าปรับให้อัตโนมัติจาก "วันสิ้นสุดสัญญา/กำหนดส่งมอบ" และ "ค่าปรับต่อวัน" ของสัญญา (แก้ไขได้)
 
+import { useAuth } from "@/lib/AuthContext";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -369,6 +370,7 @@ function DeliveryModal({
 }
 
 export default function ContractDeliveryPage() {
+  const { isAdmin, isProcStaff } = useAuth();
   const [deliveries, setDeliveries] = useState<Delivery[] | null>(null);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [teachers, setTeachers] = useState<string[]>([]);
@@ -431,11 +433,13 @@ export default function ContractDeliveryPage() {
           <PrinterIcon className="h-3.5 w-3.5" />
           พิมพ์เอกสาร
         </a>
-        <DeliveryModal delivery={d} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />
-        <button type="button" onClick={() => handleDelete(d)} className="btn-danger btn-sm">
-          <TrashIcon className="h-3.5 w-3.5" />
-          ลบ
-        </button>
+        {isProcStaff && <DeliveryModal delivery={d} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />}
+        {isAdmin && (
+          <button type="button" onClick={() => handleDelete(d)} className="btn-danger btn-sm">
+            <TrashIcon className="h-3.5 w-3.5" />
+            ลบ
+          </button>
+        )}
       </div>
     );
   }
@@ -451,7 +455,7 @@ export default function ContractDeliveryPage() {
           <h1 className="page-title">ส่งมอบตามสัญญา</h1>
           <p className="page-subtitle">บันทึกการส่งมอบและตรวจรับตามสัญญาจ้าง/สัญญาซื้อ</p>
         </div>
-        <DeliveryModal delivery={null} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />
+        {isProcStaff && <DeliveryModal delivery={null} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />}
       </div>
 
       {deliveries === null ? (

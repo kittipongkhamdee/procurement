@@ -142,8 +142,10 @@ export async function updateContract(id: string, formData: FormData): Promise<Re
   try {
     const fields = contractFields(formData);
     const items = parseItems(formData);
-    const { error } = await supabase.from("proc_contracts").update(fields).eq("id", id);
+    const { data: updated, error } = await supabase.from("proc_contracts").update(fields).eq("id", id).select("id");
     if (error) return { error: error.message };
+    // RLS ไม่คืน error เมื่อไม่มีสิทธิ์ แค่ไม่มีแถวถูกแก้ — ต้องเช็คเอง
+    if (!updated?.length) return { error: "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล" };
     if (items) {
       const itemError = await replaceItems(supabase, id, items);
       if (itemError) return { error: `บันทึกสัญญาแล้ว แต่บันทึกรายการพัสดุไม่สำเร็จ: ${itemError}` };
@@ -159,7 +161,10 @@ export async function updateContract(id: string, formData: FormData): Promise<Re
 export async function deleteContract(id: string): Promise<Result> {
   const supabase = await createClient();
   const { data: old } = await supabase.from("proc_contracts").select("contract_file_path").eq("id", id).maybeSingle();
-  const result = await run(async () => supabase.from("proc_contracts").delete().eq("id", id));
+  const result = await run(async () => {
+    const { data, error } = await supabase.from("proc_contracts").delete().eq("id", id).select("id");
+    return { error: error ?? (data?.length ? null : { message: "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล" }) };
+  });
   if (!result.error && old?.contract_file_path) {
     await deleteFromStorage(supabase, old.contract_file_path, "procurement-files").catch(() => {});
   }
@@ -171,7 +176,12 @@ export async function setContractFile(id: string, ref: string): Promise<Result> 
   if (!/^gdrive:[\w-]+$/.test(ref) && !/^contracts\/[\w-]+\.pdf$/i.test(ref)) return { error: "ไฟล์ไม่ถูกต้อง" };
   const supabase = await createClient();
   const { data: old } = await supabase.from("proc_contracts").select("contract_file_path").eq("id", id).maybeSingle();
-  const result = await run(async () => supabase.from("proc_contracts").update({ contract_file_path: ref }).eq("id", id));
+  const result = await run(async () => {
+    const { data, error } = await supabase.from("proc_contracts").update({ contract_file_path: ref }).eq("id", id).select("id");
+    return { error: error ?? (data?.length ? null : { message: "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล" }) };
+  });
+  // ไม่มีสิทธิ์ผูกไฟล์ — ลบไฟล์ที่เพิ่งอัปโหลดทิ้ง ไม่ให้ค้าง
+  if (result.error) await deleteFromStorage(supabase, ref, "procurement-files").catch(() => {});
   // ลบไฟล์เดิมเมื่อเปลี่ยนไฟล์ (ถ้าลบไม่ได้ เช่น ไม่มีสิทธิ์ ก็ข้ามไป)
   if (!result.error && old?.contract_file_path && old.contract_file_path !== ref) {
     await deleteFromStorage(supabase, old.contract_file_path, "procurement-files").catch(() => {});
