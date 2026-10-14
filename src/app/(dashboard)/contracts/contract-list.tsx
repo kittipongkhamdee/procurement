@@ -13,6 +13,8 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ThaiAddressInput } from "@/components/thai-address-input";
 import Link from "next/link";
+import { uploadFileDirect } from "@/lib/storage/client-upload";
+import { driveFileId, driveViewUrl, isDriveRef } from "@/lib/storage/ref";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { createContract, deleteContract, setContractFile, updateContract } from "./actions";
 import { EMPTY_ITEM_ROW, ItemRowsEditor, computeTotals, itemRowsTotal, type ItemRow, type VatType } from "@/components/item-rows-editor";
@@ -610,12 +612,13 @@ function ContractDetailModal({ type, contract: c }: { type: ContractType; contra
   );
 }
 
-const CONTRACT_BUCKET = "procurement-documents";
+const CONTRACT_BUCKET = "procurement-files";
 
 // อัปโหลด/ดู/เปลี่ยนไฟล์สัญญาฉบับจริง (PDF) — เพิ่มภายหลังบันทึกสัญญาได้
 function ContractFileButtons({ contract: c, onChanged }: { contract: Contract; onChanged: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   async function upload(file: File) {
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
@@ -627,16 +630,15 @@ function ContractFileButtons({ contract: c, onChanged }: { contract: Contract; o
       return;
     }
     setBusy(true);
+    setProgress(0);
     try {
-      const path = `contracts/${c.id}.pdf`;
-      const { error } = await createClient()
-        .storage.from(CONTRACT_BUCKET)
-        .upload(path, file, { contentType: "application/pdf", upsert: true });
-      if (error) {
-        await toastError(`อัปโหลดไม่สำเร็จ: ${error.message}`);
+      // อัปโหลดไปปลายทางที่ระบบตั้งไว้ (Google Drive หรือ Supabase Storage)
+      const uploaded = await uploadFileDirect(file, { pathPrefix: "contracts", onProgress: setProgress, finalize: true });
+      if (!uploaded.ref) {
+        await toastError(`อัปโหลดไม่สำเร็จ: ${uploaded.error ?? ""}`);
         return;
       }
-      const res = await setContractFile(c.id, path);
+      const res = await setContractFile(c.id, uploaded.ref);
       if (res.error) {
         await toastError(res.error);
         return;
@@ -653,6 +655,10 @@ function ContractFileButtons({ contract: c, onChanged }: { contract: Contract; o
 
   async function view() {
     if (!c.contract_file_path) return;
+    if (isDriveRef(c.contract_file_path)) {
+      window.open(driveViewUrl(driveFileId(c.contract_file_path)), "_blank");
+      return;
+    }
     const win = window.open("", "_blank");
     const { data, error } = await createClient().storage.from(CONTRACT_BUCKET).createSignedUrl(c.contract_file_path, 3600);
     if (error || !data) {
@@ -682,7 +688,7 @@ function ContractFileButtons({ contract: c, onChanged }: { contract: Contract; o
         </button>
       )}
       <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="btn-secondary btn-sm">
-        {busy ? "กำลังอัปโหลด..." : c.contract_file_path ? "เปลี่ยนไฟล์" : "อัปโหลดสัญญา"}
+        {busy ? `กำลังอัปโหลด ${progress}%` : c.contract_file_path ? "เปลี่ยนไฟล์" : "อัปโหลดสัญญา"}
       </button>
     </>
   );

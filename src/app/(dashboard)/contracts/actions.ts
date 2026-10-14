@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { deleteFromStorage } from "@/lib/storage";
 import { createClient } from "@/lib/supabase/server";
 
 function text(formData: FormData, key: string): string | null {
@@ -157,12 +158,23 @@ export async function updateContract(id: string, formData: FormData): Promise<Re
 
 export async function deleteContract(id: string): Promise<Result> {
   const supabase = await createClient();
-  return run(async () => supabase.from("proc_contracts").delete().eq("id", id));
+  const { data: old } = await supabase.from("proc_contracts").select("contract_file_path").eq("id", id).maybeSingle();
+  const result = await run(async () => supabase.from("proc_contracts").delete().eq("id", id));
+  if (!result.error && old?.contract_file_path) {
+    await deleteFromStorage(supabase, old.contract_file_path, "procurement-files").catch(() => {});
+  }
+  return result;
 }
 
-// ไฟล์สัญญาฉบับจริง (PDF) — อัปโหลดจากฝั่ง client ไปที่ storage แล้วบันทึก path ที่นี่
-export async function setContractFile(id: string, path: string | null): Promise<Result> {
+// ไฟล์สัญญาฉบับจริง (PDF) — อัปโหลดจาก client ไปปลายทางที่ระบบตั้งไว้ (uploadFileDirect) แล้วบันทึก ref ที่นี่
+export async function setContractFile(id: string, ref: string): Promise<Result> {
+  if (!/^gdrive:[\w-]+$/.test(ref) && !/^contracts\/[\w-]+\.pdf$/i.test(ref)) return { error: "ไฟล์ไม่ถูกต้อง" };
   const supabase = await createClient();
-  if (path !== null && path !== `contracts/${id}.pdf`) return { error: "ไฟล์ไม่ถูกต้อง" };
-  return run(async () => supabase.from("proc_contracts").update({ contract_file_path: path }).eq("id", id));
+  const { data: old } = await supabase.from("proc_contracts").select("contract_file_path").eq("id", id).maybeSingle();
+  const result = await run(async () => supabase.from("proc_contracts").update({ contract_file_path: ref }).eq("id", id));
+  // ลบไฟล์เดิมเมื่อเปลี่ยนไฟล์ (ถ้าลบไม่ได้ เช่น ไม่มีสิทธิ์ ก็ข้ามไป)
+  if (!result.error && old?.contract_file_path && old.contract_file_path !== ref) {
+    await deleteFromStorage(supabase, old.contract_file_path, "procurement-files").catch(() => {});
+  }
+  return result;
 }
