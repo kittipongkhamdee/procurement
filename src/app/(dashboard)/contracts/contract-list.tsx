@@ -17,7 +17,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { uploadFileDirect } from "@/lib/storage/client-upload";
 import { driveFileId, driveViewUrl, isDriveRef } from "@/lib/storage/ref";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
-import { createContract, deleteContract, setContractFile, updateContract } from "./actions";
+import { clearContractFile, createContract, deleteContract, setContractFile, updateContract } from "./actions";
 import { EMPTY_ITEM_ROW, ItemRowsEditor, computeTotals, itemRowsTotal, type ItemRow, type VatType } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 
@@ -616,7 +616,17 @@ function ContractDetailModal({ type, contract: c }: { type: ContractType; contra
 const CONTRACT_BUCKET = "procurement-files";
 
 // อัปโหลด/ดู/เปลี่ยนไฟล์สัญญาฉบับจริง (PDF) — เพิ่มภายหลังบันทึกสัญญาได้
-function ContractFileButtons({ contract: c, onChanged, viewOnly = false }: { contract: Contract; onChanged: () => void; viewOnly?: boolean }) {
+function ContractFileButtons({
+  contract: c,
+  onChanged,
+  viewOnly = false,
+  canDelete = false,
+}: {
+  contract: Contract;
+  onChanged: () => void;
+  viewOnly?: boolean;
+  canDelete?: boolean;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -651,6 +661,25 @@ function ContractFileButtons({ contract: c, onChanged, viewOnly = false }: { con
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function removeFile() {
+    const ok = await confirmDelete({ title: "ลบไฟล์สัญญา?", text: `สัญญาเลขที่ ${c.contract_no}` });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await clearContractFile(c.id);
+      if (res.error) {
+        await toastError(res.error);
+        return;
+      }
+      await toastSuccess("ลบไฟล์สัญญาเรียบร้อยแล้ว");
+      onChanged();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -691,6 +720,11 @@ function ContractFileButtons({ contract: c, onChanged, viewOnly = false }: { con
       {!viewOnly && (
         <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="btn-secondary btn-sm">
           {busy ? `กำลังอัปโหลด ${progress}%` : c.contract_file_path ? "เปลี่ยนไฟล์" : "อัปโหลดสัญญา"}
+        </button>
+      )}
+      {canDelete && c.contract_file_path && (
+        <button type="button" disabled={busy} onClick={removeFile} className="btn-danger btn-sm">
+          ลบไฟล์
         </button>
       )}
     </>
@@ -781,7 +815,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
       <div className="flex flex-wrap items-center gap-2">
         <ContractDetailModal type={type} contract={c} />
         {isProcStaff ? (
-          <ContractFileButtons contract={c} onChanged={reload} />
+          <ContractFileButtons contract={c} onChanged={reload} canDelete={isAdmin} />
         ) : (
           c.contract_file_path && <ContractFileButtons contract={c} onChanged={reload} viewOnly />
         )}

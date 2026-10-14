@@ -188,3 +188,19 @@ export async function setContractFile(id: string, ref: string): Promise<Result> 
   }
   return result;
 }
+
+// ลบไฟล์สัญญาฉบับจริง — เฉพาะผู้ดูแลระบบ
+export async function clearContractFile(id: string): Promise<Result> {
+  const supabase = await createClient();
+  const { data: role } = await supabase.rpc("proc_current_role");
+  if (role !== "admin") return { error: "ลบไฟล์สัญญาได้เฉพาะผู้ดูแลระบบ" };
+  const { data: old } = await supabase.from("proc_contracts").select("contract_file_path").eq("id", id).maybeSingle();
+  const result = await run(async () => {
+    const { data, error } = await supabase.from("proc_contracts").update({ contract_file_path: null }).eq("id", id).select("id");
+    return { error: error ?? (data?.length ? null : { message: "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล" }) };
+  });
+  if (!result.error && old?.contract_file_path) {
+    await deleteFromStorage(supabase, old.contract_file_path, "procurement-files").catch(() => {});
+  }
+  return result;
+}
