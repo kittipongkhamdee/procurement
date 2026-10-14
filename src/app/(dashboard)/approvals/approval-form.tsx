@@ -92,7 +92,12 @@ export type ApprovalFormInitial = {
 };
 
 /** ค่าเริ่มต้นของฟอร์มสร้างใหม่ที่ระบบเตรียมให้ (เช่น จากการส่งมอบตามสัญญา) — ต่างจาก initial ที่หมายถึงแก้ไขบันทึกเดิม */
-export type ApprovalFormPrefill = Pick<ApprovalFormInitial, "project_id" | "subject" | "summary_items" | "items">;
+export type ApprovalFormPrefill = Pick<ApprovalFormInitial, "project_id" | "subject" | "summary_items" | "items"> & {
+  department?: string | null;
+  doc_date?: string | null;
+  /** วันที่จะดำเนินการ (ISO) */
+  plan_date?: string | null;
+};
 
 function initialSummaryRows(initial?: Pick<ApprovalFormInitial, "summary_items">): SummaryRow[] {
   if (!initial) return emptySummaryRows();
@@ -156,9 +161,9 @@ export function ApprovalForm({
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial ?? prefill));
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial ?? prefill));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
-  const [department, setDepartment] = useState(initial?.department ?? "");
+  const [department, setDepartment] = useState(initial?.department ?? prefill?.department ?? "");
   const [requestedBy, setRequestedBy] = useState(initial?.requested_by_name ?? "");
-  const [planDateISO, setPlanDateISO] = useState("");
+  const [planDateISO, setPlanDateISO] = useState(initial ? "" : (prefill?.plan_date ?? ""));
   const [submitting, setSubmitting] = useState(false);
 
   // เลือกกลุ่มงานแล้วให้แสดงเฉพาะโครงการของกลุ่มนั้น (โครงการที่เลือกอยู่ยังแสดงเสมอ กันค่าเดิมหายตอนแก้ไขบันทึกเก่า)
@@ -361,7 +366,7 @@ export function ApprovalForm({
           )}
           <div>
             <FieldLabel n={2} text="วันที่บันทึกข้อความ" required />
-            <ThaiDatePicker name="doc_date" defaultValue={initial?.doc_date ?? null} />
+            <ThaiDatePicker name="doc_date" defaultValue={initial?.doc_date ?? prefill?.doc_date ?? null} />
           </div>
           <div className="hidden sm:block" />
           <div className="sm:col-span-3">

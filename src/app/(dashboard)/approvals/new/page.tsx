@@ -13,13 +13,13 @@ type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 async function prefillFromDelivery(supabase: SupabaseServer, deliveryId: string): Promise<{ prefill: ApprovalFormPrefill; label: string } | null> {
   const { data: d } = await supabase
     .from("proc_deliveries")
-    .select("contract_id, installment_no, period_month, amount")
+    .select("contract_id, installment_no, period_month, amount, delivery_date")
     .eq("id", deliveryId)
     .maybeSingle();
   if (!d) return null;
   const { data: c } = await supabase
     .from("proc_contracts")
-    .select("id, contract_type, contract_no, vendor_name, detail, amount, project_id")
+    .select("id, contract_type, contract_no, vendor_name, detail, amount, project_id, plan_projects(plan_admin_groups(name))")
     .eq("id", d.contract_id)
     .maybeSingle();
   if (!c) return null;
@@ -36,7 +36,11 @@ async function prefillFromDelivery(supabase: SupabaseServer, deliveryId: string)
       project_id: c.project_id,
       subject: "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ",
       // หน้า ๑ ตารางสรุป แถว "จัดซื้อจัดจ้าง" ต่อท้ายรายละเอียดงานตามสัญญา + ประจำเดือน; ไม่สร้างรายการวัสดุ (หน้า ๒)
-      summary_items: [{ label: `จัดซื้อจัดจ้าง ${c.detail || `ตามสัญญา${c.contract_type}`}${period}`, amount, note: null }],
+      summary_items: [{ label: `จัดซื้อจัดจ้าง ${c.detail || `ตามสัญญา${c.contract_type}`}${period}`, amount, note: `สัญญาเลขที่ ${c.contract_no}` }],
+      // ฝ่าย/กลุ่มงาน = กลุ่มบริหารงานของโครงการ, วันที่บันทึก = วันนี้, จะดำเนินการวันที่ = วันที่ส่งมอบงาน
+      department: (c.plan_projects as unknown as { plan_admin_groups: { name: string } | null } | null)?.plan_admin_groups?.name ?? null,
+      doc_date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" }),
+      plan_date: d.delivery_date,
       items: [],
     },
   };

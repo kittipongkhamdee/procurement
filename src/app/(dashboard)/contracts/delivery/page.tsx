@@ -496,6 +496,11 @@ export default function ContractDeliveryPage() {
           <PrinterIcon className="h-3.5 w-3.5" />
           พิมพ์เอกสาร
         </a>
+        {isProcStaff && (
+          <Link href={`/approvals/new?delivery=${d.id}`} className="btn-secondary btn-sm">
+            สร้างบันทึกขออนุมัติ
+          </Link>
+        )}
         {isProcStaff && <DeliveryModal delivery={d} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />}
         {isAdmin && (
           <button type="button" onClick={() => handleDelete(d)} className="btn-danger btn-sm">

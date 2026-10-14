@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon } from "@/components/icons";
+import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, SearchIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ApprovalTimeline, PendingActionCallout, type FlowStep } from "@/components/approval-flow";
 import {
@@ -329,6 +329,143 @@ export function ApprovalStatusCell({
   );
 }
 
+type ApprovalDetail = {
+  subject: string;
+  addressed_to: string;
+  department: string | null;
+  plan_date_text: string | null;
+  requested_by_position: string | null;
+  budget: number | null;
+  paid: number | null;
+  remaining: number | null;
+};
+type ApprovalItem = { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null; note: string | null };
+
+// ปุ่ม "รายละเอียด" — โหลดข้อมูลเต็มของบันทึกเมื่อเปิด
+function ApprovalDetailModal({ approval: a }: { approval: Approval }) {
+  const [detail, setDetail] = useState<ApprovalDetail | null>(null);
+  const [items, setItems] = useState<ApprovalItem[] | null>(null);
+
+  async function load() {
+    if (detail) return;
+    const supabase = createClient();
+    const [{ data: d }, { data: it }] = await Promise.all([
+      supabase
+        .from("proc_approvals")
+        .select("subject, addressed_to, department, plan_date_text, requested_by_position, budget, paid, remaining")
+        .eq("id", a.id)
+        .maybeSingle(),
+      supabase.from("proc_approval_items").select("name, qty, unit, unit_price, total, note").eq("approval_id", a.id).order("seq"),
+    ]);
+    setDetail(d as ApprovalDetail | null);
+    setItems((it as ApprovalItem[] | null) ?? []);
+  }
+
+  const money = (n: number | null | undefined) => (n != null ? `${formatBaht(Number(n))} บาท` : "-");
+  const rows: [string, ReactNode][] = [
+    ["เลขที่", a.doc_number ?? "-"],
+    ["วันที่", formatThaiDate(a.doc_date)],
+    ["เรื่อง", detail?.subject ?? "-"],
+    ["เรียน", detail?.addressed_to ?? "-"],
+    ["ฝ่าย/กลุ่ม/สาระฯ/งาน", detail?.department ?? "-"],
+    ["โครงการ", a.plan_projects?.name ?? "-"],
+    ["กิจกรรม", a.activity_name ?? "-"],
+    ["จะดำเนินการวันที่", detail?.plan_date_text ?? "-"],
+    ["ผู้ขออนุมัติ", [a.requested_by_name, detail?.requested_by_position].filter(Boolean).join(" · ") || "-"],
+    ["งบประมาณโครงการ", money(detail?.budget)],
+    ["ใช้ไปแล้ว", money(detail?.paid)],
+    ["ขออนุมัติครั้งนี้", money(a.requested_amount)],
+    ["คงเหลือ", money(detail?.remaining)],
+    ["สถานะ", mergedStatus(a)],
+    ["ความเห็นรองผู้อำนวยการ", a.deputy_decision ? `${a.deputy_decision}${a.deputy_note ? ` — ${a.deputy_note}` : ""}` : "-"],
+    ["ความเห็นผู้อำนวยการ", a.approved_by_name ? `${a.status}${a.approve_note ? ` — ${a.approve_note}` : ""}` : "-"],
+  ];
+  const summary = (a.summary_items ?? []).filter((r) => r.amount != null || r.note);
+
+  return (
+    <Modal
+      title={`บันทึกขออนุมัติ ${a.doc_number ?? ""}`}
+      wide
+      lazy
+      onOpenChange={(open) => open && load()}
+      trigger={
+        <span className="btn-secondary btn-sm">
+          <SearchIcon className="h-3.5 w-3.5" />
+          รายละเอียด
+        </span>
+      }
+    >
+      <dl className="divide-y divide-slate-100 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-3 sm:gap-3">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="whitespace-pre-line text-slate-900 sm:col-span-2">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {summary.length > 0 && (
+        <div className="mt-4">
+          <h3 className="mb-2 text-sm font-semibold text-navy-800">รายการเงินที่ขออนุมัติ</h3>
+          <div className="overflow-x-auto rounded-md border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr>
+                  <th className="px-2 py-2 text-left">รายการ</th>
+                  <th className="px-2 py-2 text-right">จำนวนเงิน</th>
+                  <th className="px-2 py-2 text-left">หมายเหตุ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {summary.map((r, i) => (
+                  <tr key={i}>
+                    <td className="px-2 py-1">{r.label}</td>
+                    <td className="px-2 py-1 text-right">{r.amount != null ? formatBaht(Number(r.amount)) : "-"}</td>
+                    <td className="px-2 py-1 text-slate-500">{r.note ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {items && items.length > 0 && (
+        <div className="mt-4">
+          <h3 className="mb-2 text-sm font-semibold text-navy-800">รายการวัสดุ</h3>
+          <div className="overflow-x-auto rounded-md border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs text-slate-500">
+                <tr>
+                  <th className="px-2 py-2">ที่</th>
+                  <th className="px-2 py-2 text-left">รายการ</th>
+                  <th className="px-2 py-2 text-right">จำนวน</th>
+                  <th className="px-2 py-2 text-right">ราคา/หน่วย</th>
+                  <th className="px-2 py-2 text-right">จำนวนเงิน</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map((it, i) => (
+                  <tr key={i}>
+                    <td className="px-2 py-1 text-center text-slate-400">{i + 1}</td>
+                    <td className="px-2 py-1">
+                      {it.name}
+                      {it.note ? <span className="text-slate-500"> ({it.note})</span> : null}
+                    </td>
+                    <td className="px-2 py-1 text-right">
+                      {it.qty ?? "-"} {it.unit ?? ""}
+                    </td>
+                    <td className="px-2 py-1 text-right">{it.unit_price != null ? formatBaht(Number(it.unit_price)) : "-"}</td>
+                    <td className="px-2 py-1 text-right">{it.total != null ? formatBaht(Number(it.total)) : "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 export default function ApprovalsPage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   // ลิงก์ลัดจากหน้า "ผู้บริหาร" (/approvals?open=<id>) — เปิดป็อปอัปสถานะของรายการนี้อัตโนมัติ
@@ -531,6 +668,7 @@ export default function ApprovalsPage() {
                     />
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
+                    <ApprovalDetailModal approval={a} />
                     <a
                       href={`/approvals/${a.id}/pdf`}
                       target="_blank"
@@ -618,6 +756,7 @@ export default function ApprovalsPage() {
                     </td>
                     <td className="text-right">
                       <div className="flex flex-wrap justify-end gap-2">
+                        <ApprovalDetailModal approval={a} />
                         <a
                           href={`/approvals/${a.id}/pdf`}
                           target="_blank"
