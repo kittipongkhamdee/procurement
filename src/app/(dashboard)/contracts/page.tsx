@@ -10,6 +10,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { ThaiAddressInput } from "@/components/thai-address-input";
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { createContract, deleteContract, updateContract } from "./actions";
 
@@ -180,7 +181,7 @@ function ContractModal({
             <label className="label">โทรศัพท์</label>
             <input name="phone" defaultValue={contract?.phone ?? ""} inputMode="tel" className="input w-full" />
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2">
             <div>
               <label className="label">บ้านเลขที่</label>
               <input name="house_no" defaultValue={contract?.house_no ?? ""} className="input w-full" />
@@ -189,22 +190,12 @@ function ContractModal({
               <label className="label">หมู่ที่</label>
               <input name="moo" defaultValue={contract?.moo ?? ""} className="input w-full" />
             </div>
-            <div>
-              <label className="label">ตำบล</label>
-              <input name="tambon" defaultValue={contract?.tambon ?? ""} className="input w-full" />
-            </div>
-            <div>
-              <label className="label">อำเภอ</label>
-              <input name="amphoe" defaultValue={contract?.amphoe ?? ""} className="input w-full" />
-            </div>
-            <div>
-              <label className="label">จังหวัด</label>
-              <input name="province" defaultValue={contract?.province ?? ""} className="input w-full" />
-            </div>
-            <div>
-              <label className="label">รหัสไปรษณีย์</label>
-              <input name="zipcode" defaultValue={contract?.zipcode ?? ""} inputMode="numeric" className="input w-full" />
-            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <p className="mb-1 text-xs text-slate-500">พิมพ์ตำบล อำเภอ จังหวัด หรือรหัสไปรษณีย์ แล้วเลือกจากรายการ ช่องที่เหลือจะเติมให้อัตโนมัติ</p>
+            <ThaiAddressInput
+              defaultValue={{ tambon: contract?.tambon, amphoe: contract?.amphoe, province: contract?.province, zipcode: contract?.zipcode }}
+            />
           </div>
         </fieldset>
 
