@@ -539,7 +539,6 @@ export function ApprovalForm({
                   <input
                     value={row.label}
                     onChange={(e) => updateSummaryRow(i, { label: e.target.value })}
-                    placeholder="เช่น ค่าซ่อมแซม"
                     maxLength={80}
                     className="input w-full"
                   />
@@ -597,7 +596,6 @@ export function ApprovalForm({
                         <input
                           value={row.label}
                           onChange={(e) => updateSummaryRow(i, { label: e.target.value })}
-                          placeholder="ระบุรายการ"
                           maxLength={80}
                           aria-label="ระบุรายการอื่นๆ"
                           className="input w-full min-w-0 sm:flex-1"
