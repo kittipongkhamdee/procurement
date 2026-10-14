@@ -29,6 +29,7 @@ type Delivery = {
   contract_id: string;
   installment_no: number | null;
   delivery_date: string;
+  period_month: string | null;
   amount: number;
   late_days: number | null;
   penalty_amount: number | null;
@@ -38,6 +39,15 @@ type Delivery = {
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+
+/** "2026-09-01" → "กันยายน 2569" */
+function formatPeriod(iso: string | null) {
+  if (!iso) return "-";
+  const [y, m] = iso.split("-").map(Number);
+  return `${THAI_MONTHS[m - 1]} ${y + 543}`;
 }
 
 function daysBetween(fromIso: string, toIso: string) {
@@ -68,6 +78,19 @@ function DeliveryModal({
   const [saving, setSaving] = useState(false);
   const [contractId, setContractId] = useState(delivery?.contract_id ?? "");
   const [date, setDate] = useState<string | null>(delivery?.delivery_date ?? null);
+  // งวดเดือน (YYYY-MM) — ตั้งตามเดือนของวันที่ส่งมอบอัตโนมัติจนกว่าผู้ใช้จะเลือกเอง (ส่งมอบต้นเดือนถัดไปของงวดเดือนก่อนได้)
+  const [period, setPeriod] = useState<string>(delivery?.period_month?.slice(0, 7) ?? "");
+  const [periodTouched, setPeriodTouched] = useState(!!delivery);
+  const periodValue = periodTouched ? period : (date?.slice(0, 7) ?? "");
+  const [pYear, pMonth] = periodValue ? periodValue.split("-").map(Number) : [0, 0];
+  const yearChoices = (() => {
+    const base = pYear || new Date().getFullYear();
+    return [base - 1, base, base + 1];
+  })();
+  function changePeriod(year: number, month: number) {
+    setPeriodTouched(true);
+    setPeriod(`${year}-${String(month).padStart(2, "0")}`);
+  }
   const [amount, setAmount] = useState(delivery ? String(delivery.amount) : "");
   const [penalty, setPenalty] = useState(delivery?.penalty_amount != null ? String(delivery.penalty_amount) : "");
   const [penaltyTouched, setPenaltyTouched] = useState(!!delivery);
@@ -84,8 +107,12 @@ function DeliveryModal({
     setContractId(id);
     const c = contracts.find((x) => x.id === id);
     if (c && !delivery) {
-      const left = Number(c.amount) - deliveries.filter((d) => d.contract_id === id).reduce((s, d) => s + Number(d.amount), 0);
-      setAmount(left > 0 ? String(Math.round(left * 100) / 100) : "");
+      // มีงวดก่อนแล้ว (เช่น จ้างรายเดือน) ใช้ยอดเท่างวดล่าสุด ไม่เกินคงเหลือ; ยังไม่มีงวด ใช้ยอดคงเหลือทั้งหมด
+      const prev = deliveries.filter((d) => d.contract_id === id);
+      const left = Number(c.amount) - prev.reduce((s, d) => s + Number(d.amount), 0);
+      const last = [...prev].sort((a, b) => b.delivery_date.localeCompare(a.delivery_date))[0];
+      const suggestion = last ? Math.min(Number(last.amount), left) : left;
+      setAmount(suggestion > 0 ? String(Math.round(suggestion * 100) / 100) : "");
     }
   }
 
@@ -101,6 +128,7 @@ function DeliveryModal({
       await toastError(`จำนวนเงินที่ส่งมอบเกินยอดคงเหลือของสัญญา (${formatBaht(remaining)} บาท)`);
       return;
     }
+    formData.set("period_month", periodValue);
     formData.set("late_days", String(lateDays));
     formData.set("penalty_amount", penaltyValue);
     setSaving(true);
@@ -115,6 +143,8 @@ function DeliveryModal({
         form.reset();
         setContractId("");
         setDate(null);
+        setPeriod("");
+        setPeriodTouched(false);
         setAmount("");
         setPenalty("");
         setPenaltyTouched(false);
@@ -213,6 +243,42 @@ function DeliveryModal({
           </label>
           <ThaiDatePicker name="delivery_date" value={date} onChange={setDate} />
         </div>
+        <div className="sm:col-span-2">
+          <label className="label">งวดเดือน</label>
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={pMonth || ""}
+              onChange={(e) => changePeriod(pYear || new Date().getFullYear(), Number(e.target.value))}
+              aria-label="เดือนของงวด"
+              className="input w-full"
+            >
+              <option value="" disabled>
+                -- เดือน --
+              </option>
+              {THAI_MONTHS.map((m, i) => (
+                <option key={m} value={i + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <select
+              value={pYear || ""}
+              onChange={(e) => changePeriod(Number(e.target.value), pMonth || new Date().getMonth() + 1)}
+              aria-label="ปี พ.ศ. ของงวด"
+              className="input w-full"
+            >
+              <option value="" disabled>
+                -- ปี พ.ศ. --
+              </option>
+              {yearChoices.map((y) => (
+                <option key={y} value={y}>
+                  {y + 543}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">ตั้งตามวันที่ส่งมอบให้อัตโนมัติ — เปลี่ยนได้ เช่น ส่งมอบ 1 พ.ย. สำหรับงวดเดือน ต.ค.</p>
+        </div>
         <div>
           <label className="label">
             จำนวนเงินที่ส่งมอบ (บาท) <span className="text-red-600">*</span>
@@ -300,7 +366,7 @@ export default function ContractDeliveryPage() {
     const [{ data: d, error }, { data: c }, { data: t }] = await Promise.all([
       supabase
         .from("proc_deliveries")
-        .select("id, contract_id, installment_no, delivery_date, amount, late_days, penalty_amount, inspector_name, note")
+        .select("id, contract_id, installment_no, delivery_date, period_month, amount, late_days, penalty_amount, inspector_name, note")
         .order("delivery_date", { ascending: false }),
       supabase
         .from("proc_contracts")
@@ -394,7 +460,9 @@ export default function ContractDeliveryPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       {c && <span className="badge-navy">สัญญา{c.contract_type}</span>}
                       <span className="font-medium text-slate-900">{c?.contract_no ?? "-"}</span>
-                      <span className="text-sm text-slate-500">งวดที่ {d.installment_no ?? "-"}</span>
+                      <span className="text-sm text-slate-500">
+                        งวดที่ {d.installment_no ?? "-"} · {formatPeriod(d.period_month)}
+                      </span>
                       {(d.late_days ?? 0) > 0 && <span className="badge-red">เกินกำหนด {d.late_days} วัน</span>}
                     </div>
                     <p className="mt-0.5 text-sm text-slate-700">{c?.vendor_name}</p>
@@ -417,7 +485,7 @@ export default function ContractDeliveryPage() {
               <thead>
                 <tr>
                   <th>สัญญา</th>
-                  <th>งวดที่</th>
+                  <th>งวด</th>
                   <th>วันที่ส่งมอบ</th>
                   <th>ผู้ตรวจรับ</th>
                   <th className="text-right">จำนวนเงิน</th>
@@ -434,7 +502,10 @@ export default function ContractDeliveryPage() {
                         <div className="font-medium text-slate-900">{c?.contract_no ?? "-"}</div>
                         <div className="text-slate-500">{c?.vendor_name}</div>
                       </td>
-                      <td>{d.installment_no ?? "-"}</td>
+                      <td>
+                        <div>งวดที่ {d.installment_no ?? "-"}</div>
+                        <div className="text-slate-500">{formatPeriod(d.period_month)}</div>
+                      </td>
                       <td>
                         <div>{formatThaiDate(d.delivery_date)}</div>
                         {(d.late_days ?? 0) > 0 && <span className="badge-red text-sm">เกินกำหนด {d.late_days} วัน</span>}
