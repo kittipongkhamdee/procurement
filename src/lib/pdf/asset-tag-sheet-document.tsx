@@ -1,8 +1,8 @@
 import { Document, Page, View, StyleSheet } from "@react-pdf/renderer";
-import { registerSarabunFont } from "./thai-pdf";
+import { registerThSarabunFont } from "./thai-pdf";
 import { TagLabelContent, type AssetTagPdfData, type TagLabelSizes } from "./asset-tag-document";
 
-registerSarabunFont();
+registerThSarabunFont();
 
 // เต็มพอดี 3 คอลัมน์ (33.3333% ต่อคอลัมน์) แทนความกว้างคงที่เป็น pt — ไม่มีช่องว่าง/margin ระหว่าง
 // ป้าย เส้นขอบของแต่ละป้ายจึงชนกันพอดีเป็นเส้นตัดต่อเนื่อง และไม่มีที่ว่างเหลือทิ้งที่ขอบหน้ากระดาษ
@@ -11,14 +11,14 @@ registerSarabunFont();
 const SHEET_LABEL_SIZES: TagLabelSizes = {
   qrSize: 42,
   textWidth: 131,
-  codeMaxFontSize: 9,
-  nameFontSize: 7,
-  locationFontSize: 6.5,
+  codeMaxFontSize: 13,
+  nameFontSize: 10,
+  locationFontSize: 9.5,
 };
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Sarabun",
+    fontFamily: "THSarabunNew",
     padding: 8,
     flexDirection: "row",
     flexWrap: "wrap",

@@ -1,19 +1,19 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
-import { registerSarabunFont, t, wrapText } from "./thai-pdf";
+import { registerThSarabunFont, t, wrapText } from "./thai-pdf";
 
-registerSarabunFont();
+registerThSarabunFont();
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Sarabun",
-    fontSize: 11,
+    fontFamily: "THSarabunNew",
+    fontSize: 16,
     padding: 40,
     color: "#111827",
   },
   center: { textAlign: "center" },
-  title: { fontSize: 16, fontWeight: "bold", marginBottom: 2 },
-  subtitle: { fontSize: 13, fontWeight: "bold", marginBottom: 12 },
+  title: { fontSize: 23.5, fontWeight: "bold", marginBottom: 2 },
+  subtitle: { fontSize: 19, fontWeight: "bold", marginBottom: 12 },
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: "bold", width: 90 },
   value: { flex: 1, paddingRight: 12 },
@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
   tr: { flexDirection: "row" },
   th: {
     fontWeight: "bold",
-    fontSize: 10,
+    fontSize: 14.5,
     padding: 4,
     paddingRight: 10,
     borderRightWidth: 1,
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   td: {
-    fontSize: 10,
+    fontSize: 14.5,
     padding: 4,
     paddingRight: 10,
     borderRightWidth: 1,

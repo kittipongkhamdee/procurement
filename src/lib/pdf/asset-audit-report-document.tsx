@@ -1,15 +1,15 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import { registerSarabunFont, t } from "./thai-pdf";
+import { registerThSarabunFont, t } from "./thai-pdf";
 
-registerSarabunFont();
+registerThSarabunFont();
 
 // ฟอนต์/ระยะห่างตามมาตรฐาน CLAUDE.md (อ้างอิง project-report-document.tsx): เนื้อหา 11pt, หัวเรื่องใหญ่
 // 14pt, หัวข้อย่อย 11pt, row marginBottom 4, subtitle marginTop 6/marginBottom 4
 const styles = StyleSheet.create({
-  page: { fontFamily: "Sarabun", fontSize: 11, padding: 32, color: "#111827" },
+  page: { fontFamily: "THSarabunNew", fontSize: 16, padding: 32, color: "#111827" },
   center: { textAlign: "center" },
-  title: { fontSize: 14, fontWeight: "bold", marginBottom: 4 },
-  subtitle: { fontSize: 11, fontWeight: "bold", marginTop: 10, marginBottom: 4 },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 4 },
+  subtitle: { fontSize: 16, fontWeight: "bold", marginTop: 10, marginBottom: 4 },
   row: { flexDirection: "row", marginBottom: 4 },
   label: { fontWeight: "bold", width: 140 },
   value: { flex: 1 },
@@ -20,9 +20,9 @@ const styles = StyleSheet.create({
   // ตารางนี้มีหลายคอลัมน์แคบ (รหัสครุภัณฑ์/สภาพ) — ใช้ 9pt แยกจาก body 11pt (เหมือน
   // asset-summary-document.tsx ที่ใช้ตัวเล็กกว่า body ในตารางความหนาแน่นสูง) กันข้อความไทยล้นคอลัมน์
   // ทับกัน (เจอปัญหานี้จริงตอน 11pt — คอลัมน์รหัสครุภัณฑ์/สภาพตามบัญชีแคบเกินจนข้อความทับกัน)
-  cell: { fontSize: 9, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
-  cellLast: { fontSize: 9, padding: 4, borderBottomWidth: 1, borderColor: "#111827" },
-  headLine: { fontSize: 9, fontWeight: "bold", textAlign: "center" },
+  cell: { fontSize: 13, padding: 4, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
+  cellLast: { fontSize: 13, padding: 4, borderBottomWidth: 1, borderColor: "#111827" },
+  headLine: { fontSize: 13, fontWeight: "bold", textAlign: "center" },
   // 5+20+20+14+12+29 = 100
   colSeq: { width: "5%", textAlign: "center" },
   // ตัดคำเองล่วงหน้าเป็น string สั้นพอดี 1 บรรทัดก่อนส่งเข้า Text เสมอ (ดู build-asset-audit-report-pdf.tsx)

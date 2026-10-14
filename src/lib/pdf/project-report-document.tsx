@@ -7,21 +7,21 @@ import {
   StyleSheet,
 } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
-import { registerSarabunFont, t, wrapText } from "./thai-pdf";
+import { registerThSarabunFont, t, wrapText } from "./thai-pdf";
 
-registerSarabunFont();
+registerThSarabunFont();
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Sarabun",
-    fontSize: 11,
+    fontFamily: "THSarabunNew",
+    fontSize: 16,
     padding: 40,
     color: "#111827",
   },
   center: { textAlign: "center" },
-  title: { fontSize: 14, fontWeight: "bold", marginBottom: 2 },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 2 },
   subtitle: {
-    fontSize: 11,
+    fontSize: 16,
     fontWeight: "bold",
     marginTop: 6,
     marginBottom: 4,
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
   budgetTable: { marginTop: 4, borderWidth: 1, borderColor: "#111827" },
   budgetRow: { flexDirection: "row" },
   budgetLabel: {
-    fontSize: 11,
+    fontSize: 16,
     padding: 4,
     width: "50%",
     borderRightWidth: 1,
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   budgetValue: {
-    fontSize: 11,
+    fontSize: 16,
     padding: 4,
     width: "50%",
     textAlign: "right",
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   indicatorHeaderRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   indicatorRow: { flexDirection: "row" },
   indicatorCellIndicator: {
-    fontSize: 11,
+    fontSize: 16,
     padding: 4,
     width: "50%",
     borderRightWidth: 1,
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   indicatorCellTarget: {
-    fontSize: 11,
+    fontSize: 16,
     padding: 4,
     width: "25%",
     borderRightWidth: 1,
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     borderColor: "#111827",
   },
   indicatorCellActual: {
-    fontSize: 11,
+    fontSize: 16,
     padding: 4,
     width: "25%",
     borderBottomWidth: 1,

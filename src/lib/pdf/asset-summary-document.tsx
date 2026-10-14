@@ -1,21 +1,21 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { formatBaht } from "@/lib/thai";
-import { registerSarabunFont, t } from "./thai-pdf";
+import { registerThSarabunFont, t } from "./thai-pdf";
 
-registerSarabunFont();
+registerThSarabunFont();
 
 const styles = StyleSheet.create({
-  page: { fontFamily: "Sarabun", fontSize: 9, padding: 24, color: "#111827" },
+  page: { fontFamily: "THSarabunNew", fontSize: 13, padding: 24, color: "#111827" },
   center: { textAlign: "center" },
-  title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 8 },
   table: { marginTop: 4, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#111827" },
   tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   tRow: { flexDirection: "row" },
-  cell: { fontSize: 8, padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
-  cellLast: { fontSize: 8, padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
+  cell: { fontSize: 11.5, padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
+  cellLast: { fontSize: 11.5, padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
   footRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
-  footCell: { fontSize: 8, fontWeight: "bold", padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
-  footCellLast: { fontSize: 8, fontWeight: "bold", padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
+  footCell: { fontSize: 11.5, fontWeight: "bold", padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
+  footCellLast: { fontSize: 11.5, fontWeight: "bold", padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
   // รวมกันต้องได้ 100% พอดี — เกินแล้วตารางจะกว้างกว่าหน้ากระดาษ ทำให้คอลัมน์ท้ายๆ ล้นออกนอกขอบ
   // กระดาษ (ดูปัญหาเดียวกันที่บันทึกไว้ใน asset-register-document.tsx)
   // 3+12+9+9+5+5+10+6+5+8+5+8+8+7 = 100
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
   colAnnual: { width: "8%", textAlign: "right" },
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "7%", textAlign: "right" },
-  headLine: { fontSize: 8, textAlign: "center" },
+  headLine: { fontSize: 11.5, textAlign: "center" },
 });
 
 function guard(value: string | number | null | undefined): string {

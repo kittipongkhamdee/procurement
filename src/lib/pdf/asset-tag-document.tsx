@@ -1,7 +1,7 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
-import { registerSarabunFont, t } from "./thai-pdf";
+import { registerThSarabunFont, t } from "./thai-pdf";
 
-registerSarabunFont();
+registerThSarabunFont();
 
 // ขนาดป้ายสติกเกอร์ 80mm x 50mm (แนวนอน) แปลงเป็นหน่วย pt ของ react-pdf (1mm ≈ 2.8346pt) —
 // ขนาดมาตรฐานทั่วไปของสติกเกอร์ติดครุภัณฑ์ ใช้ตอนพิมพ์ทีละใบเท่านั้น — พิมพ์รวมหลายใบใน A4
@@ -13,7 +13,7 @@ const TEXT_COLOR = "#111827";
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Sarabun",
+    fontFamily: "THSarabunNew",
     padding: 10,
     color: TEXT_COLOR,
     flexDirection: "row",
@@ -50,9 +50,9 @@ export type TagLabelSizes = {
 const DEFAULT_SIZES: TagLabelSizes = {
   qrSize: 90,
   textWidth: 109,
-  codeMaxFontSize: 9,
-  nameFontSize: 7,
-  locationFontSize: 6.5,
+  codeMaxFontSize: 13,
+  nameFontSize: 10,
+  locationFontSize: 9.5,
 };
 
 const CODE_MIN_FONT_SIZE = 7;

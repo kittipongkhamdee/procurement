@@ -1,19 +1,19 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 import type { StyleProp } from "@react-pdf/types";
 import { formatBaht } from "@/lib/thai";
-import { registerSarabunFont, t } from "./thai-pdf";
+import { registerThSarabunFont, t } from "./thai-pdf";
 
-registerSarabunFont();
+registerThSarabunFont();
 
 const styles = StyleSheet.create({
   page: {
-    fontFamily: "Sarabun",
-    fontSize: 11,
+    fontFamily: "THSarabunNew",
+    fontSize: 16,
     padding: 16,
     color: "#111827",
   },
   center: { textAlign: "center" },
-  title: { fontSize: 14, fontWeight: "bold", marginBottom: 8 },
+  title: { fontSize: 20, fontWeight: "bold", marginBottom: 8 },
   // รูปครุภัณฑ์ + QR Code วางแบบ position: absolute ที่มุมซ้ายบน ไม่กินพื้นที่ในโฟลว์เอกสาร
   // (ข้อความทั้งหมดจึงอยู่ตำแหน่งเดิมเป๊ะเหมือนตอนไม่มีรูป/QR) — render ก่อนเนื้อหาอื่นในหน้า ทำให้
   // อยู่เลเยอร์ล่างสุด ถ้าสูงกว่าเนื้อหาส่วนหัว ข้อความที่ตามมาจะวาดทับข้างบนได้ตามต้องการ
@@ -45,14 +45,14 @@ const styles = StyleSheet.create({
   // สำรวจทรัพย์สินเดิม (financial-asset-survey) ที่ใช้ตาราง 9.5px จากเนื้อหาตัวหลัก 12px (~79%) เป็น
   // จุดเริ่มต้น แล้วปรับขึ้นตามที่ผู้ใช้ขอลอง — เป็นการทดลองเท่านั้น ถ้าไม่ชอบให้ย้อนกลับเป็น 11pt เดิม
   cell: {
-    fontSize: 10,
+    fontSize: 14.5,
     padding: 4,
     borderRightWidth: 1,
     borderBottomWidth: 1,
     borderColor: "#111827",
   },
   cellLast: {
-    fontSize: 10,
+    fontSize: 14.5,
     padding: 4,
     borderBottomWidth: 1,
     borderColor: "#111827",
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
   colNote: { width: "8%" },
-  cellLine: { fontSize: 10 },
+  cellLine: { fontSize: 14.5 },
   // สไตล์ตารางหน้า 2 "ประวัติการซ่อมบำรุงรักษาทรัพย์สิน" — คอลัมน์รวมกัน 100% เหมือนกัน:
   // ครั้งที่ 8% + วันเดือนปี 12% + รายการ 45% + จำนวนเงิน 15% + หมายเหตุ 20%
   repairColSeq: { width: "8%", textAlign: "center" },
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   // ตัวหนาเป็นตัวแยกหัวตาราง/แถวข้อมูลแทน) — เคยเจอบั๊กตัวอักษรตัวแรกของ Text ตัวหนาในคอลัมน์กว้างแบบ
   // % หายไปเฉยๆ มาก่อน (ตอนนั้นใช้ fontSize 11pt) ต้องตรวจสอบ PDF จริงหลังแก้ว่ายังเจอปัญหาเดิมหรือไม่
   // ก่อนส่งให้ผู้ใช้ทดสอบ ถ้าเจอปัญหาเดิมอีกให้ย้อนกลับไม่ใช้ตัวหนา + คืนพื้นหลังสีเทาแทน
-  headLine: { fontSize: 10, fontWeight: "bold", textAlign: "center" },
+  headLine: { fontSize: 14.5, fontWeight: "bold", textAlign: "center" },
 });
 
 export type AssetDepreciationRow = {
