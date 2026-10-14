@@ -19,6 +19,33 @@ export function itemRowsTotal(rows: ItemRow[]) {
   return rows.reduce((s, r) => s + (parseFloat(r.qty) || 0) * (parseFloat(r.unitPrice) || 0), 0);
 }
 
+export const VAT_RATE = 0.07;
+/** none = ไม่มีภาษี, exclude = ราคายังไม่รวมภาษี (บวกเพิ่ม 7%), include = ราคารวมภาษีแล้ว (แยกให้เห็น) */
+export type VatType = "none" | "exclude" | "include";
+
+/** ยอดรวม → หักส่วนลด → ภาษีมูลค่าเพิ่ม → ยอดสุทธิ (ปัดเศษ 2 ตำแหน่ง) */
+export function computeTotals(subtotal: number, discount: number, vatType: VatType) {
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const afterDiscount = round(Math.max(subtotal - discount, 0));
+  const vat =
+    vatType === "exclude" ? round(afterDiscount * VAT_RATE) : vatType === "include" ? round((afterDiscount * VAT_RATE) / (1 + VAT_RATE)) : 0;
+  const net = vatType === "exclude" ? round(afterDiscount + vat) : afterDiscount;
+  return { subtotal: round(subtotal), afterDiscount, vat, net };
+}
+
+export type ItemTotalsControl = {
+  discount: string;
+  onDiscountChange: (v: string) => void;
+  vatType: VatType;
+  onVatTypeChange: (v: VatType) => void;
+};
+
+const VAT_LABELS: Record<VatType, string> = {
+  none: "ไม่มีภาษีมูลค่าเพิ่ม",
+  exclude: "ราคายังไม่รวมภาษี (บวก 7%)",
+  include: "ราคารวมภาษีแล้ว (7%)",
+};
+
 export function ItemRowsEditor({
   rows,
   onChange,
@@ -26,6 +53,7 @@ export function ItemRowsEditor({
   nameSuggestions = [],
   unitSuggestions = [],
   itemDefaults = {},
+  totals,
 }: {
   rows: ItemRow[];
   onChange: (rows: ItemRow[]) => void;
@@ -34,10 +62,35 @@ export function ItemRowsEditor({
   nameSuggestions?: string[];
   unitSuggestions?: string[];
   itemDefaults?: Record<string, ItemDefaults>;
+  /** แถวส่วนลดและภาษีมูลค่าเพิ่มท้ายตาราง (ไม่ส่งมา = แสดงแค่ยอดรวม) */
+  totals?: ItemTotalsControl;
 }) {
   const nameListId = `${idPrefix}-item-names`;
   const unitListId = `${idPrefix}-item-units`;
   const total = itemRowsTotal(rows);
+  const t = totals ? computeTotals(total, parseFloat(totals.discount) || 0, totals.vatType) : null;
+  const vatSelect = totals && (
+    <select value={totals.vatType} onChange={(e) => totals.onVatTypeChange(e.target.value as VatType)} className="input py-1 text-sm">
+      {(Object.keys(VAT_LABELS) as VatType[]).map((k) => (
+        <option key={k} value={k}>
+          {VAT_LABELS[k]}
+        </option>
+      ))}
+    </select>
+  );
+  const discountInput = totals && (
+    <input
+      type="number"
+      inputMode="decimal"
+      step="0.01"
+      min="0"
+      value={totals.discount}
+      onChange={(e) => totals.onDiscountChange(e.target.value)}
+      placeholder="0.00"
+      aria-label="ส่วนลด (บาท)"
+      className="input w-32 py-1 text-right"
+    />
+  );
 
   function update(index: number, patch: Partial<ItemRow>) {
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -124,9 +177,30 @@ export function ItemRowsEditor({
             </div>
           );
         })}
-        <div className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
-          <span className="font-semibold text-slate-600">รวมทั้งหมด (บาท)</span>
-          <span className="font-bold text-emerald-700">{formatBaht(total)}</span>
+        <div className="space-y-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-slate-600">{t ? "รวมเป็นเงิน" : "รวมทั้งหมด"} (บาท)</span>
+            <span className={t ? "font-semibold text-slate-700" : "font-bold text-emerald-700"}>{formatBaht(total)}</span>
+          </div>
+          {t && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-slate-600">หักส่วนลด (บาท)</span>
+                {discountInput}
+              </div>
+              {vatSelect}
+              {totals!.vatType !== "none" && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">{totals!.vatType === "include" ? "ภาษีมูลค่าเพิ่ม 7% (รวมอยู่ในราคา)" : "ภาษีมูลค่าเพิ่ม 7%"}</span>
+                  <span className="text-slate-700">{formatBaht(t.vat)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-2">
+                <span className="font-semibold text-slate-600">รวมทั้งสิ้น (บาท)</span>
+                <span className="font-bold text-emerald-700">{formatBaht(t.net)}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -186,11 +260,39 @@ export function ItemRowsEditor({
           <tfoot className="bg-slate-50">
             <tr>
               <td colSpan={5} className="px-2 py-2 text-right text-xs font-semibold text-slate-600">
-                รวมทั้งหมด
+                {t ? "รวมเป็นเงิน" : "รวมทั้งหมด"}
               </td>
-              <td className="px-2 py-2 text-right font-bold text-emerald-700">{formatBaht(total)}</td>
+              <td className={`px-2 py-2 text-right ${t ? "font-semibold text-slate-700" : "font-bold text-emerald-700"}`}>{formatBaht(total)}</td>
               <td colSpan={2} />
             </tr>
+            {t && (
+              <>
+                <tr>
+                  <td colSpan={5} className="px-2 py-1 text-right text-xs font-semibold text-slate-600">
+                    หักส่วนลด
+                  </td>
+                  <td className="px-2 py-1 text-right">{discountInput}</td>
+                  <td colSpan={2} />
+                </tr>
+                <tr>
+                  <td colSpan={5} className="px-2 py-1 text-right text-xs font-semibold text-slate-600">
+                    <div className="flex items-center justify-end gap-2">
+                      {vatSelect}
+                      <span>{totals!.vatType === "include" ? "ภาษีมูลค่าเพิ่ม 7% (รวมอยู่ในราคา)" : "ภาษีมูลค่าเพิ่ม 7%"}</span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-1 text-right text-slate-700">{totals!.vatType === "none" ? "-" : formatBaht(t.vat)}</td>
+                  <td colSpan={2} />
+                </tr>
+                <tr>
+                  <td colSpan={5} className="px-2 py-2 text-right text-xs font-semibold text-slate-600">
+                    รวมทั้งสิ้น
+                  </td>
+                  <td className="px-2 py-2 text-right font-bold text-emerald-700">{formatBaht(t.net)}</td>
+                  <td colSpan={2} />
+                </tr>
+              </>
+            )}
           </tfoot>
         </table>
       </div>

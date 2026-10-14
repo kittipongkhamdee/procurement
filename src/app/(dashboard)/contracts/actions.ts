@@ -33,6 +33,9 @@ function contractFields(formData: FormData) {
   const contractType = text(formData, "contract_type") ?? "จ้าง";
   if (!CONTRACT_TYPES.includes(contractType)) throw new ValidationError("ประเภทสัญญาไม่ถูกต้อง");
 
+  const vatType = text(formData, "vat_type");
+  if (vatType && !["none", "exclude", "include"].includes(vatType)) throw new ValidationError("ประเภทภาษีไม่ถูกต้อง");
+
   return {
     contract_type: contractType,
     contract_no: contractNo,
@@ -55,6 +58,8 @@ function contractFields(formData: FormData) {
     guarantee_type: text(formData, "guarantee_type"),
     guarantee_amount: num(formData, "guarantee_amount"),
     penalty_rate: num(formData, "penalty_rate"),
+    discount: num(formData, "discount"),
+    vat_type: vatType,
     inspector_name: text(formData, "inspector_name"),
     note: text(formData, "note"),
   };

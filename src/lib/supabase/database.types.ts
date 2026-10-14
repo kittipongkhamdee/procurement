@@ -1918,6 +1918,8 @@ export type Database = {
       }
       proc_contracts: {
         Row: {
+          discount: number | null
+          vat_type: string | null
           contract_type: string
           end_date: string | null
           guarantee_amount: number | null
@@ -1946,6 +1948,8 @@ export type Database = {
           zipcode: string | null
         }
         Insert: {
+          discount?: number | null
+          vat_type?: string | null
           contract_type?: string
           end_date?: string | null
           guarantee_amount?: number | null
@@ -1974,6 +1978,8 @@ export type Database = {
           zipcode?: string | null
         }
         Update: {
+          discount?: number | null
+          vat_type?: string | null
           contract_type?: string
           end_date?: string | null
           guarantee_amount?: number | null

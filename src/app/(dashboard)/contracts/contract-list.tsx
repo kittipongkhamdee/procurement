@@ -15,7 +15,7 @@ import { ThaiAddressInput } from "@/components/thai-address-input";
 import Link from "next/link";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { createContract, deleteContract, updateContract } from "./actions";
-import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
+import { EMPTY_ITEM_ROW, ItemRowsEditor, computeTotals, itemRowsTotal, type ItemRow, type VatType } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 
 /** คำแนะนำชื่อรายการ/หน่วยนับ สำหรับตารางรายการพัสดุของสัญญาซื้อ */
@@ -47,6 +47,8 @@ type Contract = {
   guarantee_type: string | null;
   guarantee_amount: number | null;
   penalty_rate: number | null;
+  discount: number | null;
+  vat_type: string | null;
   inspector_name: string | null;
   note: string | null;
   plan_projects: { name: string } | null;
@@ -113,7 +115,10 @@ function ContractModal({
   // สัญญาซื้อ: กรอกรายการพัสดุเป็นตาราง (แบบเดียวกับบันทึกขออนุมัติ) และจำนวนเงินตามสัญญา = ยอดรวมรายการ
   const hasItems = type === "ซื้อ";
   const [items, setItems] = useState<ItemRow[]>([{ ...EMPTY_ITEM_ROW }]);
-  const itemsTotal = itemRowsTotal(items);
+  const [discount, setDiscount] = useState(contract?.discount != null ? String(contract.discount) : "");
+  const [vatType, setVatType] = useState<VatType>((contract?.vat_type as VatType | null) ?? "none");
+  const totals = computeTotals(itemRowsTotal(items), parseFloat(discount) || 0, vatType);
+  const itemsTotal = totals.net;
   const [itemsLoaded, setItemsLoaded] = useState(!contract);
 
   function loadItems() {
@@ -151,12 +156,18 @@ function ContractModal({
       const formData = new FormData(form);
       if (hasItems) {
         const filled = items.filter((r) => r.name.trim());
+        if ((parseFloat(discount) || 0) > totals.subtotal) {
+          await toastError("ส่วนลดต้องไม่มากกว่ายอดรวมรายการ");
+          return;
+        }
         if (filled.length === 0 || itemsTotal <= 0) {
           await toastError("กรุณากรอกรายการพัสดุอย่างน้อย 1 รายการ และยอดรวมต้องมากกว่า 0");
           return;
         }
         formData.set("items_json", JSON.stringify(filled));
         formData.set("amount", String(itemsTotal));
+        formData.set("discount", discount);
+        formData.set("vat_type", vatType);
       }
       const start = String(formData.get("start_date") ?? "");
       const end = String(formData.get("end_date") ?? "");
@@ -173,6 +184,8 @@ function ContractModal({
       if (!contract) {
         form.reset();
         setItems([{ ...EMPTY_ITEM_ROW }]);
+        setDiscount("");
+        setVatType("none");
       }
       await toastSuccess(contract ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกสัญญาเรียบร้อยแล้ว");
       onSaved();
@@ -247,6 +260,7 @@ function ContractModal({
                 nameSuggestions={itemSuggestions?.names}
                 unitSuggestions={itemSuggestions?.units}
                 itemDefaults={itemSuggestions?.defaults}
+                totals={{ discount, onDiscountChange: setDiscount, vatType, onVatTypeChange: setVatType }}
               />
             </div>
           )}
@@ -382,7 +396,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
       supabase
         .from("proc_contracts")
         .select(
-          "id, contract_no, contract_date, start_date, end_date, project_id, vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, inspector_name, note, plan_projects(name)",
+          "id, contract_no, contract_date, start_date, end_date, project_id, vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, inspector_name, note, plan_projects(name)",
         )
         .eq("contract_type", type)
         .order("contract_date", { ascending: false }),
