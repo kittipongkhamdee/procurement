@@ -24,6 +24,8 @@ import { SchoolBrandingForm } from "./school-branding-form";
 import { MaintenanceForm } from "./maintenance-form";
 import { PhotoOptimizer } from "./photo-optimizer";
 import { ApprovalDocNumberForm } from "./approval-doc-number-form";
+import { DocumentSignersForm } from "./document-signers-form";
+import { DOCUMENT_SIGNERS } from "@/lib/document-signers";
 import { AssetCodeTemplateForm } from "./asset-code-template-form";
 import { CloseIcon } from "@/components/icons";
 import { DEFAULT_ASSET_CODE_TEMPLATE } from "@/lib/format-template";
@@ -42,6 +44,7 @@ import {
   removeSchoolLogo,
   setAiExtractionEnabled,
   setApprovalDocNumberFormat,
+  setDocumentSigners,
   setAssetCodeTemplate,
   setCurrentBudgetYear,
   setGeminiApiKey,
@@ -89,6 +92,7 @@ type SettingsData = {
   approvalDocNumberPrefix: string;
   approvalDocNumberSeparator: string;
   assetCodeTemplate: string;
+  documentSigners: Record<string, string>;
 };
 
 export default function SettingsPage() {
@@ -133,7 +137,7 @@ export default function SettingsPage() {
       supabase
         .from("proc_app_settings")
         .select("key, value")
-        .in("key", ["approval_doc_number_prefix", "approval_doc_number_separator", "asset_code_template"]),
+        .in("key", ["approval_doc_number_prefix", "approval_doc_number_separator", "asset_code_template", ...DOCUMENT_SIGNERS.map((d) => d.key)]),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -168,6 +172,7 @@ export default function SettingsPage() {
       approvalDocNumberPrefix: numberFormatMap.get("approval_doc_number_prefix") ?? "",
       approvalDocNumberSeparator: numberFormatMap.get("approval_doc_number_separator") || "/",
       assetCodeTemplate: numberFormatMap.get("asset_code_template") || DEFAULT_ASSET_CODE_TEMPLATE,
+      documentSigners: Object.fromEntries(DOCUMENT_SIGNERS.map((d) => [d.key, numberFormatMap.get(d.key) ?? ""])),
     });
   }, []);
 
@@ -293,6 +298,20 @@ export default function SettingsPage() {
               onChanged={reload}
             />
           </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">ผู้ลงนามในเอกสาร</div>
+          <p className="mb-3 text-sm text-slate-500">
+            ชื่อที่พิมพ์ในบันทึกขออนุมัติ และเอกสารส่งมอบงาน/ตรวจรับพัสดุ/ขออนุมัติเบิกจ่าย/ใบสำคัญรับเงิน
+          </p>
+          <DocumentSignersForm
+            key={JSON.stringify(data.documentSigners)}
+            values={data.documentSigners}
+            teacherNames={data.teachers.filter((t) => t.is_active).map((t) => t.name)}
+            setDocumentSigners={setDocumentSigners}
+            onChanged={reload}
+          />
         </div>
 
         <div className="card">

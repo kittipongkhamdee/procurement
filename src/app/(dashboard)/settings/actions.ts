@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DOCUMENT_SIGNERS } from "@/lib/document-signers";
 import { createClient } from "@/lib/supabase/server";
 import { testStorageConnection } from "@/lib/storage";
 
@@ -350,6 +351,21 @@ export async function setApprovalDocNumberFormat(formData: FormData): Promise<{ 
     .upsert({ key: "approval_doc_number_separator", value: separator, updated_at: new Date().toISOString() });
   if (e2) return { error: e2.message };
 
+  revalidatePath("/settings");
+  return {};
+}
+
+// ผู้ลงนามในเอกสารที่ระบบพิมพ์ (บันทึกขออนุมัติ, ใบส่งมอบ/ตรวจรับ/เบิกจ่าย) — ค่าว่างจะลบการตั้งค่านั้น
+export async function setDocumentSigners(formData: FormData): Promise<{ error?: string }> {
+  const supabase = await requireAdmin();
+  const now = new Date().toISOString();
+  for (const { key } of DOCUMENT_SIGNERS) {
+    const value = String(formData.get(key) ?? "").trim();
+    const { error } = value
+      ? await supabase.from("proc_app_settings").upsert({ key, value, updated_at: now })
+      : await supabase.from("proc_app_settings").delete().eq("key", key);
+    if (error) return { error: error.message };
+  }
   revalidatePath("/settings");
   return {};
 }

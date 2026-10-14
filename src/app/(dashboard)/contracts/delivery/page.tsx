@@ -11,7 +11,7 @@ import { confirmDelete, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { createDelivery, deleteDelivery, updateDelivery } from "../../deliveries/actions";
 
 type Contract = {
@@ -33,6 +33,7 @@ type Delivery = {
   amount: number;
   late_days: number | null;
   penalty_amount: number | null;
+  withholding_tax: number | null;
   inspector_name: string | null;
   note: string | null;
 };
@@ -337,6 +338,19 @@ function DeliveryModal({
             </p>
           )}
         </div>
+        <div>
+          <label className="label">หักภาษี ณ ที่จ่าย (บาท)</label>
+          <input
+            type="number"
+            inputMode="decimal"
+            step="0.01"
+            min="0"
+            name="withholding_tax"
+            defaultValue={delivery?.withholding_tax ?? ""}
+            placeholder="ไม่มี"
+            className="input w-full text-right"
+          />
+        </div>
         <div className="sm:col-span-2">
           <label className="label">หมายเหตุ</label>
           <textarea name="note" defaultValue={delivery?.note ?? ""} rows={2} className="input w-full" />
@@ -366,7 +380,7 @@ export default function ContractDeliveryPage() {
     const [{ data: d, error }, { data: c }, { data: t }] = await Promise.all([
       supabase
         .from("proc_deliveries")
-        .select("id, contract_id, installment_no, delivery_date, period_month, amount, late_days, penalty_amount, inspector_name, note")
+        .select("id, contract_id, installment_no, delivery_date, period_month, amount, late_days, penalty_amount, withholding_tax, inspector_name, note")
         .order("delivery_date", { ascending: false }),
       supabase
         .from("proc_contracts")
@@ -413,6 +427,10 @@ export default function ContractDeliveryPage() {
   function actions(d: Delivery) {
     return (
       <div className="flex flex-wrap items-center gap-2">
+        <a href={`/contracts/delivery/${d.id}/pdf`} target="_blank" rel="noopener" className="btn-secondary btn-sm">
+          <PrinterIcon className="h-3.5 w-3.5" />
+          พิมพ์เอกสาร
+        </a>
         <DeliveryModal delivery={d} contracts={contracts} deliveries={deliveries ?? []} teachers={teachers} onSaved={reload} />
         <button type="button" onClick={() => handleDelete(d)} className="btn-danger btn-sm">
           <TrashIcon className="h-3.5 w-3.5" />

@@ -38,6 +38,7 @@ function deliveryFields(formData: FormData): { error: string } | { fields: Recor
       amount_text: thaiBahtText(amount),
       late_days: num(formData, "late_days"),
       penalty_amount: num(formData, "penalty_amount"),
+      withholding_tax: num(formData, "withholding_tax"),
       inspector_name: text(formData, "inspector_name"),
       note: text(formData, "note"),
     },

@@ -2019,6 +2019,7 @@ export type Database = {
       }
       proc_deliveries: {
         Row: {
+          withholding_tax: number | null
           period_month: string | null
           installment_no: number | null
           late_days: number | null
@@ -2035,6 +2036,7 @@ export type Database = {
           pdf_url: string | null
         }
         Insert: {
+          withholding_tax?: number | null
           period_month?: string | null
           installment_no?: number | null
           late_days?: number | null
@@ -2051,6 +2053,7 @@ export type Database = {
           pdf_url?: string | null
         }
         Update: {
+          withholding_tax?: number | null
           period_month?: string | null
           installment_no?: number | null
           late_days?: number | null
