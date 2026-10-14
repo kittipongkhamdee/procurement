@@ -14,7 +14,7 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ThaiAddressInput } from "@/components/thai-address-input";
 import Link from "next/link";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/components/icons";
-import { createContract, deleteContract, updateContract } from "./actions";
+import { createContract, deleteContract, setContractFile, updateContract } from "./actions";
 import { EMPTY_ITEM_ROW, ItemRowsEditor, computeTotals, itemRowsTotal, type ItemRow, type VatType } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 
@@ -33,6 +33,7 @@ type Contract = {
   end_date: string | null;
   project_id: string | null;
   budget_source_id: string | null;
+  contract_file_path: string | null;
   vendor_name: string;
   id_card: string | null;
   house_no: string | null;
@@ -609,6 +610,90 @@ function ContractDetailModal({ type, contract: c }: { type: ContractType; contra
   );
 }
 
+const CONTRACT_BUCKET = "procurement-documents";
+
+// อัปโหลด/ดู/เปลี่ยนไฟล์สัญญาฉบับจริง (PDF) — เพิ่มภายหลังบันทึกสัญญาได้
+function ContractFileButtons({ contract: c, onChanged }: { contract: Contract; onChanged: () => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function upload(file: File) {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      await toastError("กรุณาเลือกไฟล์ PDF");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      await toastError("ไฟล์ใหญ่เกิน 20 MB");
+      return;
+    }
+    setBusy(true);
+    try {
+      const path = `contracts/${c.id}.pdf`;
+      const { error } = await createClient()
+        .storage.from(CONTRACT_BUCKET)
+        .upload(path, file, { contentType: "application/pdf", upsert: true });
+      if (error) {
+        await toastError(`อัปโหลดไม่สำเร็จ: ${error.message}`);
+        return;
+      }
+      const res = await setContractFile(c.id, path);
+      if (res.error) {
+        await toastError(res.error);
+        return;
+      }
+      await toastSuccess("อัปโหลดไฟล์สัญญาเรียบร้อยแล้ว");
+      onChanged();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function view() {
+    if (!c.contract_file_path) return;
+    const win = window.open("", "_blank");
+    const { data, error } = await createClient().storage.from(CONTRACT_BUCKET).createSignedUrl(c.contract_file_path, 3600);
+    if (error || !data) {
+      win?.close();
+      await toastError("เปิดไฟล์ไม่สำเร็จ");
+      return;
+    }
+    if (win) win.location.href = data.signedUrl;
+    else window.location.href = data.signedUrl;
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) upload(f);
+        }}
+      />
+      {c.contract_file_path && (
+        <button type="button" onClick={view} className="btn-secondary btn-sm">
+          ดูสัญญา
+        </button>
+      )}
+      <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="btn-secondary btn-sm">
+        {busy ? "กำลังอัปโหลด..." : c.contract_file_path ? "เปลี่ยนไฟล์" : "อัปโหลดสัญญา"}
+      </button>
+    </>
+  );
+}
+
+const NO_FILE_BADGE = (
+  <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-200">
+    ยังไม่ได้อัปโหลดไฟล์สัญญา
+  </span>
+);
+
 export function ContractList({ type, title, subtitle }: { type: ContractType; title: string; subtitle: string }) {
   const [contracts, setContracts] = useState<Contract[] | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -634,7 +719,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
       supabase
         .from("proc_contracts")
         .select(
-          "id, contract_no, contract_date, start_date, end_date, project_id, budget_source_id, plan_budget_sources(name), vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, rental_area, rent_monthly, rent_unit, rent_periods, inspector_name, note, plan_projects(name)",
+          "id, contract_no, contract_date, start_date, end_date, project_id, budget_source_id, contract_file_path, plan_budget_sources(name), vendor_name, id_card, house_no, moo, tambon, amphoe, province, zipcode, phone, detail, budget, amount, guarantee_type, guarantee_amount, penalty_rate, discount, vat_type, rental_area, rent_monthly, rent_unit, rent_periods, inspector_name, note, plan_projects(name)",
         )
         .eq("contract_type", type)
         .order("contract_date", { ascending: false }),
@@ -685,6 +770,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
     return (
       <div className="flex flex-wrap items-center gap-2">
         <ContractDetailModal type={type} contract={c} />
+        <ContractFileButtons contract={c} onChanged={reload} />
         <ContractModal type={type} contract={c} projects={projects} teachers={teachers} budgetSources={budgetSources} itemSuggestions={itemSuggestions} onSaved={reload} />
         <button type="button" onClick={() => handleDelete(c)} className="btn-danger btn-sm">
           <TrashIcon className="h-3.5 w-3.5" />
@@ -739,6 +825,7 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-slate-900">{c.contract_no}</span>
                       <span className={st.cls}>{st.label}</span>
+                      {!c.contract_file_path && NO_FILE_BADGE}
                     </div>
                     <p className="mt-0.5 text-sm text-slate-700">{c.vendor_name}</p>
                     <p className="text-xs text-slate-500">{c.plan_projects?.name ?? "ไม่ระบุโครงการ"}</p>
@@ -772,7 +859,10 @@ export function ContractList({ type, title, subtitle }: { type: ContractType; ti
                   const st = contractStatus(c.end_date);
                   return (
                     <tr key={c.id}>
-                      <td className="font-medium text-slate-900">{c.contract_no}</td>
+                      <td>
+                        <div className="font-medium text-slate-900">{c.contract_no}</div>
+                        {!c.contract_file_path && <div className="mt-1 [&>span]:text-sm">{NO_FILE_BADGE}</div>}
+                      </td>
                       <td>{formatThaiDate(c.contract_date)}</td>
                       <td>{c.plan_projects?.name ?? "-"}</td>
                       <td>{c.vendor_name}</td>

@@ -159,3 +159,10 @@ export async function deleteContract(id: string): Promise<Result> {
   const supabase = await createClient();
   return run(async () => supabase.from("proc_contracts").delete().eq("id", id));
 }
+
+// ไฟล์สัญญาฉบับจริง (PDF) — อัปโหลดจากฝั่ง client ไปที่ storage แล้วบันทึก path ที่นี่
+export async function setContractFile(id: string, path: string | null): Promise<Result> {
+  const supabase = await createClient();
+  if (path !== null && path !== `contracts/${id}.pdf`) return { error: "ไฟล์ไม่ถูกต้อง" };
+  return run(async () => supabase.from("proc_contracts").update({ contract_file_path: path }).eq("id", id));
+}

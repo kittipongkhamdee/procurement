@@ -1919,6 +1919,7 @@ export type Database = {
       proc_contracts: {
         Row: {
           budget_source_id: string | null
+          contract_file_path: string | null
           rent_periods: number | null
           rent_unit: string | null
           rent_monthly: number | null
@@ -1954,6 +1955,7 @@ export type Database = {
         }
         Insert: {
           budget_source_id?: string | null
+          contract_file_path?: string | null
           rent_periods?: number | null
           rent_unit?: string | null
           rent_monthly?: number | null
@@ -1989,6 +1991,7 @@ export type Database = {
         }
         Update: {
           budget_source_id?: string | null
+          contract_file_path?: string | null
           rent_periods?: number | null
           rent_unit?: string | null
           rent_monthly?: number | null
