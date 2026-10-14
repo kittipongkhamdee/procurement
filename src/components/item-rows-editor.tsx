@@ -134,8 +134,8 @@ export function ItemRowsEditor({
         ))}
       </datalist>
 
-      {/* มือถือ: การ์ดต่อรายการ */}
-      <div className="space-y-3 sm:hidden">
+      {/* จอแคบ/แท็บเล็ต (ฟอร์มอยู่ใน popup พื้นที่แคบกว่าหน้าจอ): การ์ดต่อรายการ */}
+      <div className="space-y-3 lg:hidden">
         {rows.map((row, i) => {
           const rowTotal = (parseFloat(row.qty) || 0) * (parseFloat(row.unitPrice) || 0);
           return (
@@ -205,12 +205,12 @@ export function ItemRowsEditor({
       </div>
 
       {/* จอกว้าง: ตาราง */}
-      <div className="hidden overflow-x-auto rounded-md border border-slate-200 sm:block">
+      <div className="hidden overflow-x-auto rounded-md border border-slate-200 lg:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               <th className="w-10 px-2 py-2">ที่</th>
-              <th className="px-2 py-2 text-left">รายการ</th>
+              <th className="min-w-48 px-2 py-2 text-left">รายการ</th>
               <th className="w-20 px-2 py-2">จำนวน</th>
               <th className="w-24 px-2 py-2">หน่วยนับ</th>
               <th className="w-28 px-2 py-2">ราคา/หน่วย</th>
