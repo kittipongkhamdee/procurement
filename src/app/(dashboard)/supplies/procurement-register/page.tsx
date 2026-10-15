@@ -145,7 +145,7 @@ export default function ProcurementRegisterPage() {
                     <td>{r.vendor_name ?? "-"}</td>
                     <td className="text-right font-semibold text-slate-900">{formatBaht(r.amount)}</td>
                     <td className="whitespace-nowrap">{r.inspected_date ? shortThaiDate(r.inspected_date) : "—"}</td>
-                    <td>{r.egp_no ? `e-GP ${r.egp_no}` : ""}</td>
+                    <td>{[r.method === "w804" ? "ว.804" : "", r.egp_no ? `e-GP ${r.egp_no}` : ""].filter(Boolean).join(" · ")}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (

@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       vendor: r.vendor_name ?? "-",
       amount: r.amount,
       inspected: r.inspected_date ? formatThaiDate(r.inspected_date) : "-",
-      note: r.egp_no ? `e-GP ${r.egp_no}` : "",
+      note: [r.method === "w804" ? "ว.804" : "", r.egp_no ? `e-GP ${r.egp_no}` : ""].filter(Boolean).join(" · "),
       project: r.project_name ?? "-",
       approval: r.approval_no ?? "-",
     })),

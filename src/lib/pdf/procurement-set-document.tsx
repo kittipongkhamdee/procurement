@@ -84,7 +84,25 @@ export type ProcurementSetData = {
   procurement_officer: string | null;
   procurement_head: string | null;
   director: string | null;
+  /** วิธีจัดซื้อ: specific = เฉพาะเจาะจงปกติ, w804 = ซื้อไม่เกิน 50,000 ตามหนังสือ ว 804 */
+  method: "specific" | "w804";
+  receipt_book: string | null;
+  receipt_no: string | null;
+  receipt_date: string | null;
+  funding: "loan" | "advance" | null;
+  loan_contract_no: string | null;
+  loan_date: string | null;
+  spec_author: string | null;
 };
+
+const W804_REF =
+  "หนังสือคณะกรรมการวินิจฉัยปัญหาการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 804 ลงวันที่ 12 พฤศจิกายน 2568 เรื่อง แนวทางปฏิบัติสำหรับการจัดซื้อวงเงินไม่เกิน 50,000 บาท";
+
+/** ปีงบประมาณไทยของวันที่ ISO (ต.ค. ขึ้นปีงบใหม่) */
+function fiscalYearOf(iso: string) {
+  const [y, m] = iso.slice(0, 10).split("-").map(Number);
+  return y + 543 + (m >= 10 ? 1 : 0);
+}
 
 const graphemes = new Intl.Segmenter("th", { granularity: "grapheme" });
 
@@ -157,6 +175,7 @@ function ItemTable({
   /** ส่วนท้ายต่อจากแถวรวม (เช่น ลายมือชื่อ) — ไม่ถูกแยกไปหน้าใหม่ลำพัง */
   footer?: React.ReactNode;
 }) {
+  // minRows = 0 → ไม่เติมแถวว่าง
   const padded = [...rows, ...Array.from({ length: Math.max(0, minRows - rows.length) }, () => cols.map(() => ""))];
   const flexCol = (c: Col) => (c.width ? { width: c.width, flexShrink: 0 } : { flex: 1 });
   const lastIdx = cols.length - 1;
@@ -228,7 +247,7 @@ function ItemTable({
 const num = (n: number | null | undefined) => (n == null ? "" : Number.isInteger(Number(n)) ? Number(n).toLocaleString("th-TH") : formatBaht(Number(n)));
 
 export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementSetData; sheets?: number[] }) {
-  const keys = procurementSheets(d.doc_type).filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
+  const keys = procurementSheets(d.doc_type, d.method === "w804").filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
   const show = (k: SheetKey) => keys.includes(k);
   const isHire = d.doc_type === "จ้าง";
   const verb = d.doc_type; // ซื้อ | จ้าง
@@ -262,6 +281,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const dash = (n: number) => (n > 0 ? formatBaht(n) : "-");
   const unit = `${school}${d.education_area ? `  ${d.education_area}` : ""}`;
   const plan = [d.admin_group, d.project_name, d.activity_name].filter(Boolean).join(" ");
+  const fy = fiscalYearOf(d.record_date);
   const officer = d.procurement_officer;
   const head = d.procurement_head;
   const itemRows = d.items.map((it, i) => ({ ...it, seq: i + 1 }));
@@ -686,6 +706,163 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             <Text style={{ marginLeft: 20 }}>{t("- อนุมัติ")}</Text>
             <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`]} style={{ marginTop: 14 }} />
           </View>
+        </Page>
+      )}
+
+      {/* ===== ว.804 ซื้อไม่เกิน 50,000 บาท ===== */}
+      {show("w804_request") && (
+        <Page size="A4" style={styles.page}>
+          <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject={`รายงานขอซื้อ${d.item_name} โดยวิธีเฉพาะเจาะจง`} />
+          <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school} ผ่าน หัวหน้าเจ้าหน้าที่`)}</Text>
+          <Para
+            keep={keep}
+            text={`ด้วย${d.admin_group ?? "-"} มีความประสงค์จะซื้อ ${d.item_name} จำนวน ${d.items.length} รายการ สำหรับโครงการ/กิจกรรม ${plan || "-"} โดยวิธีเฉพาะเจาะจง ประจำปีงบประมาณ พ.ศ. ${fy} ซึ่งมีรายละเอียดดังต่อไปนี้`}
+          />
+          {[
+            ["1. รายละเอียดคุณลักษณะเฉพาะของพัสดุและขอบเขตงาน", "รายละเอียดตามคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน ที่แนบ"],
+            ["2. วงเงินที่จะซื้อ", `วงเงินงบประมาณ ${amount} บาท ${amountText} โดยใช้จ่ายจากเงินงบประมาณรายจ่ายประจำปีงบประมาณ พ.ศ. ${fy}`],
+            ["3. ราคากลางของพัสดุที่จะซื้อ", "ให้ถือวงเงินตาม (2) เป็นราคากลางของพัสดุที่จะซื้อในครั้งนี้"],
+            [
+              "4. ผู้รับผิดชอบในการจัดซื้อ",
+              `มอบหมายให้ ${d.inspector_name ?? "...................."} ตำแหน่ง ${d.inspector_position ?? "...................."} เป็นผู้มีหน้าที่ดำเนินการจัดซื้อกับผู้ประกอบการที่มีอาชีพขายพัสดุโดยตรง และเป็นผู้ตรวจรับพัสดุในครั้งนี้`,
+            ],
+          ].map(([h, body]) => (
+            <View key={h}>
+              <Text style={[styles.bold, { marginLeft: INDENT }]}>{t(h)}</Text>
+              <Para keep={keep} text={body} style={{ marginBottom: 2 }} />
+            </View>
+          ))}
+          <Para keep={keep} text={`การดำเนินการจัดซื้อครั้งนี้ เป็นไปตาม${W804_REF}`} />
+          <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณา หากเห็นชอบได้โปรด")}</Text>
+          <Para keep={keep} indent={INDENT + 20} text="1. เห็นชอบรายละเอียดคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงานตามข้อ (1)" style={{ marginBottom: 0 }} />
+          <Para keep={keep} indent={INDENT + 20} text="2. อนุมัติให้ดำเนินการ และมอบหมายผู้รับผิดชอบดำเนินการจัดซื้อ ตามรายละเอียดในรายงานขอซื้อดังกล่าวข้างต้น" />
+          <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 6 }} />
+          <View style={{ flexDirection: "row", marginTop: 10 }} wrap={false}>
+            <View style={{ width: L - 10, borderWidth: B, padding: 6, marginRight: 10 }}>
+              <Text style={styles.bold}>{t("ความเห็นของหัวหน้าเจ้าหน้าที่")}</Text>
+              <Text>{t("..................................................................")}</Text>
+              <Sign role="" name={head} extra={["วันที่..........................................."]} style={{ marginTop: 10 }} />
+            </View>
+            <View style={{ flex: 1, borderWidth: B, padding: 6 }}>
+              <Text>{t("- เห็นชอบ")}</Text>
+              <Text>{t("- ลงนามแล้ว")}</Text>
+              <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, "วันที่..........................................."]} style={{ marginTop: 10 }} />
+            </View>
+          </View>
+        </Page>
+      )}
+
+      {show("w804_spec") && (
+        <Page size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
+          <Text style={[styles.bold, { textAlign: "center" }]}>{t("รายละเอียดคุณลักษณะเฉพาะของพัสดุที่จะดำเนินการซื้อ")}</Text>
+          <Text style={{ textAlign: "center" }}>{t(`งานจัดซื้อวัสดุโครงการ/กิจกรรม ${plan || "-"} จำนวน ${d.items.length} รายการ`)}</Text>
+          <Text style={{ textAlign: "center", marginBottom: 10 }}>{t(`แนบท้ายบันทึกข้อความ ที่ ${d.doc_no} ลงวันที่ ${recordDate}`)}</Text>
+          <View style={{ marginBottom: 4 }}>
+            <View style={{ flexDirection: "row", borderTopWidth: B, borderLeftWidth: B }} fixed>
+              {[
+                ["ลำดับ", 40],
+                ["ชื่อพัสดุ และรายละเอียดคุณลักษณะเฉพาะ", 0],
+                ["จำนวน", 60],
+                ["หน่วยนับ", 70],
+              ].map(([h, w]) => (
+                <View key={h} style={[styles.cell, w ? { width: Number(w) } : { flex: 1 }]}>
+                  <Text style={[styles.bold, { textAlign: "center" }]}>{t(String(h))}</Text>
+                </View>
+              ))}
+            </View>
+            {itemRows.map((it) => {
+              const nameW = CONTENT_W - 170 - 2 * B - 6 - SLACK;
+              return (
+                <View key={it.seq} style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
+                  <View style={[styles.cell, { width: 40 }]}>
+                    <Text style={{ textAlign: "center" }}>{it.seq}</Text>
+                  </View>
+                  <View style={[styles.cell, { flex: 1 }]}>
+                    {wrap(it.name ?? "", FS, nameW, nameW).map((l, j) => (
+                      <Text key={j}>{t(l)}</Text>
+                    ))}
+                  </View>
+                  <View style={[styles.cell, { width: 60 }]}>
+                    <Text style={{ textAlign: "center" }}>{num(it.qty)}</Text>
+                  </View>
+                  <View style={[styles.cell, { width: 70 }]}>
+                    <Text style={{ textAlign: "center" }}>{t(it.unit ?? "")}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+          <Sign role="" name={d.spec_author || d.inspector_name} extra={["ผู้รับผิดชอบจัดทำคุณลักษณะเฉพาะ"]} style={{ marginLeft: L, marginTop: 24 }} />
+        </Page>
+      )}
+
+      {show("w804_report") && (
+        <Page size="A4" style={styles.page}>
+          <MemoHeader
+            unit={unit}
+            docNumber={null}
+            isoDate={reportIso}
+            subject={`รายงานสรุปผลการจัดซื้อ${d.item_name} โดยวิธีเฉพาะเจาะจง และอนุมัติเบิกจ่าย`}
+          />
+          <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
+          <Para
+            keep={keep}
+            text={`ตามที่ผู้อำนวยการ${school} เห็นชอบให้ดำเนินการซื้อ ${d.item_name} จำนวน ${d.items.length} รายการ สำหรับโครงการ/กิจกรรม ${plan || "-"} โดยวิธีเฉพาะเจาะจง ประจำปีงบประมาณ พ.ศ. ${fy} นั้น`}
+          />
+          <Para keep={keep} text={`เจ้าหน้าที่ผู้รับผิดชอบได้ดำเนินการจัดซื้อกับผู้ประกอบการโดยตรงตาม${W804_REF} ขอรายงานผลการดำเนินการ ดังนี้`} />
+          <Text style={{ marginLeft: INDENT }}>{t(`ชื่อผู้ประกอบการ ${vendorName}`)}</Text>
+          <Text style={{ marginLeft: INDENT, marginBottom: 4 }}>{t("รายการ จำนวน และจำนวนเงินที่ได้จัดซื้อ")}</Text>
+          <ItemTable
+            cols={[
+              { label: ["ที่"], width: 26, align: "center" },
+              { label: ["รายการจัดซื้อ"] },
+              { label: ["จำนวน"], width: 50, align: "center" },
+              { label: ["หน่วยนับ"], width: 56, align: "center" },
+              { label: ["ราคา", "ต่อหน่วย"], width: 66, align: "right" },
+              { label: ["จำนวนเงิน"], width: 76, align: "right" },
+            ]}
+            minRows={0}
+            rows={itemRows.map((it) => [String(it.seq), it.name ?? "", num(it.qty), it.unit ?? "", num(it.unit_price), num(it.total)])}
+            totalLabel={`รวมเป็นเงิน  ( ${amountTextBare} )`}
+            total={amount}
+            footer={<Text style={{ fontSize: FS_SMALL }}>{t("**ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่มและค่าใช้จ่ายทั้งปวงไว้แล้วด้วย")}</Text>}
+          />
+          <Para
+            keep={keep}
+            text={`การจัดซื้อคราวนี้ไม่เกินวงเงินที่ประมาณไว้ และเห็นว่าเป็นราคาที่เหมาะสม และได้ใช้${
+              d.funding === "loan"
+                ? `เงินยืมตามสัญญา เลขที่ ${d.loan_contract_no ?? "......"} ลงวันที่ ${d.loan_date ? formatThaiDate(d.loan_date) : "......"}`
+                : "เงินสดสำรองจ่าย"
+            } ชำระให้ผู้ขายเรียบร้อยแล้ว ตามหลักฐานการรับเงิน ใบเสร็จรับเงิน เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${
+              d.receipt_date ? formatThaiDate(d.receipt_date) : "......"
+            } และได้รับมอบพัสดุไว้ครบถ้วนเรียบร้อยแล้ว เมื่อวันที่ ${d.delivered_date ? formatThaiDate(d.delivered_date) : "......"}`}
+          />
+          <Sign role="ผู้ตรวจรับพัสดุ (ผู้ได้รับมอบหมาย)" name={d.inspector_name} style={{ marginLeft: L - 30, marginTop: 4 }} />
+          <Text style={{ marginLeft: INDENT, marginTop: 6 }}>{t("จึงเรียนมาเพื่อโปรดทราบและขออนุมัติเบิกจ่ายต่อไป")}</Text>
+          <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 6 }} />
+          <View style={{ marginTop: 6 }} wrap={false}>
+            <Text>{t("- ทราบ")}</Text>
+            <Text>{t("- อนุมัติ")}</Text>
+            <Sign role="" name={d.director} extra={[`ตำแหน่ง ผู้อำนวยการ${school}`, "วันที่..........................................."]} style={{ marginTop: 10 }} />
+          </View>
+        </Page>
+      )}
+
+      {show("w804_receipt") && (
+        <Page size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
+          <Text style={[styles.title, { marginBottom: 10 }]}>{t("ใบติดใบเสร็จรับเงิน")}</Text>
+          <View style={{ height: 300, borderWidth: B, borderStyle: "dashed", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+            <Text style={{ color: "#94a3b8" }}>{t("ติดใบเสร็จรับเงิน")}</Text>
+          </View>
+          <Para
+            keep={keep}
+            text={`จำนวนเงินตามใบเสร็จรับเงิน เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${d.receipt_date ? formatThaiDate(d.receipt_date) : "......"}`}
+          />
+          <Para
+            keep={keep}
+            text={`ข้าพเจ้าได้ทดรองจ่ายไปก่อนแล้ว เป็นจำนวนเงิน ${amount} บาท ${amountText} และได้รับมอบพัสดุไว้ครบถ้วนถูกต้องแล้ว ข้าพเจ้าขอเบิกเงินจัดซื้อ ${d.item_name} โดยวิธีเฉพาะเจาะจง จำนวนเงิน ${amount} บาท ${amountText}`}
+          />
+          <Sign role="ผู้ขอเบิก" name={d.inspector_name} extra={[`ตำแหน่ง ${d.inspector_position ?? "......................"}`]} style={{ marginLeft: L, marginTop: 20 }} />
         </Page>
       )}
     </Document>

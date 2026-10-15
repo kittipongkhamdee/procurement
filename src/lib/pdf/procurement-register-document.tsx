@@ -101,7 +101,7 @@ export function ProcurementRegisterDocument({
               vendor: r.vendor_name ?? "-",
               amount: formatBaht(r.amount),
               inspected: r.inspected_date ? shortThaiDate(r.inspected_date) : "—",
-              note: r.egp_no ? `e-GP ${r.egp_no}` : "",
+              note: [r.method === "w804" ? "ว.804" : "", r.egp_no ? `e-GP ${r.egp_no}` : ""].filter(Boolean).join(" · "),
             };
             return (
               <View key={r.id} style={styles.row} wrap={false}>

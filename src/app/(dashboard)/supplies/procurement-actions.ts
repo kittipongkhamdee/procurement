@@ -36,6 +36,7 @@ function parse(formData: FormData) {
   if (items.length === 0) return { error: "กรุณากรอกรายการอย่างน้อย 1 รายการ" };
   const amount = Math.round(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0) * 100) / 100;
   if (!(amount > 0)) return { error: "ยอดรวมรายการต้องมากกว่า 0" };
+  if (str("method") === "w804" && (docType !== "ซื้อ" || amount > 50000)) return { error: "ซื้อตาม ว.804 ได้เฉพาะงานซื้อ ครั้งละไม่เกิน 50,000 บาท" };
 
   const approvalId = str("approval_id");
   if (!approvalId) return { error: "กรุณาเลือกบันทึกขออนุมัติที่อ้างอิง" };
@@ -73,6 +74,14 @@ function parse(formData: FormData) {
       approval_id: approvalId,
       order_signer: str("order_signer") === "director" ? "director" : "head",
       egp_no: str("egp_no") || null,
+      method: str("method") === "w804" ? "w804" : "specific",
+      receipt_book: str("receipt_book") || null,
+      receipt_no: str("receipt_no") || null,
+      receipt_date: str("receipt_date") || null,
+      funding: str("funding") === "loan" ? "loan" : str("funding") === "advance" ? "advance" : null,
+      loan_contract_no: str("loan_contract_no") || null,
+      loan_date: str("loan_date") || null,
+      spec_author: str("spec_author") || null,
       amount,
     },
     items,
@@ -120,6 +129,7 @@ async function checkApprovalBudget(supabase: Awaited<ReturnType<typeof createCli
 function done(id?: string): Result {
   revalidatePath("/supplies/purchase");
   revalidatePath("/supplies/hire");
+  revalidatePath("/supplies/w804");
   revalidatePath("/purchase-requests");
   return id ? { id } : {};
 }

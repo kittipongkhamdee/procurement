@@ -42,6 +42,14 @@ type Request = {
   penalty_rate: number | null;
   order_signer: string | null;
   egp_no: string | null;
+  method: string;
+  receipt_book: string | null;
+  receipt_no: string | null;
+  receipt_date: string | null;
+  funding: string | null;
+  loan_contract_no: string | null;
+  loan_date: string | null;
+  spec_author: string | null;
   amount: number;
   plan_projects: { name: string } | null;
   plan_activities: { name: string } | null;
@@ -104,8 +112,10 @@ function ProcurementModal({
   itemSuggestions,
   suggestedNo,
   onSaved,
+  w804 = false,
 }: {
   type: ProcurementType;
+  w804?: boolean;
   request: Request | null;
   lookups: Lookups;
   itemSuggestions: ItemSuggestions | null;
@@ -210,6 +220,10 @@ function ProcurementModal({
       await toastError(`ยอดรวมรายการเกินวงเงินคงเหลือของบันทึกขออนุมัติ (${formatBaht(approvalRemaining)} บาท)`);
       return;
     }
+    if (w804 && total > W804_LIMIT) {
+      await toastError(`ซื้อตาม ว.804 ได้ครั้งละไม่เกิน ${formatBaht(W804_LIMIT)} บาท`);
+      return;
+    }
     if (filled.length === 0 || total <= 0) {
       await toastError("กรุณากรอกรายการอย่างน้อย 1 รายการ และยอดรวมต้องมากกว่า 0");
       return;
@@ -243,7 +257,7 @@ function ProcurementModal({
   return (
     <Modal
       ref={modalRef}
-      title={request ? `แก้ไขรายงานขอ${type} ${request.doc_no}` : `บันทึกรายงานขอ${type}ใหม่`}
+      title={request ? `แก้ไขรายงานขอ${type}${w804 ? " (ว.804)" : ""} ${request.doc_no}` : `บันทึกรายงานขอ${type}${w804 ? " (ว.804)" : ""}ใหม่`}
       wide
       lazy
       onOpenChange={(open) => open && loadItems()}
@@ -263,6 +277,9 @@ function ProcurementModal({
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <input type="hidden" name="doc_type" value={type} />
+        <input type="hidden" name="method" value={w804 ? "w804" : "specific"} />
+        {/* ว.804 ไม่มีขั้นสั่งซื้อ/กำหนดส่งมอบ — ใช้วันที่บันทึกเป็นค่าของคอลัมน์ที่ฐานข้อมูลบังคับ */}
+        {w804 && <input type="hidden" name="delivery_date" value={recordDate ?? ""} />}
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
           <div className="sm:col-span-2">
@@ -373,6 +390,93 @@ function ProcurementModal({
           />
         </fieldset>
 
+        {w804 ? (
+          <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <legend className="mb-2 text-sm font-semibold text-navy-800">ผู้รับผิดชอบ / ผลการจัดซื้อ</legend>
+            <div>
+              <label className="label">ผู้รับผิดชอบจัดซื้อและตรวจรับ (ผู้ได้รับมอบหมาย)</label>
+              <input
+                name="inspector_name"
+                list={`proc-teachers-w804`}
+                defaultValue={request?.inspector_name ?? ""}
+                onChange={(e) => {
+                  const pos = lookups.positions[e.target.value.trim()];
+                  if (pos) setInspectorPosition(pos);
+                }}
+                className="input w-full"
+              />
+              <datalist id={`proc-teachers-w804`}>
+                {lookups.teachers.map((n) => (
+                  <option key={n} value={n} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="label">ตำแหน่ง</label>
+              <select name="inspector_position" value={inspectorPosition} onChange={(e) => setInspectorPosition(e.target.value)} className="input w-full">
+                <option value="">-- เลือกตำแหน่ง --</option>
+                {inspectorPosition && !POSITIONS.includes(inspectorPosition) && <option value={inspectorPosition}>{inspectorPosition}</option>}
+                {POSITIONS.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label">ผู้รับผิดชอบจัดทำคุณลักษณะเฉพาะ</label>
+              <input name="spec_author" list={`proc-teachers-w804`} defaultValue={request?.spec_author ?? ""} placeholder="ว่างไว้ = ใช้ชื่อผู้รับผิดชอบจัดซื้อ" className="input w-full" />
+            </div>
+            <p className="text-xs text-slate-500 sm:col-span-2">กรอกส่วนด้านล่างหลังซื้อเสร็จ (ใช้ในรายงานสรุปผลการจัดซื้อและใบติดใบเสร็จรับเงิน)</p>
+            <div className="sm:col-span-2">
+              <label className="label">ร้านค้า / ผู้ขาย</label>
+              <select name="vendor_id" defaultValue={request?.vendor_id ?? ""} className="input w-full">
+                <option value="">-- เลือกจากรายชื่อร้านค้า/ผู้ขาย --</option>
+                {lookups.vendors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">ใบเสร็จรับเงิน เล่มที่</label>
+              <input name="receipt_book" defaultValue={request?.receipt_book ?? ""} className="input w-full" />
+            </div>
+            <div>
+              <label className="label">เลขที่</label>
+              <input name="receipt_no" defaultValue={request?.receipt_no ?? ""} className="input w-full" />
+            </div>
+            <div>
+              <label className="label">ลงวันที่ (ใบเสร็จ)</label>
+              <ThaiDatePicker name="receipt_date" defaultValue={request?.receipt_date ?? null} />
+            </div>
+            <div>
+              <label className="label">วันที่ได้รับมอบพัสดุ</label>
+              <ThaiDatePicker name="delivered_date" defaultValue={request?.delivered_date ?? null} />
+            </div>
+            <div>
+              <label className="label">ชำระเงินโดย</label>
+              <select name="funding" defaultValue={request?.funding ?? "advance"} className="input w-full">
+                <option value="advance">เงินสดสำรองจ่าย / ทดรองจ่าย</option>
+                <option value="loan">เงินยืม (ตามสัญญายืมเงิน)</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">วันรายงานสรุปผล / ขอเบิกจ่าย</label>
+              <ThaiDatePicker name="report_date" defaultValue={request?.report_date ?? null} />
+            </div>
+            <div>
+              <label className="label">สัญญายืมเงิน เลขที่ (ถ้ายืม)</label>
+              <input name="loan_contract_no" defaultValue={request?.loan_contract_no ?? ""} className="input w-full" />
+            </div>
+            <div>
+              <label className="label">ลงวันที่ (สัญญายืม)</label>
+              <ThaiDatePicker name="loan_date" defaultValue={request?.loan_date ?? null} />
+            </div>
+          </fieldset>
+        ) : (
+          <>
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">{terms.party} / การส่งมอบ</legend>
           <div className="sm:col-span-2">
@@ -458,6 +562,9 @@ function ProcurementModal({
           </div>
         </fieldset>
 
+          </>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
           <p className="text-sm text-slate-600">
             วงเงินที่ขอ{type} <span className="text-base font-semibold text-slate-900">{formatBaht(total)}</span> บาท
@@ -477,6 +584,7 @@ function ProcurementModal({
 }
 
 const PAGE_SIZE = 20;
+const W804_LIMIT = 50000;
 
 const NO_PHOTO_BADGE = (
   <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
@@ -498,7 +606,17 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
       .order("seq")
       .then(({ data }) => setItems(data ?? []));
   }
-  const rows: [string, string][] = [
+  const isW804 = r.method === "w804";
+  const w804Rows: [string, string][] = [
+    ["ร้านค้า / ผู้ขาย", r.proc_vendors?.name ?? "-"],
+    ["ใบเสร็จรับเงิน", [r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลงวันที่ ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-"],
+    ["วันที่ได้รับมอบพัสดุ", r.delivered_date ? formatThaiDate(r.delivered_date) : "-"],
+    ["ชำระเงินโดย", r.funding === "loan" ? `เงินยืม${r.loan_contract_no ? ` สัญญาเลขที่ ${r.loan_contract_no}` : ""}${r.loan_date ? ` ลงวันที่ ${formatThaiDate(r.loan_date)}` : ""}` : "เงินสดสำรองจ่าย / ทดรองจ่าย"],
+    ["ผู้รับผิดชอบจัดซื้อ", [r.inspector_name, r.inspector_position].filter(Boolean).join(" · ") || "-"],
+    ["ผู้จัดทำคุณลักษณะเฉพาะ", r.spec_author || r.inspector_name || "-"],
+    ["วันรายงานสรุปผล", r.report_date ? formatThaiDate(r.report_date) : "-"],
+  ];
+  const common: [string, string][] = [
     ["เลขที่", r.doc_no],
     ["วันที่บันทึกข้อความ", formatThaiDate(r.record_date)],
     [TERMS[type].item, r.item_name ?? "-"],
@@ -506,6 +624,9 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
     ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
     ["โครงการ", r.plan_projects?.name ?? "-"],
     ["กิจกรรม", r.plan_activities?.name ?? "-"],
+    ["เลข e-GP", r.egp_no || "-"],
+  ];
+  const specific: [string, string][] = [
     [TERMS[type].party, r.proc_vendors?.name ?? "-"],
     [`วันสั่ง${type}`, r.order_date ? formatThaiDate(r.order_date) : "-"],
     ["ครบกำหนดส่งมอบ", formatThaiDate(r.delivery_date)],
@@ -514,13 +635,12 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
     ["วันรายงานผล", r.report_date ? formatThaiDate(r.report_date) : "-"],
     ["ค่าปรับต่อวัน", r.penalty_rate != null ? `ร้อยละ ${r.penalty_rate}` : "-"],
     ["ผู้ตรวจรับพัสดุ", [r.inspector_name, r.inspector_position].filter(Boolean).join(" · ") || "-"],
-    ["เลข e-GP", r.egp_no || "-"],
     [`ผู้ลงนามใบสั่ง${type}`, r.order_signer === "director" ? "ผู้อำนวยการโรงเรียน" : "หัวหน้าเจ้าหน้าที่"],
-    [`วงเงินที่ขอ${type}`, `${formatBaht(Number(r.amount))} บาท`],
   ];
+  const rows: [string, string][] = [...common, ...(isW804 ? w804Rows : specific), [`วงเงินที่ขอ${type}`, `${formatBaht(Number(r.amount))} บาท`]]
   return (
     <Modal
-      title={`รายงานขอ${type} ${r.doc_no}`}
+      title={`รายงานขอ${type}${isW804 ? " (ว.804)" : ""} ${r.doc_no}`}
       wide
       lazy
       onOpenChange={(open) => open && load()}
@@ -594,10 +714,10 @@ function SheetsModal({ type, request }: { type: ProcurementType; request: Reques
       <div className="grid gap-2">
         <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
           <PrinterIcon className="h-4 w-4" />
-          พิมพ์ทั้งชุด ({procurementSheets(type).length} แผ่น)
+          พิมพ์ทั้งชุด ({procurementSheets(type, request.method === "w804").length} แผ่น)
         </a>
         <p className="mt-2 text-sm font-medium text-slate-600">หรือเลือกพิมพ์แยกแผ่น</p>
-        {procurementSheets(type).map((s) => (
+        {procurementSheets(type, request.method === "w804").map((s) => (
           <a key={s.no} href={pdfHref(request.id, s.no)} target="_blank" rel="noopener" className="btn-secondary justify-start">
             <PrinterIcon className="h-4 w-4" />
             แผ่นที่ {s.no} · {s.label}
@@ -608,7 +728,8 @@ function SheetsModal({ type, request }: { type: ProcurementType; request: Reques
   );
 }
 
-export function ProcurementList({ type, title, subtitle }: { type: ProcurementType; title: string; subtitle: string }) {
+export function ProcurementList({ type, title, subtitle, w804 = false }: { type: ProcurementType; title: string; subtitle: string; w804?: boolean }) {
+  const method = w804 ? "w804" : "specific";
   const { isAdmin, isProcStaff } = useAuth();
   const [requests, setRequests] = useState<Request[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -627,9 +748,10 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id)",
       )
-      .eq("doc_type", type);
+      .eq("doc_type", type)
+      .eq("method", method);
     if (currentYear) {
       const ce = currentYear.year - 543;
       listQuery = listQuery.gte("record_date", `${ce - 1}-10-01`).lte("record_date", `${ce}-09-30`);
@@ -655,7 +777,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       { data: usage },
     ] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from("proc_purchase_requests").select("doc_no").eq("doc_type", type),
+      supabase.from("proc_purchase_requests").select("doc_no").eq("doc_type", type).eq("method", method),
       currentYear
         ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order")
         : Promise.resolve({ data: [] as Option[] }),
@@ -681,7 +803,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       positions: Object.fromEntries((positions ?? []).map((p) => [p.teacher_name, p.position])),
       approvals: (approvals ?? []).map((a) => ({ ...a, requested_amount: Number(a.requested_amount), used: usedBy.get(a.id) ?? 0 })),
     });
-  }, [type]);
+  }, [type, method]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -734,7 +856,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
         <ProcurementPhotosButton requestId={r.id} count={r.proc_purchase_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
         <SheetsModal type={type} request={r} />
         {isProcStaff && (
-          <ProcurementModal type={type} request={r} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo="" onSaved={reload} />
+          <ProcurementModal type={type} w804={w804} request={r} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo="" onSaved={reload} />
         )}
         {isAdmin && (
           <button type="button" onClick={() => handleDelete(r)} title="ลบ" className="btn-danger btn-sm">
@@ -757,7 +879,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
           </p>
         </div>
         {isProcStaff && (
-          <ProcurementModal type={type} request={null} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo={nextDocNo} onSaved={reload} />
+          <ProcurementModal type={type} w804={w804} request={null} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo={nextDocNo} onSaved={reload} />
         )}
       </div>
 

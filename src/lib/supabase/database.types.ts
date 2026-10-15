@@ -2389,6 +2389,14 @@ export type Database = {
           detail: string | null
           doc_no: string
           egp_no: string | null
+          method: string
+          receipt_book: string | null
+          receipt_no: string | null
+          receipt_date: string | null
+          funding: string | null
+          loan_contract_no: string | null
+          loan_date: string | null
+          spec_author: string | null
           doc_type: Database["public"]["Enums"]["proc_purchase_type"]
           id: string
           inspector_name: string | null
@@ -2420,6 +2428,14 @@ export type Database = {
           detail?: string | null
           doc_no: string
           egp_no?: string | null
+          method?: string
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+          funding?: string | null
+          loan_contract_no?: string | null
+          loan_date?: string | null
+          spec_author?: string | null
           doc_type: Database["public"]["Enums"]["proc_purchase_type"]
           id?: string
           inspector_name?: string | null
@@ -2451,6 +2467,14 @@ export type Database = {
           detail?: string | null
           doc_no?: string
           egp_no?: string | null
+          method?: string
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+          funding?: string | null
+          loan_contract_no?: string | null
+          loan_date?: string | null
+          spec_author?: string | null
           doc_type?: Database["public"]["Enums"]["proc_purchase_type"]
           id?: string
           inspector_name?: string | null
