@@ -293,6 +293,10 @@ function ProcurementModal({
             <input name="doc_no" key={request?.id ?? suggestedNo} defaultValue={request?.doc_no ?? suggestedNo} required className="input w-full" />
           </div>
           <div>
+            <label className="label">เลข e-GP</label>
+            <input name="egp_no" defaultValue={request?.egp_no ?? ""} placeholder="ไม่บังคับ" className="input w-full" />
+          </div>
+          <div>
             <label className="label">
               วันที่บันทึกข้อความ <span className="text-red-600">*</span>
             </label>
@@ -393,10 +397,6 @@ function ProcurementModal({
           <div>
             <label className="label">ค่าปรับต่อวัน (ร้อยละ)</label>
             <input type="number" inputMode="decimal" step="0.01" min="0" name="penalty_rate" defaultValue={request?.penalty_rate ?? terms.penalty} className="input w-full text-right" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label">เลข e-GP</label>
-            <input name="egp_no" defaultValue={request?.egp_no ?? ""} placeholder="ไม่บังคับ — เลขโครงการ/เลขคุมสัญญาในระบบ e-GP" className="input w-full" />
           </div>
           <div className="sm:col-span-2">
             <label className="label">ผู้ลงนามใบสั่ง{type}</label>
