@@ -9,12 +9,14 @@ import { wrapByWidth } from "./thai-measure";
 
 registerThSarabunFont();
 const FS = 16;
+/** ตัวอักษรในตาราง — ผู้ใช้ขอ 15pt (หัวเอกสารยังเป็น 16/18/20pt) */
+const FS_TABLE = 15;
 
 const styles = StyleSheet.create({
   page: { fontFamily: "THSarabunNew", fontSize: FS, padding: 28, lineHeight: 1.15 },
   title: { fontSize: 20, fontWeight: "bold", textAlign: "center", lineHeight: 1.3, marginBottom: 2 },
   sub: { textAlign: "center", lineHeight: 1.3, marginBottom: 10 },
-  table: { borderTopWidth: 0.8, borderLeftWidth: 0.8, marginBottom: 4 },
+  table: { borderTopWidth: 0.8, borderLeftWidth: 0.8, marginBottom: 4, fontSize: FS_TABLE },
   row: { flexDirection: "row" },
   cell: { borderRightWidth: 0.8, borderBottomWidth: 0.8, paddingHorizontal: 4, paddingVertical: 2 },
   head: { fontWeight: "bold", backgroundColor: "#f1f5f9", textAlign: "center" },
@@ -51,7 +53,7 @@ export function ProcurementRegisterDocument({
   // ข้อความที่มี "\n" = กำหนดจุดขึ้นบรรทัดเอง (คำสั้นในช่องแคบ ตัวตัดคำอัตโนมัติจะหักกลางคำ)
   const cellLines = (text: string, width: number) =>
     text.includes("\n") ? text.split("\n") :
-    wrapByWidth(text, FS, width - 10, width - 10, false, "THSarabunNew", [...KEEP, ...text.split(/\s+/).filter((w) => w.length <= 12)]);
+    wrapByWidth(text, FS_TABLE, width - 10, width - 10, false, "THSarabunNew", [...KEEP, ...text.split(/\s+/).filter((w) => w.length <= 12)]);
   return (
     <Document title="ทะเบียนคุมจัดซื้อจัดจ้าง">
       <Page size="A4" orientation="landscape" style={styles.page}>
