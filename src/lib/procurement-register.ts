@@ -1,0 +1,75 @@
+import type { createClient } from "@/lib/supabase/server";
+
+// ทะเบียนคุมจัดซื้อจัดจ้าง — รวมงานซื้อและงานจ้าง (proc_purchase_requests) ของปีงบประมาณปัจจุบันที่ตั้งไว้
+// ใช้ร่วมกันระหว่างหน้าเว็บ / พิมพ์ PDF / ส่งออก Excel — ตัวกรองส่งทาง query string: type, q
+
+export type ProcurementRegisterRow = {
+  id: string;
+  doc_type: "ซื้อ" | "จ้าง";
+  doc_no: string;
+  record_date: string;
+  order_date: string | null;
+  inspected_date: string | null;
+  item_name: string | null;
+  vendor_name: string | null;
+  approval_no: string | null;
+  project_name: string | null;
+  amount: number;
+  photo_count: number;
+};
+
+export type ProcurementRegisterFilter = { type?: string; q?: string };
+
+export function filterFromSearchParams(sp: URLSearchParams): ProcurementRegisterFilter {
+  return { type: sp.get("type") || undefined, q: sp.get("q") || undefined };
+}
+
+/** เลขลำดับในเลขที่ "<ลำดับ>/<ปี>" สำหรับเรียงตามเลขที่ */
+function docSeq(no: string) {
+  const n = Number(no.split("/")[0]);
+  return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+}
+
+export function applyRegisterFilter(rows: ProcurementRegisterRow[], f: ProcurementRegisterFilter) {
+  const q = f.q?.trim().toLowerCase();
+  return rows.filter(
+    (r) =>
+      (!f.type || r.doc_type === f.type) &&
+      (!q || [r.doc_no, r.item_name, r.vendor_name, r.project_name, r.approval_no].some((v) => v?.toLowerCase().includes(q))),
+  );
+}
+
+type Supabase = Awaited<ReturnType<typeof createClient>> | ReturnType<typeof import("@/lib/supabase/client").createClient>;
+
+/** ดึงทะเบียนของปีงบประมาณปัจจุบัน (ปีที่เปิดอยู่ หรือปีล่าสุด) — เรียงตามประเภท แล้วตามเลขที่ */
+export async function fetchProcurementRegister(supabase: Supabase): Promise<{ year: number | null; rows: ProcurementRegisterRow[] }> {
+  const { data: years } = await supabase.from("plan_budget_years").select("year, is_open").order("year", { ascending: false });
+  const current = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
+  let query = supabase
+    .from("proc_purchase_requests")
+    .select(
+      "id, doc_type, doc_no, record_date, order_date, inspected_date, item_name, amount, proc_vendors(name), proc_approvals(doc_number), plan_projects(name), proc_purchase_photos(id)",
+    );
+  if (current) {
+    const ce = current.year - 543;
+    query = query.gte("record_date", `${ce - 1}-10-01`).lte("record_date", `${ce}-09-30`);
+  }
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []).map((r) => ({
+    id: r.id,
+    doc_type: r.doc_type,
+    doc_no: r.doc_no,
+    record_date: r.record_date,
+    order_date: r.order_date,
+    inspected_date: r.inspected_date,
+    item_name: r.item_name,
+    vendor_name: (r.proc_vendors as unknown as { name: string } | null)?.name ?? null,
+    approval_no: (r.proc_approvals as unknown as { doc_number: string | null } | null)?.doc_number ?? null,
+    project_name: (r.plan_projects as unknown as { name: string } | null)?.name ?? null,
+    amount: Number(r.amount),
+    photo_count: (r.proc_purchase_photos as unknown as { id: string }[] | null)?.length ?? 0,
+  }));
+  rows.sort((a, b) => (a.doc_type === b.doc_type ? docSeq(a.doc_no) - docSeq(b.doc_no) : a.doc_type === "ซื้อ" ? -1 : 1));
+  return { year: current?.year ?? null, rows };
+}
