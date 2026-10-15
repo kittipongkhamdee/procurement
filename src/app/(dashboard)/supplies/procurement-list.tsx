@@ -37,6 +37,7 @@ type Request = {
   order_signer: string | null;
   amount: number;
   plan_projects: { name: string } | null;
+  plan_activities: { name: string } | null;
   proc_vendors: { name: string } | null;
 };
 type Option = { id: string; name: string };
@@ -337,6 +338,93 @@ function ProcurementModal({
   );
 }
 
+const PAGE_SIZE = 20;
+
+/** รายละเอียดรายการ — โหลดตารางรายการเมื่อเปิด */
+function DetailModal({ type, request: r }: { type: ProcurementType; request: Request }) {
+  const [items, setItems] = useState<{ name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null }[] | null>(null);
+  function load() {
+    if (items) return;
+    createClient()
+      .from("proc_purchase_items")
+      .select("name, qty, unit, unit_price, total")
+      .eq("purchase_request_id", r.id)
+      .order("seq")
+      .then(({ data }) => setItems(data ?? []));
+  }
+  const rows: [string, string][] = [
+    ["เลขที่", r.doc_no],
+    ["วันที่บันทึกข้อความ", formatThaiDate(r.record_date)],
+    [TERMS[type].item, r.item_name ?? "-"],
+    ["เพื่อ", r.reason ?? "-"],
+    ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
+    ["โครงการ", r.plan_projects?.name ?? "-"],
+    ["กิจกรรม", r.plan_activities?.name ?? "-"],
+    [TERMS[type].party, r.proc_vendors?.name ?? "-"],
+    ["ครบกำหนดส่งมอบ", formatThaiDate(r.delivery_date)],
+    ["ค่าปรับต่อวัน", r.penalty_rate != null ? `ร้อยละ ${r.penalty_rate}` : "-"],
+    ["ผู้ตรวจรับพัสดุ", [r.inspector_name, r.inspector_position].filter(Boolean).join(" · ") || "-"],
+    [`ผู้ลงนามใบสั่ง${type}`, r.order_signer === "director" ? "ผู้อำนวยการโรงเรียน" : "หัวหน้าเจ้าหน้าที่"],
+    [`วงเงินที่ขอ${type}`, `${formatBaht(Number(r.amount))} บาท`],
+  ];
+  return (
+    <Modal
+      title={`รายงานขอ${type} ${r.doc_no}`}
+      wide
+      lazy
+      onOpenChange={(open) => open && load()}
+      trigger={
+        <span className="btn-secondary btn-sm">
+          <SearchIcon className="h-3.5 w-3.5" />
+          รายละเอียด
+        </span>
+      }
+    >
+      <dl className="divide-y divide-slate-100 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-3 sm:gap-3">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="text-slate-900 sm:col-span-2">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <h3 className="mb-2 mt-4 text-sm font-semibold text-navy-800">รายการ</h3>
+      {items === null ? (
+        <p className="text-sm text-slate-500">กำลังโหลด...</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-slate-500">ไม่มีรายการ</p>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-slate-200">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500">
+              <tr>
+                <th className="px-2 py-2">ที่</th>
+                <th className="px-2 py-2 text-left">รายการ</th>
+                <th className="px-2 py-2 text-right">จำนวน</th>
+                <th className="px-2 py-2 text-right">ราคา/หน่วย</th>
+                <th className="px-2 py-2 text-right">จำนวนเงิน</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.map((it, i) => (
+                <tr key={i}>
+                  <td className="px-2 py-1 text-center text-slate-400">{i + 1}</td>
+                  <td className="px-2 py-1">{it.name}</td>
+                  <td className="px-2 py-1 text-right">
+                    {it.qty ?? "-"} {it.unit ?? ""}
+                  </td>
+                  <td className="px-2 py-1 text-right">{it.unit_price != null ? formatBaht(Number(it.unit_price)) : "-"}</td>
+                  <td className="px-2 py-1 text-right">{it.total != null ? formatBaht(Number(it.total)) : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 /** เลือกพิมพ์แยกทีละแผ่น */
 function SheetsModal({ type, request }: { type: ProcurementType; request: Request }) {
   return (
@@ -381,15 +469,19 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
     setFiscalYear(currentYear?.year ?? null);
+    // แสดงเฉพาะรายการของปีงบประมาณปัจจุบันที่ตั้งไว้ (1 ต.ค. – 30 ก.ย.)
+    let listQuery = supabase
+      .from("proc_purchase_requests")
+      .select(
+        "id, doc_no, record_date, delivery_date, admin_group, project_id, activity_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name)",
+      )
+      .eq("doc_type", type);
+    if (currentYear) {
+      const ce = currentYear.year - 543;
+      listQuery = listQuery.gte("record_date", `${ce - 1}-10-01`).lte("record_date", `${ce}-09-30`);
+    }
     const [{ data, error }, { data: nos }, { data: projects }, { data: activities }, { data: groups }, { data: vendors }, { data: teachers }, { data: positions }] = await Promise.all([
-      supabase
-        .from("proc_purchase_requests")
-        .select(
-          "id, doc_no, record_date, delivery_date, admin_group, project_id, activity_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), proc_vendors(name)",
-        )
-        .eq("doc_type", type)
-        .order("record_date", { ascending: false })
-        .order("created_at", { ascending: false }),
+      listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("proc_purchase_requests").select("doc_no"),
       currentYear
         ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order")
@@ -441,6 +533,9 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     return requests.filter((r) => [r.doc_no, r.item_name, r.proc_vendors?.name, r.plan_projects?.name].some((v) => v?.toLowerCase().includes(q)));
   }, [requests, query]);
   const total = filtered.reduce((s, r) => s + Number(r.amount), 0);
+  // แสดงทีละ PAGE_SIZE รายการ กด "โหลดเพิ่ม" เพื่อดูต่อ (เปลี่ยนคำค้นแล้วเริ่มนับใหม่)
+  const [shown, setShown] = useState(PAGE_SIZE);
+  const visible = filtered.slice(0, shown);
 
   async function handleDelete(r: Request) {
     const ok = await confirmDelete({ title: `ลบรายงานขอ${type} ${r.doc_no}?`, text: r.item_name ?? "" });
@@ -461,6 +556,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
           <PrinterIcon className="h-3.5 w-3.5" />
           พิมพ์ทั้งชุด
         </a>
+        <DetailModal type={type} request={r} />
         <SheetsModal type={type} request={r} />
         {isProcStaff && (
           <ProcurementModal type={type} request={r} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo="" onSaved={reload} />
@@ -480,7 +576,10 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       <div className="page-header">
         <div>
           <h1 className="page-title">{title}</h1>
-          <p className="page-subtitle">{subtitle}</p>
+          <p className="page-subtitle">
+            {subtitle}
+            {fiscalYear ? ` · ปีงบประมาณ ${fiscalYear}` : ""}
+          </p>
         </div>
         {isProcStaff && (
           <ProcurementModal type={type} request={null} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo={nextDocNo} onSaved={reload} />
@@ -494,7 +593,11 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`ค้นหาเลขที่ รายการ ${TERMS[type].party} โครงการ`} className="input w-full pl-9" />
+              <input value={query} onChange={(e) => {
+                  setQuery(e.target.value);
+                  setShown(PAGE_SIZE);
+                }}
+                placeholder={`ค้นหาเลขที่ รายการ ${TERMS[type].party} โครงการ`} className="input w-full pl-9" />
             </div>
             <p className="text-sm text-slate-500">
               {filtered.length} รายการ · รวม <span className="font-semibold text-slate-800">{formatBaht(total)}</span> บาท
@@ -506,7 +609,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
 
             {/* พื้นที่แคบ: การ์ด */}
             <div className="divide-y divide-slate-100 @min-[56rem]:hidden">
-              {filtered.map((r) => (
+              {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-slate-900">{r.doc_no}</span>
@@ -538,7 +641,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {visible.map((r) => (
                   <tr key={r.id}>
                     <td className="font-medium text-slate-900">{r.doc_no}</td>
                     <td>{formatThaiDate(r.record_date)}</td>
@@ -561,6 +664,13 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
                 )}
               </tbody>
             </table>
+            {filtered.length > shown && (
+              <div className="border-t border-slate-100 p-3 text-center">
+                <button type="button" onClick={() => setShown((n) => n + PAGE_SIZE)} className="btn-secondary">
+                  โหลดเพิ่ม (แสดง {shown} จาก {filtered.length} รายการ)
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

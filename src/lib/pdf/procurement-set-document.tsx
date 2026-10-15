@@ -141,6 +141,7 @@ function ItemTable({
   totalLabel,
   total,
   minRows = MIN_TABLE_ROWS,
+  footer,
 }: {
   cols: Col[];
   /** หัวกลุ่มครอบ `span` คอลัมน์สุดท้าย เช่น "จำนวนและวงเงินที่ขอซื้อครั้งนี้" */
@@ -149,6 +150,8 @@ function ItemTable({
   totalLabel: string;
   total: string;
   minRows?: number;
+  /** ส่วนท้ายต่อจากแถวรวม (เช่น ลายมือชื่อ) — ไม่ถูกแยกไปหน้าใหม่ลำพัง */
+  footer?: React.ReactNode;
 }) {
   const padded = [...rows, ...Array.from({ length: Math.max(0, minRows - rows.length) }, () => cols.map(() => ""))];
   const flexCol = (c: Col) => (c.width ? { width: c.width, flexShrink: 0 } : { flex: 1 });
@@ -169,8 +172,9 @@ function ItemTable({
   const flexW = CONTENT_W - fixedW - 2 * B - 6 - SLACK;
   return (
     // เส้นกรอบ: ตารางมีแค่เส้นบน/ซ้าย แต่ละช่องมีเส้นขวา/ล่างของตัวเอง (กันเส้นขอบนอกทับเส้นช่องสุดท้ายแล้วเหลื่อม)
-    <View style={{ borderLeftWidth: B, borderTopWidth: B, marginBottom: 4 }}>
-      <View style={{ flexDirection: "row" }}>
+    // หัวตาราง `fixed` = พิมพ์ซ้ำทุกหน้าเมื่อรายการยาวเกินหนึ่งหน้า (มีเส้นบนของตัวเอง)
+    <View style={{ marginBottom: 4 }}>
+      <View style={{ flexDirection: "row", borderTopWidth: B, borderLeftWidth: B }} fixed>
         {cols.slice(0, groupStart).map((c, i) => headCell(c, i))}
         {group && (
           <View style={{ width: groupWidth, flexShrink: 0 }}>
@@ -186,7 +190,7 @@ function ItemTable({
         )}
       </View>
       {padded.map((r, ri) => (
-        <View key={ri} style={{ flexDirection: "row" }} wrap={false}>
+        <View key={ri} style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
           {cols.map((c, i) => {
             const lines = !c.width && r[i] ? wrap(r[i], FS, flexW, flexW) : [r[i] || " "];
             return (
@@ -201,13 +205,17 @@ function ItemTable({
           })}
         </View>
       ))}
-      <View style={{ flexDirection: "row" }} wrap={false}>
-        <View style={[styles.cell, { flex: 1 }]}>
-          <Text style={{ textAlign: "center" }}>{t(totalLabel)}</Text>
+      {/* แถวรวม + ลายมือชื่อท้ายตาราง อยู่หน้าเดียวกันเสมอ */}
+      <View wrap={false}>
+        <View style={{ flexDirection: "row", borderLeftWidth: B }}>
+          <View style={[styles.cell, { flex: 1 }]}>
+            <Text style={{ textAlign: "center" }}>{t(totalLabel)}</Text>
+          </View>
+          <View style={[styles.cell, { width: cols[lastIdx].width, flexShrink: 0 }]}>
+            <Text style={{ textAlign: "right" }}>{total}</Text>
+          </View>
         </View>
-        <View style={[styles.cell, { width: cols[lastIdx].width, flexShrink: 0 }]}>
-          <Text style={{ textAlign: "right" }}>{total}</Text>
-        </View>
+        {footer}
       </View>
     </View>
   );
@@ -315,11 +323,13 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             rows={itemRows.map((it) => [String(it.seq), it.name ?? "", num(it.qty), it.unit ?? "", num(it.unit_price), num(it.unit_price), num(it.total)])}
             totalLabel={`รวมเป็นเงินทั้งสิ้น  ( ${amountTextBare} )`}
             total={amount}
+            footer={
+              <View style={{ flexDirection: "row", marginTop: 24 }}>
+                <Sign role="เจ้าหน้าที่" name={officer} style={{ width: L }} />
+                <Sign role="หัวหน้าเจ้าหน้าที่" name={head} />
+              </View>
+            }
           />
-          <View style={{ flexDirection: "row", marginTop: 24 }} wrap={false}>
-            <Sign role="เจ้าหน้าที่" name={officer} style={{ width: L }} />
-            <Sign role="หัวหน้าเจ้าหน้าที่" name={head} />
-          </View>
         </Page>
       )}
 
@@ -345,15 +355,19 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             rows={itemRows.map((it) => [String(it.seq), it.name ?? "", [num(it.qty), it.unit].filter(Boolean).join(" "), num(it.unit_price), num(it.total)])}
             totalLabel={`รวมเป็นเงินทั้งสิ้น  ( ${amountTextBare} )`}
             total={amount}
+            footer={
+              <View style={{ marginTop: 4 }}>
+                <Text>{t("ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่ม รวมทั้งภาษีอากรอื่น และค่าใช้จ่ายทั้งปวงไว้ด้วยแล้ว")}</Text>
+                <Text>{t("3. คำเสนอนี้จะยืนอยู่ในระยะเวลา  30 วัน  นับตั้งแต่วันที่ได้ยื่นใบเสนอราคา")}</Text>
+                <Text>{t(`4. กำหนดส่งมอบพัสดุตามรายละเอียดรายการข้างต้น ภายใน ${days} วัน  นับถัดจากวันลงนามในใบสั่ง${verb}`)}</Text>
+                <Text>{t(`เสนอมา   ณ   วันที่  ${recordDate}`)}</Text>
+                <View style={{ flexDirection: "row", marginTop: 14 }}>
+                  <Sign role="ผู้ต่อรองราคา" name={officer} extra={["          เจ้าหน้าที่"]} style={{ width: L }} />
+                  <Sign role="ผู้เสนอราคา" name={null} extra={["        ประทับตรา(ถ้ามี)"]} />
+                </View>
+              </View>
+            }
           />
-          <Text>{t("ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่ม รวมทั้งภาษีอากรอื่น และค่าใช้จ่ายทั้งปวงไว้ด้วยแล้ว")}</Text>
-          <Text>{t("3. คำเสนอนี้จะยืนอยู่ในระยะเวลา  30 วัน  นับตั้งแต่วันที่ได้ยื่นใบเสนอราคา")}</Text>
-          <Text>{t(`4. กำหนดส่งมอบพัสดุตามรายละเอียดรายการข้างต้น ภายใน ${days} วัน  นับถัดจากวันลงนามในใบสั่ง${verb}`)}</Text>
-          <Text>{t(`เสนอมา   ณ   วันที่  ${recordDate}`)}</Text>
-          <View style={{ flexDirection: "row", marginTop: 14 }} wrap={false}>
-            <Sign role="ผู้ต่อรองราคา" name={officer} extra={["          เจ้าหน้าที่"]} style={{ width: L }} />
-            <Sign role="ผู้เสนอราคา" name={null} extra={["        ประทับตรา(ถ้ามี)"]} />
-          </View>
         </Page>
       )}
 
@@ -578,11 +592,13 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             rows={itemRows.map((it) => [String(it.seq), it.name ?? "", num(it.qty), it.unit ?? "", num(it.unit_price), num(it.total)])}
             totalLabel={`รวมเป็นเงินทั้งสิ้น  ( ${amountTextBare} )`}
             total={amount}
+            footer={
+              <View style={{ flexDirection: "row", marginTop: 24 }}>
+                <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${recordDate}`]} style={{ width: L }} />
+                <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${recordDate}`]} />
+              </View>
+            }
           />
-          <View style={{ flexDirection: "row", marginTop: 24 }} wrap={false}>
-            <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${recordDate}`]} style={{ width: L }} />
-            <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${recordDate}`]} />
-          </View>
         </Page>
       )}
 
