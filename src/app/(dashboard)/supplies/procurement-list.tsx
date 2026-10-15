@@ -45,7 +45,15 @@ type ItemSuggestions = { names: string[]; units: string[]; defaults: Record<stri
 type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; vendors: Option[]; teachers: string[]; positions: Record<string, string> };
 
 // ตำแหน่งผู้ตรวจรับ — ระบบจำตำแหน่งที่เลือกไว้กับชื่อครู (proc_teacher_positions) แล้วเติมให้ครั้งต่อไป
-const POSITIONS = ["ครูผู้ช่วย", "ครู", "ครูชำนาญการ", "ครูชำนาญการพิเศษ", "ครูเชี่ยวชาญ"];
+// พิมพ์ในเอกสารเป็น "ตำแหน่ง <ค่าที่เลือก>" เช่น "ตำแหน่ง ครู วิทยฐานะครูชำนาญการ"
+const POSITIONS = [
+  "ครูผู้ช่วย",
+  "ครู",
+  "ครู วิทยฐานะครูชำนาญการ",
+  "ครู วิทยฐานะครูชำนาญการพิเศษ",
+  "ครู วิทยฐานะครูเชี่ยวชาญ",
+  "ครู วิทยฐานะครูเชี่ยวชาญพิเศษ",
+];
 
 const TERMS: Record<ProcurementType, { party: string; item: string; reason: string; penalty: number }> = {
   ซื้อ: { party: "ผู้ขาย", item: "พัสดุที่จะซื้อ", reason: "ใช้ในการ...", penalty: 0.2 },
