@@ -79,8 +79,9 @@ function parse(formData: FormData) {
       receipt_no: str("receipt_no") || null,
       receipt_date: str("receipt_date") || null,
       funding: str("funding") === "loan" ? "loan" : str("funding") === "advance" ? "advance" : null,
-      loan_contract_no: str("loan_contract_no") || null,
-      loan_date: str("loan_date") || null,
+      // เลขที่/วันที่สัญญายืม ใช้เฉพาะกรณีเงินยืม
+      loan_contract_no: str("funding") === "loan" ? str("loan_contract_no") || null : null,
+      loan_date: str("funding") === "loan" ? str("loan_date") || null : null,
       spec_author: str("spec_author") || null,
       amount,
     },

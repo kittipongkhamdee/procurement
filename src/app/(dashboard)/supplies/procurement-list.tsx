@@ -125,6 +125,7 @@ function ProcurementModal({
   const modalRef = useRef<ModalHandle>(null);
   const terms = TERMS[type];
   const [saving, setSaving] = useState(false);
+  const [funding, setFunding] = useState(request?.funding ?? "advance");
   const [projectId, setProjectId] = useState(request?.project_id ?? "");
   const [activityId, setActivityId] = useState(request?.activity_id ?? "");
   const [adminGroup, setAdminGroup] = useState(request?.admin_group ?? "");
@@ -457,7 +458,7 @@ function ProcurementModal({
             </div>
             <div>
               <label className="label">ชำระเงินโดย</label>
-              <select name="funding" defaultValue={request?.funding ?? "advance"} className="input w-full">
+              <select name="funding" value={funding} onChange={(e) => setFunding(e.target.value)} className="input w-full">
                 <option value="advance">เงินสดสำรองจ่าย / ทดรองจ่าย</option>
                 <option value="loan">เงินยืม (ตามสัญญายืมเงิน)</option>
               </select>
@@ -466,6 +467,8 @@ function ProcurementModal({
               <label className="label">วันรายงานสรุปผล / ขอเบิกจ่าย</label>
               <ThaiDatePicker name="report_date" defaultValue={request?.report_date ?? null} />
             </div>
+            {/* กรอกได้เฉพาะเมื่อเลือกเงินยืม — fieldset disabled ไม่ส่งค่าช่องข้างในไปกับฟอร์ม */}
+            <fieldset disabled={funding !== "loan"} className="contents [&:disabled_.input]:cursor-not-allowed [&:disabled_.input]:opacity-50 [&:disabled_label]:opacity-50">
             <div>
               <label className="label">สัญญายืมเงิน เลขที่ (ถ้ายืม)</label>
               <input name="loan_contract_no" defaultValue={request?.loan_contract_no ?? ""} className="input w-full" />
@@ -474,6 +477,7 @@ function ProcurementModal({
               <label className="label">ลงวันที่ (สัญญายืม)</label>
               <ThaiDatePicker name="loan_date" defaultValue={request?.loan_date ?? null} />
             </div>
+            </fieldset>
           </fieldset>
         ) : (
           <>
@@ -777,7 +781,8 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
       { data: usage },
     ] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from("proc_purchase_requests").select("doc_no").eq("doc_type", type).eq("method", method),
+      // ว.804 เป็นงานซื้อ — นับเลขที่ต่อเนื่องร่วมกับงานซื้อปกติ (งานจ้างนับแยก)
+      supabase.from("proc_purchase_requests").select("doc_no").eq("doc_type", type),
       currentYear
         ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order")
         : Promise.resolve({ data: [] as Option[] }),
