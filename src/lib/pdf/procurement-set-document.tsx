@@ -856,7 +856,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             <View style={{ marginTop: 6 }}>
               <Text>{t("- ทราบ")}</Text>
               <Text>{t("- อนุมัติ")}</Text>
-              <Sign role="" name={d.director} extra={[`ตำแหน่ง ผู้อำนวยการ${school}`, "วันที่..........................................."]} style={{ marginTop: 10 }} />
+              <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, formatThaiDate(reportIso)]} style={{ marginTop: 10 }} />
             </View>
           </View>
         </Page>
