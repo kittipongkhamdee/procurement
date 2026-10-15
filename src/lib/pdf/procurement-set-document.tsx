@@ -736,17 +736,16 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณา หากเห็นชอบได้โปรด")}</Text>
           <Para keep={keep} indent={INDENT + 20} text="1. เห็นชอบรายละเอียดคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงานตามข้อ (1)" style={{ marginBottom: 0 }} />
           <Para keep={keep} indent={INDENT + 20} text="2. อนุมัติให้ดำเนินการ และมอบหมายผู้รับผิดชอบดำเนินการจัดซื้อ ตามรายละเอียดในรายงานขอซื้อดังกล่าวข้างต้น" />
-          <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 6 }} />
-          <View style={{ flexDirection: "row", marginTop: 10 }} wrap={false}>
-            <View style={{ width: L - 10, borderWidth: B, padding: 6, marginRight: 10 }}>
-              <Text style={styles.bold}>{t("ความเห็นของหัวหน้าเจ้าหน้าที่")}</Text>
-              <Text>{t("..................................................................")}</Text>
-              <Sign role="" name={head} extra={["วันที่..........................................."]} style={{ marginTop: 10 }} />
+          {/* ส่วนท้ายแบบเดียวกับรายงานขอซื้อ/ขอจ้างปกติ */}
+          <View style={{ flexDirection: "row", marginTop: 14 }} wrap={false}>
+            <View style={{ width: L }}>
+              <Sign role="เจ้าหน้าที่" name={officer} />
+              <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginTop: 14 }} />
             </View>
-            <View style={{ flex: 1, borderWidth: B, padding: 6 }}>
+            <View style={{ flex: 1 }}>
               <Text>{t("- เห็นชอบ")}</Text>
-              <Text>{t("- ลงนามแล้ว")}</Text>
-              <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, "วันที่..........................................."]} style={{ marginTop: 10 }} />
+              <Text>{t("- อนุมัติ")}</Text>
+              <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, recordDate]} style={{ marginTop: 14 }} />
             </View>
           </View>
         </Page>
