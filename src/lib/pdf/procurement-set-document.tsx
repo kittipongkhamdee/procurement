@@ -838,23 +838,26 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             total={amount}
             footer={<Text style={{ fontSize: FS_SMALL }}>{t("**ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่มและค่าใช้จ่ายทั้งปวงไว้แล้วด้วย")}</Text>}
           />
-          <Para
-            keep={keep}
-            text={`การจัดซื้อคราวนี้ไม่เกินวงเงินที่ประมาณไว้ และเห็นว่าเป็นราคาที่เหมาะสม และได้ใช้${
-              d.funding === "loan"
-                ? `เงินยืมตามสัญญา เลขที่ ${d.loan_contract_no ?? "......"} ลงวันที่ ${d.loan_date ? formatThaiDate(d.loan_date) : "......"}`
-                : "เงินสดสำรองจ่าย"
-            } ชำระให้ผู้ขายเรียบร้อยแล้ว ตามหลักฐานการรับเงิน ใบเสร็จรับเงิน เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${
-              d.receipt_date ? formatThaiDate(d.receipt_date) : "......"
-            } และได้รับมอบพัสดุไว้ครบถ้วนเรียบร้อยแล้ว เมื่อวันที่ ${d.delivered_date ? formatThaiDate(d.delivered_date) : "......"}`}
-          />
-          <Sign role="ผู้ตรวจรับพัสดุ (ผู้ได้รับมอบหมาย)" name={d.inspector_name} style={{ marginLeft: L - 30, marginTop: 4 }} />
-          <Text style={{ marginLeft: INDENT, marginTop: 6 }}>{t("จึงเรียนมาเพื่อโปรดทราบและขออนุมัติเบิกจ่ายต่อไป")}</Text>
-          <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 6 }} />
-          <View style={{ marginTop: 6 }} wrap={false}>
-            <Text>{t("- ทราบ")}</Text>
-            <Text>{t("- อนุมัติ")}</Text>
-            <Sign role="" name={d.director} extra={[`ตำแหน่ง ผู้อำนวยการ${school}`, "วันที่..........................................."]} style={{ marginTop: 10 }} />
+          {/* ย่อหน้าผลการจัดซื้อจนถึงส่วนลงชื่อ ไม่แยกหน้า — ล้นหน้าให้ขึ้นหน้าใหม่ทั้งก้อน */}
+          <View wrap={false}>
+            <Para
+              keep={keep}
+              text={`การจัดซื้อคราวนี้ไม่เกินวงเงินที่ประมาณไว้ และเห็นว่าเป็นราคาที่เหมาะสม และได้ใช้${
+                d.funding === "loan"
+                  ? `เงินยืมตามสัญญา เลขที่ ${d.loan_contract_no ?? "......"} ลงวันที่ ${d.loan_date ? formatThaiDate(d.loan_date) : "......"}`
+                  : "เงินสดสำรองจ่าย"
+              } ชำระให้ผู้ขายเรียบร้อยแล้ว ตามหลักฐานการรับเงิน ใบเสร็จรับเงิน เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${
+                d.receipt_date ? formatThaiDate(d.receipt_date) : "......"
+              } และได้รับมอบพัสดุไว้ครบถ้วนเรียบร้อยแล้ว เมื่อวันที่ ${d.delivered_date ? formatThaiDate(d.delivered_date) : "......"}`}
+            />
+            <Sign role="ผู้ตรวจรับพัสดุ (ผู้ได้รับมอบหมาย)" name={d.inspector_name} style={{ marginLeft: L - 30, marginTop: 4 }} />
+            <Text style={{ marginLeft: INDENT, marginTop: 6 }}>{t("จึงเรียนมาเพื่อโปรดทราบและขออนุมัติเบิกจ่ายต่อไป")}</Text>
+            <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 6 }} />
+            <View style={{ marginTop: 6 }}>
+              <Text>{t("- ทราบ")}</Text>
+              <Text>{t("- อนุมัติ")}</Text>
+              <Sign role="" name={d.director} extra={[`ตำแหน่ง ผู้อำนวยการ${school}`, "วันที่..........................................."]} style={{ marginTop: 10 }} />
+            </View>
           </View>
         </Page>
       )}
