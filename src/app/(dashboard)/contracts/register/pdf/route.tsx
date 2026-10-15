@@ -10,10 +10,10 @@ export async function GET(request: Request) {
   const filter = filterFromSearchParams(new URL(request.url).searchParams);
   const [rows, { data: school }] = await Promise.all([
     fetchContractRegister(supabase, filter),
-    supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle(),
+    supabase.from("proc_school_settings").select("school_name, education_area").eq("id", true).maybeSingle(),
   ]);
   const buffer = await renderToBuffer(
-    <ContractRegisterDocument rows={rows} schoolName={school?.school_name ?? "โรงเรียนตาเบาวิทยา"} filterText={describeFilter(filter)} />,
+    <ContractRegisterDocument rows={rows} schoolName={school?.school_name ?? "โรงเรียนตาเบาวิทยา"} educationArea={school?.education_area ?? null} filterText={describeFilter(filter)} />,
   );
   return new NextResponse(new Uint8Array(buffer), {
     headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", "ทะเบียนสัญญา.pdf") },

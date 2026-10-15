@@ -8,12 +8,14 @@ import { wrapByWidth } from "./thai-measure";
 
 registerThSarabunFont();
 const FS = 16;
+/** ตัวอักษรในตาราง 15pt (หัวเอกสาร 16/18/20pt) — แบบเดียวกับทะเบียนคุมจัดซื้อจัดจ้าง */
+const FS_TABLE = 15;
 
 const styles = StyleSheet.create({
   page: { fontFamily: "THSarabunNew", fontSize: FS, padding: 28, lineHeight: 1.15 },
   title: { fontSize: 20, fontWeight: "bold", textAlign: "center", lineHeight: 1.3, marginBottom: 2 },
   sub: { textAlign: "center", lineHeight: 1.3, marginBottom: 10 },
-  table: { borderTopWidth: 0.8, borderLeftWidth: 0.8, marginBottom: 4 },
+  table: { borderTopWidth: 0.8, borderLeftWidth: 0.8, marginBottom: 4, fontSize: FS_TABLE },
   row: { flexDirection: "row" },
   cell: { borderRightWidth: 0.8, borderBottomWidth: 0.8, paddingHorizontal: 4, paddingVertical: 2 },
   head: { fontWeight: "bold", backgroundColor: "#f1f5f9", textAlign: "center" },
@@ -31,16 +33,28 @@ const COLS = [
   { key: "amount", label: "จำนวนเงิน (บาท)", width: 84, align: "right" as const },
 ];
 
-export function ContractRegisterDocument({ rows, schoolName, filterText }: { rows: ContractRegisterRow[]; schoolName: string; filterText: string }) {
+export function ContractRegisterDocument({
+  rows,
+  schoolName,
+  educationArea,
+  filterText,
+}: {
+  rows: ContractRegisterRow[];
+  schoolName: string;
+  educationArea: string | null;
+  filterText: string;
+}) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
   const colStyle = (c: (typeof COLS)[number]) => ({ width: c.width });
   // ข้อความไทยยาว react-pdf ตัดบรรทัดเองไม่ได้ (ไม่มีช่องว่างระหว่างคำ) — ตัดล่วงหน้าตามความกว้างคอลัมน์ (หักขอบเซลล์)
   const cellLines = (text: string, width: number) =>
-    wrapByWidth(text, FS, width - 12, width - 12, false, "THSarabunNew", text.split(/\s+/).filter((w) => w.length <= 12));
+    wrapByWidth(text, FS_TABLE, width - 12, width - 12, false, "THSarabunNew", text.split(/\s+/).filter((w) => w.length <= 12));
   return (
     <Document title="ทะเบียนสัญญา">
       <Page size="A4" orientation="landscape" style={styles.page}>
-        <Text style={styles.title}>{t(`ทะเบียนสัญญา ${schoolName}`)}</Text>
-        {filterText ? <Text style={styles.sub}>{t(filterText)}</Text> : <View style={{ marginBottom: 8 }} />}
+        <Text style={styles.title}>{t("ทะเบียนสัญญา")}</Text>
+        <Text style={{ textAlign: "center", fontSize: 18, lineHeight: 1.3 }}>{t(`${schoolName}${educationArea ? ` ${educationArea}` : ""}`)}</Text>
+        <Text style={styles.sub}>{t(`${filterText ? `${filterText} · ` : ""}ข้อมูล ณ วันที่ ${formatThaiDate(today)}`)}</Text>
         <View style={styles.table}>
           <View style={styles.row} fixed>
             {COLS.map((c) => (
