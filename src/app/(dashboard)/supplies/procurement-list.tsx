@@ -649,7 +649,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       { data: usage },
     ] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from("proc_purchase_requests").select("doc_no"),
+      supabase.from("proc_purchase_requests").select("doc_no").eq("doc_type", type),
       currentYear
         ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order")
         : Promise.resolve({ data: [] as Option[] }),
@@ -686,7 +686,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     );
   }, [reload]);
 
-  // เลขที่ถัดไป <ลำดับที่>/<ปีงบประมาณ> — ลำดับเดียวกันทั้งงานซื้อและงานจ้าง (แก้เองได้)
+  // เลขที่ถัดไป <ลำดับที่>/<ปีงบประมาณ> — งานซื้อและงานจ้างนับลำดับแยกกัน (แก้เองได้)
   const nextDocNo = useMemo(() => {
     if (!fiscalYear) return "";
     const suffix = `/${fiscalYear}`;
