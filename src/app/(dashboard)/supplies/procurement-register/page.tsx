@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
-import { applyRegisterFilter, fetchProcurementRegister, type ProcurementRegisterRow } from "@/lib/procurement-register";
+import { applyRegisterFilter, fetchProcurementRegister, shortThaiDate, type ProcurementRegisterRow } from "@/lib/procurement-register";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ExcelFileIcon, PrinterIcon, SearchIcon } from "@/components/icons";
 
@@ -86,9 +86,10 @@ export default function ProcurementRegisterPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={r.doc_type === "ซื้อ" ? "badge-emerald" : "badge-navy"}>งาน{r.doc_type}</span>
                     <span className="font-medium text-slate-900">{r.doc_no}</span>
-                    <span className="text-sm text-slate-700">{r.item_name}</span>
+                    <span className="badge-slate">{r.status}</span>
                   </div>
-                  <p className="mt-0.5 text-sm text-slate-700">{r.vendor_name ?? "-"}</p>
+                  <p className="mt-0.5 text-sm text-slate-700">{r.item_name}</p>
+                  <p className="text-sm text-slate-700">{r.vendor_name ?? "-"}</p>
                   <p className="text-xs text-slate-500">
                     {r.project_name ?? "ไม่ระบุโครงการ"}
                     {r.approval_no ? ` · บันทึกขออนุมัติ ${r.approval_no}` : ""}
@@ -98,7 +99,10 @@ export default function ProcurementRegisterPage() {
                     {r.inspected_date ? ` · ตรวจรับ ${formatThaiDate(r.inspected_date)}` : ""}
                   </p>
                   <div className="mt-1 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-900">{formatBaht(r.amount)} บาท</span>
+                    <span className="text-sm font-semibold text-slate-900">
+                      {formatBaht(r.amount)} บาท
+                      {r.withholding > 0 && <span className="font-normal text-slate-500"> · หัก ณ ที่จ่าย {formatBaht(r.withholding)} · สุทธิ {formatBaht(r.net)}</span>}
+                    </span>
                     <Link href={TYPE_PAGE[r.doc_type]} className="btn-secondary btn-sm">
                       ไปหน้างาน{r.doc_type}
                     </Link>
@@ -111,37 +115,43 @@ export default function ProcurementRegisterPage() {
             <table className="hidden table-base w-full min-w-0 @min-[56rem]:table [&_td]:px-3 [&_th]:px-3">
               <thead>
                 <tr>
-                  <th>ประเภท</th>
+                  <th>วันที่</th>
                   <th>เลขที่</th>
-                  <th>วันที่รายงาน</th>
-                  <th>รายการ</th>
-                  <th>ผู้ขาย/ผู้รับจ้าง</th>
-                  <th>บันทึกขออนุมัติ</th>
-                  <th>วันตรวจรับ</th>
+                  <th>รายการซื้อ / จ้าง</th>
+                  <th>ผู้ขาย / ผู้รับจ้าง</th>
                   <th className="text-right">จำนวนเงิน</th>
+                  <th className="text-right">หัก ณ ที่จ่าย</th>
+                  <th className="text-right">จ่ายสุทธิ</th>
+                  <th>วันตรวจรับ</th>
+                  <th>สถานะ</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id}>
-                    <td>
-                      <span className={`${r.doc_type === "ซื้อ" ? "badge-emerald" : "badge-navy"} text-sm`}>งาน{r.doc_type}</span>
+                    <td className="whitespace-nowrap">{shortThaiDate(r.record_date)}</td>
+                    <td className="whitespace-nowrap font-medium text-slate-900">
+                      {r.doc_type === "ซื้อ" ? "ซ" : "จ"} {r.doc_no}
                     </td>
-                    <td className="font-medium text-slate-900">{r.doc_no}</td>
-                    <td>{formatThaiDate(r.record_date)}</td>
                     <td>
                       <div>{r.item_name}</div>
-                      <div className="text-sm text-slate-500">{r.project_name ?? ""}</div>
+                      <div className="text-sm text-slate-500">
+                        งาน{r.doc_type} · เฉพาะเจาะจง{r.approval_no ? ` · ขออนุมัติ ${r.approval_no}` : ""}
+                      </div>
                     </td>
                     <td>{r.vendor_name ?? "-"}</td>
-                    <td>{r.approval_no ?? "-"}</td>
-                    <td>{r.inspected_date ? formatThaiDate(r.inspected_date) : "-"}</td>
-                    <td className="text-right font-semibold text-slate-900">{formatBaht(r.amount)}</td>
+                    <td className="text-right">{formatBaht(r.amount)}</td>
+                    <td className="text-right">{r.withholding > 0 ? formatBaht(r.withholding) : "—"}</td>
+                    <td className="text-right font-semibold text-slate-900">{formatBaht(r.net)}</td>
+                    <td className="whitespace-nowrap">{r.inspected_date ? shortThaiDate(r.inspected_date) : "—"}</td>
+                    <td>
+                      <span className="badge-slate text-sm">{r.status}</span>
+                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="table-empty">
+                    <td colSpan={9} className="table-empty">
                       ไม่พบรายการ
                     </td>
                   </tr>
