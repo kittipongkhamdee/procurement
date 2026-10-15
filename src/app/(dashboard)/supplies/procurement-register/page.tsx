@@ -86,7 +86,6 @@ export default function ProcurementRegisterPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={r.doc_type === "ซื้อ" ? "badge-emerald" : "badge-navy"}>งาน{r.doc_type}</span>
                     <span className="font-medium text-slate-900">{r.doc_no}</span>
-                    <span className="badge-slate">{r.status}</span>
                   </div>
                   <p className="mt-0.5 text-sm text-slate-700">{r.item_name}</p>
                   <p className="text-sm text-slate-700">{r.vendor_name ?? "-"}</p>
@@ -101,7 +100,6 @@ export default function ProcurementRegisterPage() {
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-900">
                       {formatBaht(r.amount)} บาท
-                      {r.withholding > 0 && <span className="font-normal text-slate-500"> · หัก ณ ที่จ่าย {formatBaht(r.withholding)} · สุทธิ {formatBaht(r.net)}</span>}
                     </span>
                     <Link href={TYPE_PAGE[r.doc_type]} className="btn-secondary btn-sm">
                       ไปหน้างาน{r.doc_type}
@@ -115,43 +113,42 @@ export default function ProcurementRegisterPage() {
             <table className="hidden table-base w-full min-w-0 @min-[56rem]:table [&_td]:px-3 [&_th]:px-3">
               <thead>
                 <tr>
-                  <th>วันที่</th>
-                  <th>เลขที่</th>
-                  <th>รายการซื้อ / จ้าง</th>
-                  <th>ผู้ขาย / ผู้รับจ้าง</th>
-                  <th className="text-right">จำนวนเงิน</th>
-                  <th className="text-right">หัก ณ ที่จ่าย</th>
-                  <th className="text-right">จ่ายสุทธิ</th>
-                  <th>วันตรวจรับ</th>
-                  <th>สถานะ</th>
+                  <th rowSpan={2}>วันที่</th>
+                  <th colSpan={2} className="text-center">
+                    เลขที่
+                  </th>
+                  <th rowSpan={2}>รายการซื้อ / จ้าง</th>
+                  <th rowSpan={2}>ผู้ขาย / ผู้รับจ้าง</th>
+                  <th rowSpan={2} className="text-right">
+                    จำนวนเงิน
+                  </th>
+                  <th rowSpan={2}>วันตรวจรับ</th>
+                </tr>
+                <tr>
+                  <th className="text-center">ซื้อ</th>
+                  <th className="text-center">จ้าง</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id}>
                     <td className="whitespace-nowrap">{shortThaiDate(r.record_date)}</td>
-                    <td className="whitespace-nowrap font-medium text-slate-900">
-                      {r.doc_type === "ซื้อ" ? "ซ" : "จ"} {r.doc_no}
-                    </td>
+                    <td className="whitespace-nowrap text-center font-medium text-slate-900">{r.doc_type === "ซื้อ" ? r.doc_no : ""}</td>
+                    <td className="whitespace-nowrap text-center font-medium text-slate-900">{r.doc_type === "จ้าง" ? r.doc_no : ""}</td>
                     <td>
                       <div>{r.item_name}</div>
                       <div className="text-sm text-slate-500">
-                        งาน{r.doc_type} · เฉพาะเจาะจง{r.approval_no ? ` · ขออนุมัติ ${r.approval_no}` : ""}
+                        เฉพาะเจาะจง{r.approval_no ? ` · ขออนุมัติ ${r.approval_no}` : ""}
                       </div>
                     </td>
                     <td>{r.vendor_name ?? "-"}</td>
-                    <td className="text-right">{formatBaht(r.amount)}</td>
-                    <td className="text-right">{r.withholding > 0 ? formatBaht(r.withholding) : "—"}</td>
-                    <td className="text-right font-semibold text-slate-900">{formatBaht(r.net)}</td>
+                    <td className="text-right font-semibold text-slate-900">{formatBaht(r.amount)}</td>
                     <td className="whitespace-nowrap">{r.inspected_date ? shortThaiDate(r.inspected_date) : "—"}</td>
-                    <td>
-                      <span className="badge-slate text-sm">{r.status}</span>
-                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="table-empty">
+                    <td colSpan={7} className="table-empty">
                       ไม่พบรายการ
                     </td>
                   </tr>
