@@ -2388,6 +2388,7 @@ export type Database = {
           delivery_date: string
           detail: string | null
           doc_no: string
+          egp_no: string | null
           doc_type: Database["public"]["Enums"]["proc_purchase_type"]
           id: string
           inspector_name: string | null
@@ -2418,6 +2419,7 @@ export type Database = {
           delivery_date: string
           detail?: string | null
           doc_no: string
+          egp_no?: string | null
           doc_type: Database["public"]["Enums"]["proc_purchase_type"]
           id?: string
           inspector_name?: string | null
@@ -2448,6 +2450,7 @@ export type Database = {
           delivery_date?: string
           detail?: string | null
           doc_no?: string
+          egp_no?: string | null
           doc_type?: Database["public"]["Enums"]["proc_purchase_type"]
           id?: string
           inspector_name?: string | null

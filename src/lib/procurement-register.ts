@@ -21,6 +21,7 @@ export type ProcurementRegisterRow = {
   net: number;
   status: string;
   report_date: string | null;
+  egp_no: string | null;
 };
 
 const SHORT_MONTHS = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
@@ -75,7 +76,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
   let query = supabase
     .from("proc_purchase_requests")
     .select(
-      "id, doc_type, doc_no, record_date, order_date, inspected_date, report_date, item_name, amount, proc_vendors(name), proc_approvals(doc_number), plan_projects(name), proc_purchase_photos(id)",
+      "id, doc_type, doc_no, record_date, order_date, inspected_date, report_date, egp_no, item_name, amount, proc_vendors(name), proc_approvals(doc_number), plan_projects(name), proc_purchase_photos(id)",
     );
   if (current) {
     const ce = current.year - 543;
@@ -97,6 +98,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
     amount: Number(r.amount),
     photo_count: (r.proc_purchase_photos as unknown as { id: string }[] | null)?.length ?? 0,
     report_date: r.report_date,
+    egp_no: r.egp_no,
     withholding: withholdingTax(Number(r.amount)),
     net: Math.round((Number(r.amount) - withholdingTax(Number(r.amount))) * 100) / 100,
     status: stepStatus(r),

@@ -41,6 +41,7 @@ type Request = {
   inspector_position: string | null;
   penalty_rate: number | null;
   order_signer: string | null;
+  egp_no: string | null;
   amount: number;
   plan_projects: { name: string } | null;
   plan_activities: { name: string } | null;
@@ -394,6 +395,10 @@ function ProcurementModal({
             <input type="number" inputMode="decimal" step="0.01" min="0" name="penalty_rate" defaultValue={request?.penalty_rate ?? terms.penalty} className="input w-full text-right" />
           </div>
           <div className="sm:col-span-2">
+            <label className="label">เลข e-GP</label>
+            <input name="egp_no" defaultValue={request?.egp_no ?? ""} placeholder="ไม่บังคับ — เลขโครงการ/เลขคุมสัญญาในระบบ e-GP" className="input w-full" />
+          </div>
+          <div className="sm:col-span-2">
             <label className="label">ผู้ลงนามใบสั่ง{type}</label>
             <select name="order_signer" defaultValue={request?.order_signer ?? "head"} className="input w-full">
               <option value="head">หัวหน้าเจ้าหน้าที่</option>
@@ -509,6 +514,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
     ["วันรายงานผล", r.report_date ? formatThaiDate(r.report_date) : "-"],
     ["ค่าปรับต่อวัน", r.penalty_rate != null ? `ร้อยละ ${r.penalty_rate}` : "-"],
     ["ผู้ตรวจรับพัสดุ", [r.inspector_name, r.inspector_position].filter(Boolean).join(" · ") || "-"],
+    ["เลข e-GP", r.egp_no || "-"],
     [`ผู้ลงนามใบสั่ง${type}`, r.order_signer === "director" ? "ผู้อำนวยการโรงเรียน" : "หัวหน้าเจ้าหน้าที่"],
     [`วงเงินที่ขอ${type}`, `${formatBaht(Number(r.amount))} บาท`],
   ];
@@ -621,7 +627,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id)",
       )
       .eq("doc_type", type);
     if (currentYear) {

@@ -123,6 +123,7 @@ export default function ProcurementRegisterPage() {
                     จำนวนเงิน
                   </th>
                   <th rowSpan={2}>วันตรวจรับ</th>
+                  <th rowSpan={2}>หมายเหตุ</th>
                 </tr>
                 <tr>
                   <th className="text-center">ซื้อ</th>
@@ -138,17 +139,18 @@ export default function ProcurementRegisterPage() {
                     <td>
                       <div>{r.item_name}</div>
                       <div className="text-sm text-slate-500">
-                        เฉพาะเจาะจง{r.approval_no ? ` · ขออนุมัติ ${r.approval_no}` : ""}
+                        {r.approval_no ? `ขออนุมัติ ${r.approval_no}` : ""}
                       </div>
                     </td>
                     <td>{r.vendor_name ?? "-"}</td>
                     <td className="text-right font-semibold text-slate-900">{formatBaht(r.amount)}</td>
                     <td className="whitespace-nowrap">{r.inspected_date ? shortThaiDate(r.inspected_date) : "—"}</td>
+                    <td>{r.egp_no ? `e-GP ${r.egp_no}` : ""}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="table-empty">
+                    <td colSpan={8} className="table-empty">
                       ไม่พบรายการ
                     </td>
                   </tr>

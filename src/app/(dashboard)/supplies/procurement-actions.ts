@@ -72,6 +72,7 @@ function parse(formData: FormData) {
       penalty_rate: penalty ? Number(penalty) : null,
       approval_id: approvalId,
       order_signer: str("order_signer") === "director" ? "director" : "head",
+      egp_no: str("egp_no") || null,
       amount,
     },
     items,

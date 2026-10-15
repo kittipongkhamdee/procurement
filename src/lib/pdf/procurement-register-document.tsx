@@ -29,11 +29,11 @@ const COLS = [
   { key: "date", label: "วันที่", width: 62, align: "center" as const },
   { key: "noBuy", label: "ซื้อ", width: 56, align: "center" as const, group: true },
   { key: "noHire", label: "จ้าง", width: 56, align: "center" as const, group: true },
-  { key: "item", label: "รายการซื้อ / จ้าง", width: 218, wrap: true },
-  { key: "method", label: "วิธี", width: 62, align: "center" as const, wrap: true },
-  { key: "vendor", label: "ผู้ขาย / ผู้รับจ้าง", width: 170, wrap: true },
+  { key: "item", label: "รายการซื้อ / จ้าง", width: 200, wrap: true },
+  { key: "vendor", label: "ผู้ขาย / ผู้รับจ้าง", width: 150, wrap: true },
   { key: "amount", label: "จำนวนเงิน", width: 72, align: "right" as const },
   { key: "inspected", label: "วัน\nตรวจรับ", width: 64, align: "center" as const, wrap: true },
+  { key: "note", label: "หมายเหตุ", width: 100, wrap: true },
 ];
 
 export function ProcurementRegisterDocument({
@@ -96,10 +96,10 @@ export function ProcurementRegisterDocument({
               noBuy: r.doc_type === "ซื้อ" ? r.doc_no : "",
               noHire: r.doc_type === "จ้าง" ? r.doc_no : "",
               item: r.item_name ?? "-",
-              method: "เฉพาะ\nเจาะจง",
               vendor: r.vendor_name ?? "-",
               amount: formatBaht(r.amount),
               inspected: r.inspected_date ? shortThaiDate(r.inspected_date) : "—",
+              note: r.egp_no ? `e-GP ${r.egp_no}` : "",
             };
             return (
               <View key={r.id} style={styles.row} wrap={false}>
