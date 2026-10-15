@@ -3,7 +3,7 @@ import { Document, Font, Page, StyleSheet, Text, View, type Styles } from "@reac
 import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
-export { PROCUREMENT_SHEETS } from "./procurement-sheets";
+import { procurementSheets, type SheetKey } from "./procurement-sheets";
 import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
 
 // ชุดเอกสารงานซื้อ / งานจ้าง (วิธีเฉพาะเจาะจง) ๘ แผ่น ตามแบบที่โรงเรียนใช้ (เช่น ชุดซื้อเสารั้ว 81/2569):
@@ -215,7 +215,8 @@ function ItemTable({
 const num = (n: number | null | undefined) => (n == null ? "" : Number.isInteger(Number(n)) ? Number(n).toLocaleString("th-TH") : formatBaht(Number(n)));
 
 export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementSetData; sheets?: number[] }) {
-  const show = (n: number) => !sheets || sheets.length === 0 || sheets.includes(n);
+  const keys = procurementSheets(d.doc_type).filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
+  const show = (k: SheetKey) => keys.includes(k);
   const isHire = d.doc_type === "จ้าง";
   const verb = d.doc_type; // ซื้อ | จ้าง
   const party = isHire ? "ผู้รับจ้าง" : "ผู้ขาย";
@@ -242,7 +243,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   return (
     <Document title={`${verb} ${d.item_name} ${d.doc_no}`}>
       {/* ๑. บันทึกข้อความ รายงานขอซื้อ/ขอจ้าง */}
-      {show(1) && (
+      {show("request") && (
         <Page size="A4" style={styles.page}>
           <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject={isHire ? `รายงานขอจ้าง ${d.item_name}` : `รายงานขอซื้อพัสดุ ${d.item_name}`} />
           <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
@@ -256,10 +257,12 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           />
           {[
             `1. เหตุผลและความจำเป็นที่ต้อง${verb} คือ ${d.reason ?? "-"}`,
-            `2. รายละเอียดของ${isHire ? "งานที่จะจ้าง" : "ที่จะซื้อ"}คือ....(ตามรายละเอียดบันทึกที่แนบท้าย)....`,
-            `3. ราคากลางของ${isHire ? "งานจ้าง" : "พัสดุที่จะซื้อ"}เป็นเงิน ${amount} บาท`,
+            isHire ? `2. รายละเอียดของที่จะจ้างคือ ${d.item_name}` : "2. รายละเอียดของที่จะซื้อคือ....(ตามรายละเอียดบันทึกที่แนบท้าย)....",
+            `3. ราคากลางของพัสดุที่จะ${verb}เป็นเงิน ${amount} บาท`,
             `4. วงเงินที่จะขอ${verb}ครั้งนี้ ${amount} บาท ${amountText}`,
-            `5. กำหนดเวลาที่ต้องการใช้${thing}ภายใน ${days} วัน นับถัดจากวันลงนามใบสั่ง${verb}`,
+            isHire
+              ? `5. กำหนดเวลาทำงานแล้วเสร็จภายใน ${days} วัน นับถัดจากวันลงนามใบสั่งจ้าง`
+              : `5. กำหนดเวลาที่ต้องการใช้พัสดุภายใน ${days} วัน นับถัดจากวันลงนามใบสั่งซื้อ`,
             `6. ${verb}โดยวิธีเฉพาะเจาะจง เนื่องจาก การจัดจ้างพัสดุที่มีการผลิต จำหน่าย ก่อสร้าง หรือให้บริการทั่วไป และมีวงเงินในการจัดซื้อจัดจ้างครั้งหนึ่งไม่เกิน 500,000 บาท ที่กำหนดในกฎกระทรวง`,
             "7. หลักเกณฑ์การพิจารณาคัดเลือกข้อเสนอ โดยใช้เกณฑ์ราคา",
             "8. ข้อเสนออื่น ๆ เห็นควรแต่งตั้งผู้ตรวจรับพัสดุ ตามเสนอ",
@@ -288,7 +291,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       )}
 
       {/* ๒. รายละเอียดแนบท้ายบันทึกข้อความ */}
-      {show(2) && (
+      {show("request_attach") && (
         <Page size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
           <Text style={[styles.bold, { textAlign: "center" }]}>{t(`รายละเอียดแนบท้ายบันทึกข้อความที่ ${d.doc_no}  ลงวันที่ ${recordDate}`)}</Text>
           <Text style={{ textAlign: "center", marginBottom: 10 }}>{t(`${isHire ? "จ้าง" : "ซื้อพัสดุ"} ${d.item_name}`)}</Text>
@@ -315,7 +318,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       )}
 
       {/* ๓. ใบเสนอราคา */}
-      {show(3) && (
+      {show("quote") && (
         <Page size="A4" style={styles.page}>
           <Text style={[styles.title, { marginBottom: 8 }]}>{t("ใบเสนอราคา")}</Text>
           <Text style={styles.gap}>{t(`เรียน      ผู้อำนวยการ${school}`)}</Text>
@@ -324,7 +327,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             indent={20}
             text={`1. ข้าพเจ้า ${vendorName} อยู่เลขที่ ${v?.house_no ?? "-"} หมู่ที่ ${v?.moo ?? "-"} ตำบล${v?.tambon ?? "-"} อำเภอ${v?.amphoe ?? "-"} จังหวัด${v?.province ?? "-"} โทรศัพท์ ${v?.phone ?? "-"} เลขประจำตัวผู้เสียภาษี ${v?.tax_id ?? "-"} ข้าพเจ้าเป็นผู้มีคุณสมบัติครบถ้วนตามที่กำหนด และไม่เป็นผู้ทิ้งงานของทางราชการ`}
           />
-          <Text style={[styles.gap, { marginLeft: 20 }]}>{t(`2. ข้าพเจ้าขอเสนอ${thing} รวมทั้งบริการและกำหนดเวลาส่งมอบ ดังต่อไปนี้`)}</Text>
+          <Text style={[styles.gap, { marginLeft: 20 }]}>{t("2. ข้าพเจ้าขอเสนอพัสดุ รวมทั้งบริการและกำหนดเวลาส่งมอบ ดังต่อไปนี้")}</Text>
           <ItemTable
             cols={[
               { label: ["ที่"], width: 26, align: "center" },
@@ -339,7 +342,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           />
           <Text>{t("ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่ม รวมทั้งภาษีอากรอื่น และค่าใช้จ่ายทั้งปวงไว้ด้วยแล้ว")}</Text>
           <Text>{t("3. คำเสนอนี้จะยืนอยู่ในระยะเวลา  30 วัน  นับตั้งแต่วันที่ได้ยื่นใบเสนอราคา")}</Text>
-          <Text>{t(`4. กำหนดส่งมอบ${thing}ตามรายละเอียดรายการข้างต้น ภายใน ${days} วัน  นับถัดจากวันลงนามในใบสั่ง${verb}`)}</Text>
+          <Text>{t(`4. กำหนดส่งมอบพัสดุตามรายละเอียดรายการข้างต้น ภายใน ${days} วัน  นับถัดจากวันลงนามในใบสั่ง${verb}`)}</Text>
           <Text>{t(`เสนอมา   ณ   วันที่  ${recordDate}`)}</Text>
           <View style={{ flexDirection: "row", marginTop: 14 }} wrap={false}>
             <Sign role="ผู้ต่อรองราคา" name={officer} extra={["          เจ้าหน้าที่"]} style={{ width: L }} />
@@ -349,10 +352,10 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       )}
 
       {/* ๔. บันทึกข้อความ รายงานผลการพิจารณาและขออนุมัติสั่งซื้อ/สั่งจ้าง */}
-      {show(4) && (
+      {show("consider") && (
         <Page size="A4" style={styles.page}>
           <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject={`รายงานผลการพิจารณาและขออนุมัติสั่ง${verb}`} />
-          <Text style={[styles.gap, { marginTop: 4 }]}>{t("เรียน   หัวหน้าเจ้าหน้าที่")}</Text>
+          <Text style={[styles.gap, { marginTop: 4 }]}>{t(isHire ? `เรียน   ผู้อำนวยการ${school}` : "เรียน   หัวหน้าเจ้าหน้าที่")}</Text>
           <Para
             keep={keep}
             text={`ตามที่ผู้อำนวยการ${school} เห็นชอบให้ดำเนินการ${verb} ${d.item_name} โดยวิธีเฉพาะเจาะจง วงเงินงบประมาณจำนวน ${amount} บาท ${amountText} นั้น ขอรายงานผลการพิจารณา${verb} ${d.item_name} โดยวิธีเฉพาะเจาะจง ดังนี้`}
@@ -396,16 +399,29 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Para keep={keep} text={`งานพัสดุ${school} พิจารณาแล้ว เห็นสมควร${isHire ? "จัดจ้าง" : "จัดซื้อ"}จากผู้เสนอราคาดังกล่าว`} style={{ marginBottom: 0 }} />
           <Para keep={keep} text="จึงเรียนมาเพื่อโปรดพิจารณา หากเห็นชอบขอได้โปรดอนุมัติให้สั่งซื้อสั่งจ้างจากผู้เสนอราคาดังกล่าว" />
           <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 14 }} />
-          <View style={{ marginTop: 14 }} wrap={false}>
-            <Text>{t("- อนุมัติ")}</Text>
-            <Text>{t("- ลงนามแล้ว")}</Text>
-          </View>
-          <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginTop: 14 }} />
+          {isHire ? (
+            <>
+              <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginLeft: L, marginTop: 12 }} />
+              <View style={{ marginTop: 12 }} wrap={false}>
+                <Text>{t("- เห็นชอบ")}</Text>
+                <Text>{t("- อนุมัติ")}</Text>
+                <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`]} style={{ marginTop: 14 }} />
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={{ marginTop: 14 }} wrap={false}>
+                <Text>{t("- อนุมัติ")}</Text>
+                <Text>{t("- ลงนามแล้ว")}</Text>
+              </View>
+              <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginTop: 14 }} />
+            </>
+          )}
         </Page>
       )}
 
       {/* ๕. ใบสั่งซื้อ / ใบสั่งจ้าง */}
-      {show(5) && (
+      {show("order") && (
         <Page size="A4" style={styles.page}>
           <Text style={[styles.title, { marginBottom: 10 }]}>{t(`ใบสั่ง${verb}`)}</Text>
           <View style={{ flexDirection: "row", marginBottom: 8 }}>
@@ -496,23 +512,50 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Para
             keep={keep}
             indent={16}
-            text={`5. สงวนสิทธิ์ค่าปรับกรณีส่งมอบเกินกำหนด โดยคิดค่าปรับเป็นรายวันในอัตราร้อยละ ${penalty.toFixed(2)} ของราคา${isHire ? "งานจ้าง" : "สิ่งของที่ยังไม่ได้รับมอบ"}`}
+            text={
+              isHire
+                ? `5. สงวนสิทธิ์ค่าปรับกรณีส่งมอบเกินกำหนด โดยคิดค่าปรับเป็นรายวันในอัตราร้อยละ ${penalty.toFixed(2)} ของราคาจ้างแต่ต้องไม่ต่ำกว่าวันละ 100.00 บาท นับตั้งแต่วันที่ล่วงเลยกำหนดแล้วเสร็จตามใบสั่งจ้างจนถึงวันที่งานแล้วเสร็จบริบูรณ์`
+                : `5. สงวนสิทธิ์ค่าปรับกรณีส่งมอบเกินกำหนด โดยคิดค่าปรับเป็นรายวันในอัตราร้อยละ ${penalty.toFixed(2)} ของราคาสิ่งของที่ยังไม่ได้รับมอบ`
+            }
             style={{ marginBottom: 0 }}
           />
           <Para
             keep={keep}
             indent={16}
-            text={`6. โรงเรียนสงวนสิทธิ์ที่จะไม่รับมอบถ้าปรากฏว่า${isHire ? "งานจ้าง" : "สินค้า"}นั้นมีลักษณะไม่ตรงตามรายการที่ระบุไว้ในใบสั่ง${verb}`}
+            text={`6. โรงเรียนสงวนสิทธิ์ที่จะไม่รับมอบถ้าปรากฏว่าสินค้านั้นมีลักษณะไม่ตรงตามรายการที่ระบุไว้ในใบสั่ง${verb}${isHire ? " กรณีนี้ผู้รับจ้างจะต้องดำเนินการเปลี่ยนใหม่ให้ถูกต้องตามใบสั่งจ้างทุกประการ" : ""}`}
           />
           <View style={{ flexDirection: "row", marginTop: 24 }} wrap={false}>
-            <Sign role={`ผู้สั่ง${verb}`} name={head} extra={["ตำแหน่ง หัวหน้าเจ้าหน้าที่", `วันที่ ${recordDate}`]} style={{ width: L }} />
+            <Sign role={`ผู้สั่ง${verb}`} name={head} extra={[isHire ? "หัวหน้าเจ้าหน้าที่" : "ตำแหน่ง หัวหน้าเจ้าหน้าที่", `วันที่ ${recordDate}`]} style={{ width: L }} />
             <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${recordDate}`]} />
           </View>
         </Page>
       )}
 
+      {/* ใบส่งมอบงาน (เฉพาะงานจ้าง) */}
+      {show("handover") && (
+        <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
+          <Text style={[styles.title, { marginBottom: 14 }]}>{t("ใบส่งมอบงาน")}</Text>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text>{t(`เขียนที่ ${school}`)}</Text>
+          </View>
+          <Text style={{ marginLeft: CONTENT_W / 2 - 40, marginBottom: 14 }}>{t(`วันที่ ${deliveryDate}`)}</Text>
+          <Text style={styles.gap}>{t("เรื่อง    ส่งมอบงานจ้างและขอเบิกเงิน")}</Text>
+          <Text style={{ marginBottom: 10 }}>{t(`เรียน    ผู้อำนวยการ${school}`)}</Text>
+          <Para
+            keep={keep}
+            text={`ตามที่ ${school} ได้ตกลงให้ข้าพเจ้า ${vendorName} เพื่อดำเนินการจ้าง ${d.item_name} โดยวิธีเฉพาะเจาะจง ตามใบสั่งจ้าง เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} นั้น`}
+          />
+          <Para
+            keep={keep}
+            text={`บัดนี้ ข้าพเจ้าได้ปฏิบัติตามใบสั่งจ้างเสร็จเรียบร้อยแล้ว จึงขอส่งมอบงานจ้าง เพื่อตรวจรับและขอเบิกจ่ายเงินค่าจ้างให้กับข้าพเจ้า จำนวน ${amount} บาท ${amountText} ต่อไป`}
+          />
+          <Text style={{ marginLeft: L + 30, marginTop: 14 }}>{t("ขอแสดงความนับถือ")}</Text>
+          <Sign role="" name={null} style={{ marginLeft: L, marginTop: 20 }} />
+        </Page>
+      )}
+
       {/* ๖. รายละเอียดแนบท้ายใบสั่งซื้อ / ใบสั่งจ้าง */}
-      {show(6) && (
+      {show("order_attach") && (
         <Page size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
           <Text style={[styles.bold, { textAlign: "center" }]}>{t(`รายละเอียดแนบท้ายใบสั่ง${verb}ที่ ${d.doc_no}  ลงวันที่ ${recordDate}`)}</Text>
           <Text style={{ textAlign: "center", marginBottom: 10 }}>{t(`${isHire ? "จ้าง" : "ซื้อพัสดุ"} ${d.item_name}`)}</Text>
@@ -538,7 +581,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       )}
 
       {/* ๗. ใบตรวจรับพัสดุ */}
-      {show(7) && (
+      {show("inspect") && (
         <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
           <Text style={[styles.title, { marginBottom: 2 }]}>{t("ใบตรวจรับพัสดุ")}</Text>
           <Text style={{ textAlign: "center", marginBottom: 14 }}>{t("ตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560 ข้อ 175")}</Text>
@@ -548,12 +591,14 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Text style={[styles.gap, { marginLeft: CONTENT_W / 2 - 40 }]}>{t(`วันที่ ${deliveryDate}`)}</Text>
           <Para
             keep={keep}
-            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} ${isHire ? "กับ" : "จาก"} ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} เพื่อให้ผู้ตรวจรับ ทำการตรวจรับพัสดุ ซึ่งผลการตรวจรับเป็นดังนี้`}
+            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} จาก ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} เพื่อให้ผู้ตรวจรับ ทำการตรวจรับพัสดุ ซึ่งผลการตรวจรับเป็นดังนี้`}
           />
           <View style={{ marginLeft: INDENT / 2, marginBottom: 6 }}>
             <Text>{t(`1. ครบกำหนดส่งมอบวันที่ ${deliveryDate}`)}</Text>
             <Text>{t(`2. ส่งมอบเมื่อวันที่ ${deliveryDate}`)}</Text>
-            <Text>{t(`3. ตรวจรับพัสดุตามใบส่งของ เล่มที่..........เลขที่..................ลงวันที่ ${deliveryDate}`)}</Text>
+            <Text>
+              {t(isHire ? `3. ตรวจรับพัสดุตามใบส่งมอบงาน เลขที่...............ลงวันที่ ${deliveryDate}` : `3. ตรวจรับพัสดุตามใบส่งของ เล่มที่..........เลขที่..................ลงวันที่ ${deliveryDate}`)}
+            </Text>
             <Text>{t(`4. ได้ตรวจรับ${isHire ? "งานจ้าง" : "พัสดุ"}ถูกต้องทุกประการ ตั้งแต่วันที่ ${deliveryDate}`)}</Text>
             <Text>{t(`5. ส่งมอบ${thing}เกินกำหนด......-....วัน  ค่าปรับวันละ......-......บาท  รวมค่าปรับ..........-.........บาท`)}</Text>
           </View>
@@ -566,17 +611,17 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       )}
 
       {/* ๘. บันทึกข้อความ รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน */}
-      {show(8) && (
+      {show("disburse") && (
         <Page size="A4" style={styles.page}>
           <MemoHeader unit={unit} docNumber={null} isoDate={d.delivery_date} subject="รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน" />
           <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
           <Para
             keep={keep}
-            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} ${isHire ? "กับ" : "จาก"} ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} ครบกำหนดส่งมอบวันที่ ${deliveryDate}`}
+            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} จาก ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} ครบกำหนดส่งมอบวันที่ ${deliveryDate}`}
           />
           <Para
             keep={keep}
-            text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบ${thing}เมื่อวันที่ ${deliveryDate} ซึ่งจะต้องจ่ายเงิน ให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย...-...บาท คงเหลือ ${amount} บาท`}
+            text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveryDate} ซึ่งจะต้องจ่ายเงิน ให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย...-...บาท คงเหลือ ${amount} บาท`}
           />
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนเพื่อโปรด")}</Text>
           <View style={{ marginLeft: INDENT + 20 }}>
@@ -586,7 +631,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Para
             keep={keep}
             indent={INDENT + 20}
-            text={`2. อนุมัติเบิกจ่ายเงินให้แก่ ${vendorName} หรือผู้ทดรองจ่ายไปก่อน เป็นเงิน ${amount} บาท ${amountText}`}
+            text={`2. อนุมัติเบิกจ่ายเงินให้แก่ ${vendorName}${isHire ? "" : " หรือผู้ทดรองจ่ายไปก่อน"} เป็นเงิน ${amount} บาท ${amountText}`}
           />
           <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 14 }} />
           <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginLeft: L, marginTop: 12 }} />

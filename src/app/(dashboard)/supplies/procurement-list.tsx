@@ -15,7 +15,7 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
-import { PROCUREMENT_SHEETS } from "@/lib/pdf/procurement-sheets";
+import { procurementSheets } from "@/lib/pdf/procurement-sheets";
 import { createProcurement, deleteProcurement, updateProcurement } from "./procurement-actions";
 
 export type ProcurementType = "ซื้อ" | "จ้าง";
@@ -314,15 +314,15 @@ function SheetsModal({ type, request }: { type: ProcurementType; request: Reques
       }
     >
       <div className="grid gap-2">
-        {PROCUREMENT_SHEETS.map((s) => (
+        {procurementSheets(type).map((s) => (
           <a key={s.no} href={pdfHref(request.id, s.no)} target="_blank" rel="noopener" className="btn-secondary justify-start">
             <PrinterIcon className="h-4 w-4" />
-            แผ่นที่ {s.no} · {s.label(type)}
+            แผ่นที่ {s.no} · {s.label}
           </a>
         ))}
         <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
           <PrinterIcon className="h-4 w-4" />
-          พิมพ์ทั้งชุด (8 แผ่น)
+          พิมพ์ทั้งชุด ({procurementSheets(type).length} แผ่น)
         </a>
       </div>
     </Modal>
