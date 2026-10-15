@@ -37,7 +37,6 @@ const BOTTOM_TABS = [
 // ผ่าน URL ได้ปกติสำหรับคนที่กำลังพัฒนา/ตรวจสอบอยู่) เอาออกจาก Set นี้เมื่อพร้อมเปิดใช้งานจริง
 const DISABLED_HREFS = new Set([
   "/purchase-requests",
-  "/vendors",
   "/project-disbursements",
   "/allowance",
 ]);

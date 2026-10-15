@@ -2361,6 +2361,7 @@ export type Database = {
           inspector_position: string | null
           item_name: string | null
           pdf_url: string | null
+          penalty_rate: number | null
           project_id: string | null
           reason: string | null
           record_date: string
@@ -2384,6 +2385,7 @@ export type Database = {
           inspector_position?: string | null
           item_name?: string | null
           pdf_url?: string | null
+          penalty_rate?: number | null
           project_id?: string | null
           reason?: string | null
           record_date: string
@@ -2407,6 +2409,7 @@ export type Database = {
           inspector_position?: string | null
           item_name?: string | null
           pdf_url?: string | null
+          penalty_rate?: number | null
           project_id?: string | null
           reason?: string | null
           record_date?: string
