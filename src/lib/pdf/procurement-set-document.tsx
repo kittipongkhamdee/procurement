@@ -3,7 +3,7 @@ import { Document, Font, Page, StyleSheet, Text, View, type Styles } from "@reac
 import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
-import { procurementSheets, type SheetKey } from "./procurement-sheets";
+import { procurementSheets, W804_INLINE_MAX, type SheetKey } from "./procurement-sheets";
 import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
 
 // ชุดเอกสารงานซื้อ / งานจ้าง (วิธีเฉพาะเจาะจง) ๘ แผ่น ตามแบบที่โรงเรียนใช้ (เช่น ชุดซื้อเสารั้ว 81/2569):
@@ -95,8 +95,6 @@ export type ProcurementSetData = {
   spec_author: string | null;
 };
 
-/** จำนวนรายการสูงสุดที่ใส่ในหัวข้อ 1 ของรายงานขอซื้อ ว.804 ได้โดยไม่ล้นหน้าแรก */
-const W804_INLINE_MAX = 2;
 
 const W804_REF =
   "หนังสือคณะกรรมการวินิจฉัยปัญหาการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 804 ลงวันที่ 12 พฤศจิกายน 2568 เรื่อง แนวทางปฏิบัติสำหรับการจัดซื้อวงเงินไม่เกิน 50,000 บาท";
@@ -250,7 +248,7 @@ function ItemTable({
 const num = (n: number | null | undefined) => (n == null ? "" : Number.isInteger(Number(n)) ? Number(n).toLocaleString("th-TH") : formatBaht(Number(n)));
 
 export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementSetData; sheets?: number[] }) {
-  const keys = procurementSheets(d.doc_type, d.method === "w804").filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
+  const keys = procurementSheets(d.doc_type, d.method === "w804", d.items.length).filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
   const show = (k: SheetKey) => keys.includes(k);
   const isHire = d.doc_type === "จ้าง";
   const verb = d.doc_type; // ซื้อ | จ้าง

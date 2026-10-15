@@ -55,6 +55,7 @@ type Request = {
   plan_activities: { name: string } | null;
   proc_vendors: { name: string } | null;
   proc_purchase_photos: { id: string }[];
+  proc_purchase_items: { id: string }[];
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
@@ -718,10 +719,10 @@ function SheetsModal({ type, request }: { type: ProcurementType; request: Reques
       <div className="grid gap-2">
         <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
           <PrinterIcon className="h-4 w-4" />
-          พิมพ์ทั้งชุด ({procurementSheets(type, request.method === "w804").length} แผ่น)
+          พิมพ์ทั้งชุด ({procurementSheets(type, request.method === "w804", request.proc_purchase_items.length).length} แผ่น)
         </a>
         <p className="mt-2 text-sm font-medium text-slate-600">หรือเลือกพิมพ์แยกแผ่น</p>
-        {procurementSheets(type, request.method === "w804").map((s) => (
+        {procurementSheets(type, request.method === "w804", request.proc_purchase_items.length).map((s) => (
           <a key={s.no} href={pdfHref(request.id, s.no)} target="_blank" rel="noopener" className="btn-secondary justify-start">
             <PrinterIcon className="h-4 w-4" />
             แผ่นที่ {s.no} · {s.label}
@@ -752,7 +753,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id)",
       )
       .eq("doc_type", type)
       .eq("method", method);
