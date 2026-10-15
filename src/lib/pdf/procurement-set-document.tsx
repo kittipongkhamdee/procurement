@@ -51,6 +51,10 @@ export type ProcurementSetData = {
   doc_no: string;
   record_date: string;
   delivery_date: string;
+  order_date: string | null;
+  delivered_date: string | null;
+  inspected_date: string | null;
+  report_date: string | null;
   work_days: number | null;
   admin_group: string | null;
   project_name: string | null;
@@ -237,6 +241,10 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const keep = [schoolCore, ...(v?.name ?? "").split(/\s+/), v?.tambon, v?.amphoe, v?.province, d.inspector_name ?? ""].filter((x): x is string => !!x);
   const recordDate = formatThaiDate(d.record_date);
   const deliveryDate = formatThaiDate(d.delivery_date);
+  // วันแต่ละขั้น ไม่กรอก = ใช้ค่าตามขั้นก่อนหน้า (สั่งซื้อ/จ้าง = วันบันทึก, ส่งมอบ = ครบกำหนด, ตรวจรับ = วันส่งมอบ)
+  const orderDate = formatThaiDate(d.order_date ?? d.record_date);
+  const deliveredDate = formatThaiDate(d.delivered_date ?? d.delivery_date);
+  const inspectedDate = formatThaiDate(d.inspected_date ?? d.delivered_date ?? d.delivery_date);
   const amount = formatBaht(d.amount);
   const amountText = thaiBahtText(d.amount);
   const amountTextBare = amountText.replace(/^\(|\)$/g, "");
@@ -457,7 +465,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             </View>
             <View style={{ flex: 1 }}>
               <Text>{t(`ใบสั่ง${verb} เลขที่  ${d.doc_no}`)}</Text>
-              <Text>{t(`วันที่  ${recordDate}`)}</Text>
+              <Text>{t(`วันที่  ${orderDate}`)}</Text>
               <Text>{t(school)}</Text>
               {schoolAddressLines(d.school_address).map((l, i) => (
                 <Text key={i}>{t(i === 0 ? `ที่อยู่  ${l}` : l)}</Text>
@@ -468,7 +476,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Para
             keep={keep}
             indent={0}
-            text={`ตามที่ ${vendorName} ได้เสนอราคา ตามใบเสนอราคาเลขที่....... ลงวันที่ ${recordDate} ไว้ต่อ${school} ซึ่งได้รับราคาและตกลง${verb} ตามรายการดังต่อไปนี้`}
+            text={`ตามที่ ${vendorName} ได้เสนอราคา ตามใบเสนอราคาเลขที่....... ลงวันที่ ${orderDate} ไว้ต่อ${school} ซึ่งได้รับราคาและตกลง${verb} ตามรายการดังต่อไปนี้`}
           />
           <View style={{ borderWidth: B, borderBottomWidth: 0, marginBottom: 6 }}>
             <View style={{ flexDirection: "row" }}>
@@ -545,8 +553,8 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             text={`6. โรงเรียนสงวนสิทธิ์ที่จะไม่รับมอบถ้าปรากฏว่าสินค้านั้นมีลักษณะไม่ตรงตามรายการที่ระบุไว้ในใบสั่ง${verb}${isHire ? " กรณีนี้ผู้รับจ้างจะต้องดำเนินการเปลี่ยนใหม่ให้ถูกต้องตามใบสั่งจ้างทุกประการ" : ""}`}
           />
           <View style={{ flexDirection: "row", marginTop: 24 }} wrap={false}>
-            <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${recordDate}`]} style={{ width: L }} />
-            <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${recordDate}`]} />
+            <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${orderDate}`]} style={{ width: L }} />
+            <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${orderDate}`]} />
           </View>
         </Page>
       )}
@@ -558,12 +566,12 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <View style={{ alignItems: "flex-end" }}>
             <Text>{t(`เขียนที่ ${school}`)}</Text>
           </View>
-          <Text style={{ marginLeft: CONTENT_W / 2 - 40, marginBottom: 14 }}>{t(`วันที่ ${deliveryDate}`)}</Text>
+          <Text style={{ marginLeft: CONTENT_W / 2 - 40, marginBottom: 14 }}>{t(`วันที่ ${deliveredDate}`)}</Text>
           <Text style={styles.gap}>{t("เรื่อง    ส่งมอบงานจ้างและขอเบิกเงิน")}</Text>
           <Text style={{ marginBottom: 10 }}>{t(`เรียน    ผู้อำนวยการ${school}`)}</Text>
           <Para
             keep={keep}
-            text={`ตามที่ ${school} ได้ตกลงให้ข้าพเจ้า ${vendorName} เพื่อดำเนินการจ้าง ${d.item_name} โดยวิธีเฉพาะเจาะจง ตามใบสั่งจ้าง เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} นั้น`}
+            text={`ตามที่ ${school} ได้ตกลงให้ข้าพเจ้า ${vendorName} เพื่อดำเนินการจ้าง ${d.item_name} โดยวิธีเฉพาะเจาะจง ตามใบสั่งจ้าง เลขที่ ${d.doc_no} ลงวันที่ ${orderDate} นั้น`}
           />
           <Para
             keep={keep}
@@ -577,7 +585,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       {/* ๖. รายละเอียดแนบท้ายใบสั่งซื้อ / ใบสั่งจ้าง */}
       {show("order_attach") && (
         <Page size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
-          <Text style={[styles.bold, { textAlign: "center" }]}>{t(`รายละเอียดแนบท้ายใบสั่ง${verb}ที่ ${d.doc_no}  ลงวันที่ ${recordDate}`)}</Text>
+          <Text style={[styles.bold, { textAlign: "center" }]}>{t(`รายละเอียดแนบท้ายใบสั่ง${verb}ที่ ${d.doc_no}  ลงวันที่ ${orderDate}`)}</Text>
           <Text style={{ textAlign: "center", marginBottom: 10 }}>{t(`${isHire ? "จ้าง" : "ซื้อพัสดุ"} ${d.item_name}`)}</Text>
           <ItemTable
             cols={[
@@ -594,8 +602,8 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             total={amount}
             footer={
               <View style={{ flexDirection: "row", marginTop: 24 }}>
-                <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${recordDate}`]} style={{ width: L }} />
-                <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${recordDate}`]} />
+                <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${orderDate}`]} style={{ width: L }} />
+                <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${orderDate}`]} />
               </View>
             }
           />
@@ -610,18 +618,18 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <View style={{ alignItems: "flex-end" }}>
             <Text>{t(`เขียนที่ ${school}`)}</Text>
           </View>
-          <Text style={[styles.gap, { marginLeft: CONTENT_W / 2 - 40 }]}>{t(`วันที่ ${deliveryDate}`)}</Text>
+          <Text style={[styles.gap, { marginLeft: CONTENT_W / 2 - 40 }]}>{t(`วันที่ ${inspectedDate}`)}</Text>
           <Para
             keep={keep}
-            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} จาก ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} เพื่อให้ผู้ตรวจรับ ทำการตรวจรับพัสดุ ซึ่งผลการตรวจรับเป็นดังนี้`}
+            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} จาก ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${orderDate} เพื่อให้ผู้ตรวจรับ ทำการตรวจรับพัสดุ ซึ่งผลการตรวจรับเป็นดังนี้`}
           />
           <View style={{ marginLeft: INDENT / 2, marginBottom: 6 }}>
             <Text>{t(`1. ครบกำหนดส่งมอบวันที่ ${deliveryDate}`)}</Text>
-            <Text>{t(`2. ส่งมอบเมื่อวันที่ ${deliveryDate}`)}</Text>
+            <Text>{t(`2. ส่งมอบเมื่อวันที่ ${deliveredDate}`)}</Text>
             <Text>
-              {t(isHire ? `3. ตรวจรับพัสดุตามใบส่งมอบงาน เลขที่...............ลงวันที่ ${deliveryDate}` : `3. ตรวจรับพัสดุตามใบส่งของ เล่มที่..........เลขที่..................ลงวันที่ ${deliveryDate}`)}
+              {t(isHire ? `3. ตรวจรับพัสดุตามใบส่งมอบงาน เลขที่...............ลงวันที่ ${deliveredDate}` : `3. ตรวจรับพัสดุตามใบส่งของ เล่มที่..........เลขที่..................ลงวันที่ ${deliveredDate}`)}
             </Text>
-            <Text>{t(`4. ได้ตรวจรับ${isHire ? "งานจ้าง" : "พัสดุ"}ถูกต้องทุกประการ ตั้งแต่วันที่ ${deliveryDate}`)}</Text>
+            <Text>{t(`4. ได้ตรวจรับ${isHire ? "งานจ้าง" : "พัสดุ"}ถูกต้องทุกประการ ตั้งแต่วันที่ ${inspectedDate}`)}</Text>
             <Text>{t(`5. ส่งมอบ${thing}เกินกำหนด......-....วัน  ค่าปรับวันละ......-......บาท  รวมค่าปรับ..........-.........บาท`)}</Text>
           </View>
           <Para
@@ -635,15 +643,15 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       {/* ๘. บันทึกข้อความ รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน */}
       {show("disburse") && (
         <Page size="A4" style={styles.page}>
-          <MemoHeader unit={unit} docNumber={null} isoDate={d.delivery_date} subject="รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน" />
+          <MemoHeader unit={unit} docNumber={null} isoDate={d.report_date ?? d.inspected_date ?? d.delivered_date ?? d.delivery_date} subject="รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน" />
           <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
           <Para
             keep={keep}
-            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} จาก ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${recordDate} ครบกำหนดส่งมอบวันที่ ${deliveryDate}`}
+            text={`ตามที่${school} ได้จัด${verb} ${d.item_name} จาก ${vendorName} ตามบันทึกข้อความ/ใบสั่ง${verb}เลขที่ ${d.doc_no} ลงวันที่ ${orderDate} ครบกำหนดส่งมอบวันที่ ${deliveryDate}`}
           />
           <Para
             keep={keep}
-            text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveryDate} ซึ่งจะต้องจ่ายเงิน ให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย...-...บาท คงเหลือ ${amount} บาท`}
+            text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveredDate} ซึ่งจะต้องจ่ายเงิน ให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย...-...บาท คงเหลือ ${amount} บาท`}
           />
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนเพื่อโปรด")}</Text>
           <View style={{ marginLeft: INDENT + 20 }}>

@@ -25,6 +25,10 @@ type Request = {
   doc_no: string;
   record_date: string;
   delivery_date: string;
+  order_date: string | null;
+  delivered_date: string | null;
+  inspected_date: string | null;
+  report_date: string | null;
   admin_group: string | null;
   project_id: string | null;
   activity_id: string | null;
@@ -320,6 +324,27 @@ function ProcurementModal({
           </div>
         </fieldset>
 
+        <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <legend className="mb-1 text-sm font-semibold text-navy-800">วันที่แต่ละขั้นตอน</legend>
+          <p className="text-xs text-slate-500 sm:col-span-2">ไม่บังคับ — กรอกเมื่อถึงขั้นนั้น ถ้าเว้นว่าง เอกสารจะใช้วันตามขั้นก่อนหน้าแทน</p>
+          <div>
+            <label className="label">วันสั่ง{type} (ลงนามใบสั่ง{type})</label>
+            <ThaiDatePicker name="order_date" defaultValue={request?.order_date ?? null} />
+          </div>
+          <div>
+            <label className="label">วันส่งมอบ{type === "จ้าง" ? "งาน" : "พัสดุ"}</label>
+            <ThaiDatePicker name="delivered_date" defaultValue={request?.delivered_date ?? null} />
+          </div>
+          <div>
+            <label className="label">วันตรวจรับ</label>
+            <ThaiDatePicker name="inspected_date" defaultValue={request?.inspected_date ?? null} />
+          </div>
+          <div>
+            <label className="label">วันรายงานผลการตรวจรับ / ขอเบิกจ่าย</label>
+            <ThaiDatePicker name="report_date" defaultValue={request?.report_date ?? null} />
+          </div>
+        </fieldset>
+
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
           <p className="text-sm text-slate-600">
             วงเงินที่ขอ{type} <span className="text-base font-semibold text-slate-900">{formatBaht(total)}</span> บาท
@@ -361,7 +386,11 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
     ["โครงการ", r.plan_projects?.name ?? "-"],
     ["กิจกรรม", r.plan_activities?.name ?? "-"],
     [TERMS[type].party, r.proc_vendors?.name ?? "-"],
+    [`วันสั่ง${type}`, r.order_date ? formatThaiDate(r.order_date) : "-"],
     ["ครบกำหนดส่งมอบ", formatThaiDate(r.delivery_date)],
+    ["วันส่งมอบ", r.delivered_date ? formatThaiDate(r.delivered_date) : "-"],
+    ["วันตรวจรับ", r.inspected_date ? formatThaiDate(r.inspected_date) : "-"],
+    ["วันรายงานผล", r.report_date ? formatThaiDate(r.report_date) : "-"],
     ["ค่าปรับต่อวัน", r.penalty_rate != null ? `ร้อยละ ${r.penalty_rate}` : "-"],
     ["ผู้ตรวจรับพัสดุ", [r.inspector_name, r.inspector_position].filter(Boolean).join(" · ") || "-"],
     [`ผู้ลงนามใบสั่ง${type}`, r.order_signer === "director" ? "ผู้อำนวยการโรงเรียน" : "หัวหน้าเจ้าหน้าที่"],
@@ -473,7 +502,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, admin_group, project_id, activity_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name)",
       )
       .eq("doc_type", type);
     if (currentYear) {

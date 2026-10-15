@@ -37,13 +37,26 @@ function parse(formData: FormData) {
   if (!(amount > 0)) return { error: "ยอดรวมรายการต้องมากกว่า 0" };
 
   const penalty = str("penalty_rate");
+  // วันแต่ละขั้นตอน (ไม่บังคับ) — ไม่กรอก PDF จะใช้วันตามขั้นก่อนหน้าแทน
+  const orderDate = str("order_date") || null;
+  const deliveredDate = str("delivered_date") || null;
+  const inspectedDate = str("inspected_date") || null;
+  const reportDate = str("report_date") || null;
+  if (orderDate && orderDate < recordDate) return { error: `วันสั่ง${docType}ต้องไม่ก่อนวันที่บันทึกข้อความ` };
+  if (orderDate && deliveryDate < orderDate) return { error: `วันครบกำหนดส่งมอบต้องไม่ก่อนวันสั่ง${docType}` };
+  if (inspectedDate && deliveredDate && inspectedDate < deliveredDate) return { error: "วันตรวจรับต้องไม่ก่อนวันส่งมอบ" };
+  if (reportDate && inspectedDate && reportDate < inspectedDate) return { error: "วันรายงานผลต้องไม่ก่อนวันตรวจรับ" };
   return {
     fields: {
       doc_type: docType as "ซื้อ" | "จ้าง",
       doc_no: str("doc_no"),
       record_date: recordDate,
       delivery_date: deliveryDate,
-      work_days: daysInclusive(recordDate, deliveryDate),
+      work_days: daysInclusive(orderDate ?? recordDate, deliveryDate),
+      order_date: orderDate,
+      delivered_date: deliveredDate,
+      inspected_date: inspectedDate,
+      report_date: reportDate,
       admin_group: str("admin_group") || null,
       project_id: str("project_id") || null,
       activity_id: str("activity_id") || null,
