@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { compressPhotoFile } from "@/lib/image-resize";
 import { uploadFileDirect } from "@/lib/storage/client-upload";
-import { driveFileId, driveThumbnailUrl, driveViewUrl, isDriveRef } from "@/lib/storage/ref";
+import { driveFileId, driveThumbnailUrl, isDriveRef } from "@/lib/storage/ref";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { Modal } from "@/components/modal";
 import { TrashIcon, UploadIcon } from "@/components/icons";
@@ -34,13 +34,15 @@ export async function loadProcurementPhotos(requestId: string): Promise<Procurem
   }
   return rows.map((r) =>
     isDriveRef(r.file_ref)
-      ? { ...r, thumb: driveThumbnailUrl(driveFileId(r.file_ref), 600), full: driveViewUrl(driveFileId(r.file_ref)) }
+      ? { ...r, thumb: driveThumbnailUrl(driveFileId(r.file_ref), 600), full: driveThumbnailUrl(driveFileId(r.file_ref), 2000) }
       : { ...r, thumb: signed.get(r.file_ref) ?? "", full: signed.get(r.file_ref) ?? "" },
   );
 }
 
 /** แสดงรูปจัดกลุ่มตามประเภท (ใช้ทั้งใน popup รูปอ้างอิงและในรายละเอียด) */
 export function PhotoGroups({ photos, onDelete }: { photos: ProcurementPhoto[]; onDelete?: (p: ProcurementPhoto) => void }) {
+  // ดูรูปขนาดเต็มในหน้าเดิม (ไม่เปิดลิงก์ Google Drive — มือถือจะเด้งแอป Drive ให้เลือกบัญชี)
+  const [viewing, setViewing] = useState<ProcurementPhoto | null>(null);
   const groups = [...PHOTO_CATEGORIES, ...new Set(photos.map((p) => p.category).filter((c) => !PHOTO_CATEGORIES.includes(c)))]
     .map((c) => [c, photos.filter((p) => p.category === c)] as const)
     .filter(([, list]) => list.length > 0);
@@ -55,10 +57,10 @@ export function PhotoGroups({ photos, onDelete }: { photos: ProcurementPhoto[]; 
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {list.map((p) => (
               <div key={p.id} className="relative">
-                <a href={p.full} target="_blank" rel="noopener" className="block overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                <button type="button" onClick={() => setViewing(p)} className="block w-full overflow-hidden rounded-md border border-slate-200 bg-slate-50">
                   {/* eslint-disable-next-line @next/next/no-img-element -- รูปจาก Drive/signed URL ภายนอก */}
                   <img src={p.thumb} alt={cat} className="aspect-[3/4] w-full object-cover" loading="lazy" />
-                </a>
+                </button>
                 {onDelete && (
                   <button
                     type="button"
@@ -74,6 +76,20 @@ export function PhotoGroups({ photos, onDelete }: { photos: ProcurementPhoto[]; 
           </div>
         </div>
       ))}
+      {viewing && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black/90" onClick={() => setViewing(null)}>
+          <div className="flex items-center justify-between p-3 text-white">
+            <span className="text-sm">{viewing.category}</span>
+            <button type="button" onClick={() => setViewing(null)} className="rounded-md px-3 py-1 text-sm ring-1 ring-white/40">
+              ปิด
+            </button>
+          </div>
+          <div className="flex flex-1 items-center justify-center overflow-auto p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- รูปจาก Drive/signed URL ภายนอก */}
+            <img src={viewing.full} alt={viewing.category} className="max-h-full max-w-full object-contain" onClick={(e) => e.stopPropagation()} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

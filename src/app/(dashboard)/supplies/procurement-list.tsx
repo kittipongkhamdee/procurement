@@ -576,26 +576,27 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
 function SheetsModal({ type, request }: { type: ProcurementType; request: Request }) {
   return (
     <Modal
-      title={`พิมพ์แยกแผ่น — ${request.doc_no}`}
+      title={`พิมพ์เอกสาร — ${request.doc_no}`}
       lazy
       trigger={
         <span className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />
-          แยกแผ่น
+          พิมพ์
         </span>
       }
     >
       <div className="grid gap-2">
+        <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
+          <PrinterIcon className="h-4 w-4" />
+          พิมพ์ทั้งชุด ({procurementSheets(type).length} แผ่น)
+        </a>
+        <p className="mt-2 text-sm font-medium text-slate-600">หรือเลือกพิมพ์แยกแผ่น</p>
         {procurementSheets(type).map((s) => (
           <a key={s.no} href={pdfHref(request.id, s.no)} target="_blank" rel="noopener" className="btn-secondary justify-start">
             <PrinterIcon className="h-4 w-4" />
             แผ่นที่ {s.no} · {s.label}
           </a>
         ))}
-        <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
-          <PrinterIcon className="h-4 w-4" />
-          พิมพ์ทั้งชุด ({procurementSheets(type).length} แผ่น)
-        </a>
       </div>
     </Modal>
   );
@@ -723,10 +724,6 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
   function actions(r: Request) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <a href={pdfHref(r.id)} target="_blank" rel="noopener" className="btn-secondary btn-sm">
-          <PrinterIcon className="h-3.5 w-3.5" />
-          พิมพ์ทั้งชุด
-        </a>
         <DetailModal type={type} request={r} />
         <ProcurementPhotosButton requestId={r.id} count={r.proc_purchase_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
         <SheetsModal type={type} request={r} />
