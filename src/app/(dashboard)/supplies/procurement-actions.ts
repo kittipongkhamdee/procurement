@@ -77,6 +77,12 @@ async function replaceItems(supabase: Awaited<ReturnType<typeof createClient>>, 
   return error?.message ?? null;
 }
 
+/** จำตำแหน่งผู้ตรวจรับไว้กับชื่อครู ให้ฟอร์มครั้งต่อไปเติมให้อัตโนมัติ (บันทึกไม่สำเร็จก็ไม่กระทบรายการหลัก) */
+async function rememberPosition(supabase: Awaited<ReturnType<typeof createClient>>, name: string | null, position: string | null) {
+  if (!name || !position) return;
+  await supabase.from("proc_teacher_positions").upsert({ teacher_name: name, position, updated_at: new Date().toISOString() });
+}
+
 function done(id?: string): Result {
   revalidatePath("/supplies/purchase");
   revalidatePath("/supplies/hire");
@@ -99,6 +105,7 @@ export async function createProcurement(formData: FormData): Promise<Result> {
   if (error) return { error: error.message };
   const itemError = await replaceItems(supabase, data.id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
+  await rememberPosition(supabase, parsed.fields.inspector_name, parsed.fields.inspector_position);
   return done(data.id);
 }
 
@@ -116,6 +123,7 @@ export async function updateProcurement(id: string, formData: FormData): Promise
   if (!data?.length) return { error: NO_PERMISSION };
   const itemError = await replaceItems(supabase, id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
+  await rememberPosition(supabase, parsed.fields.inspector_name, parsed.fields.inspector_position);
   return done();
 }
 

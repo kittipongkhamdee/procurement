@@ -42,7 +42,10 @@ type Request = {
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
 type ItemSuggestions = { names: string[]; units: string[]; defaults: Record<string, ItemDefaults> };
-type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; vendors: Option[]; teachers: string[] };
+type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; vendors: Option[]; teachers: string[]; positions: Record<string, string> };
+
+// ตำแหน่งผู้ตรวจรับ — ระบบจำตำแหน่งที่เลือกไว้กับชื่อครู (proc_teacher_positions) แล้วเติมให้ครั้งต่อไป
+const POSITIONS = ["ครูผู้ช่วย", "ครู", "ครูชำนาญการ", "ครูชำนาญการพิเศษ", "ครูเชี่ยวชาญ"];
 
 const TERMS: Record<ProcurementType, { party: string; item: string; reason: string; penalty: number }> = {
   ซื้อ: { party: "ผู้ขาย", item: "พัสดุที่จะซื้อ", reason: "ใช้ในการ...", penalty: 0.2 },
@@ -80,6 +83,7 @@ function ProcurementModal({
   const [itemsLoaded, setItemsLoaded] = useState(!request);
   const [recordDate, setRecordDate] = useState<string | null>(request?.record_date ?? null);
   const [deliveryDate, setDeliveryDate] = useState<string | null>(request?.delivery_date ?? null);
+  const [inspectorPosition, setInspectorPosition] = useState(request?.inspector_position ?? "");
   const total = itemRowsTotal(items);
   const days = recordDate && deliveryDate && deliveryDate >= recordDate ? Math.round((Date.parse(deliveryDate) - Date.parse(recordDate)) / 86_400_000) + 1 : null;
 
@@ -277,7 +281,16 @@ function ProcurementModal({
           </div>
           <div>
             <label className="label">ผู้ตรวจรับพัสดุ</label>
-            <input name="inspector_name" list={`proc-teachers-${type}`} defaultValue={request?.inspector_name ?? ""} className="input w-full" />
+            <input
+              name="inspector_name"
+              list={`proc-teachers-${type}`}
+              defaultValue={request?.inspector_name ?? ""}
+              onChange={(e) => {
+                const pos = lookups.positions[e.target.value.trim()];
+                if (pos) setInspectorPosition(pos);
+              }}
+              className="input w-full"
+            />
             <datalist id={`proc-teachers-${type}`}>
               {lookups.teachers.map((n) => (
                 <option key={n} value={n} />
@@ -286,7 +299,15 @@ function ProcurementModal({
           </div>
           <div>
             <label className="label">ตำแหน่งผู้ตรวจรับ</label>
-            <input name="inspector_position" defaultValue={request?.inspector_position ?? ""} placeholder="เช่น ครูชำนาญการพิเศษ" className="input w-full" />
+            <select name="inspector_position" value={inspectorPosition} onChange={(e) => setInspectorPosition(e.target.value)} className="input w-full">
+              <option value="">-- เลือกตำแหน่ง --</option>
+              {inspectorPosition && !POSITIONS.includes(inspectorPosition) && <option value={inspectorPosition}>{inspectorPosition}</option>}
+              {POSITIONS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
           </div>
         </fieldset>
 
@@ -342,7 +363,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
   const [requests, setRequests] = useState<Request[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], vendors: [], teachers: [] });
+  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], vendors: [], teachers: [], positions: {} });
   const [itemSuggestions, setItemSuggestions] = useState<ItemSuggestions | null>(null);
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
@@ -352,7 +373,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
     setFiscalYear(currentYear?.year ?? null);
-    const [{ data, error }, { data: nos }, { data: projects }, { data: activities }, { data: groups }, { data: vendors }, { data: teachers }] = await Promise.all([
+    const [{ data, error }, { data: nos }, { data: projects }, { data: activities }, { data: groups }, { data: vendors }, { data: teachers }, { data: positions }] = await Promise.all([
       supabase
         .from("proc_purchase_requests")
         .select(
@@ -369,6 +390,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
       supabase.from("proc_vendors").select("id, name").order("name"),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
+      supabase.from("proc_teacher_positions").select("teacher_name, position"),
     ]);
     setError(error?.message ?? null);
     setRequests((data as unknown as Request[]) ?? []);
@@ -379,6 +401,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       groups: groups ?? [],
       vendors: vendors ?? [],
       teachers: (teachers ?? []).map((t) => t.name),
+      positions: Object.fromEntries((positions ?? []).map((p) => [p.teacher_name, p.position])),
     });
   }, [type]);
 

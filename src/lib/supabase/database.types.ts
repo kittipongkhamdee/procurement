@@ -2531,6 +2531,24 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_teacher_positions: {
+        Row: {
+          position: string
+          teacher_name: string
+          updated_at: string
+        }
+        Insert: {
+          position: string
+          teacher_name: string
+          updated_at?: string
+        }
+        Update: {
+          position?: string
+          teacher_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proc_vendors: {
         Row: {
           amphoe: string | null

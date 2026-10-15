@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
+import { ThaiAddressInput } from "@/components/thai-address-input";
 import type { Tables } from "@/lib/supabase/database.types";
 import { createVendor, deleteVendor } from "./actions";
 
@@ -33,6 +34,8 @@ export default function VendorsPage() {
     reload();
   }, [reload]);
 
+  const [addressKey, setAddressKey] = useState(0);
+
   async function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
@@ -41,6 +44,7 @@ export default function VendorsPage() {
       await createVendor(formData);
       await toastSuccess("บันทึกข้อมูลเรียบร้อยแล้ว");
       form.reset();
+      setAddressKey((k) => k + 1); // ช่องที่อยู่เก็บค่าใน state ของตัวเอง form.reset() ล้างไม่ถึง — remount ใหม่
       reload();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -73,10 +77,10 @@ export default function VendorsPage() {
           <input name="phone" placeholder="โทรศัพท์" className="input" />
           <input name="house_no" placeholder="เลขที่" className="input" />
           <input name="moo" placeholder="หมู่ที่" className="input" />
-          <input name="tambon" placeholder="ตำบล" className="input" />
-          <input name="amphoe" placeholder="อำเภอ" className="input" />
-          <input name="province" placeholder="จังหวัด" className="input" />
-          <input name="zipcode" placeholder="รหัสไปรษณีย์" className="input" />
+          <div className="sm:col-span-3">
+            <p className="mb-1 text-xs text-slate-500">พิมพ์ตำบล อำเภอ จังหวัด หรือรหัสไปรษณีย์ แล้วเลือกจากรายการ ช่องที่เหลือจะเติมให้อัตโนมัติ</p>
+            <ThaiAddressInput key={addressKey} />
+          </div>
           <button type="submit" className="btn-primary sm:col-span-3">
             บันทึกข้อมูล
           </button>
