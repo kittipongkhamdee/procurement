@@ -720,7 +720,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       {show("w804_request") && (
         <Page size="A4" style={styles.page}>
           <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject={`รายงานขอซื้อ${d.item_name} โดยวิธีเฉพาะเจาะจง`} />
-          <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school} ผ่าน หัวหน้าเจ้าหน้าที่`)}</Text>
+          <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
           <Para
             keep={keep}
             text={`ด้วย${d.admin_group ?? "-"} มีความประสงค์จะซื้อ ${d.item_name} จำนวน ${d.items.length} รายการ สำหรับโครงการ/กิจกรรม ${plan || "-"} โดยวิธีเฉพาะเจาะจง ประจำปีงบประมาณ พ.ศ. ${fy} ตาม${W804_REF} ซึ่งได้รับยกเว้นการปฏิบัติตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560 ข้อ 22 วรรคหนึ่ง ข้อ 79 วรรคหนึ่ง และข้อ 175 (1) ซึ่งมีรายละเอียดดังต่อไปนี้`}
