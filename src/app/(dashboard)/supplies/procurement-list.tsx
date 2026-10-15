@@ -16,6 +16,7 @@ import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/comp
 import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 import { procurementSheets } from "@/lib/pdf/procurement-sheets";
+import { PhotoGroups, ProcurementPhotosButton, loadProcurementPhotos, type ProcurementPhoto } from "./procurement-photos";
 import { createProcurement, deleteProcurement, updateProcurement } from "./procurement-actions";
 
 export type ProcurementType = "ซื้อ" | "จ้าง";
@@ -44,6 +45,7 @@ type Request = {
   plan_projects: { name: string } | null;
   plan_activities: { name: string } | null;
   proc_vendors: { name: string } | null;
+  proc_purchase_photos: { id: string }[];
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
@@ -471,10 +473,18 @@ function ProcurementModal({
 
 const PAGE_SIZE = 20;
 
+const NO_PHOTO_BADGE = (
+  <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+    ยังไม่ได้อัพรูปอ้างอิง
+  </span>
+);
+
 /** รายละเอียดรายการ — โหลดตารางรายการเมื่อเปิด */
 function DetailModal({ type, request: r }: { type: ProcurementType; request: Request }) {
   const [items, setItems] = useState<{ name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null }[] | null>(null);
+  const [photos, setPhotos] = useState<ProcurementPhoto[] | null>(null);
   function load() {
+    if (!photos) loadProcurementPhotos(r.id).then(setPhotos);
     if (items) return;
     createClient()
       .from("proc_purchase_items")
@@ -523,6 +533,8 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
           </div>
         ))}
       </dl>
+      <h3 className="mb-2 mt-4 text-sm font-semibold text-navy-800">รูปอ้างอิง</h3>
+      {photos === null ? <p className="text-sm text-slate-500">กำลังโหลด...</p> : <PhotoGroups photos={photos} />}
       <h3 className="mb-2 mt-4 text-sm font-semibold text-navy-800">รายการ</h3>
       {items === null ? (
         <p className="text-sm text-slate-500">กำลังโหลด...</p>
@@ -608,7 +620,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id)",
       )
       .eq("doc_type", type);
     if (currentYear) {
@@ -716,6 +728,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
           พิมพ์ทั้งชุด
         </a>
         <DetailModal type={type} request={r} />
+        <ProcurementPhotosButton requestId={r.id} count={r.proc_purchase_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
         <SheetsModal type={type} request={r} />
         {isProcStaff && (
           <ProcurementModal type={type} request={r} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo="" onSaved={reload} />
@@ -773,6 +786,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-slate-900">{r.doc_no}</span>
                     <span className="text-sm text-slate-700">{r.item_name}</span>
+                    {!r.proc_purchase_photos?.length && NO_PHOTO_BADGE}
                   </div>
                   <p className="mt-0.5 text-sm text-slate-700">{r.proc_vendors?.name ?? `ยังไม่ระบุ${TERMS[type].party}`}</p>
                   <p className="text-xs text-slate-500">{r.plan_projects?.name ?? "ไม่ระบุโครงการ"}</p>
@@ -806,6 +820,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
                     <td>{formatThaiDate(r.record_date)}</td>
                     <td>
                       <div>{r.item_name}</div>
+                      {!r.proc_purchase_photos?.length && <div className="mt-1 [&>span]:text-sm">{NO_PHOTO_BADGE}</div>}
                       <div className="text-sm text-slate-500">{r.plan_projects?.name ?? ""}</div>
                     </td>
                     <td>{r.proc_vendors?.name ?? "-"}</td>

@@ -5,6 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { deleteFromStorage } from "@/lib/storage";
 
 type Result = { error?: string; id?: string };
 type ItemInput = { name: string; qty: string; unit: string; unitPrice: string };
@@ -165,8 +166,37 @@ export async function updateProcurement(id: string, formData: FormData): Promise
 
 export async function deleteProcurement(id: string): Promise<Result> {
   const supabase = await createClient();
+  const { data: photos } = await supabase.from("proc_purchase_photos").select("file_ref").eq("purchase_request_id", id);
   const { data, error } = await supabase.from("proc_purchase_requests").delete().eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: NO_PERMISSION };
+  // ลบไฟล์รูปอ้างอิงตามไปด้วย (แถวในตารางถูกลบอัตโนมัติด้วย on delete cascade)
+  await Promise.all((photos ?? []).map((p) => deleteFromStorage(supabase, p.file_ref, "procurement-files").catch(() => {})));
+  return done();
+}
+
+// ---- รูปอ้างอิง (ใบส่งของ / ใบส่งมอบงาน / ใบเสร็จรับเงิน / ใบสำคัญรับเงิน ฯลฯ) ----
+// ไฟล์อัปโหลดจาก browser ตรงไปปลายทางที่ระบบตั้งไว้ (uploadFileDirect) แล้วบันทึก ref ที่นี่
+
+export async function addProcurementPhotos(requestId: string, photos: { category: string; ref: string }[]): Promise<Result> {
+  const valid = photos.filter((p) => p.category.trim() && (/^gdrive:[\w-]+$/.test(p.ref) || /^procurement-photos\/[\w.-]+$/.test(p.ref)));
+  if (valid.length === 0) return { error: "ไม่มีรูปที่บันทึกได้" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("proc_purchase_photos")
+    .insert(valid.map((p) => ({ purchase_request_id: requestId, category: p.category.trim(), file_ref: p.ref })));
+  if (error) {
+    await Promise.all(valid.map((p) => deleteFromStorage(supabase, p.ref, "procurement-files").catch(() => {})));
+    return { error: error.message };
+  }
+  return done();
+}
+
+export async function deleteProcurementPhoto(id: string): Promise<Result> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("proc_purchase_photos").delete().eq("id", id).select("file_ref");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: NO_PERMISSION };
+  await deleteFromStorage(supabase, data[0].file_ref, "procurement-files").catch(() => {});
   return done();
 }

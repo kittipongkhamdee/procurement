@@ -2345,6 +2345,38 @@ export type Database = {
           },
         ]
       }
+      proc_purchase_photos: {
+        Row: {
+          category: string
+          created_at: string
+          file_ref: string
+          id: string
+          purchase_request_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          file_ref: string
+          id?: string
+          purchase_request_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          file_ref?: string
+          id?: string
+          purchase_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_purchase_photos_purchase_request_id_fkey"
+            columns: ["purchase_request_id"]
+            isOneToOne: false
+            referencedRelation: "proc_purchase_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_purchase_requests: {
         Row: {
           activity_id: string | null
