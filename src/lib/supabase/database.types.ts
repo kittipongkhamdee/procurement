@@ -2362,6 +2362,7 @@ export type Database = {
           item_name: string | null
           pdf_url: string | null
           penalty_rate: number | null
+          order_signer: string | null
           project_id: string | null
           reason: string | null
           record_date: string
@@ -2386,6 +2387,7 @@ export type Database = {
           item_name?: string | null
           pdf_url?: string | null
           penalty_rate?: number | null
+          order_signer?: string | null
           project_id?: string | null
           reason?: string | null
           record_date: string
@@ -2410,6 +2412,7 @@ export type Database = {
           item_name?: string | null
           pdf_url?: string | null
           penalty_rate?: number | null
+          order_signer?: string | null
           project_id?: string | null
           reason?: string | null
           record_date?: string

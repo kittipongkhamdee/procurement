@@ -34,6 +34,7 @@ type Request = {
   inspector_name: string | null;
   inspector_position: string | null;
   penalty_rate: number | null;
+  order_signer: string | null;
   amount: number;
   plan_projects: { name: string } | null;
   proc_vendors: { name: string } | null;
@@ -267,6 +268,13 @@ function ProcurementModal({
             <label className="label">ค่าปรับต่อวัน (ร้อยละ)</label>
             <input type="number" inputMode="decimal" step="0.01" min="0" name="penalty_rate" defaultValue={request?.penalty_rate ?? terms.penalty} className="input w-full text-right" />
           </div>
+          <div className="sm:col-span-2">
+            <label className="label">ผู้ลงนามใบสั่ง{type}</label>
+            <select name="order_signer" defaultValue={request?.order_signer ?? "head"} className="input w-full">
+              <option value="head">หัวหน้าเจ้าหน้าที่</option>
+              <option value="director">ผู้อำนวยการโรงเรียน</option>
+            </select>
+          </div>
           <div>
             <label className="label">ผู้ตรวจรับพัสดุ</label>
             <input name="inspector_name" list={`proc-teachers-${type}`} defaultValue={request?.inspector_name ?? ""} className="input w-full" />
@@ -348,7 +356,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       supabase
         .from("proc_purchase_requests")
         .select(
-          "id, doc_no, record_date, delivery_date, admin_group, project_id, activity_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, amount, plan_projects(name), proc_vendors(name)",
+          "id, doc_no, record_date, delivery_date, admin_group, project_id, activity_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), proc_vendors(name)",
         )
         .eq("doc_type", type)
         .order("record_date", { ascending: false })

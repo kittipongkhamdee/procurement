@@ -10,7 +10,7 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
   const { data: pr } = await supabase
     .from("proc_purchase_requests")
     .select(
-      "doc_type, doc_no, record_date, delivery_date, work_days, admin_group, item_name, reason, amount, penalty_rate, inspector_name, inspector_position, plan_projects(name), plan_activities(name), proc_vendors(name, house_no, moo, tambon, amphoe, province, phone, tax_id)",
+      "doc_type, doc_no, record_date, delivery_date, work_days, admin_group, item_name, reason, amount, penalty_rate, order_signer, inspector_name, inspector_position, plan_projects(name), plan_activities(name), proc_vendors(name, house_no, moo, tambon, amphoe, province, phone, tax_id)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -36,6 +36,7 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
     reason: pr.reason,
     amount: Number(pr.amount),
     penalty_rate: pr.penalty_rate != null ? Number(pr.penalty_rate) : null,
+    order_signer: pr.order_signer === "director" ? "director" : "head",
     inspector_name: pr.inspector_name,
     inspector_position: pr.inspector_position,
     vendor: pr.proc_vendors as unknown as ProcurementSetData["vendor"],

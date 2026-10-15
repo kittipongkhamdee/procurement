@@ -54,6 +54,7 @@ function parse(formData: FormData) {
       inspector_name: str("inspector_name") || null,
       inspector_position: str("inspector_position") || null,
       penalty_rate: penalty ? Number(penalty) : null,
+      order_signer: str("order_signer") === "director" ? "director" : "head",
       amount,
     },
     items,

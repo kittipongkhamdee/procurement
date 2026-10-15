@@ -59,6 +59,7 @@ export type ProcurementSetData = {
   reason: string | null;
   amount: number;
   penalty_rate: number | null;
+  order_signer: "head" | "director" | null;
   inspector_name: string | null;
   inspector_position: string | null;
   vendor: {
@@ -238,7 +239,12 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const officer = d.procurement_officer;
   const head = d.procurement_head;
   const itemRows = d.items.map((it, i) => ({ ...it, seq: i + 1 }));
-  const L = PAGE_W / 2 - PAD_LEFT; // แนวกึ่งกลางกระดาษ (สำหรับลายเซ็นฝั่งขวา)
+  const L = PAGE_W / 2 - PAD_LEFT;
+  // ผู้ลงนามสั่งซื้อ/สั่งจ้าง เลือกได้ระหว่างหัวหน้าเจ้าหน้าที่ (ค่าเริ่มต้น) กับผู้อำนวยการโรงเรียน
+  const orderer =
+    d.order_signer === "director"
+      ? { name: d.director, position: `ผู้อำนวยการ${school}` }
+      : { name: head, position: "หัวหน้าเจ้าหน้าที่" }; // แนวกึ่งกลางกระดาษ (สำหรับลายเซ็นฝั่งขวา)
 
   return (
     <Document title={`${verb} ${d.item_name} ${d.doc_no}`}>
@@ -525,7 +531,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             text={`6. โรงเรียนสงวนสิทธิ์ที่จะไม่รับมอบถ้าปรากฏว่าสินค้านั้นมีลักษณะไม่ตรงตามรายการที่ระบุไว้ในใบสั่ง${verb}${isHire ? " กรณีนี้ผู้รับจ้างจะต้องดำเนินการเปลี่ยนใหม่ให้ถูกต้องตามใบสั่งจ้างทุกประการ" : ""}`}
           />
           <View style={{ flexDirection: "row", marginTop: 24 }} wrap={false}>
-            <Sign role={`ผู้สั่ง${verb}`} name={head} extra={[isHire ? "หัวหน้าเจ้าหน้าที่" : "ตำแหน่ง หัวหน้าเจ้าหน้าที่", `วันที่ ${recordDate}`]} style={{ width: L }} />
+            <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${recordDate}`]} style={{ width: L }} />
             <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${recordDate}`]} />
           </View>
         </Page>
@@ -574,7 +580,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             total={amount}
           />
           <View style={{ flexDirection: "row", marginTop: 24 }} wrap={false}>
-            <Sign role={`ผู้สั่ง${verb}`} name={head} extra={["ตำแหน่ง หัวหน้าเจ้าหน้าที่", `วันที่ ${recordDate}`]} style={{ width: L }} />
+            <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${recordDate}`]} style={{ width: L }} />
             <Sign role={party} name={null} extra={["ตำแหน่ง ..............................", `วันที่ ${recordDate}`]} />
           </View>
         </Page>
