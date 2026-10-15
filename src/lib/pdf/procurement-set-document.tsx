@@ -96,9 +96,7 @@ export type ProcurementSetData = {
 };
 
 /** จำนวนรายการสูงสุดที่ใส่ในหัวข้อ 1 ของรายงานขอซื้อ ว.804 ได้โดยไม่ล้นหน้าแรก */
-const W804_INLINE_MAX = 5;
-/** ความยาวข้อความรายการรวมสูงสุด (ประมาณ 2 บรรทัด) */
-const W804_INLINE_CHARS = 200;
+const W804_INLINE_MAX = 2;
 
 const W804_REF =
   "หนังสือคณะกรรมการวินิจฉัยปัญหาการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 804 ลงวันที่ 12 พฤศจิกายน 2568 เรื่อง แนวทางปฏิบัติสำหรับการจัดซื้อวงเงินไม่เกิน 50,000 บาท";
@@ -287,11 +285,11 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const unit = `${school}${d.education_area ? `  ${d.education_area}` : ""}`;
   const plan = [d.admin_group, d.project_name, d.activity_name].filter(Boolean).join(" ");
   const fy = fiscalYearOf(d.record_date);
-  // ว.804 หัวข้อ 1: เรียงรายการต่อกันเป็นย่อหน้าเดียว (ประหยัดบรรทัดให้ส่วนลงชื่ออยู่หน้าแรก) — ยาวเกินให้อ้างรายละเอียดที่แนบ
-  const w804SpecJoined = d.items
-    .map((it, i) => `${i + 1}) ${it.name ?? ""}${it.qty != null ? ` จำนวน ${it.qty.toLocaleString("th-TH")} ${it.unit ?? ""}` : ""}`.trim())
-    .join(" ");
-  const w804SpecText = d.items.length <= W804_INLINE_MAX && w804SpecJoined.length <= W804_INLINE_CHARS ? w804SpecJoined : null;
+  // ว.804 หัวข้อ 1: รายการละบรรทัด ย่อหน้าเข้าไปเท่าหัวข้อ — เกิน W804_INLINE_MAX รายการให้อ้างรายละเอียดที่แนบ (หน้าแรกจะล้น)
+  const w804SpecText =
+    d.items.length <= W804_INLINE_MAX
+      ? d.items.map((it, i) => `${i + 1}) ${it.name ?? ""}${it.qty != null ? ` จำนวน ${it.qty.toLocaleString("th-TH")} ${it.unit ?? ""}` : ""}`.trim())
+      : null;
   const officer = d.procurement_officer;
   const head = d.procurement_head;
   const itemRows = d.items.map((it, i) => ({ ...it, seq: i + 1 }));
@@ -730,7 +728,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             text={`ด้วย${d.admin_group ?? "-"} มีความประสงค์จะซื้อ ${d.item_name} จำนวน ${d.items.length} รายการ สำหรับโครงการ/กิจกรรม ${plan || "-"} โดยวิธีเฉพาะเจาะจง ประจำปีงบประมาณ พ.ศ. ${fy} ตาม${W804_REF} ซึ่งได้รับยกเว้นการปฏิบัติตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560 ข้อ 22 วรรคหนึ่ง ข้อ 79 วรรคหนึ่ง และข้อ 175 (1) ซึ่งมีรายละเอียดดังต่อไปนี้`}
           />
           {[
-            ["1. รายละเอียดคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน (ระเบียบฯ ข้อ 21 วรรคหนึ่ง)", w804SpecText ?? "รายละเอียดตามคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน ที่แนบ"],
+            ["1. รายละเอียดคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน (ระเบียบฯ ข้อ 21 วรรคหนึ่ง)", w804SpecText ?? "รายละเอียดตามคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน ที่แนบ"] as [string, string | string[]],
             ["2. วงเงินที่จะซื้อ", `วงเงินงบประมาณ ${amount} บาท ${amountText}`],
             ["3. ราคากลางของพัสดุที่จะซื้อ", `จำนวน ${amount} บาท ${amountText} โดยใช้วงเงินตาม (2) เป็นราคากลางของพัสดุที่จะซื้อในครั้งนี้`],
             [
@@ -741,7 +739,11 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             <View key={h as string} style={{ marginBottom: 2 }}>
               <Text style={[styles.bold, { marginLeft: INDENT }]}>{t(h as string)}</Text>
               {(Array.isArray(body) ? body : [body]).map((line, i) => (
-                <Para key={i} keep={keep} text={line} style={{ marginBottom: 0 }} />
+                Array.isArray(body) ? (
+                  <Para key={i} keep={keep} text={line} restIndent={INDENT + 14} style={{ marginBottom: 0 }} />
+                ) : (
+                  <Para key={i} keep={keep} text={line} style={{ marginBottom: 0 }} />
+                )
               ))}
             </View>
           ))}
