@@ -46,10 +46,23 @@ function parse(formData: FormData) {
   const deliveredDate = str("delivered_date") || null;
   const inspectedDate = str("inspected_date") || null;
   const reportDate = str("report_date") || null;
-  if (orderDate && orderDate < recordDate) return { error: `วันสั่ง${docType}ต้องไม่ก่อนวันที่บันทึกข้อความ` };
+  // ลำดับวันต้องไม่ย้อนกัน: บันทึกขอ ≤ สั่งซื้อ/สั่งจ้าง ≤ ส่งของ/ส่งมอบงาน ≤ ตรวจรับ ≤ รายงานผล
+  // (ช่องที่ไม่กรอกข้ามไป เทียบกับวันก่อนหน้าที่มี) — วันขออนุมัติตรวจใน checkApproval
+  const deliverLabel = docType === "จ้าง" ? "วันส่งมอบงาน" : "วันส่งของ";
+  const chain: [string, string | null][] = [
+    ["วันที่บันทึกขอ" + docType, recordDate],
+    [`วันสั่ง${docType}`, orderDate],
+    [deliverLabel, deliveredDate],
+    ["วันตรวจรับ", inspectedDate],
+    ["วันรายงานผล", reportDate],
+  ];
+  let prev: [string, string] = [chain[0][0], recordDate];
+  for (const [label, date] of chain.slice(1)) {
+    if (!date) continue;
+    if (date < prev[1]) return { error: `${label}ต้องไม่ก่อน${prev[0]}` };
+    prev = [label, date];
+  }
   if (orderDate && deliveryDate < orderDate) return { error: `วันครบกำหนดส่งมอบต้องไม่ก่อนวันสั่ง${docType}` };
-  if (inspectedDate && deliveredDate && inspectedDate < deliveredDate) return { error: "วันตรวจรับต้องไม่ก่อนวันส่งมอบ" };
-  if (reportDate && inspectedDate && reportDate < inspectedDate) return { error: "วันรายงานผลต้องไม่ก่อนวันตรวจรับ" };
   return {
     fields: {
       doc_type: docType as "ซื้อ" | "จ้าง",
@@ -112,10 +125,11 @@ async function rememberPosition(supabase: Awaited<ReturnType<typeof createClient
 }
 
 /** ยอดรวมงานซื้อ/งานจ้างที่อ้างอิงบันทึกขออนุมัติเดียวกัน (ไม่นับรายการ `excludeId`) + ยอดนี้ ต้องไม่เกินวงเงินที่ขออนุมัติ */
-async function checkApprovalBudget(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string, amount: number, excludeId?: string) {
-  const { data: approval } = await supabase.from("proc_approvals").select("requested_amount, status").eq("id", approvalId).maybeSingle();
+async function checkApprovalBudget(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string, amount: number, recordDate: string, excludeId?: string) {
+  const { data: approval } = await supabase.from("proc_approvals").select("requested_amount, status, doc_date").eq("id", approvalId).maybeSingle();
   if (!approval) return "ไม่พบบันทึกขออนุมัติที่อ้างอิง";
   if (approval.status === "ไม่อนุมัติ") return "บันทึกขออนุมัติที่อ้างอิงไม่ได้รับอนุมัติ";
+  if (approval.doc_date && recordDate < approval.doc_date) return "วันที่บันทึกขอต้องไม่ก่อนวันที่บันทึกขออนุมัติที่อ้างอิง";
   let q = supabase.from("proc_purchase_requests").select("amount").eq("approval_id", approvalId);
   if (excludeId) q = q.neq("id", excludeId);
   const { data: others } = await q;
@@ -139,7 +153,7 @@ export async function createProcurement(formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
-  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount);
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date);
   if (budgetError) return { error: budgetError };
   const {
     data: { user },
@@ -160,7 +174,7 @@ export async function updateProcurement(id: string, formData: FormData): Promise
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
-  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, id);
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date, id);
   if (budgetError) return { error: budgetError };
   // แก้ไขแล้ว PDF ที่เคยเก็บไว้ (pdf_url) ไม่ตรงข้อมูลใหม่ — ล้างทิ้ง ให้สร้างสดจาก route แทน
   const { data, error } = await supabase
