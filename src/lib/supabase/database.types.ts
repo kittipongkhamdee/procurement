@@ -2348,6 +2348,7 @@ export type Database = {
       proc_purchase_requests: {
         Row: {
           activity_id: string | null
+          approval_id: string | null
           admin_group: string | null
           amount: number
           created_at: string
@@ -2377,6 +2378,7 @@ export type Database = {
         }
         Insert: {
           activity_id?: string | null
+          approval_id?: string | null
           admin_group?: string | null
           amount?: number
           created_at?: string
@@ -2406,6 +2408,7 @@ export type Database = {
         }
         Update: {
           activity_id?: string | null
+          approval_id?: string | null
           admin_group?: string | null
           amount?: number
           created_at?: string

@@ -36,6 +36,8 @@ function parse(formData: FormData) {
   const amount = Math.round(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0) * 100) / 100;
   if (!(amount > 0)) return { error: "ยอดรวมรายการต้องมากกว่า 0" };
 
+  const approvalId = str("approval_id");
+  if (!approvalId) return { error: "กรุณาเลือกบันทึกขออนุมัติที่อ้างอิง" };
   const penalty = str("penalty_rate");
   // วันแต่ละขั้นตอน (ไม่บังคับ) — ไม่กรอก PDF จะใช้วันตามขั้นก่อนหน้าแทน
   const orderDate = str("order_date") || null;
@@ -67,6 +69,7 @@ function parse(formData: FormData) {
       inspector_name: str("inspector_name") || null,
       inspector_position: str("inspector_position") || null,
       penalty_rate: penalty ? Number(penalty) : null,
+      approval_id: approvalId,
       order_signer: str("order_signer") === "director" ? "director" : "head",
       amount,
     },
@@ -96,6 +99,22 @@ async function rememberPosition(supabase: Awaited<ReturnType<typeof createClient
   await supabase.from("proc_teacher_positions").upsert({ teacher_name: name, position, updated_at: new Date().toISOString() });
 }
 
+/** ยอดรวมงานซื้อ/งานจ้างที่อ้างอิงบันทึกขออนุมัติเดียวกัน (ไม่นับรายการ `excludeId`) + ยอดนี้ ต้องไม่เกินวงเงินที่ขออนุมัติ */
+async function checkApprovalBudget(supabase: Awaited<ReturnType<typeof createClient>>, approvalId: string, amount: number, excludeId?: string) {
+  const { data: approval } = await supabase.from("proc_approvals").select("requested_amount, status").eq("id", approvalId).maybeSingle();
+  if (!approval) return "ไม่พบบันทึกขออนุมัติที่อ้างอิง";
+  if (approval.status === "ไม่อนุมัติ") return "บันทึกขออนุมัติที่อ้างอิงไม่ได้รับอนุมัติ";
+  let q = supabase.from("proc_purchase_requests").select("amount").eq("approval_id", approvalId);
+  if (excludeId) q = q.neq("id", excludeId);
+  const { data: others } = await q;
+  const used = (others ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  const remaining = Math.round((Number(approval.requested_amount) - used) * 100) / 100;
+  if (amount > remaining + 0.005) {
+    return `ยอดรวมเกินวงเงินคงเหลือของบันทึกขออนุมัติ (คงเหลือ ${remaining.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท)`;
+  }
+  return null;
+}
+
 function done(id?: string): Result {
   revalidatePath("/supplies/purchase");
   revalidatePath("/supplies/hire");
@@ -107,6 +126,8 @@ export async function createProcurement(formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount);
+  if (budgetError) return { error: budgetError };
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -126,6 +147,8 @@ export async function updateProcurement(id: string, formData: FormData): Promise
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, id);
+  if (budgetError) return { error: budgetError };
   // แก้ไขแล้ว PDF ที่เคยเก็บไว้ (pdf_url) ไม่ตรงข้อมูลใหม่ — ล้างทิ้ง ให้สร้างสดจาก route แทน
   const { data, error } = await supabase
     .from("proc_purchase_requests")

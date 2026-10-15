@@ -32,6 +32,7 @@ type Request = {
   admin_group: string | null;
   project_id: string | null;
   activity_id: string | null;
+  approval_id: string | null;
   item_name: string | null;
   reason: string | null;
   vendor_id: string | null;
@@ -47,7 +48,27 @@ type Request = {
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
 type ItemSuggestions = { names: string[]; units: string[]; defaults: Record<string, ItemDefaults> };
-type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; vendors: Option[]; teachers: string[]; positions: Record<string, string> };
+/** บันทึกขออนุมัติที่อ้างอิงได้ — used = ยอดงานซื้อ/งานจ้างที่อ้างอิงบันทึกนี้ไปแล้ว (ทุกรายการ) */
+type ApprovalRef = {
+  id: string;
+  doc_number: string | null;
+  subject: string;
+  activity_name: string | null;
+  department: string | null;
+  project_id: string | null;
+  requested_amount: number;
+  status: string;
+  used: number;
+};
+type Lookups = {
+  projects: Option[];
+  activities: Activity[];
+  groups: Option[];
+  vendors: Option[];
+  teachers: string[];
+  positions: Record<string, string>;
+  approvals: ApprovalRef[];
+};
 
 // ตำแหน่งผู้ตรวจรับ — ระบบจำตำแหน่งที่เลือกไว้กับชื่อครู (proc_teacher_positions) แล้วเติมให้ครั้งต่อไป
 // พิมพ์ในเอกสารเป็น "ตำแหน่ง <ค่าที่เลือก>" เช่น "ตำแหน่ง ครู วิทยฐานะครูชำนาญการ"
@@ -92,6 +113,55 @@ function ProcurementModal({
   const terms = TERMS[type];
   const [saving, setSaving] = useState(false);
   const [projectId, setProjectId] = useState(request?.project_id ?? "");
+  const [activityId, setActivityId] = useState(request?.activity_id ?? "");
+  const [adminGroup, setAdminGroup] = useState(request?.admin_group ?? "");
+  const [approvalId, setApprovalId] = useState(request?.approval_id ?? "");
+  const [pulling, setPulling] = useState(false);
+  const approval = lookups.approvals.find((a) => a.id === approvalId) ?? null;
+  // วงเงินคงเหลือของบันทึกขออนุมัติ (ไม่นับยอดเดิมของรายการนี้เองตอนแก้ไข)
+  const approvalRemaining = approval
+    ? Math.round((approval.requested_amount - approval.used + (request?.approval_id === approval.id ? Number(request.amount) : 0)) * 100) / 100
+    : null;
+
+  function selectApproval(id: string) {
+    setApprovalId(id);
+    const a = lookups.approvals.find((x) => x.id === id);
+    if (!a) return;
+    // ดึงโครงการ/กิจกรรม/ฝ่ายจากบันทึกขออนุมัติมาเป็นค่าเริ่มต้น (แก้ได้)
+    if (a.project_id) {
+      setProjectId(a.project_id);
+      const act = lookups.activities.find((x) => x.project_id === a.project_id && x.name === a.activity_name);
+      setActivityId(act?.id ?? "");
+    }
+    if (a.department) setAdminGroup(a.department);
+  }
+
+  async function pullApprovalItems() {
+    if (!approvalId) return;
+    setPulling(true);
+    const { data } = await createClient()
+      .from("proc_approval_items")
+      .select("name, qty, unit, unit_price, note")
+      .eq("approval_id", approvalId)
+      .order("seq");
+    setPulling(false);
+    const rows = (data ?? []).filter((r) => r.name?.trim());
+    if (rows.length === 0) {
+      await toastError("บันทึกขออนุมัตินี้ไม่มีรายการวัสดุ");
+      return;
+    }
+    setItems(
+      rows.map((r) => ({
+        name: r.name ?? "",
+        qty: r.qty != null ? String(r.qty) : "",
+        unit: r.unit ?? "",
+        unitPrice: r.unit_price != null ? String(r.unit_price) : "",
+        note: r.note ?? "",
+      })),
+    );
+    setItemsLoaded(true);
+    await toastSuccess(`ดึงรายการวัสดุ ${rows.length} รายการแล้ว`);
+  }
   const [items, setItems] = useState<ItemRow[]>([{ ...EMPTY_ITEM_ROW }]);
   const [itemsLoaded, setItemsLoaded] = useState(!request);
   const [recordDate, setRecordDate] = useState<string | null>(request?.record_date ?? null);
@@ -133,6 +203,10 @@ function ProcurementModal({
     e.preventDefault();
     const form = e.currentTarget;
     const filled = items.filter((r) => r.name.trim());
+    if (approvalRemaining != null && total > approvalRemaining + 0.005) {
+      await toastError(`ยอดรวมรายการเกินวงเงินคงเหลือของบันทึกขออนุมัติ (${formatBaht(approvalRemaining)} บาท)`);
+      return;
+    }
     if (filled.length === 0 || total <= 0) {
       await toastError("กรุณากรอกรายการอย่างน้อย 1 รายการ และยอดรวมต้องมากกว่า 0");
       return;
@@ -188,6 +262,27 @@ function ProcurementModal({
         <input type="hidden" name="doc_type" value={type} />
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
+          <div className="sm:col-span-2">
+            <label className="label">
+              อ้างอิงบันทึกขออนุมัติ <span className="text-red-600">*</span>
+            </label>
+            <select name="approval_id" value={approvalId} onChange={(e) => selectApproval(e.target.value)} required className="input w-full">
+              <option value="">-- เลือกบันทึกขออนุมัติ --</option>
+              {lookups.approvals.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.doc_number ?? "(ไม่มีเลขที่)"} · {a.activity_name || a.subject} · {formatBaht(a.requested_amount)} บาท{a.status === "อนุมัติ" ? "" : ` (${a.status})`}
+                </option>
+              ))}
+            </select>
+            {approval && approvalRemaining != null && (
+              <p className={`mt-1 text-xs ${total > approvalRemaining + 0.005 ? "text-red-600" : "text-slate-500"}`}>
+                วงเงินที่ขออนุมัติ {formatBaht(approval.requested_amount)} บาท · ใช้ไปแล้ว {formatBaht(approval.requested_amount - approvalRemaining)} บาท · คงเหลือ{" "}
+                {formatBaht(approvalRemaining)} บาท
+                {total > approvalRemaining + 0.005 ? " — ยอดรายการเกินวงเงินคงเหลือ" : ""}
+              </p>
+            )}
+            {lookups.approvals.length === 0 && <p className="mt-1 text-xs text-red-600">ยังไม่มีบันทึกขออนุมัติในปีงบประมาณนี้ — ต้องทำบันทึกขออนุมัติก่อน</p>}
+          </div>
           <div>
             <label className="label">
               เลขที่ <span className="text-red-600">*</span>
@@ -202,11 +297,9 @@ function ProcurementModal({
           </div>
           <div>
             <label className="label">กลุ่มสาระ/ฝ่าย</label>
-            <select name="admin_group" defaultValue={request?.admin_group ?? ""} className="input w-full">
+            <select name="admin_group" value={adminGroup} onChange={(e) => setAdminGroup(e.target.value)} className="input w-full">
               <option value="">-- ไม่ระบุ --</option>
-              {request?.admin_group && !lookups.groups.some((g) => g.name === request.admin_group) && (
-                <option value={request.admin_group}>{request.admin_group}</option>
-              )}
+              {adminGroup && !lookups.groups.some((g) => g.name === adminGroup) && <option value={adminGroup}>{adminGroup}</option>}
               {lookups.groups.map((g) => (
                 <option key={g.id} value={g.name}>
                   {g.name}
@@ -216,7 +309,15 @@ function ProcurementModal({
           </div>
           <div>
             <label className="label">โครงการ</label>
-            <select name="project_id" value={projectId} onChange={(e) => setProjectId(e.target.value)} className="input w-full">
+            <select
+              name="project_id"
+              value={projectId}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                setActivityId("");
+              }}
+              className="input w-full"
+            >
               <option value="">-- ไม่ระบุ --</option>
               {projectOptions.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -227,7 +328,7 @@ function ProcurementModal({
           </div>
           <div className="sm:col-span-2">
             <label className="label">กิจกรรม</label>
-            <select name="activity_id" key={projectId} defaultValue={request?.project_id === projectId ? (request?.activity_id ?? "") : ""} disabled={!projectId} className="input w-full">
+            <select name="activity_id" value={activityId} onChange={(e) => setActivityId(e.target.value)} disabled={!projectId} className="input w-full">
               <option value="">{projectId ? "-- ไม่ระบุ --" : "-- เลือกโครงการก่อน --"}</option>
               {activityOptions.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -250,6 +351,11 @@ function ProcurementModal({
 
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-navy-800">รายการ</legend>
+          {type === "ซื้อ" && approvalId && (
+            <button type="button" onClick={pullApprovalItems} disabled={pulling} className="btn-secondary btn-sm mb-2">
+              {pulling ? "กำลังดึง..." : "ดึงรายการวัสดุจากบันทึกขออนุมัติ"}
+            </button>
+          )}
           <ItemRowsEditor
             rows={items}
             onChange={setItems}
@@ -488,7 +594,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
   const [requests, setRequests] = useState<Request[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], vendors: [], teachers: [], positions: {} });
+  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], vendors: [], teachers: [], positions: {}, approvals: [] });
   const [itemSuggestions, setItemSuggestions] = useState<ItemSuggestions | null>(null);
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
@@ -502,14 +608,33 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, amount, plan_projects(name), plan_activities(name), proc_vendors(name)",
       )
       .eq("doc_type", type);
     if (currentYear) {
       const ce = currentYear.year - 543;
       listQuery = listQuery.gte("record_date", `${ce - 1}-10-01`).lte("record_date", `${ce}-09-30`);
     }
-    const [{ data, error }, { data: nos }, { data: projects }, { data: activities }, { data: groups }, { data: vendors }, { data: teachers }, { data: positions }] = await Promise.all([
+    let approvalQuery = supabase
+      .from("proc_approvals")
+      .select("id, doc_number, subject, activity_name, department, project_id, requested_amount, status")
+      .neq("status", "ไม่อนุมัติ");
+    if (currentYear) {
+      const ce = currentYear.year - 543;
+      approvalQuery = approvalQuery.gte("doc_date", `${ce - 1}-10-01`).lte("doc_date", `${ce}-09-30`);
+    }
+    const [
+      { data, error },
+      { data: nos },
+      { data: projects },
+      { data: activities },
+      { data: groups },
+      { data: vendors },
+      { data: teachers },
+      { data: positions },
+      { data: approvals },
+      { data: usage },
+    ] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("proc_purchase_requests").select("doc_no"),
       currentYear
@@ -520,7 +645,11 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       supabase.from("proc_vendors").select("id, name").order("name"),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("proc_teacher_positions").select("teacher_name, position"),
+      approvalQuery.order("doc_date", { ascending: false }),
+      supabase.from("proc_purchase_requests").select("approval_id, amount").not("approval_id", "is", null),
     ]);
+    const usedBy = new Map<string, number>();
+    (usage ?? []).forEach((u) => usedBy.set(u.approval_id as string, (usedBy.get(u.approval_id as string) ?? 0) + Number(u.amount)));
     setError(error?.message ?? null);
     setRequests((data as unknown as Request[]) ?? []);
     setAllDocNos((nos ?? []).map((r) => r.doc_no));
@@ -531,6 +660,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
       vendors: vendors ?? [],
       teachers: (teachers ?? []).map((t) => t.name),
       positions: Object.fromEntries((positions ?? []).map((p) => [p.teacher_name, p.position])),
+      approvals: (approvals ?? []).map((a) => ({ ...a, requested_amount: Number(a.requested_amount), used: usedBy.get(a.id) ?? 0 })),
     });
   }, [type]);
 
