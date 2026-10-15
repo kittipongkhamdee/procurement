@@ -241,15 +241,25 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const keep = [schoolCore, ...(v?.name ?? "").split(/\s+/), v?.tambon, v?.amphoe, v?.province, d.inspector_name ?? ""].filter((x): x is string => !!x);
   const recordDate = formatThaiDate(d.record_date);
   const deliveryDate = formatThaiDate(d.delivery_date);
-  // วันแต่ละขั้น ไม่กรอก = ใช้ค่าตามขั้นก่อนหน้า (สั่งซื้อ/จ้าง = วันบันทึก, ส่งมอบ = ครบกำหนด, ตรวจรับ = วันส่งมอบ)
-  const orderDate = formatThaiDate(d.order_date ?? d.record_date);
-  const deliveredDate = formatThaiDate(d.delivered_date ?? d.delivery_date);
-  const inspectedDate = formatThaiDate(d.inspected_date ?? d.delivered_date ?? d.delivery_date);
+  // วันแต่ละขั้น ไม่กรอก = ใช้วันที่บันทึกข้อความ (ผู้ใช้กำหนด)
+  const orderIso = d.order_date ?? d.record_date;
+  const deliveredIso = d.delivered_date ?? d.record_date;
+  const inspectedIso = d.inspected_date ?? d.record_date;
+  const reportIso = d.report_date ?? d.record_date;
+  const orderDate = formatThaiDate(orderIso);
+  const deliveredDate = formatThaiDate(deliveredIso);
+  const inspectedDate = formatThaiDate(inspectedIso);
   const amount = formatBaht(d.amount);
   const amountText = thaiBahtText(d.amount);
   const amountTextBare = amountText.replace(/^\(|\)$/g, "");
   const days = d.work_days ?? 0;
   const penalty = d.penalty_rate ?? (isHire ? 0.1 : 0.2);
+  // ค่าปรับ: ส่งมอบช้ากว่าวันครบกำหนด → วันละ (อัตรา% × ราคา) งานจ้างขั้นต่ำวันละ 100 บาท ตามเงื่อนไขในใบสั่ง
+  const lateDays = Math.max(0, Math.round((Date.parse(deliveredIso) - Date.parse(d.delivery_date)) / 86_400_000));
+  const finePerDay = lateDays > 0 ? Math.max(Math.round(d.amount * (penalty / 100) * 100) / 100, isHire ? 100 : 0) : 0;
+  const fineTotal = Math.round(finePerDay * lateDays * 100) / 100;
+  const payable = Math.round((d.amount - fineTotal) * 100) / 100;
+  const dash = (n: number) => (n > 0 ? formatBaht(n) : "-");
   const unit = `${school}${d.education_area ? `  ${d.education_area}` : ""}`;
   const plan = [d.admin_group, d.project_name, d.activity_name].filter(Boolean).join(" ");
   const officer = d.procurement_officer;
@@ -630,7 +640,13 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
               {t(isHire ? `3. ตรวจรับพัสดุตามใบส่งมอบงาน เลขที่...............ลงวันที่ ${deliveredDate}` : `3. ตรวจรับพัสดุตามใบส่งของ เล่มที่..........เลขที่..................ลงวันที่ ${deliveredDate}`)}
             </Text>
             <Text>{t(`4. ได้ตรวจรับ${isHire ? "งานจ้าง" : "พัสดุ"}ถูกต้องทุกประการ ตั้งแต่วันที่ ${inspectedDate}`)}</Text>
-            <Text>{t(`5. ส่งมอบ${thing}เกินกำหนด......-....วัน  ค่าปรับวันละ......-......บาท  รวมค่าปรับ..........-.........บาท`)}</Text>
+            <Text>
+              {t(
+                lateDays > 0
+                  ? `5. ส่งมอบ${thing}เกินกำหนด ${lateDays} วัน  ค่าปรับวันละ ${formatBaht(finePerDay)} บาท  รวมค่าปรับ ${formatBaht(fineTotal)} บาท`
+                  : `5. ส่งมอบ${thing}เกินกำหนด......-....วัน  ค่าปรับวันละ......-......บาท  รวมค่าปรับ..........-.........บาท`,
+              )}
+            </Text>
           </View>
           <Para
             keep={keep}
@@ -643,7 +659,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       {/* ๘. บันทึกข้อความ รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน */}
       {show("disburse") && (
         <Page size="A4" style={styles.page}>
-          <MemoHeader unit={unit} docNumber={null} isoDate={d.report_date ?? d.inspected_date ?? d.delivered_date ?? d.delivery_date} subject="รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน" />
+          <MemoHeader unit={unit} docNumber={null} isoDate={reportIso} subject="รายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน" />
           <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
           <Para
             keep={keep}
@@ -651,7 +667,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           />
           <Para
             keep={keep}
-            text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveredDate} ซึ่งจะต้องจ่ายเงิน ให้แก่${party} เป็นเงิน ${amount} บาท หักภาษี ณ ที่จ่าย...-...บาท คงเหลือ ${amount} บาท`}
+            text={`บัดนี้ผู้ตรวจรับพัสดุได้ตรวจรับพัสดุตามใบสั่ง${verb}ถูกต้อง และได้รับมอบพัสดุเมื่อวันที่ ${deliveredDate} ซึ่งจะต้องจ่ายเงิน ให้แก่${party} เป็นเงิน ${amount} บาท${fineTotal > 0 ? ` หักค่าปรับ ${dash(fineTotal)} บาท` : ""} หักภาษี ณ ที่จ่าย...-...บาท คงเหลือ ${formatBaht(payable)} บาท`}
           />
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนเพื่อโปรด")}</Text>
           <View style={{ marginLeft: INDENT + 20 }}>
@@ -661,7 +677,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Para
             keep={keep}
             indent={INDENT + 20}
-            text={`2. อนุมัติเบิกจ่ายเงินให้แก่ ${vendorName}${isHire ? "" : " หรือผู้ทดรองจ่ายไปก่อน"} เป็นเงิน ${amount} บาท ${amountText}`}
+            text={`2. อนุมัติเบิกจ่ายเงินให้แก่ ${vendorName}${isHire ? "" : " หรือผู้ทดรองจ่ายไปก่อน"} เป็นเงิน ${formatBaht(payable)} บาท ${thaiBahtText(payable)}`}
           />
           <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 14 }} />
           <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginLeft: L, marginTop: 12 }} />

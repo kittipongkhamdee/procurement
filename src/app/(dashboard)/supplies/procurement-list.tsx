@@ -326,7 +326,7 @@ function ProcurementModal({
 
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-1 text-sm font-semibold text-navy-800">วันที่แต่ละขั้นตอน</legend>
-          <p className="text-xs text-slate-500 sm:col-span-2">ไม่บังคับ — กรอกเมื่อถึงขั้นนั้น ถ้าเว้นว่าง เอกสารจะใช้วันตามขั้นก่อนหน้าแทน</p>
+          <p className="text-xs text-slate-500 sm:col-span-2">ไม่บังคับ — กรอกเมื่อถึงขั้นนั้น ถ้าเว้นว่าง เอกสารจะใช้วันที่บันทึกข้อความ · ส่งมอบช้ากว่าวันครบกำหนด ระบบคำนวณค่าปรับในใบตรวจรับให้อัตโนมัติ</p>
           <div>
             <label className="label">วันสั่ง{type} (ลงนามใบสั่ง{type})</label>
             <ThaiDatePicker name="order_date" defaultValue={request?.order_date ?? null} />
