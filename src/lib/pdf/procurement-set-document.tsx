@@ -735,7 +735,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             ],
           ].map(([h, body]) => (
             <View key={h as string} style={{ marginBottom: 2 }}>
-              <Text style={[styles.bold, { marginLeft: INDENT }]}>{t(h as string)}</Text>
+              <Text style={{ marginLeft: INDENT }}>{t(h as string)}</Text>
               {(Array.isArray(body) ? body : [body]).map((line, i) => (
                 Array.isArray(body) ? (
                   <Para key={i} keep={keep} text={line} restIndent={INDENT + 14} style={{ marginBottom: 0 }} />
