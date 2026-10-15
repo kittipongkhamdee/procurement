@@ -850,9 +850,9 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
                 d.receipt_date ? formatThaiDate(d.receipt_date) : "......"
               } และได้รับมอบพัสดุไว้ครบถ้วนเรียบร้อยแล้ว เมื่อวันที่ ${d.delivered_date ? formatThaiDate(d.delivered_date) : "......"}`}
             />
-            <Sign role="ผู้ตรวจรับพัสดุ (ผู้ได้รับมอบหมาย)" name={d.inspector_name} style={{ marginLeft: L, marginTop: 4 }} />
+            <Sign role="ผู้ตรวจรับพัสดุ (ผู้ได้รับมอบหมาย)" name={d.inspector_name} style={{ marginLeft: L - 50, marginTop: 4 }} />
             <Text style={{ marginLeft: INDENT, marginTop: 16 }}>{t("จึงเรียนมาเพื่อโปรดทราบและขออนุมัติเบิกจ่ายต่อไป")}</Text>
-            <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 6 }} />
+            <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L - 50, marginTop: 6 }} />
             <View style={{ marginTop: 6 }}>
               <Text>{t("- ทราบ")}</Text>
               <Text>{t("- อนุมัติ")}</Text>
