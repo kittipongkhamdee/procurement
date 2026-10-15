@@ -805,7 +805,6 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
                   <th>วันที่บันทึก</th>
                   <th>รายการ</th>
                   <th>{TERMS[type].party}</th>
-                  <th>ครบกำหนดส่งมอบ</th>
                   <th className="text-right">จำนวนเงิน</th>
                   <th></th>
                 </tr>
@@ -821,14 +820,13 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
                       <div className="text-sm text-slate-500">{r.plan_projects?.name ?? ""}</div>
                     </td>
                     <td>{r.proc_vendors?.name ?? "-"}</td>
-                    <td>{formatThaiDate(r.delivery_date)}</td>
                     <td className="text-right font-semibold text-slate-900">{formatBaht(Number(r.amount))}</td>
                     <td className="text-right">{actions(r)}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="table-empty">
+                    <td colSpan={6} className="table-empty">
                       {query ? "ไม่พบรายการที่ค้นหา" : "ยังไม่มีข้อมูล"}
                     </td>
                   </tr>
