@@ -181,9 +181,13 @@ export function ProcurementPhotosButton({
       lazy
       onOpenChange={setOpen}
       trigger={
-        <span className={count > 0 ? "btn-secondary btn-sm" : "btn-secondary btn-sm border-amber-300 text-amber-800"}>
+        <span
+          title={count > 0 ? `รูปอ้างอิง (${count})` : "อัพรูปอ้างอิง"}
+          className={count > 0 ? "btn-secondary btn-sm" : "btn-secondary btn-sm border-amber-300 text-amber-800"}
+        >
           <UploadIcon className="h-3.5 w-3.5" />
-          {count > 0 ? `รูปอ้างอิง (${count})` : "อัพรูปอ้างอิง"}
+          <span className="btn-label">{count > 0 ? `รูปอ้างอิง (${count})` : "อัพรูปอ้างอิง"}</span>
+          {count > 0 && <span className="hidden text-xs [td_&]:inline">{count}</span>}
         </span>
       }
     >

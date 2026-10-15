@@ -248,9 +248,9 @@ function ProcurementModal({
       onOpenChange={(open) => open && loadItems()}
       trigger={
         request ? (
-          <span className="btn-secondary btn-sm">
+          <span title="แก้ไข" className="btn-secondary btn-sm">
             <PencilIcon className="h-3.5 w-3.5" />
-            แก้ไข
+            <span className="btn-label">แก้ไข</span>
           </span>
         ) : (
           <span className="btn-gold inline-flex items-center gap-2">
@@ -519,9 +519,9 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
       lazy
       onOpenChange={(open) => open && load()}
       trigger={
-        <span className="btn-secondary btn-sm">
+        <span title="รายละเอียด" className="btn-secondary btn-sm">
           <SearchIcon className="h-3.5 w-3.5" />
-          รายละเอียด
+          <span className="btn-label">รายละเอียด</span>
         </span>
       }
     >
@@ -579,9 +579,9 @@ function SheetsModal({ type, request }: { type: ProcurementType; request: Reques
       title={`พิมพ์เอกสาร — ${request.doc_no}`}
       lazy
       trigger={
-        <span className="btn-secondary btn-sm">
+        <span title="พิมพ์" className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />
-          พิมพ์
+          <span className="btn-label">พิมพ์</span>
         </span>
       }
     >
@@ -723,7 +723,7 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
 
   function actions(r: Request) {
     return (
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
         <DetailModal type={type} request={r} />
         <ProcurementPhotosButton requestId={r.id} count={r.proc_purchase_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
         <SheetsModal type={type} request={r} />
@@ -731,9 +731,9 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
           <ProcurementModal type={type} request={r} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo="" onSaved={reload} />
         )}
         {isAdmin && (
-          <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
+          <button type="button" onClick={() => handleDelete(r)} title="ลบ" className="btn-danger btn-sm">
             <TrashIcon className="h-3.5 w-3.5" />
-            ลบ
+            <span className="btn-label">ลบ</span>
           </button>
         )}
       </div>
@@ -821,7 +821,8 @@ export function ProcurementList({ type, title, subtitle }: { type: ProcurementTy
                     </td>
                     <td>{r.proc_vendors?.name ?? "-"}</td>
                     <td className="text-right font-semibold text-slate-900">{formatBaht(Number(r.amount))}</td>
-                    <td className="text-right">{actions(r)}</td>
+                    {/* จอกว้าง: ปุ่มเหลือแค่ไอคอน (ชื่อปุ่มยังอยู่ให้โปรแกรมอ่านหน้าจอ + ขึ้น tooltip) ไม่ให้เบียดคอลัมน์ข้อมูล */}
+                    <td className="whitespace-nowrap text-right [&_.btn-label]:sr-only [&_.btn-sm]:px-2">{actions(r)}</td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
