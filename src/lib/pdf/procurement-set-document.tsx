@@ -95,6 +95,9 @@ export type ProcurementSetData = {
   spec_author: string | null;
 };
 
+/** จำนวนรายการสูงสุดที่ใส่ในหัวข้อ 1 ของรายงานขอซื้อ ว.804 ได้โดยไม่ล้นหน้าแรก */
+const W804_INLINE_MAX = 5;
+
 const W804_REF =
   "หนังสือคณะกรรมการวินิจฉัยปัญหาการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 804 ลงวันที่ 12 พฤศจิกายน 2568 เรื่อง แนวทางปฏิบัติสำหรับการจัดซื้อวงเงินไม่เกิน 50,000 บาท";
 
@@ -282,6 +285,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const unit = `${school}${d.education_area ? `  ${d.education_area}` : ""}`;
   const plan = [d.admin_group, d.project_name, d.activity_name].filter(Boolean).join(" ");
   const fy = fiscalYearOf(d.record_date);
+  const w804SpecInline = d.items.length <= W804_INLINE_MAX;
   const officer = d.procurement_officer;
   const head = d.procurement_head;
   const itemRows = d.items.map((it, i) => ({ ...it, seq: i + 1 }));
@@ -710,6 +714,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
       )}
 
       {/* ===== ว.804 ซื้อไม่เกิน 50,000 บาท ===== */}
+      {/* ว.804 หัวข้อ 1: รายการน้อยใส่ในบันทึกเลย ถ้าเกิน W804_INLINE_MAX รายการ (หน้าแรกจะล้น) ให้อ้างรายละเอียดแนบหน้า 2 แทน */}
       {show("w804_request") && (
         <Page size="A4" style={styles.page}>
           <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject={`รายงานขอซื้อ${d.item_name} โดยวิธีเฉพาะเจาะจง`} />
@@ -719,7 +724,9 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             text={`ด้วย${d.admin_group ?? "-"} มีความประสงค์จะซื้อ ${d.item_name} จำนวน ${d.items.length} รายการ สำหรับโครงการ/กิจกรรม ${plan || "-"} โดยวิธีเฉพาะเจาะจง ประจำปีงบประมาณ พ.ศ. ${fy} ตาม${W804_REF} ซึ่งได้รับยกเว้นการปฏิบัติตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560 ข้อ 22 วรรคหนึ่ง ข้อ 79 วรรคหนึ่ง และข้อ 175 (1) ซึ่งมีรายละเอียดดังต่อไปนี้`}
           />
           {[
-            ["1. รายละเอียดคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน (ระเบียบฯ ข้อ 21 วรรคหนึ่ง)", "รายละเอียดตามคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน ที่แนบ"],
+            ["1. รายละเอียดคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน (ระเบียบฯ ข้อ 21 วรรคหนึ่ง)", w804SpecInline
+              ? d.items.map((it, i) => `${i + 1}) ${it.name ?? ""}${it.qty != null ? ` จำนวน ${it.qty.toLocaleString("th-TH")} ${it.unit ?? ""}` : ""}`.trim())
+              : ["รายละเอียดตามคุณลักษณะเฉพาะของพัสดุหรือขอบเขตของงาน ที่แนบ"]],
             ["2. วงเงินที่จะซื้อ", `วงเงินงบประมาณ ${amount} บาท ${amountText} โดยใช้จ่ายจากเงินงบประมาณรายจ่ายประจำปีงบประมาณ พ.ศ. ${fy}`],
             ["3. ราคากลางของพัสดุที่จะซื้อ", `จำนวน ${amount} บาท ${amountText} โดยใช้วงเงินตาม (2) เป็นราคากลางของพัสดุที่จะซื้อในครั้งนี้`],
             [
@@ -727,9 +734,11 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
               `มอบหมายให้ ${d.inspector_name ?? "...................."} ตำแหน่ง ${d.inspector_position ?? "...................."} เป็นผู้มีหน้าที่ดำเนินการจัดซื้อกับผู้ประกอบการที่มีอาชีพขายพัสดุโดยตรง และเป็นผู้ตรวจรับพัสดุในครั้งนี้`,
             ],
           ].map(([h, body]) => (
-            <View key={h}>
-              <Text style={[styles.bold, { marginLeft: INDENT }]}>{t(h)}</Text>
-              <Para keep={keep} text={body} style={{ marginBottom: 2 }} />
+            <View key={h as string} style={{ marginBottom: 2 }}>
+              <Text style={[styles.bold, { marginLeft: INDENT }]}>{t(h as string)}</Text>
+              {(Array.isArray(body) ? body : [body]).map((line, i) => (
+                <Para key={i} keep={keep} text={line} style={{ marginBottom: 0 }} />
+              ))}
             </View>
           ))}
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณา หากเห็นชอบได้โปรด")}</Text>
