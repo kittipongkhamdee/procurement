@@ -22,7 +22,14 @@ export type ClaimCalc = { kind: string; rate: number | null; units: number | nul
 /** มีอัตราต่อหน่วย = คำนวณ rate × units × people × days (ช่องที่ไม่กรอกนับเป็น 1) ไม่มี = กรอกจำนวนเงินเอง */
 export function claimAmount(c: ClaimCalc): number | null {
   if (c.rate == null) return null;
-  return Math.round(c.rate * (c.units ?? 1) * (c.people ?? 1) * (c.days ?? 1) * 100) / 100;
+  const u = usedFields(c);
+  return Math.round(c.rate * (u.units ?? 1) * (u.people ?? 1) * (u.days ?? 1) * 100) / 100;
+}
+
+/** ใช้เฉพาะช่องที่ประเภทนั้นมีจริง — กันค่าค้างจากประเภทเดิม (เช่น เปลี่ยนจากค่าอาหาร 50 คน มาเป็นค่าพาหนะ) */
+function usedFields(c: ClaimCalc) {
+  const k = CLAIM_KINDS[c.kind as ClaimKind] ?? CLAIM_KINDS.other;
+  return { units: k.units ? c.units : null, people: k.people ? c.people : null, days: k.days ? c.days : null };
 }
 
 const n = (x: number) => x.toLocaleString("th-TH", { maximumFractionDigits: 2 });
@@ -31,11 +38,12 @@ const n = (x: number) => x.toLocaleString("th-TH", { maximumFractionDigits: 2 })
 export function claimCalcText(c: ClaimCalc): string {
   if (c.rate == null) return "";
   const k = CLAIM_KINDS[c.kind as ClaimKind] ?? CLAIM_KINDS.other;
+  const u = usedFields(c);
   const parts: string[] = [];
-  if (c.units != null && k.units) parts.push(`${n(c.units)} ${k.units}`);
+  if (u.units != null && k.units) parts.push(`${n(u.units)} ${k.units}`);
   parts.push(`${n(c.rate)} บาท`);
-  if (c.people != null) parts.push(`${n(c.people)} คน`);
-  if (c.days != null) parts.push(`${n(c.days)} วัน`);
+  if (u.people != null) parts.push(`${n(u.people)} คน`);
+  if (u.days != null) parts.push(`${n(u.days)} วัน`);
   return parts.join(" x ");
 }
 

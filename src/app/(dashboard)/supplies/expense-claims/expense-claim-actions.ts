@@ -6,7 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { deleteFromStorage } from "@/lib/storage";
-import { claimAmount } from "@/lib/expense-claims";
+import { CLAIM_KINDS, claimAmount, type ClaimKind } from "@/lib/expense-claims";
 
 type Result = { error?: string; id?: string };
 export type ClaimItemInput = {
@@ -50,7 +50,15 @@ function parse(formData: FormData) {
   }
   if (items.length === 0) return { error: "กรุณากรอกรายการอย่างน้อย 1 รายการ" };
   const rows = items.map((i, idx) => {
-    const calc = { kind: i.kind, rate: numOrNull(i.rate), units: numOrNull(i.units), people: numOrNull(i.people), days: numOrNull(i.days) };
+    // เก็บเฉพาะช่องที่ประเภทนั้นใช้ (ค่าค้างจากประเภทเดิมทิ้งไป)
+    const k = CLAIM_KINDS[i.kind as ClaimKind] ?? CLAIM_KINDS.other;
+    const calc = {
+      kind: i.kind,
+      rate: numOrNull(i.rate),
+      units: k.units ? numOrNull(i.units) : null,
+      people: k.people ? numOrNull(i.people) : null,
+      days: k.days ? numOrNull(i.days) : null,
+    };
     const amount = claimAmount(calc) ?? Number(i.amount);
     return {
       seq: idx + 1,

@@ -333,7 +333,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
                       onChange={(e) => {
                         const kind = e.target.value as ClaimKind;
                         const wasDefault = it.name === k.label;
-                        setItem(idx, { kind, rate_id: "", rate: "", name: wasDefault ? CLAIM_KINDS[kind].label : it.name, evidence: CLAIM_KINDS[kind].evidence });
+                        setItem(idx, { kind, rate_id: "", rate: "", units: "", people: "", days: "", name: wasDefault ? CLAIM_KINDS[kind].label : it.name, evidence: CLAIM_KINDS[kind].evidence });
                       }}
                       className="input w-full"
                     >
