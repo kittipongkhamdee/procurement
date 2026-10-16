@@ -3,7 +3,7 @@ import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
 import { addWorkingDays, evidenceRule, RECEIPT_ESSENTIALS } from "@/lib/w119";
 import { t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
-import { B, CONTENT_W, FS, INDENT, Para, SLACK, Sign, styles, wrap } from "./procurement-set-document";
+import { B, CM, CONTENT_W, FS, INDENT, Para, SLACK, Sign, styles, wrap } from "./procurement-set-document";
 
 // ว.119 — บันทึกรายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน (ค่าใช้จ่ายในการบริหารงาน
 // การฝึกอบรม การจัดงาน และการประชุม วงเงินครั้งหนึ่งไม่เกิน 10,000 บาท) ตามหนังสือ กค (กวจ) 0405.2/ว 119 ลว. 7 มี.ค. 2561
@@ -119,8 +119,11 @@ export function W119Document({ data: d }: { data: W119Data }) {
   const L = 595.28 / 2 - 2.5 * 28.3465;
   return (
     <Document title={`ว.119 ${d.doc_no}`}>
-      <Page size="A4" style={styles.page}>
-        <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject="รายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน" />
+      {/* หน้าต่อ (หน้า 2 เป็นต้นไป) ขอบบน 2.5 ซม. — หน้าแรกดึงหัวบันทึกขึ้นกลับไปที่ 1.5 ซม. ด้วย margin ติดลบ */}
+      <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
+        <View style={{ marginTop: -CM }}>
+          <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject="รายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน" />
+        </View>
         <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
         <Para
           keep={keep}
