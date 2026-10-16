@@ -1760,6 +1760,9 @@ export type Database = {
       }
       proc_approvals: {
         Row: {
+          planning_ack_by_name: string | null
+          planning_ack_at: string | null
+          planning_note: string | null
           activity_name: string | null
           addressed_to: string
           approve_note: string | null
@@ -1795,6 +1798,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          planning_ack_by_name?: string | null
+          planning_ack_at?: string | null
+          planning_note?: string | null
           activity_name?: string | null
           addressed_to: string
           approve_note?: string | null
@@ -1830,6 +1836,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          planning_ack_by_name?: string | null
+          planning_ack_at?: string | null
+          planning_note?: string | null
           activity_name?: string | null
           addressed_to?: string
           approve_note?: string | null
@@ -2143,6 +2152,7 @@ export type Database = {
       }
       proc_profiles: {
         Row: {
+          real_role: Database["public"]["Enums"]["proc_user_role"] | null
           avatar_url: string | null
           created_at: string
           full_name: string
@@ -2153,6 +2163,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          real_role?: Database["public"]["Enums"]["proc_user_role"] | null
           avatar_url?: string | null
           created_at?: string
           full_name: string
@@ -2163,6 +2174,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          real_role?: Database["public"]["Enums"]["proc_user_role"] | null
           avatar_url?: string | null
           created_at?: string
           full_name?: string
@@ -3044,6 +3056,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      proc_set_acting_role: {
+        Args: { new_role: string | null }
+        Returns: undefined
+      }
+      proc_real_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["proc_user_role"]
+      }
       asset_admin_delete_user: {
         Args: { target_user_id: string }
         Returns: undefined
@@ -3123,6 +3143,7 @@ export type Database = {
         | "teacher"
         | "director"
         | "deputy_director"
+        | "planning_officer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3269,6 +3290,7 @@ export const Constants = {
         "teacher",
         "director",
         "deputy_director",
+        "planning_officer",
       ],
     },
   },

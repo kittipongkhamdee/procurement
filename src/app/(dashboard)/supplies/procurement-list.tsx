@@ -36,6 +36,7 @@ type Request = {
   project_id: string | null;
   activity_id: string | null;
   approval_id: string | null;
+  proc_approvals?: { status: string } | null;
   item_name: string | null;
   reason: string | null;
   vendor_id: string | null;
@@ -304,6 +305,11 @@ function ProcurementModal({
                 วงเงินที่ขออนุมัติ {formatBaht(approval.requested_amount)} บาท · ใช้ไปแล้ว {formatBaht(approval.requested_amount - approvalRemaining)} บาท · คงเหลือ{" "}
                 {formatBaht(approvalRemaining)} บาท
                 {total > approvalRemaining + 0.005 ? " — ยอดรายการเกินวงเงินคงเหลือ" : ""}
+              </p>
+            )}
+            {approval && approval.status !== "อนุมัติ" && (
+              <p className="mt-1 rounded-md bg-red-50 px-2 py-1 text-sm text-red-700">
+                ⚠ บันทึกขออนุมัตินี้ยัง &quot;{approval.status}&quot; — บันทึกและพิมพ์แผ่นที่ 1 (บันทึกขอ) ได้ แต่แผ่นถัดไปพิมพ์ได้เมื่อผู้อำนวยการอนุมัติแล้ว (วงเงินถูกกันไว้แล้ว)
               </p>
             )}
             {lookups.approvals.length === 0 && <p className="mt-1 text-xs text-red-600">ยังไม่มีบันทึกขออนุมัติในปีงบประมาณนี้ — ต้องทำบันทึกขออนุมัติก่อน</p>}
@@ -702,7 +708,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
 }
 
 /** เลือกพิมพ์แยกทีละแผ่น */
-function SheetsModal({ type, request }: { type: ProcurementType; request: Request }) {
+function SheetsModal({ type, request, approved }: { type: ProcurementType; request: Request; approved: boolean }) {
   return (
     <Modal
       title={`พิมพ์เอกสาร — ${request.doc_no}`}
@@ -715,17 +721,31 @@ function SheetsModal({ type, request }: { type: ProcurementType; request: Reques
       }
     >
       <div className="grid gap-2">
+        {!approved && (
+          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            บันทึกขออนุมัติยังไม่อนุมัติ — พิมพ์ได้เฉพาะแผ่นที่ 1 (บันทึกขอ) แผ่นถัดไปพิมพ์ได้เมื่อผู้อำนวยการอนุมัติแล้ว
+          </p>
+        )}
+        {approved && (
         <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
           <PrinterIcon className="h-4 w-4" />
           พิมพ์ทั้งชุด ({procurementSheets(type, request.method === "w804", request.proc_purchase_items.length).length} แผ่น)
         </a>
+        )}
         <p className="mt-2 text-sm font-medium text-slate-600">หรือเลือกพิมพ์แยกแผ่น</p>
-        {procurementSheets(type, request.method === "w804", request.proc_purchase_items.length).map((s) => (
+        {procurementSheets(type, request.method === "w804", request.proc_purchase_items.length).map((s) =>
+          !approved && s.no !== 1 ? (
+            <span key={s.no} className="btn-secondary justify-start cursor-not-allowed opacity-50" title="รอบันทึกขออนุมัติได้รับอนุมัติ">
+              <PrinterIcon className="h-4 w-4" />
+              แผ่นที่ {s.no} · {s.label} (รออนุมัติ)
+            </span>
+          ) : (
           <a key={s.no} href={pdfHref(request.id, s.no)} target="_blank" rel="noopener" className="btn-secondary justify-start">
             <PrinterIcon className="h-4 w-4" />
             แผ่นที่ {s.no} · {s.label}
           </a>
-        ))}
+          ),
+        )}
       </div>
     </Modal>
   );
@@ -752,7 +772,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id), proc_approvals(status)",
       )
       .eq("doc_type", type)
       .eq("method", method);
@@ -846,12 +866,15 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     reload();
   }
 
+  const approvedOf = (r: Request) => r.proc_approvals?.status === "อนุมัติ";
+
   function actions(r: Request) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
         <DetailModal type={type} request={r} />
         <ProcurementPhotosButton requestId={r.id} count={r.proc_purchase_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
-        <SheetsModal type={type} request={r} />
+        {!approvedOf(r) && <span className="badge-amber !text-sm whitespace-nowrap">บันทึกขออนุมัติยังไม่อนุมัติ</span>}
+        <SheetsModal type={type} request={r} approved={approvedOf(r)} />
         {isProcStaff && (
           <ProcurementModal type={type} w804={w804} request={r} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo="" onSaved={reload} />
         )}

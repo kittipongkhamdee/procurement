@@ -13,6 +13,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .split(",")
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 1 && n <= 8);
+  // บันทึกขออนุมัติยังไม่อนุมัติ → พิมพ์ได้เฉพาะแผ่นที่ 1 (บันทึกขอซื้อ/ขอจ้าง) แผ่นถัดไปรอผู้อำนวยการอนุมัติก่อน
+  const { data: req } = await supabase.from("proc_purchase_requests").select("approval_id").eq("id", id).maybeSingle();
+  const { data: approval } = req?.approval_id
+    ? await supabase.from("proc_approvals").select("status").eq("id", req.approval_id).maybeSingle()
+    : { data: null };
+  if (approval?.status !== "อนุมัติ" && !(sheets.length === 1 && sheets[0] === 1)) {
+    return NextResponse.json({ error: "บันทึกขออนุมัติยังไม่อนุมัติ — พิมพ์ได้เฉพาะแผ่นที่ 1" }, { status: 403 });
+  }
   const buffer = await renderProcurementSetPdf(data, sheets);
   const name = `${data.doc_type}-${data.doc_no}${sheets.length === 1 ? `-แผ่น${sheets[0]}` : ""}.pdf`;
   return new NextResponse(new Uint8Array(buffer), {

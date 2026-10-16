@@ -20,6 +20,8 @@ import {
   resetDeputyDecision,
   updateApprovalStatus,
   updateDeputyDecision,
+  updatePlanningAck,
+  resetPlanningAck,
 } from "./actions";
 
 function formatBaht(n: number) {
@@ -35,6 +37,9 @@ export type Approval = {
   requested_amount: number;
   requested_by_name: string | null;
   status: string;
+  planning_ack_by_name?: string | null;
+  planning_ack_at?: string | null;
+  planning_note?: string | null;
   deputy_decision: string | null;
   deputy_decided_by_name: string | null;
   deputy_decided_at: string | null;
@@ -70,7 +75,19 @@ function isEditableState(a: Approval) {
   return a.deputy_decision === null;
 }
 
-export type DecisionMode = "deputy" | "director" | "view";
+export type DecisionMode = "planning" | "deputy" | "director" | "view";
+
+/** ฝ่ายแผนรับทราบแล้วหรือยัง (ขั้นแรกก่อนเสนอรองผู้อำนวยการ) */
+export const planningDone = (a: Approval) => !!a.planning_ack_at;
+
+/** โหมดพิจารณาของผู้ใช้คนนี้ต่อรายการ — ลำดับ ฝ่ายแผน → รองผู้อำนวยการ → ผู้อำนวยการ */
+export function decisionModeOf(a: Approval, can: { planning: boolean; deputy: boolean; director: boolean }): DecisionMode {
+  const status = mergedStatus(a);
+  if (status === "รอเสนอ" && !planningDone(a)) return can.planning ? "planning" : "view";
+  if (status === "รอเสนอ") return can.deputy ? "deputy" : "view";
+  if (status === "รออนุมัติ") return can.director ? "director" : "view";
+  return "view";
+}
 
 /** ป้ายสถานะ + popup รายละเอียด/พิจารณาอนุมัติ — เนื้อหาและปุ่มในนั้นเปลี่ยนตามบทบาทผู้ใช้กับ
  * สถานะปัจจุบันของรายการ (mode คำนวณจากผู้เรียกใช้) — export ไว้ให้หน้า "ผู้บริหาร" เรียกใช้ตรงๆ
@@ -81,6 +98,9 @@ export function ApprovalStatusCell({
   isAdmin,
   canApproveDeputy,
   canApproveDirector,
+  canAckPlanning = false,
+  onSubmitPlanning,
+  onResetPlanning,
   onSubmitDeputy,
   onSubmitDirector,
   onResetDeputy,
@@ -94,6 +114,9 @@ export function ApprovalStatusCell({
   isAdmin: boolean;
   canApproveDeputy: boolean;
   canApproveDirector: boolean;
+  canAckPlanning?: boolean;
+  onSubmitPlanning?: (id: string, note?: string) => Promise<void>;
+  onResetPlanning?: (id: string) => void;
   onSubmitDeputy: (id: string, decision: "ควร" | "ไม่ควร", note?: string) => Promise<void>;
   onSubmitDirector: (id: string, decision: "อนุมัติ" | "ไม่อนุมัติ", note?: string) => Promise<void>;
   onResetDeputy: (id: string) => void;
@@ -115,8 +138,14 @@ export function ApprovalStatusCell({
   const flowSteps: FlowStep[] = [
     { label: "บันทึกขออนุมัติ", state: "done", by: approval.requested_by_name },
     {
+      label: "ฝ่ายแผนรับทราบ",
+      state: planningDone(approval) || deputyDone ? "done" : "current",
+      by: approval.planning_ack_by_name,
+      at: approval.planning_ack_at,
+    },
+    {
       label: "รองผู้อำนวยการเสนอความเห็น",
-      state: deputyDone ? "done" : "current",
+      state: deputyDone ? "done" : planningDone(approval) ? "current" : "pending",
       by: approval.deputy_decided_by_name,
       at: approval.deputy_decided_at,
     },
@@ -134,6 +163,20 @@ export function ApprovalStatusCell({
       at: approval.approved_at,
     },
   ];
+
+  async function handleSavePlanning() {
+    if (!onSubmitPlanning) return;
+    setSubmitting(true);
+    try {
+      await onSubmitPlanning(approval.id, note.trim() || undefined);
+      setNote("");
+      modalRef.current?.close();
+    } catch {
+      // toast ขึ้นแล้วจากฝั่งเรียก
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleSave() {
     if (!choice) return;
@@ -171,13 +214,16 @@ export function ApprovalStatusCell({
       ref={modalRef}
       trigger={trigger ?? defaultTrigger}
       triggerClassName={triggerClassName ?? `${mergedStatusBadgeClass(status)} !text-sm cursor-pointer`}
-      title={mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
+      title={mode === "planning" ? "ฝ่ายแผนรับทราบ" : mode === "deputy" ? "พิจารณาเสนอผู้อำนวยการ" : mode === "director" ? "พิจารณาอนุมัติ" : "รายละเอียดสถานะ"}
       defaultOpen={defaultOpen}
     >
       <div className="space-y-4">
         <div>
           <div className="card-title">ขั้นตอนเสนอความเห็น / อนุมัติ</div>
           <ApprovalTimeline steps={flowSteps} />
+          {approval.planning_note && (
+            <p className="mt-2 text-sm text-slate-600">หมายเหตุ (ฝ่ายแผน): {approval.planning_note}</p>
+          )}
           {approval.deputy_note && (
             <p className="mt-2 text-sm text-slate-600">ความเห็น (รองผู้อำนวยการ): {approval.deputy_note}</p>
           )}
@@ -238,6 +284,23 @@ export function ApprovalStatusCell({
             </tbody>
           </table>
         </div>
+
+        {mode === "planning" && (
+          <PendingActionCallout subtitle="ตรวจสอบโครงการ/งบประมาณตามแผน แล้วกดรับทราบเพื่อเสนอรองผู้อำนวยการ">
+            <div className="space-y-3">
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="หมายเหตุ (ถ้ามี)"
+                rows={2}
+                className="input w-full"
+              />
+              <button type="button" onClick={handleSavePlanning} disabled={submitting} className="btn-primary w-full">
+                {submitting ? "กำลังบันทึก..." : "รับทราบ (เสนอรองผู้อำนวยการ)"}
+              </button>
+            </div>
+          </PendingActionCallout>
+        )}
 
         {(mode === "deputy" || mode === "director") && (
           <PendingActionCallout
@@ -309,6 +372,13 @@ export function ApprovalStatusCell({
           </PendingActionCallout>
         )}
 
+        {(isAdmin || canAckPlanning) && onResetPlanning && planningDone(approval) && !deputyDone && (
+          <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
+            <button type="button" onClick={() => onResetPlanning(approval.id)} className="btn-danger btn-sm">
+              ↺ ย้อนการรับทราบของฝ่ายแผน
+            </button>
+          </div>
+        )}
         {((isAdmin || canApproveDeputy) && approval.deputy_decision !== null) ||
         ((isAdmin || canApproveDirector) && approval.status !== "รออนุมัติ") ? (
           <div className="flex flex-wrap gap-3 border-t border-slate-100 pt-4">
@@ -467,13 +537,14 @@ function ApprovalDetailModal({ approval: a }: { approval: Approval }) {
 }
 
 export default function ApprovalsPage() {
-  const { user, isAdmin, loading: authLoading } = useAuth();
+  const { user, isAdmin, role, loading: authLoading } = useAuth();
   // ลิงก์ลัดจากหน้า "ผู้บริหาร" (/approvals?open=<id>) — เปิดป็อปอัปสถานะของรายการนี้อัตโนมัติ
   const autoOpenId = useSearchParams().get("open");
   const [approvals, setApprovals] = useState<Approval[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [canApproveDirector, setCanApproveDirector] = useState(false);
   const [canApproveDeputy, setCanApproveDeputy] = useState(false);
+  const [canAckPlanning, setCanAckPlanning] = useState(false);
 
   const reload = useCallback(async () => {
     if (authLoading) return;
@@ -481,7 +552,7 @@ export default function ApprovalsPage() {
     const { data, error } = await supabase
       .from("proc_approvals")
       .select(
-        "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
+        "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, status, planning_ack_by_name, planning_ack_at, planning_note, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
       )
       .order("created_at", { ascending: false });
     if (error) setError(error.message);
@@ -499,9 +570,34 @@ export default function ApprovalsPage() {
         .map((g) => (g.proc_user_groups as unknown as { name: string } | null)?.name)
         .filter((n): n is string => !!n);
     }
-    setCanApproveDirector(isAdmin || myGroupNames.includes("ผู้อำนวยการ"));
-    setCanApproveDeputy(isAdmin || myGroupNames.includes("รองผู้อำนวยการ"));
-  }, [authLoading, isAdmin, user]);
+    // แอดมินที่สลับบทบาท (เช่นเป็นรองผู้อำนวยการ) ใช้สิทธิ์ตาม role ที่สลับมา
+    setCanApproveDirector(isAdmin || role === "director" || myGroupNames.includes("ผู้อำนวยการ"));
+    setCanApproveDeputy(isAdmin || role === "deputy_director" || myGroupNames.includes("รองผู้อำนวยการ"));
+    setCanAckPlanning(isAdmin || role === "planning_officer" || myGroupNames.includes("ฝ่ายแผน"));
+  }, [authLoading, isAdmin, role, user]);
+
+  async function submitPlanningAck(id: string, note?: string) {
+    try {
+      await updatePlanningAck(id, note);
+      await toastSuccess("ฝ่ายแผนรับทราบแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+      throw err;
+    }
+  }
+
+  async function handleResetPlanning(id: string) {
+    const ok = await confirmWarning({ title: "ย้อนการรับทราบของฝ่ายแผน?" });
+    if (!ok) return;
+    try {
+      await resetPlanningAck(id);
+      await toastSuccess("ย้อนแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -577,7 +673,7 @@ export default function ApprovalsPage() {
         </a>
       </div>
 
-      {approvals !== null && (canApproveDeputy || canApproveDirector) && (
+      {approvals !== null && (canApproveDeputy || canApproveDirector || canAckPlanning) && (
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="stat-card" style={{ "--accent": "#b45309" } as React.CSSProperties}>
             <div className="flex items-start gap-3">
@@ -633,10 +729,7 @@ export default function ApprovalsPage() {
           {/* มือถือ/จอแคบกว่า md: การ์ดแสดงรายการทีละแถว (แพทเทิร์นเดียวกับ asset-register/register-tab.tsx) */}
           <div className="divide-y divide-slate-100 md:hidden">
             {approvals.map((a, index) => {
-              const status = mergedStatus(a);
-              let mode: DecisionMode = "view";
-              if (canApproveDeputy && status === "รอเสนอ") mode = "deputy";
-              else if (canApproveDirector && status === "รออนุมัติ") mode = "director";
+              const mode: DecisionMode = decisionModeOf(a, { planning: canAckPlanning, deputy: canApproveDeputy, director: canApproveDirector });
               const isOwnerOrAdmin = isAdmin || (!!user && a.created_by === user.userId);
               const editableState = isEditableState(a);
               return (
@@ -660,6 +753,9 @@ export default function ApprovalsPage() {
                       isAdmin={isAdmin}
                       canApproveDeputy={canApproveDeputy}
                       canApproveDirector={canApproveDirector}
+canAckPlanning={canAckPlanning}
+onSubmitPlanning={submitPlanningAck}
+onResetPlanning={handleResetPlanning}
                       onSubmitDeputy={submitDeputyDecision}
                       onSubmitDirector={submitDirectorDecision}
                       onResetDeputy={handleResetDeputyDecision}
@@ -720,10 +816,7 @@ export default function ApprovalsPage() {
             </thead>
             <tbody>
               {approvals.map((a, index) => {
-                const status = mergedStatus(a);
-                let mode: DecisionMode = "view";
-                if (canApproveDeputy && status === "รอเสนอ") mode = "deputy";
-                else if (canApproveDirector && status === "รออนุมัติ") mode = "director";
+                const mode: DecisionMode = decisionModeOf(a, { planning: canAckPlanning, deputy: canApproveDeputy, director: canApproveDirector });
                 // แก้ไข/ลบได้เฉพาะเจ้าของบันทึกเองหรือแอดมิน (ครูคนอื่นเห็นรายการได้แต่แก้ไข/ลบไม่ได้)
                 const isOwnerOrAdmin = isAdmin || (!!user && a.created_by === user.userId);
                 const editableState = isEditableState(a);
@@ -747,6 +840,9 @@ export default function ApprovalsPage() {
                         isAdmin={isAdmin}
                         canApproveDeputy={canApproveDeputy}
                         canApproveDirector={canApproveDirector}
+canAckPlanning={canAckPlanning}
+onSubmitPlanning={submitPlanningAck}
+onResetPlanning={handleResetPlanning}
                         onSubmitDeputy={submitDeputyDecision}
                         onSubmitDirector={submitDirectorDecision}
                         onResetDeputy={handleResetDeputyDecision}

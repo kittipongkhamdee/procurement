@@ -24,7 +24,13 @@ const ROLE_LABELS: Record<string, string> = {
   teacher: "ครู",
   director: "ผู้อำนวยการ",
   deputy_director: "รองผู้อำนวยการ",
+  planning_officer: "เจ้าหน้าที่แผนงาน",
 };
+
+export const SWITCHABLE_ROLES = ["admin", "teacher", "planning_officer", "supply_officer", "finance_officer", "deputy_director", "director"] as const;
+export function roleLabelOf(role: string) {
+  return ROLE_LABELS[role] ?? role;
+}
 
 type AuthContextValue = {
   user: CurrentUser | null;
@@ -32,6 +38,12 @@ type AuthContextValue = {
   /** admin / เจ้าหน้าที่พัสดุ / เจ้าหน้าที่การเงิน — ตรงกับ proc_is_staff() ในฐานข้อมูล */
   isProcStaff: boolean;
   roleLabel: string;
+  /** บทบาทปัจจุบัน (ตามที่สลับ) */
+  role: string;
+  /** แอดมินตัวจริง — สลับบทบาทได้ */
+  canSwitchRole: boolean;
+  /** กำลังสลับไปทำงานในบทบาทอื่นอยู่ */
+  isActingRole: boolean;
   displayName: string;
   avatarUrl: string | null;
   loading: boolean;
@@ -99,6 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isProcStaff,
         roleLabel,
+        role,
+        canSwitchRole: user?.realRole === "admin",
+        isActingRole: user?.realRole === "admin" && role !== "admin",
         displayName: user?.displayName ?? "",
         avatarUrl: user?.avatarUrl ?? null,
         loading: user === undefined,

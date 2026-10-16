@@ -347,8 +347,8 @@ export function PendingActionsPanel() {
           .filter((n): n is string => !!n),
       );
     }
-    const deputy = isAdmin || myGroupNames.has("รองผู้อำนวยการ");
-    const director = isAdmin || myGroupNames.has("ผู้อำนวยการ");
+    const deputy = isAdmin || role === "deputy_director" || myGroupNames.has("รองผู้อำนวยการ");
+    const director = isAdmin || role === "director" || myGroupNames.has("ผู้อำนวยการ");
     const ackDeputy = isAdmin || role === "deputy_director";
     const ackDirector = isAdmin || role === "director";
     setCanActDeputy(deputy);
@@ -370,7 +370,7 @@ export function PendingActionsPanel() {
         ? supabase
             .from("proc_approvals")
             .select(
-              "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, status, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
+              "id, created_by, doc_number, doc_date, activity_name, requested_amount, requested_by_name, status, planning_ack_by_name, planning_ack_at, planning_note, deputy_decision, deputy_decided_by_name, deputy_decided_at, deputy_note, approved_by_name, approved_at, approve_note, summary_items, plan_projects(name)",
             )
             .order("doc_date", { ascending: true })
         : Promise.resolve({ data: [] }),
@@ -459,7 +459,7 @@ export function PendingActionsPanel() {
     const approvalRows = (approvals ?? []) as unknown as Approval[];
     setApprovalsToDeputy(
       deputy
-        ? approvalRows.filter((r) => r.deputy_decision === null && r.status !== "อนุมัติ" && r.status !== "ไม่อนุมัติ")
+        ? approvalRows.filter((r) => !!r.planning_ack_at && r.deputy_decision === null && r.status !== "อนุมัติ" && r.status !== "ไม่อนุมัติ")
         : [],
     );
     setApprovalsToDirector(

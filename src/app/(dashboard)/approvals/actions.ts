@@ -14,6 +14,8 @@ async function requireUser() {
 
 /** อนุญาตให้ผู้ดูแลระบบ หรือผู้ที่มีสถานะผู้ใช้งานตามชื่อที่ระบุ (เช่น "ผู้อำนวยการ") ทำรายการได้ —
  * แพทเทิร์นเดียวกับ requireAdminOrGroup ใน project-proposals/actions.ts */
+const GROUP_ROLE: Record<string, string> = { รองผู้อำนวยการ: "deputy_director", ผู้อำนวยการ: "director", ฝ่ายแผน: "planning_officer" };
+
 async function requireAdminOrGroup(groupName: string) {
   const { supabase, user } = await requireUser();
   const { data: profile } = await supabase
@@ -22,6 +24,8 @@ async function requireAdminOrGroup(groupName: string) {
     .eq("user_id", user.id)
     .maybeSingle();
   if (profile?.role === "admin") return { supabase, signerName: profile.full_name ?? user.email ?? "" };
+  // บทบาทที่ตรงกับสถานะผู้ใช้งาน (รวมแอดมินที่สลับมาทำงานในบทบาทนั้น) ทำรายการได้เช่นกัน
+  if (profile?.role && GROUP_ROLE[groupName] === profile.role) return { supabase, signerName: profile.full_name ?? user.email ?? "" };
 
   const { data: membership } = await supabase
     .from("proc_user_group_members")
@@ -236,6 +240,9 @@ export async function updateApproval(id: string, formData: FormData) {
       // แก้ไขบันทึกแล้วย้อนสถานะเป็น "รอเสนอ" ใหม่เสมอ (ล้างความเห็น/การอนุมัติเดิมทิ้ง เผื่อเป็นการ
       // แก้ไขหลังผู้อำนวยการ "ไม่อนุมัติ" มา)
       status: "รออนุมัติ",
+      planning_ack_by_name: null,
+      planning_ack_at: null,
+      planning_note: null,
       deputy_decision: null,
       deputy_decided_by_name: null,
       deputy_decided_at: null,
@@ -326,6 +333,7 @@ export async function updateDeputyDecision(id: string, decision: "ควร" | "
       deputy_note: decision === "ไม่ควร" ? note?.trim() || null : null,
     })
     .eq("id", id)
+    .not("planning_ack_at", "is", null)
     .is("deputy_decision", null);
   if (error) throw new Error(error.message);
   revalidatePath("/approvals");
@@ -338,6 +346,31 @@ export async function resetDeputyDecision(id: string) {
     .from("proc_approvals")
     .update({ deputy_decision: null, deputy_decided_by_name: null, deputy_decided_at: null, deputy_note: null })
     .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/approvals");
+}
+
+/** ฝ่ายแผนรับทราบ (ตรวจงบประมาณ/แผน) — ขั้นแรกก่อนเสนอรองผู้อำนวยการ */
+export async function updatePlanningAck(id: string, note?: string) {
+  const { supabase, signerName } = await requireAdminOrGroup("ฝ่ายแผน");
+  const { error } = await supabase
+    .from("proc_approvals")
+    .update({ planning_ack_by_name: signerName.trim() || null, planning_ack_at: new Date().toISOString(), planning_note: note?.trim() || null })
+    .eq("id", id)
+    .eq("status", "รออนุมัติ")
+    .is("planning_ack_at", null);
+  if (error) throw new Error(error.message);
+  revalidatePath("/approvals");
+}
+
+/** ย้อนการรับทราบของฝ่ายแผน — ทำได้เฉพาะก่อนรองผู้อำนวยการให้ความเห็น */
+export async function resetPlanningAck(id: string) {
+  const { supabase } = await requireAdminOrGroup("ฝ่ายแผน");
+  const { error } = await supabase
+    .from("proc_approvals")
+    .update({ planning_ack_by_name: null, planning_ack_at: null, planning_note: null })
+    .eq("id", id)
+    .is("deputy_decision", null);
   if (error) throw new Error(error.message);
   revalidatePath("/approvals");
 }

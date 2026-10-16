@@ -4,7 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useAuth } from "@/lib/AuthContext";
+import { SWITCHABLE_ROLES, roleLabelOf, useAuth } from "@/lib/AuthContext";
+import { setActingRole } from "@/lib/auth-actions";
 import { useSchoolSettings } from "@/lib/school-settings";
 import {
   BellIcon,
@@ -55,7 +56,19 @@ export function DashboardShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAdmin, roleLabel, displayName, avatarUrl, loading, pendingApproval } = useAuth();
+  const { isAdmin, roleLabel, displayName, avatarUrl, loading, pendingApproval, role, canSwitchRole, isActingRole } = useAuth();
+  const [switching, setSwitching] = useState(false);
+  async function switchRole(next: string) {
+    setSwitching(true);
+    const res = await setActingRole(next === "admin" ? null : next);
+    if (res.error) {
+      setSwitching(false);
+      alert(res.error);
+      return;
+    }
+    // โหลดหน้าใหม่ทั้งหมด ให้ข้อมูล/เมนู/สิทธิ์ทุกส่วนเป็นของบทบาทใหม่
+    window.location.reload();
+  }
   const { schoolName, logoUrl } = useSchoolSettings();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -357,6 +370,23 @@ export function DashboardShell({
                     <p className="truncate text-sm font-medium text-slate-800">{displayName}</p>
                     {roleLabel && <p className="truncate text-xs text-slate-400">{roleLabel}</p>}
                   </div>
+                  {canSwitchRole && (
+                    <div className="border-b border-slate-100 px-3 py-2.5">
+                      <label className="mb-1 block text-xs text-slate-500">ทำงานในบทบาท</label>
+                      <select
+                        value={role}
+                        disabled={switching}
+                        onChange={(e) => switchRole(e.target.value)}
+                        className="input w-full py-1 text-sm"
+                      >
+                        {SWITCHABLE_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {roleLabelOf(r)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <Link
                     href="/profile"
                     onClick={() => setProfileOpen(false)}
@@ -381,7 +411,19 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="min-w-0 flex-1 bg-slate-100 p-4 pb-24 print:bg-white print:p-0 lg:p-6 lg:pb-6">{children}</main>
+        <main className="min-w-0 flex-1 bg-slate-100 p-4 pb-24 print:bg-white print:p-0 lg:p-6 lg:pb-6">
+          {isActingRole && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
+              <span>
+                กำลังทำงานในบทบาท <b>{roleLabel}</b> — สิทธิ์และเมนูเป็นของบทบาทนี้
+              </span>
+              <button type="button" disabled={switching} onClick={() => switchRole("admin")} className="btn-secondary btn-sm">
+                กลับเป็นผู้ดูแลระบบ
+              </button>
+            </div>
+          )}
+          {children}
+        </main>
       </div>
 
       <nav

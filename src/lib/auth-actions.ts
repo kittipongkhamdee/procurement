@@ -11,6 +11,8 @@ export type CurrentUser = {
   userId: string;
   displayName: string;
   role: string;
+  /** บทบาทจริง ('admin' ขณะแอดมินสลับไปทำงานในบทบาทอื่น) */
+  realRole: string;
   status: string;
   avatarUrl: string | null;
 };
@@ -25,7 +27,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const { data: profile } = await supabase
     .from("proc_profiles")
-    .select("full_name, role, status, avatar_url")
+    .select("full_name, role, real_role, status, avatar_url")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -33,7 +35,15 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     userId: user.id,
     displayName: profile?.full_name || user.email || "",
     role: profile?.role ?? "",
+    realRole: profile?.real_role ?? profile?.role ?? "",
     status: profile?.status ?? "approved",
     avatarUrl: profile?.avatar_url ?? null,
   };
+}
+
+/** แอดมินสลับไปทำงานในบทบาทอื่น (null = กลับเป็นผู้ดูแลระบบ) — สิทธิ์ทั้งระบบ (RLS) เปลี่ยนตามบทบาทที่สลับทันที */
+export async function setActingRole(role: string | null): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("proc_set_acting_role", { new_role: role });
+  return error ? { error: error.message } : {};
 }
