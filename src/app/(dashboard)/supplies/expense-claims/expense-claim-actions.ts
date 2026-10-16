@@ -11,6 +11,7 @@ import { claimAmount } from "@/lib/expense-claims";
 type Result = { error?: string; id?: string };
 export type ClaimItemInput = {
   kind: string;
+  rate_id: string;
   name: string;
   rate: string;
   units: string;
@@ -56,6 +57,7 @@ function parse(formData: FormData) {
       name: i.name.trim(),
       ...calc,
       kind: i.kind || "other",
+      rate_id: i.rate_id || null,
       amount,
       payee: i.payee.trim() || null,
       evidence: i.evidence.trim() || null,
@@ -89,6 +91,21 @@ function parse(formData: FormData) {
   };
 }
 
+/** ล็อกอัตราตามระเบียบ — ประเภทที่มีอัตรากำหนดไว้ต้องเลือกอัตรา และอัตราที่กรอกต้องไม่เกินอัตราสูงสุด */
+async function checkRates(supabase: Awaited<ReturnType<typeof createClient>>, rows: NonNullable<ReturnType<typeof parse>["rows"]>) {
+  const { data: rates } = await supabase.from("proc_expense_rates").select("id, kind, name, max_rate").eq("is_active", true);
+  const list = rates ?? [];
+  for (const r of rows) {
+    const forKind = list.filter((x) => x.kind === r.kind);
+    if (forKind.length === 0) continue;
+    const rate = list.find((x) => x.id === r.rate_id);
+    if (!rate || rate.kind !== r.kind) return `"${r.name}" ต้องเลือกอัตราตามระเบียบ`;
+    if (r.rate == null) return `"${r.name}" ต้องกรอกอัตรา (ไม่เกิน ${Number(rate.max_rate).toLocaleString("th-TH")} บาท)`;
+    if (r.rate > Number(rate.max_rate) + 0.005) return `"${r.name}" อัตรา ${r.rate.toLocaleString("th-TH")} บาท เกินอัตราตามระเบียบ (${rate.name} ไม่เกิน ${Number(rate.max_rate).toLocaleString("th-TH")} บาท)`;
+  }
+  return null;
+}
+
 async function replaceItems(supabase: Awaited<ReturnType<typeof createClient>>, claimId: string, rows: NonNullable<ReturnType<typeof parse>["rows"]>) {
   const { error: delError } = await supabase.from("proc_expense_claim_items").delete().eq("claim_id", claimId);
   if (delError) return delError.message;
@@ -105,6 +122,8 @@ export async function createExpenseClaim(formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  const rateError = await checkRates(supabase, parsed.rows);
+  if (rateError) return { error: rateError };
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -123,6 +142,8 @@ export async function updateExpenseClaim(id: string, formData: FormData): Promis
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  const rateError = await checkRates(supabase, parsed.rows);
+  if (rateError) return { error: rateError };
   const { data, error } = await supabase.from("proc_expense_claims").update(parsed.fields).eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: NO_PERMISSION };

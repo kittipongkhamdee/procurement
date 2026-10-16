@@ -42,6 +42,7 @@ export type ExpenseClaimData = {
   school_name: string;
   education_area: string | null;
   director: string | null;
+  finance_officer: string | null;
 };
 
 const COLS = [
@@ -149,9 +150,7 @@ export function ExpenseClaimDocument({ data: d }: { data: ExpenseClaimData }) {
           />
           <View style={{ flexDirection: "row", marginTop: 14 }}>
             <View style={{ width: L }}>
-              <Text>{t("ความเห็นเจ้าหน้าที่การเงิน")}</Text>
-              <Text>{t("......................................................")}</Text>
-              <Sign role="เจ้าหน้าที่การเงิน" name={null} style={{ marginTop: 10 }} />
+              <Sign role="เจ้าหน้าที่การเงิน" name={d.finance_officer} style={{ marginTop: 49 }} />
             </View>
             <View style={{ flex: 1 }}>
               <Text>{t("- อนุมัติ")}</Text>

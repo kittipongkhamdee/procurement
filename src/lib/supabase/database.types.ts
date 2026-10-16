@@ -2685,6 +2685,7 @@ export type Database = {
           receipt_book: string | null
           receipt_no: string | null
           receipt_date: string | null
+          rate_id: string | null
         }
         Insert: {
           id?: string
@@ -2702,6 +2703,7 @@ export type Database = {
           receipt_book?: string | null
           receipt_no?: string | null
           receipt_date?: string | null
+          rate_id?: string | null
         }
         Update: {
           id?: string
@@ -2719,6 +2721,7 @@ export type Database = {
           receipt_book?: string | null
           receipt_no?: string | null
           receipt_date?: string | null
+          rate_id?: string | null
         }
         Relationships: [
           {
@@ -2842,6 +2845,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      proc_expense_rates: {
+        Row: {
+          id: string
+          kind: string
+          name: string
+          max_rate: number
+          unit_note: string | null
+          note: string | null
+          source: string | null
+          sort_order: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          kind: string
+          name: string
+          max_rate: number
+          unit_note?: string | null
+          note?: string | null
+          source?: string | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          kind?: string
+          name?: string
+          max_rate?: number
+          unit_note?: string | null
+          note?: string | null
+          source?: string | null
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: []
       }
       proc_w119_items: {
         Row: {

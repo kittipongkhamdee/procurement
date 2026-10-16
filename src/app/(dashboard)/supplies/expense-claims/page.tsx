@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { addWorkingDays, evidenceRule } from "@/lib/w119";
-import { CLAIM_KINDS, claimAmount, claimCalcText, type ClaimKind } from "@/lib/expense-claims";
+import { CLAIM_KINDS, claimAmount, claimCalcText, type ClaimKind, type ExpenseRate } from "@/lib/expense-claims";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -20,6 +20,7 @@ import { createExpenseClaim, deleteExpenseClaim, updateExpenseClaim, type ClaimI
 
 type Item = {
   kind: string;
+  rate_id: string | null;
   name: string;
   rate: number | null;
   units: number | null;
@@ -55,7 +56,7 @@ type Claim = {
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
-type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string> };
+type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string>; rates: ExpenseRate[] };
 
 const EVIDENCES = ["ใบสำคัญรับเงิน", "ใบเสร็จรับเงิน", "บิลเงินสด", "ใบรับรองแทนใบเสร็จรับเงิน"];
 const FUNDS = ["เงินอุดหนุน", "เงินรายได้สถานศึกษา"];
@@ -66,7 +67,7 @@ const KIND_KEYS = Object.keys(CLAIM_KINDS) as ClaimKind[];
 const str = (n: number | null) => (n == null ? "" : String(n));
 const num = (v: string) => (v.trim() === "" ? null : Number(v));
 function newItem(kind: ClaimKind = "snack"): ClaimItemInput {
-  return { kind, name: CLAIM_KINDS[kind].label, rate: "", units: "", people: "", days: "", amount: "", payee: "", evidence: CLAIM_KINDS[kind].evidence, receipt_book: "", receipt_no: "", receipt_date: "" };
+  return { kind, rate_id: "", name: CLAIM_KINDS[kind].label, rate: "", units: "", people: "", days: "", amount: "", payee: "", evidence: CLAIM_KINDS[kind].evidence, receipt_book: "", receipt_no: "", receipt_date: "" };
 }
 function itemAmount(i: ClaimItemInput) {
   return claimAmount({ kind: i.kind, rate: num(i.rate), units: num(i.units), people: num(i.people), days: num(i.days) }) ?? (Number(i.amount) || 0);
@@ -93,6 +94,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
     claim?.proc_expense_claim_items.length
       ? claim.proc_expense_claim_items.map((i) => ({
           kind: i.kind,
+          rate_id: i.rate_id ?? "",
           name: i.name,
           rate: str(i.rate),
           units: str(i.units),
@@ -115,6 +117,13 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
+    for (const it of items.filter((i) => i.name.trim())) {
+      const kindRates = lookups.rates.filter((r) => r.kind === it.kind && r.is_active);
+      if (kindRates.length === 0) continue;
+      const r = kindRates.find((x) => x.id === it.rate_id);
+      if (!r) return void (await toastError(`"${it.name}" ต้องเลือกอัตราตามระเบียบ`));
+      if (Number(it.rate) > r.max_rate) return void (await toastError(`"${it.name}" อัตราเกินที่ระเบียบกำหนด (ไม่เกิน ${r.max_rate.toLocaleString("th-TH")} บาท)`));
+    }
     const formData = new FormData(form);
     formData.set("items_json", JSON.stringify(items.filter((i) => i.name.trim())));
     setSaving(true);
@@ -301,12 +310,20 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
 
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-navy-800">รายการค่าใช้จ่าย (กรอกอัตรา ระบบคำนวณจำนวนเงินให้)</legend>
-          <p className="mb-2 text-xs text-amber-700">อัตราที่เบิกได้ต้องไม่เกินระเบียบค่าใช้จ่ายในการฝึกอบรม การจัดงาน และการประชุม — ตรวจอัตรากับงานการเงินก่อนเบิก</p>
+          <p className="mb-2 text-xs text-slate-500">
+            เลือกอัตราตามระเบียบ ระบบไม่ให้กรอกเกินอัตราสูงสุด — ดู/แก้อัตราได้ที่เมนู{" "}
+            <a href="/expense-rates" className="text-navy-700 underline">
+              อัตราค่าใช้จ่ายตามระเบียบ
+            </a>
+          </p>
           <div className="space-y-3">
             {items.map((it, idx) => {
               const k = CLAIM_KINDS[it.kind as ClaimKind] ?? CLAIM_KINDS.other;
               const calc = { kind: it.kind, rate: num(it.rate), units: num(it.units), people: num(it.people), days: num(it.days) };
               const auto = claimAmount(calc);
+              const kindRates = lookups.rates.filter((r) => r.kind === it.kind && r.is_active);
+              const selectedRate = kindRates.find((r) => r.id === it.rate_id) ?? null;
+              const overRate = !!selectedRate && Number(it.rate) > selectedRate.max_rate;
               return (
                 <div key={idx} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-6">
                   <div className="col-span-2">
@@ -316,7 +333,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
                       onChange={(e) => {
                         const kind = e.target.value as ClaimKind;
                         const wasDefault = it.name === k.label;
-                        setItem(idx, { kind, name: wasDefault ? CLAIM_KINDS[kind].label : it.name, evidence: CLAIM_KINDS[kind].evidence });
+                        setItem(idx, { kind, rate_id: "", rate: "", name: wasDefault ? CLAIM_KINDS[kind].label : it.name, evidence: CLAIM_KINDS[kind].evidence });
                       }}
                       className="input w-full"
                     >
@@ -331,9 +348,42 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
                     <label className="label">รายการ {idx + 1}</label>
                     <input value={it.name} onChange={(e) => setItem(idx, { name: e.target.value })} className="input w-full" />
                   </div>
+                  {kindRates.length > 0 && (
+                    <div className="col-span-2 sm:col-span-6">
+                      <label className="label">
+                        อัตราตามระเบียบ <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        value={it.rate_id}
+                        onChange={(e) => {
+                          const r = lookups.rates.find((x) => x.id === e.target.value);
+                          setItem(idx, { rate_id: e.target.value, rate: r ? String(r.max_rate) : "" });
+                        }}
+                        className="input w-full"
+                      >
+                        <option value="">-- เลือกอัตรา --</option>
+                        {kindRates.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name} — ไม่เกิน {r.max_rate.toLocaleString("th-TH")} {r.unit_note ?? "บาท"}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedRate?.note && <p className="mt-1 text-xs text-slate-500">{selectedRate.note}</p>}
+                    </div>
+                  )}
                   <div>
                     <label className="label">อัตรา (บาท)</label>
-                    <input type="number" min="0" step="0.01" value={it.rate} onChange={(e) => setItem(idx, { rate: e.target.value })} className="input w-full text-right" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      max={selectedRate ? selectedRate.max_rate : undefined}
+                      value={it.rate}
+                      onChange={(e) => setItem(idx, { rate: e.target.value })}
+                      disabled={kindRates.length > 0 && !selectedRate}
+                      className={`input w-full text-right ${overRate ? "border-red-400 text-red-600" : ""}`}
+                    />
+                    {overRate && <p className="mt-1 text-xs text-red-600">เกินอัตรา {selectedRate?.max_rate.toLocaleString("th-TH")}</p>}
                   </div>
                   {k.units && (
                     <div>
@@ -437,7 +487,7 @@ export default function ExpenseClaimsPage() {
   const [shown, setShown] = useState(PAGE_SIZE);
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
-  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {} });
+  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {}, rates: [] });
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -447,13 +497,13 @@ export default function ExpenseClaimsPage() {
     let listQuery = supabase
       .from("proc_expense_claims")
       .select(
-        "id, doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, project_id, activity_id, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, proc_expense_claim_items(kind, name, rate, units, people, days, amount, payee, evidence, receipt_book, receipt_no, receipt_date, seq), proc_expense_claim_photos(id)",
+        "id, doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, project_id, activity_id, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, proc_expense_claim_items(kind, rate_id, name, rate, units, people, days, amount, payee, evidence, receipt_book, receipt_no, receipt_date, seq), proc_expense_claim_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;
       listQuery = listQuery.gte("record_date", `${ce - 1}-10-01`).lte("record_date", `${ce}-09-30`);
     }
-    const [{ data, error }, { data: nos }, { data: projects }, { data: activities }, { data: groups }, { data: teachers }, { data: positions }] = await Promise.all([
+    const [{ data, error }, { data: nos }, { data: projects }, { data: activities }, { data: groups }, { data: teachers }, { data: positions }, { data: rates }] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("proc_expense_claims").select("doc_no"),
       currentYear ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order") : Promise.resolve({ data: [] as Option[] }),
@@ -461,6 +511,7 @@ export default function ExpenseClaimsPage() {
       supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("proc_teacher_positions").select("teacher_name, position"),
+      supabase.from("proc_expense_rates").select("id, kind, name, max_rate, unit_note, note, source, sort_order, is_active").order("sort_order"),
     ]);
     setError(error?.message ?? null);
     const n = (x: number | null) => (x == null ? null : Number(x));
@@ -480,6 +531,7 @@ export default function ExpenseClaimsPage() {
       groups: groups ?? [],
       teachers: (teachers ?? []).map((x) => x.name),
       positions: Object.fromEntries((positions ?? []).map((p) => [p.teacher_name, p.position])),
+      rates: (rates ?? []).map((r) => ({ ...r, max_rate: Number(r.max_rate) })),
     });
   }, []);
 

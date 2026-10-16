@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .select("kind, name, rate, units, people, days, amount, payee, evidence, receipt_book, receipt_no, receipt_date")
       .eq("claim_id", id)
       .order("seq"),
-    supabase.from("proc_app_settings").select("key, value").in("key", ["approval_signer_director"]),
+    supabase.from("proc_app_settings").select("key, value").in("key", ["approval_signer_director", "approval_signer_finance"]),
     supabase.from("proc_school_settings").select("school_name, education_area").eq("id", true).maybeSingle(),
   ]);
   const num = (x: number | null) => (x == null ? null : Number(x));
@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     school_name: school?.school_name ?? "โรงเรียนตาเบาวิทยา",
     education_area: school?.education_area ?? null,
     director: settings?.find((s) => s.key === "approval_signer_director")?.value ?? null,
+    finance_officer: settings?.find((s) => s.key === "approval_signer_finance")?.value || null,
   };
   const evidence = new URL(request.url).searchParams.get("sheet") === "evidence";
   const buffer = await renderToBuffer(
