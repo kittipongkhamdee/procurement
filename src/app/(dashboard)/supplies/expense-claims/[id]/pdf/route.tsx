@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { contentDisposition } from "@/lib/http";
+import { withPrefix } from "@/lib/doc-numbers";
 import { ExpenseClaimDocument, type ExpenseClaimData } from "@/lib/pdf/expense-claim-document";
 import { W119EvidenceDocument } from "@/lib/pdf/w119-document";
 
@@ -29,6 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const num = (x: number | null) => (x == null ? null : Number(x));
   const data: ExpenseClaimData = {
     ...r,
+    doc_no: withPrefix(r.doc_no, "claim"),
     payment_method: r.payment_method === "transfer" ? "transfer" : "cash",
     amount: Number(r.amount),
     project_name: (r.plan_projects as unknown as { name: string } | null)?.name ?? null,
@@ -55,7 +57,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     headers: {
       "Cache-Control": "no-store",
       "Content-Type": "application/pdf",
-      "Content-Disposition": contentDisposition("inline", `เบิกค่าใช้จ่าย-${r.doc_no}${evidence ? "-ใบติดหลักฐาน" : ""}.pdf`),
+      "Content-Disposition": contentDisposition("inline", `${withPrefix(r.doc_no, "claim").replace(/\s+/g, "-")}${evidence ? "-ใบติดหลักฐาน" : ""}.pdf`),
     },
   });
 }

@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { createClient } from "@/lib/supabase/server";
+import { procurementDocKind, withPrefix } from "@/lib/doc-numbers";
 import { ProcurementSetDocument, type ProcurementSetData } from "./procurement-set-document";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -25,7 +26,7 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
 
   return {
     doc_type: pr.doc_type,
-    doc_no: pr.doc_no,
+    doc_no: withPrefix(pr.doc_no, procurementDocKind(pr.doc_type)),
     record_date: pr.record_date,
     delivery_date: pr.delivery_date,
     order_date: pr.order_date,

@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { addWorkingDays, evidenceRule, W119_LIMIT, W119_TABLE1, W119_TABLE2_EXAMPLES } from "@/lib/w119";
+import { DOC_PREFIX, withPrefix } from "@/lib/doc-numbers";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -155,7 +156,10 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
             <label className="label">
               เลขที่ <span className="text-red-600">*</span>
             </label>
-            <input name="doc_no" key={report?.id ?? suggestedNo} defaultValue={report?.doc_no ?? suggestedNo} required className="input w-full" />
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700">{DOC_PREFIX.w119}</span>
+              <input name="doc_no" key={report?.id ?? suggestedNo} defaultValue={report?.doc_no ?? suggestedNo} required className="input w-full" />
+            </div>
           </div>
           <div>
             <label className="label">กลุ่มสาระ/ฝ่าย</label>
@@ -534,7 +538,7 @@ export default function W119Page() {
               {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{r.doc_no}</span>
+                    <span className="font-medium text-slate-900">{withPrefix(r.doc_no, "w119")}</span>
                     <span className="text-sm text-slate-700">{itemSummary(r)}</span>
                     {isLate(r) && lateBadge}
                   </div>
@@ -567,7 +571,7 @@ export default function W119Page() {
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.id}>
-                    <td className="font-medium text-slate-900">{r.doc_no}</td>
+                    <td className="whitespace-nowrap font-medium text-slate-900">{withPrefix(r.doc_no, "w119")}</td>
                     <td>{formatThaiDate(r.purchase_date)}</td>
                     <td>
                       <div>{formatThaiDate(r.record_date)}</div>

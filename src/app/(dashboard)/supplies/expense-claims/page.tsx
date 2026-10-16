@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { addWorkingDays, evidenceRule } from "@/lib/w119";
 import { CLAIM_KINDS, claimAmount, claimCalcText, type ClaimKind, type ExpenseRate } from "@/lib/expense-claims";
+import { DOC_PREFIX, withPrefix } from "@/lib/doc-numbers";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -179,7 +180,10 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
             <label className="label">
               เลขที่ <span className="text-red-600">*</span>
             </label>
-            <input name="doc_no" key={claim?.id ?? suggestedNo} defaultValue={claim?.doc_no ?? suggestedNo} required className="input w-full" />
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700">{DOC_PREFIX.claim}</span>
+              <input name="doc_no" key={claim?.id ?? suggestedNo} defaultValue={claim?.doc_no ?? suggestedNo} required className="input w-full" />
+            </div>
           </div>
           <div>
             <label className="label">
@@ -645,7 +649,7 @@ export default function ExpenseClaimsPage() {
               {visible.map((c) => (
                 <div key={c.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{c.doc_no}</span>
+                    <span className="font-medium text-slate-900">{withPrefix(c.doc_no, "claim")}</span>
                     <span className="text-sm text-slate-700">{c.event_name}</span>
                     {isLate(c) && lateBadge}
                   </div>
@@ -674,7 +678,7 @@ export default function ExpenseClaimsPage() {
               <tbody>
                 {visible.map((c) => (
                   <tr key={c.id}>
-                    <td className="font-medium text-slate-900">{c.doc_no}</td>
+                    <td className="whitespace-nowrap font-medium text-slate-900">{withPrefix(c.doc_no, "claim")}</td>
                     <td>{eventDates(c)}</td>
                     <td>
                       <div>{formatThaiDate(c.record_date)}</div>

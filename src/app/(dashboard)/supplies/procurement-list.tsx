@@ -16,6 +16,7 @@ import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/comp
 import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 import { procurementSheets } from "@/lib/pdf/procurement-sheets";
+import { DOC_PREFIX, procurementDocKind, withPrefix } from "@/lib/doc-numbers";
 import { PhotoGroups, ProcurementPhotosButton, loadProcurementPhotos, type ProcurementPhoto } from "./procurement-photos";
 import { createProcurement, deleteProcurement, updateProcurement } from "./procurement-actions";
 
@@ -309,7 +310,10 @@ function ProcurementModal({
             <label className="label">
               เลขที่ <span className="text-red-600">*</span>
             </label>
-            <input name="doc_no" key={request?.id ?? suggestedNo} defaultValue={request?.doc_no ?? suggestedNo} required className="input w-full" />
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700">{DOC_PREFIX[procurementDocKind(type)]}</span>
+              <input name="doc_no" key={request?.id ?? suggestedNo} defaultValue={request?.doc_no ?? suggestedNo} required className="input w-full" />
+            </div>
           </div>
           <div>
             <label className="label">เลข e-GP</label>
@@ -622,7 +626,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
     ["วันรายงานสรุปผล", r.report_date ? formatThaiDate(r.report_date) : "-"],
   ];
   const common: [string, string][] = [
-    ["เลขที่", r.doc_no],
+    ["เลขที่", withPrefix(r.doc_no, procurementDocKind(type))],
     ["วันที่บันทึกข้อความ", formatThaiDate(r.record_date)],
     [TERMS[type].item, r.item_name ?? "-"],
     ["เพื่อ", r.reason ?? "-"],
@@ -707,7 +711,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
 function SheetsModal({ type, request }: { type: ProcurementType; request: Request }) {
   return (
     <Modal
-      title={`พิมพ์เอกสาร — ${request.doc_no}`}
+      title={`พิมพ์เอกสาร — ${withPrefix(request.doc_no, procurementDocKind(type))}`}
       lazy
       trigger={
         <span title="พิมพ์" className="btn-secondary btn-sm">
@@ -915,7 +919,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
               {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{r.doc_no}</span>
+                    <span className="font-medium text-slate-900">{withPrefix(r.doc_no, procurementDocKind(type))}</span>
                     <span className="text-sm text-slate-700">{r.item_name}</span>
                     {!r.proc_purchase_photos?.length && NO_PHOTO_BADGE}
                   </div>
@@ -946,7 +950,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.id}>
-                    <td className="font-medium text-slate-900">{r.doc_no}</td>
+                    <td className="whitespace-nowrap font-medium text-slate-900">{withPrefix(r.doc_no, procurementDocKind(type))}</td>
                     <td>{formatThaiDate(r.record_date)}</td>
                     <td>
                       <div>{r.item_name}</div>
