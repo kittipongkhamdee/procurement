@@ -39,6 +39,7 @@ type Item = {
 };
 type Claim = {
   id: string;
+  created_by: string | null;
   approval_id: string | null;
   doc_no: string | null;
   record_date: string;
@@ -572,7 +573,9 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
 }
 
 export default function ExpenseClaimsPage() {
-  const { isAdmin, isProcStaff } = useAuth();
+  const { user, isAdmin, isProcStaff } = useAuth();
+  // ครูทุกคนเพิ่มบันทึกได้ และแก้ไขได้เฉพาะรายการที่ตัวเองสร้าง (เจ้าหน้าที่พัสดุ/การเงินแก้ได้ทุกรายการ)
+  const canEdit = (x: { created_by: string | null }) => isProcStaff || (!!user && x.created_by === user.userId);
   const [claims, setClaims] = useState<Claim[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -590,7 +593,7 @@ export default function ExpenseClaimsPage() {
     let listQuery = supabase
       .from("proc_expense_claims")
       .select(
-        "id, approval_id, doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, project_id, activity_id, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, proc_expense_claim_items(kind, rate_id, name, rate, units, people, days, amount, payee, evidence, receipt_book, receipt_no, receipt_date, seq), proc_expense_claim_photos(id)",
+        "id, created_by, approval_id, doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, project_id, activity_id, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, proc_expense_claim_items(kind, rate_id, name, rate, units, people, days, amount, payee, evidence, receipt_book, receipt_no, receipt_date, seq), proc_expense_claim_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;
@@ -676,14 +679,14 @@ export default function ExpenseClaimsPage() {
           <span className="btn-label">พิมพ์บันทึก</span>
         </a>
         )}
-        <ProcurementPhotosButton kind="expense" requestId={c.id} count={c.proc_expense_claim_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
+        <ProcurementPhotosButton kind="expense" requestId={c.id} count={c.proc_expense_claim_photos?.length ?? 0} canEdit={canEdit(c)} onChanged={reload} />
         {printable(c) && (
         <a href={`/supplies/expense-claims/${c.id}/pdf?sheet=evidence`} target="_blank" rel="noreferrer" title="ใบติดหลักฐาน" className="btn-secondary btn-sm">
           <FileTextIcon className="h-3.5 w-3.5" />
           <span className="btn-label">ใบติดหลักฐาน</span>
         </a>
         )}
-        {isProcStaff && <ClaimModal claim={c} lookups={lookups} suggestedNo="" onSaved={reload} />}
+        {canEdit(c) && <ClaimModal claim={c} lookups={lookups} suggestedNo="" onSaved={reload} />}
         {isAdmin && (
           <button type="button" onClick={() => handleDelete(c)} title="ลบ" className="btn-danger btn-sm">
             <TrashIcon className="h-3.5 w-3.5" />
@@ -709,7 +712,7 @@ export default function ExpenseClaimsPage() {
             {fiscalYear ? ` · ปีงบประมาณ ${fiscalYear}` : ""}
           </p>
         </div>
-        {isProcStaff && <ClaimModal claim={null} lookups={lookups} suggestedNo={nextDocNo} onSaved={reload} />}
+        {!!user && <ClaimModal claim={null} lookups={lookups} suggestedNo={nextDocNo} onSaved={reload} />}
       </div>
 
       <div className="mb-4 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">

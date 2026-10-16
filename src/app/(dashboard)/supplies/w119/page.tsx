@@ -24,6 +24,7 @@ import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-a
 type Item = { name: string; vendor: string | null; evidence: string | null; receipt_book: string | null; receipt_no: string | null; receipt_date: string | null; amount: number };
 type Report = {
   id: string;
+  created_by: string | null;
   approval_id: string | null;
   doc_no: string;
   record_date: string;
@@ -478,7 +479,9 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
 }
 
 export default function W119Page() {
-  const { isAdmin, isProcStaff } = useAuth();
+  const { user, isAdmin, isProcStaff } = useAuth();
+  // ครูทุกคนเพิ่มบันทึกได้ และแก้ไขได้เฉพาะรายการที่ตัวเองสร้าง (เจ้าหน้าที่พัสดุ/การเงินแก้ได้ทุกรายการ)
+  const canEdit = (x: { created_by: string | null }) => isProcStaff || (!!user && x.created_by === user.userId);
   const [reports, setReports] = useState<Report[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -496,7 +499,7 @@ export default function W119Page() {
     let listQuery = supabase
       .from("proc_w119_reports")
       .select(
-        "id, approval_id, doc_no, record_date, purchase_date, admin_group, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
+        "id, created_by, approval_id, doc_no, record_date, purchase_date, admin_group, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;
@@ -580,14 +583,14 @@ export default function W119Page() {
           <span className="btn-label">พิมพ์บันทึก</span>
         </a>
         )}
-        <ProcurementPhotosButton kind="w119" requestId={r.id} count={r.proc_w119_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
+        <ProcurementPhotosButton kind="w119" requestId={r.id} count={r.proc_w119_photos?.length ?? 0} canEdit={canEdit(r)} onChanged={reload} />
         {printable(r) && (
         <a href={`/supplies/w119/${r.id}/pdf?sheet=evidence`} target="_blank" rel="noreferrer" title="ใบติดหลักฐาน" className="btn-secondary btn-sm">
           <FileTextIcon className="h-3.5 w-3.5" />
           <span className="btn-label">ใบติดหลักฐาน</span>
         </a>
         )}
-        {isProcStaff && <W119Modal report={r} lookups={lookups} suggestedNo="" onSaved={reload} />}
+        {canEdit(r) && <W119Modal report={r} lookups={lookups} suggestedNo="" onSaved={reload} />}
         {isAdmin && (
           <button type="button" onClick={() => handleDelete(r)} title="ลบ" className="btn-danger btn-sm">
             <TrashIcon className="h-3.5 w-3.5" />
@@ -612,7 +615,7 @@ export default function W119Page() {
             {fiscalYear ? ` · ปีงบประมาณ ${fiscalYear}` : ""}
           </p>
         </div>
-        {isProcStaff && <W119Modal report={null} lookups={lookups} suggestedNo={nextDocNo} onSaved={reload} />}
+        {!!user && <W119Modal report={null} lookups={lookups} suggestedNo={nextDocNo} onSaved={reload} />}
       </div>
 
       <div className="mb-4 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">

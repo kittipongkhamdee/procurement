@@ -149,13 +149,13 @@ export function ExpenseClaimDocument({ data: d }: { data: ExpenseClaimData }) {
             extra={d.responsible_position ? [`ตำแหน่ง ${d.responsible_position}`] : []}
             style={{ marginLeft: L - 50, marginTop: 10 }}
           />
-          {/* ความเห็นหัวหน้างานการเงิน / ผู้มีอำนาจลงนาม — ตารางสองช่องแบบเดียวกับ ว.119 */}
+          {/* ความเห็นเจ้าหน้าที่การเงิน / ผู้มีอำนาจลงนาม — ตารางสองช่องแบบเดียวกับ ว.119 */}
           <View style={{ flexDirection: "row", marginTop: 12, borderWidth: B }}>
             <View style={{ width: L, borderRightWidth: B, padding: 6 }}>
-              <Text style={styles.bold}>{t("ความเห็นหัวหน้างานการเงิน")}</Text>
+              <Text style={styles.bold}>{t("ความเห็นเจ้าหน้าที่การเงิน")}</Text>
               <Tick text="เห็นสมควรตามที่เสนอ" />
               <Tick text="ไม่เห็นสมควร เนื่องจาก.................." />
-              <Sign role="หัวหน้างานการเงิน" name={d.finance_officer} extra={[formatThaiDate(d.record_date)]} style={{ marginTop: 10 }} />
+              <Sign role="เจ้าหน้าที่การเงิน" name={d.finance_officer} extra={[formatThaiDate(d.record_date)]} style={{ marginTop: 10 }} />
             </View>
             <View style={{ flex: 1, padding: 6 }}>
               <Text style={styles.bold}>{t("ผู้มีอำนาจลงนาม")}</Text>
