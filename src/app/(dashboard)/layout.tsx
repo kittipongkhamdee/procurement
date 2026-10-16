@@ -51,6 +51,7 @@ const NAV_SECTIONS = [
       { href: "/supplies/procurement-register", label: "ทะเบียนคุมจัดซื้อจัดจ้าง", icon: <FileTextIcon className={ICON_CLASS} /> },
       { href: "/supplies/w804", label: "ว.804 ซื้อไม่เกิน 50,000", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
       { href: "/supplies/w119", label: "ว.119 ค่าใช้จ่ายบริหารงาน", icon: <FileTextIcon className={ICON_CLASS} /> },
+      { href: "/supplies/expense-claims", label: "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/supplies/textbooks", label: "หนังสือเรียน (เรียนฟรี 15 ปี)", icon: <FileTextIcon className={ICON_CLASS} /> },
       { href: "/supplies/quarterly-announcements", label: "ประกาศผลรายไตรมาส", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },

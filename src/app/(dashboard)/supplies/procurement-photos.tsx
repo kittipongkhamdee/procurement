@@ -13,17 +13,23 @@ import { Modal } from "@/components/modal";
 import { TrashIcon, UploadIcon } from "@/components/icons";
 import { addProcurementPhotos, deleteProcurementPhoto } from "./procurement-actions";
 import { addW119Photos, deleteW119Photo } from "./w119/w119-actions";
+import { addExpenseClaimPhotos, deleteExpenseClaimPhoto } from "./expense-claims/expense-claim-actions";
 
 export const PHOTO_CATEGORIES = ["ใบส่งของ", "ใบส่งมอบงาน", "ใบเสร็จรับเงิน", "ใบสำคัญรับเงิน", "อื่นๆ"];
 
-/** แหล่งเก็บรูป: purchase = งานซื้อ/จ้าง/ว.804 (proc_purchase_photos), w119 = ว.119 (proc_w119_photos) */
-export type PhotoKind = "purchase" | "w119";
+/** แหล่งเก็บรูป: purchase = งานซื้อ/จ้าง/ว.804 (proc_purchase_photos), w119 = ว.119 (proc_w119_photos), expense = เบิกค่าใช้จ่ายโครงการ (proc_expense_claim_photos) */
+export type PhotoKind = "purchase" | "w119" | "expense";
 const KINDS = {
   purchase: { categories: PHOTO_CATEGORIES, add: addProcurementPhotos, remove: deleteProcurementPhoto },
   w119: {
     categories: ["ใบเสร็จรับเงิน", "บิลเงินสด", "ใบสำคัญรับเงิน", "สำเนาบัตรประชาชน", "ใบรับรองแทนใบเสร็จรับเงิน", "สลิปโอนเงิน", "ภาพกิจกรรม/พัสดุ", "อื่นๆ"],
     add: addW119Photos,
     remove: deleteW119Photo,
+  },
+  expense: {
+    categories: ["ใบสำคัญรับเงิน", "สำเนาบัตรประชาชน", "ใบเสร็จรับเงิน", "บิลเงินสด", "สลิปโอนเงิน", "รายชื่อผู้เข้าร่วม", "ภาพกิจกรรม", "อื่นๆ"],
+    add: addExpenseClaimPhotos,
+    remove: deleteExpenseClaimPhoto,
   },
 } as const;
 
@@ -35,7 +41,9 @@ export async function loadProcurementPhotos(requestId: string, kind: PhotoKind =
   const { data } =
     kind === "w119"
       ? await supabase.from("proc_w119_photos").select("id, category, file_ref").eq("report_id", requestId).order("created_at")
-      : await supabase.from("proc_purchase_photos").select("id, category, file_ref").eq("purchase_request_id", requestId).order("created_at");
+      : kind === "expense"
+        ? await supabase.from("proc_expense_claim_photos").select("id, category, file_ref").eq("claim_id", requestId).order("created_at")
+        : await supabase.from("proc_purchase_photos").select("id, category, file_ref").eq("purchase_request_id", requestId).order("created_at");
   const rows = data ?? [];
   const paths = rows.map((r) => r.file_ref).filter((r) => !isDriveRef(r));
   const signed = new Map<string, string>();

@@ -186,7 +186,18 @@ function CheckLine({ text, indent = 0 }: { text: string; indent?: number }) {
 
 /** ใบติดหลักฐาน — หน้าละ 1 หลักฐาน (รายการที่ใช้ใบเสร็จใบเดียวกันรวมเป็นหน้าเดียว) บอกครูว่าต้องติด/แนบอะไร
  * ใบเสร็จ/บิลเงินสด/ใบสำคัญรับเงิน → ติดในกรอบ, ใบรับรองแทนใบเสร็จ (บก.111) → แนบต่อท้าย ไม่มีกรอบ */
-export function W119EvidenceDocument({ data: d }: { data: W119Data }) {
+export function W119EvidenceDocument({
+  data: d,
+  refLabel = "รายงาน ว.119",
+  title = "ใบติดหลักฐานการจัดซื้อจัดจ้าง",
+  partyLabel = "ผู้ขาย/ผู้รับจ้าง",
+}: {
+  data: Pick<W119Data, "doc_no" | "record_date" | "items" | "payment_method" | "responsible_name">;
+  /** ชื่อเอกสารหลักที่ใบนี้แนบ เช่น "บันทึกขออนุมัติเบิกค่าใช้จ่าย" */
+  refLabel?: string;
+  title?: string;
+  partyLabel?: string;
+}) {
   const groups: { key: string; items: W119Data["items"]; first: W119Data["items"][number] }[] = [];
   d.items.forEach((it) => {
     const key = [it.vendor, it.evidence, it.receipt_book, it.receipt_no, it.receipt_date].join("|");
@@ -195,19 +206,19 @@ export function W119EvidenceDocument({ data: d }: { data: W119Data }) {
     else groups.push({ key, items: [it], first: it });
   });
   return (
-    <Document title={`ใบติดหลักฐาน ว.119 ${d.doc_no}`}>
+    <Document title={`${title} ${d.doc_no}`}>
       {groups.map((g, gi) => {
         const rule = evidenceRule(g.first.evidence);
         const sum = g.items.reduce((s, i) => s + i.amount, 0);
         const seqs = g.items.map((i) => d.items.indexOf(i) + 1).join(", ");
         return (
           <Page key={gi} size="A4" style={[styles.page, { paddingTop: 1.5 * 28.3465 }]}>
-            <Text style={[styles.title, { marginBottom: 2 }]}>{t("ใบติดหลักฐานการจัดซื้อจัดจ้าง")}</Text>
+            <Text style={[styles.title, { marginBottom: 2 }]}>{t(title)}</Text>
             <Text style={{ textAlign: "center", marginBottom: 6 }}>
-              {t(`แนบรายงาน ว.119 ที่ ${d.doc_no} ลงวันที่ ${formatThaiDate(d.record_date)} · หลักฐานที่ ${gi + 1}/${groups.length} (รายการที่ ${seqs})`)}
+              {t(`แนบ${refLabel} ที่ ${d.doc_no} ลงวันที่ ${formatThaiDate(d.record_date)} · หลักฐานที่ ${gi + 1}/${groups.length} (รายการที่ ${seqs})`)}
             </Text>
             <Para indent={0} text={`รายการ ${g.items.map((i) => i.name).join(", ")}`} style={{ marginBottom: 0 }} />
-            <Para indent={0} text={`ผู้ขาย/ผู้รับจ้าง ${g.first.vendor ?? "-"}   จำนวนเงิน ${formatBaht(sum)} บาท ${thaiBahtText(sum)}`} style={{ marginBottom: 0 }} />
+            <Para indent={0} text={`${partyLabel} ${g.first.vendor ?? "-"}   จำนวนเงิน ${formatBaht(sum)} บาท ${thaiBahtText(sum)}`} style={{ marginBottom: 0 }} />
             <Para indent={0} text={`หลักฐาน ${evidenceText(g.first)}`} />
 
             <Text style={styles.bold}>{t("สิ่งที่ต้องติด/แนบ")}</Text>

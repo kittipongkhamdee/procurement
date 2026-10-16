@@ -2668,6 +2668,181 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_expense_claim_items: {
+        Row: {
+          id: string
+          claim_id: string
+          seq: number
+          kind: string
+          name: string
+          rate: number | null
+          units: number | null
+          people: number | null
+          days: number | null
+          amount: number
+          payee: string | null
+          evidence: string | null
+          receipt_book: string | null
+          receipt_no: string | null
+          receipt_date: string | null
+        }
+        Insert: {
+          id?: string
+          claim_id: string
+          seq: number
+          kind: string
+          name: string
+          rate?: number | null
+          units?: number | null
+          people?: number | null
+          days?: number | null
+          amount?: number
+          payee?: string | null
+          evidence?: string | null
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+        }
+        Update: {
+          id?: string
+          claim_id?: string
+          seq?: number
+          kind?: string
+          name?: string
+          rate?: number | null
+          units?: number | null
+          people?: number | null
+          days?: number | null
+          amount?: number
+          payee?: string | null
+          evidence?: string | null
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_expense_claim_items_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "proc_expense_claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_expense_claim_photos: {
+        Row: {
+          id: string
+          claim_id: string
+          category: string
+          file_ref: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          claim_id: string
+          category: string
+          file_ref: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          claim_id?: string
+          category?: string
+          file_ref?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_expense_claim_photos_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "proc_expense_claims"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_expense_claims: {
+        Row: {
+          id: string
+          doc_no: string
+          record_date: string
+          event_name: string
+          event_date: string
+          event_end_date: string | null
+          venue: string | null
+          admin_group: string | null
+          project_id: string | null
+          activity_id: string | null
+          approval_ref: string | null
+          approval_ref_date: string | null
+          responsible_name: string | null
+          responsible_position: string | null
+          fund_source: string | null
+          payment_method: string
+          amount: number
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          doc_no: string
+          record_date: string
+          event_name: string
+          event_date: string
+          event_end_date?: string | null
+          venue?: string | null
+          admin_group?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          approval_ref?: string | null
+          approval_ref_date?: string | null
+          responsible_name?: string | null
+          responsible_position?: string | null
+          fund_source?: string | null
+          payment_method?: string
+          amount?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          doc_no?: string
+          record_date?: string
+          event_name?: string
+          event_date?: string
+          event_end_date?: string | null
+          venue?: string | null
+          admin_group?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          approval_ref?: string | null
+          approval_ref_date?: string | null
+          responsible_name?: string | null
+          responsible_position?: string | null
+          fund_source?: string | null
+          payment_method?: string
+          amount?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_expense_claims_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_expense_claims_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "plan_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_w119_items: {
         Row: {
           id: string
