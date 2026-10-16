@@ -57,6 +57,75 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** ป็อปอัปดูรายละเอียด (อ่านอย่างเดียว) */
+function DetailRows({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl className="divide-y divide-slate-100 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label} className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-3 sm:gap-3">
+          <dt className="text-slate-500">{label}</dt>
+          <dd className="whitespace-pre-line text-slate-900 sm:col-span-2">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const detailTrigger = (
+  <span title="รายละเอียด" className="btn-secondary btn-sm">
+    <SearchIcon className="h-3.5 w-3.5" />
+    <span className="btn-label">รายละเอียด</span>
+  </span>
+);
+const receiptText = (i: { receipt_book: string | null; receipt_no: string | null; receipt_date: string | null }) =>
+  [i.receipt_book && `เล่มที่ ${i.receipt_book}`, i.receipt_no && `เลขที่ ${i.receipt_no}`, i.receipt_date && `ลว. ${formatThaiDate(i.receipt_date)}`].filter(Boolean).join(" ") || "-";
+
+function W119DetailModal({ report: r, approvals }: { report: Report; approvals: ApprovalRefOption[] }) {
+  const ap = approvals.find((a) => a.id === r.approval_id);
+  const rows: [string, string][] = [
+    ["เลขที่", r.doc_no],
+    ["อ้างอิงบันทึกขออนุมัติ", ap ? `${ap.doc_number ?? "(ไม่มีเลขที่)"} · ${ap.activity_name || ap.subject} (${ap.status})` : "-"],
+    ["วันที่จัดซื้อจัดจ้าง", formatThaiDate(r.purchase_date)],
+    ["วันที่รายงาน", formatThaiDate(r.record_date)],
+    ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
+    ["โครงการ", r.plan_projects?.name ?? "-"],
+    ["วัตถุประสงค์", r.purpose ?? "-"],
+    ["ประเภทค่าใช้จ่าย", [r.expense_category, r.table_ref].filter(Boolean).join(" · ")],
+    ["ผู้รับผิดชอบ", [r.responsible_name, r.responsible_position].filter(Boolean).join(" · ") || "-"],
+    ["แหล่งเงิน / วิธีจ่าย", `${r.fund_source ?? "-"} · ${r.payment_method === "transfer" ? "โอนเงิน" : "เงินสด"}`],
+    ["จำนวนเงินรวม", `${formatBaht(r.amount)} บาท`],
+  ];
+  return (
+    <Modal title={`รายงาน ว.119 ${r.doc_no}`} wide lazy trigger={detailTrigger}>
+      <DetailRows rows={rows} />
+      <div className="mt-4 overflow-x-auto">
+        <table className="table-base">
+          <thead>
+            <tr>
+              <th>ที่</th>
+              <th>รายการ</th>
+              <th>ผู้ขาย/ผู้รับจ้าง</th>
+              <th>หลักฐาน</th>
+              <th className="text-right">จำนวนเงิน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.proc_w119_items.map((i, idx) => (
+              <tr key={idx}>
+                <td>{idx + 1}</td>
+                <td>{i.name}</td>
+                <td>{i.vendor ?? "-"}</td>
+                <td>{[i.evidence, receiptText(i)].filter((x) => x && x !== "-").join(" · ") || "-"}</td>
+                <td className="text-right tabular-nums">{formatBaht(i.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Modal>
+  );
+}
+
 /** รายงานช้ากว่า 5 วันทำการนับถัดจากวันที่จัดซื้อจัดจ้าง */
 function isLate(r: { purchase_date: string; record_date: string }) {
   return r.record_date > addWorkingDays(r.purchase_date, 5);
@@ -503,6 +572,7 @@ export default function W119Page() {
   function actions(r: Report) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
+        <W119DetailModal report={r} approvals={lookups.approvals} />
         {!printable(r) && <span className="badge-amber !text-sm whitespace-nowrap">บันทึกขออนุมัติยังไม่อนุมัติ</span>}
         {printable(r) && (
         <a href={`/supplies/w119/${r.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์บันทึกรายงาน" className="btn-secondary btn-sm">

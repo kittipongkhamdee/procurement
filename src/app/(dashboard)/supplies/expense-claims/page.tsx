@@ -80,6 +80,80 @@ function itemAmount(i: ClaimItemInput) {
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+/** ป็อปอัปดูรายละเอียด (อ่านอย่างเดียว) */
+function DetailRows({ rows }: { rows: [string, string][] }) {
+  return (
+    <dl className="divide-y divide-slate-100 text-sm">
+      {rows.map(([label, value]) => (
+        <div key={label} className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-3 sm:gap-3">
+          <dt className="text-slate-500">{label}</dt>
+          <dd className="whitespace-pre-line text-slate-900 sm:col-span-2">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const detailTrigger = (
+  <span title="รายละเอียด" className="btn-secondary btn-sm">
+    <SearchIcon className="h-3.5 w-3.5" />
+    <span className="btn-label">รายละเอียด</span>
+  </span>
+);
+const receiptText = (i: { receipt_book: string | null; receipt_no: string | null; receipt_date: string | null }) =>
+  [i.receipt_book && `เล่มที่ ${i.receipt_book}`, i.receipt_no && `เลขที่ ${i.receipt_no}`, i.receipt_date && `ลว. ${formatThaiDate(i.receipt_date)}`].filter(Boolean).join(" ") || "-";
+
+function ClaimDetailModal({ claim: c, approvals }: { claim: Claim; approvals: ApprovalRefOption[] }) {
+  const ap = approvals.find((a) => a.id === c.approval_id);
+  const rows: [string, string][] = [
+    ["เลขที่", c.doc_no ?? "-"],
+    ["อ้างอิงบันทึกขออนุมัติ", ap ? `${ap.doc_number ?? "(ไม่มีเลขที่)"} · ${ap.activity_name || ap.subject} (${ap.status})` : "-"],
+    ["งาน/โครงการที่ดำเนินการ", c.event_name],
+    ["วันที่ดำเนินการ", `${formatThaiDate(c.event_date)}${c.event_end_date ? ` – ${formatThaiDate(c.event_end_date)}` : ""}`],
+    ["สถานที่", c.venue ?? "-"],
+    ["วันที่บันทึก", formatThaiDate(c.record_date)],
+    ["กลุ่มสาระ/ฝ่าย", c.admin_group ?? "-"],
+    ["บันทึกอนุมัติโครงการ", [c.approval_ref, c.approval_ref_date && `ลว. ${formatThaiDate(c.approval_ref_date)}`].filter(Boolean).join(" ") || "-"],
+    ["ผู้รับผิดชอบ", [c.responsible_name, c.responsible_position].filter(Boolean).join(" · ") || "-"],
+    ["แหล่งเงิน / วิธีจ่าย", `${c.fund_source ?? "-"} · ${c.payment_method === "transfer" ? "โอนเงิน" : "เงินสด"}`],
+    ["จำนวนเงินรวม", `${formatBaht(c.amount)} บาท`],
+  ];
+  return (
+    <Modal title={`เบิกค่าใช้จ่ายโครงการ ${c.doc_no ?? ""}`} wide lazy trigger={detailTrigger}>
+      <DetailRows rows={rows} />
+      <div className="mt-4 overflow-x-auto">
+        <table className="table-base">
+          <thead>
+            <tr>
+              <th>ที่</th>
+              <th>รายการ</th>
+              <th>การคำนวณ</th>
+              <th>ผู้รับเงิน</th>
+              <th>หลักฐาน</th>
+              <th className="text-right">จำนวนเงิน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {c.proc_expense_claim_items.map((i, idx) => (
+              <tr key={idx}>
+                <td>{idx + 1}</td>
+                <td>
+                  {i.name}
+                  <div className="text-slate-500">{(CLAIM_KINDS[i.kind as ClaimKind] ?? CLAIM_KINDS.other).label}</div>
+                </td>
+                <td>{claimCalcText(i) || "-"}</td>
+                <td>{i.payee ?? "-"}</td>
+                <td>{[i.evidence, receiptText(i)].filter((x) => x && x !== "-").join(" · ") || "-"}</td>
+                <td className="text-right tabular-nums">{formatBaht(i.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Modal>
+  );
+}
 /** ขอเบิกช้ากว่า 5 วันทำการนับถัดจากวันที่ดำเนินการเสร็จ (แนวปฏิบัติในคู่มือ) */
 function isLate(c: { event_date: string; event_end_date: string | null; record_date: string }) {
   return c.record_date > addWorkingDays(c.event_end_date ?? c.event_date, 5);
@@ -594,6 +668,7 @@ export default function ExpenseClaimsPage() {
   function actions(c: Claim) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
+        <ClaimDetailModal claim={c} approvals={lookups.approvals} />
         {!printable(c) && <span className="badge-amber !text-sm whitespace-nowrap">บันทึกขออนุมัติยังไม่อนุมัติ</span>}
         {printable(c) && (
         <a href={`/supplies/expense-claims/${c.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์บันทึกขอเบิก" className="btn-secondary btn-sm">

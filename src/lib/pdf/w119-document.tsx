@@ -175,7 +175,7 @@ export function W119Document({ data: d }: { data: W119Data }) {
 }
 
 /** ช่องติ๊ก + ข้อความบรรทัดเดียว (ใช้ในกล่องความเห็น) */
-function Tick({ text }: { text: string }) {
+export function Tick({ text }: { text: string }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
       <View style={{ width: 9, height: 9, borderWidth: B, marginTop: 6, marginRight: 6 }} />

@@ -3,6 +3,7 @@ import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
 import { claimCalcText } from "@/lib/expense-claims";
 import { t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
+import { Tick } from "./w119-document";
 import { B, CM, CONTENT_W, FS, INDENT, Para, SLACK, Sign, styles, wrap } from "./procurement-set-document";
 
 // บันทึกขออนุมัติเบิกค่าใช้จ่ายโครงการ — รายการตาราง 2 แนบท้ายหนังสือ ว 119 (ไม่ใช่การจัดซื้อจัดจ้าง)
@@ -148,14 +149,19 @@ export function ExpenseClaimDocument({ data: d }: { data: ExpenseClaimData }) {
             extra={d.responsible_position ? [`ตำแหน่ง ${d.responsible_position}`] : []}
             style={{ marginLeft: L - 50, marginTop: 10 }}
           />
-          <View style={{ flexDirection: "row", marginTop: 14 }}>
-            <View style={{ width: L }}>
-              <Sign role="เจ้าหน้าที่การเงิน" name={d.finance_officer} style={{ marginTop: 49 }} />
+          {/* ความเห็นหัวหน้างานการเงิน / ผู้มีอำนาจลงนาม — ตารางสองช่องแบบเดียวกับ ว.119 */}
+          <View style={{ flexDirection: "row", marginTop: 12, borderWidth: B }}>
+            <View style={{ width: L, borderRightWidth: B, padding: 6 }}>
+              <Text style={styles.bold}>{t("ความเห็นหัวหน้างานการเงิน")}</Text>
+              <Tick text="เห็นสมควรตามที่เสนอ" />
+              <Tick text="ไม่เห็นสมควร เนื่องจาก.................." />
+              <Sign role="หัวหน้างานการเงิน" name={d.finance_officer} extra={[formatThaiDate(d.record_date)]} style={{ marginTop: 10 }} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text>{t("- อนุมัติ")}</Text>
-              <Text>{t("- ไม่อนุมัติ")}</Text>
-              <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, formatThaiDate(d.record_date)]} style={{ marginTop: 10 }} />
+            <View style={{ flex: 1, padding: 6 }}>
+              <Text style={styles.bold}>{t("ผู้มีอำนาจลงนาม")}</Text>
+              <Tick text="อนุมัติ" />
+              <Tick text="ไม่อนุมัติ เนื่องจาก............" />
+              <Sign role="" name={d.director} extra={[`ตำแหน่ง ผู้อำนวยการ${school}`, formatThaiDate(d.record_date)]} style={{ marginTop: 10 }} />
             </View>
           </View>
         </View>
