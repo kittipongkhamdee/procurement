@@ -22,15 +22,12 @@ export function DocNoField({ current, suggested, isAdmin }: { current: string | 
     <div>
       <label className="label">เลขที่เอกสาร</label>
       {isAdmin ? (
-        <>
-          <input
+        <input
             name="doc_no"
             defaultValue={current ?? ""}
             placeholder={suggested ? `อัตโนมัติ: ${suggested}` : "ไม่มีเลขอัตโนมัติ — กรอกเองหรือเว้นว่าง"}
             className="input w-full font-bold"
           />
-          <p className="mt-1 text-xs text-slate-500">ผู้ดูแลระบบแก้เลขได้{isNew ? " — เว้นว่าง = ระบบออกเลขให้อัตโนมัติ" : ""}</p>
-        </>
       ) : isNew ? (
         <div className="flex min-h-[2.5rem] flex-wrap items-center gap-2">
           {suggested ? (
