@@ -189,28 +189,25 @@ export default function ExpenseRatesPage() {
           <table className="hidden table-base w-full @min-[48rem]:table">
             <thead>
               <tr>
+                <th className="w-12 text-center">ที่</th>
                 <th>ประเภท</th>
                 <th>รายการ</th>
                 <th className="text-right">อัตราสูงสุด</th>
                 <th>หน่วย</th>
-                <th>เงื่อนไข / อ้างอิง</th>
                 {isProcStaff && <th></th>}
               </tr>
             </thead>
             <tbody>
-              {rates.map((r) => (
+              {rates.map((r, i) => (
                 <tr key={r.id} className={r.is_active ? "" : "opacity-50"}>
+                  <td className="text-center">{i + 1}</td>
                   <td>{CLAIM_KINDS[r.kind as ClaimKind]?.label ?? r.kind}</td>
-                  <td className="font-medium text-slate-900">
+                  <td className="font-medium text-slate-900" title={[r.note, r.source].filter(Boolean).join("\n")}>
                     {r.name}
                     {!r.is_active && <span className="ml-2 text-sm text-slate-500">(ไม่ใช้งาน)</span>}
                   </td>
                   <td className="text-right font-semibold">{fmt(r.max_rate)}</td>
                   <td>{r.unit_note ?? "บาท"}</td>
-                  <td>
-                    <div>{r.note ?? ""}</div>
-                    {r.source && <div className="text-sm text-slate-500">{r.source}</div>}
-                  </td>
                   {isProcStaff && (
                     <td className="whitespace-nowrap text-right">
                       <div className="flex justify-end gap-1">
