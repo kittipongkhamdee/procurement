@@ -58,7 +58,7 @@ type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
 type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string>; rates: ExpenseRate[] };
 
-const EVIDENCES = ["ใบสำคัญรับเงิน", "ใบเสร็จรับเงิน", "บิลเงินสด", "ใบรับรองแทนใบเสร็จรับเงิน"];
+const EVIDENCES = ["ใบสำคัญรับเงิน", "ใบเสร็จรับเงิน", "บิลเงินสด", "ใบรับรองแทนใบเสร็จรับเงิน", "แบบ บก.4231 (ค่าพาหนะส่วนตัว)"];
 const FUNDS = ["เงินอุดหนุน", "เงินรายได้สถานศึกษา"];
 const POSITIONS = ["ครูผู้ช่วย", "ครู", "ครู วิทยฐานะครูชำนาญการ", "ครู วิทยฐานะครูชำนาญการพิเศษ", "ครู วิทยฐานะครูเชี่ยวชาญ"];
 const PAGE_SIZE = 20;
@@ -388,7 +388,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
                   {k.units && (
                     <div>
                       <label className="label">จำนวน{k.units}</label>
-                      <input type="number" min="0" step="0.5" value={it.units} onChange={(e) => setItem(idx, { units: e.target.value })} className="input w-full text-right" />
+                      <input type="number" min="0" step={it.kind === "mileage" ? "1" : "0.5"} value={it.units} onChange={(e) => setItem(idx, { units: e.target.value })} className="input w-full text-right" />
                     </div>
                   )}
                   {k.people && (

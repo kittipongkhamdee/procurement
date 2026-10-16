@@ -1,7 +1,7 @@
 // เบิกค่าใช้จ่ายโครงการ (ตาราง 2 แนบท้ายหนังสือ ว 119 — ไม่ใช่การจัดซื้อจัดจ้าง) — ชนิดรายการและการคำนวณ
 // ใช้ร่วมกันทั้งฟอร์ม server action และ PDF
 
-export type ClaimKind = "snack" | "meal" | "speaker" | "allowance" | "lodging" | "judge" | "prize" | "transport" | "other";
+export type ClaimKind = "snack" | "meal" | "speaker" | "allowance" | "lodging" | "judge" | "prize" | "mileage" | "transport" | "other";
 
 /** ชนิดรายการ → ชื่อเริ่มต้น + ช่องที่ใช้คำนวณ (units = มื้อ/ชั่วโมง/คืน) + หลักฐานเริ่มต้น */
 export const CLAIM_KINDS: Record<ClaimKind, { label: string; units?: string; people: boolean; days: boolean; evidence: string }> = {
@@ -12,6 +12,7 @@ export const CLAIM_KINDS: Record<ClaimKind, { label: string; units?: string; peo
   lodging: { label: "ค่าเช่าที่พัก", units: "คืน", people: true, days: false, evidence: "ใบเสร็จรับเงิน" },
   judge: { label: "ค่าตอบแทนกรรมการตัดสิน", people: true, days: true, evidence: "ใบสำคัญรับเงิน" },
   prize: { label: "ค่าโล่ ถ้วยรางวัล ของรางวัล", units: "ชิ้น", people: false, days: false, evidence: "ใบเสร็จรับเงิน" },
+  mileage: { label: "ค่าพาหนะส่วนตัว (เงินชดเชยตามระยะทาง)", units: "กิโลเมตร", people: false, days: false, evidence: "แบบ บก.4231 (ค่าพาหนะส่วนตัว)" },
   transport: { label: "ค่าพาหนะ", people: false, days: false, evidence: "ใบเสร็จรับเงิน" },
   other: { label: "ค่าใช้จ่ายอื่น", people: false, days: false, evidence: "ใบเสร็จรับเงิน" },
 };
