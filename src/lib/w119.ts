@@ -84,3 +84,13 @@ export function table1Ref(category: string) {
   const i = W119_TABLE1.indexOf(category.trim());
   return i >= 0 ? `ตารางที่ 1 ลำดับที่ ${i + 1}` : null;
 }
+
+/** คำในชื่อรายการที่มักเป็นรายการตาราง 2 (ไม่ใช่การจัดซื้อจัดจ้าง) — ใช้เตือนเมื่อครูกรอกผิดเมนู ว.119 */
+const TABLE2_KEYWORDS = ["อาหาร", "เครื่องดื่ม", "วิทยากร", "ค่าตอบแทน", "ที่พัก", "เบี้ยเลี้ยง", "ค่าพาหนะ", "ค่าน้ำมัน", "ค่าไฟ", "ค่าน้ำประปา", "ค่าโทรศัพท์", "ไปรษณีย์", "บริจาค"];
+
+/** รายการที่น่าจะเป็นตาราง 2 (ยกเว้น "น้ำดื่ม" ซึ่งอยู่ในตาราง 1 ลำดับ 15) */
+export function looksLikeTable2(name: string) {
+  const n = name.replace(/\s+/g, "");
+  if (!n) return false;
+  return TABLE2_KEYWORDS.some((k) => n.includes(k));
+}

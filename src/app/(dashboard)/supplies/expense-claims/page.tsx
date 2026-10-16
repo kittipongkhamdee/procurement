@@ -4,6 +4,7 @@
 // ค่าอาหารว่าง ค่าอาหาร ค่าตอบแทนวิทยากร ค่าเบี้ยเลี้ยง ค่าที่พัก ค่าพาหนะ — กรอกอัตรา × มื้อ/ชม. × คน × วัน ระบบคำนวณให้
 // พิมพ์บันทึกขออนุมัติเบิกค่าใช้จ่าย + ใบติดหลักฐาน (ใบสำคัญรับเงิน + สำเนาบัตร ฯลฯ) + อัพรูปอ้างอิง
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
@@ -310,9 +311,9 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
           <legend className="mb-2 text-sm font-semibold text-navy-800">รายการค่าใช้จ่าย (กรอกอัตรา ระบบคำนวณจำนวนเงินให้)</legend>
           <p className="mb-2 text-xs text-slate-500">
             เลือกอัตราตามระเบียบ ระบบไม่ให้กรอกเกินอัตราสูงสุด — ดู/แก้อัตราได้ที่เมนู{" "}
-            <a href="/expense-rates" className="text-navy-700 underline">
+            <Link href="/expense-rates" className="text-navy-700 underline">
               อัตราค่าใช้จ่ายตามระเบียบ
-            </a>
+            </Link>
           </p>
           <div className="space-y-3">
             {items.map((it, idx) => {
@@ -605,6 +606,15 @@ export default function ExpenseClaimsPage() {
           </p>
         </div>
         {isProcStaff && <ClaimModal claim={null} lookups={lookups} suggestedNo={nextDocNo} onSaved={reload} />}
+      </div>
+
+      <div className="mb-4 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+        <b>ใช้เมนูนี้เมื่อ:</b> เบิกค่าอาหาร อาหารว่างและเครื่องดื่ม ค่าวิทยากร ค่าที่พัก ค่าพาหนะ ค่าเบี้ยเลี้ยง (ตาราง 2 — ไม่ใช่การจัดซื้อจัดจ้าง) —{" "}
+        <b>ป้ายไวนิล วัสดุ ถ่ายเอกสาร ตกแต่งสถานที่</b> เป็นการจัดซื้อจัดจ้าง ให้ใช้เมนู{" "}
+        <Link href="/supplies/w119" className="font-semibold underline">
+          ว.119
+        </Link>{" "}
+        (ไม่เกิน 10,000 บาท) หรือ งานซื้อ/งานจ้าง
       </div>
 
       {claims === null ? (

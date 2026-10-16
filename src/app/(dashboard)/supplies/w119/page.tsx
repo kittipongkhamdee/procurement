@@ -4,13 +4,14 @@
 // ตามหนังสือ กค (กวจ) 0405.2/ว 119 ลว. 7 มี.ค. 2561 — ผู้ได้รับมอบหมายซื้อ/จ้างไปก่อน แล้วรายงานภายใน 5 วันทำการ
 // แต่ละรายการมีผู้ขาย/ผู้รับจ้างและหลักฐาน (ใบเสร็จ/บิลเงินสด/ใบสำคัญรับเงิน) ของตัวเอง
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
-import { addWorkingDays, evidenceRule, W119_LIMIT, W119_TABLE1, W119_TABLE2_EXAMPLES } from "@/lib/w119";
+import { addWorkingDays, evidenceRule, looksLikeTable2, W119_LIMIT, W119_TABLE1, W119_TABLE2_EXAMPLES } from "@/lib/w119";
 import { DOC_NUMBER_KINDS, docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
-import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
@@ -94,6 +95,8 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
     return [...m].filter(([, s]) => s > W119_LIMIT).map(([v]) => v);
   }, [items]);
 
+  // รายการที่ดูเหมือนตาราง 2 (ค่าอาหาร อาหารว่าง วิทยากร ที่พัก ฯลฯ) — เตือนให้ไปใช้เมนูเบิกค่าใช้จ่ายโครงการ
+  const table2Items = items.map((i) => i.name.trim()).filter((n) => n && looksLikeTable2(n));
   const setItem = (idx: number, patch: Partial<W119ItemInput>) => setItems((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -102,6 +105,14 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
     if (overVendors.length) {
       await toastError(`จัดซื้อจัดจ้างจาก "${overVendors[0]}" เกินวงเงิน ว.119 (ครั้งละไม่เกิน 10,000 บาท)`);
       return;
+    }
+    if (table2Items.length) {
+      const ok = await confirmWarning({
+        title: "รายการนี้น่าจะอยู่ตาราง 2 — ใช้ผิดเมนูหรือไม่?",
+        text: `"${table2Items.join('", "')}" เป็นค่าใช้จ่ายตาราง 2 (ไม่ใช่การจัดซื้อจัดจ้าง) ควรบันทึกที่เมนู "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)" แทน — ยืนยันบันทึกเป็น ว.119 ต่อไหม?`,
+        confirmButtonText: "บันทึกเป็น ว.119 ต่อ",
+      });
+      if (!ok) return;
     }
     const formData = new FormData(form);
     formData.set("items_json", JSON.stringify(items.filter((i) => i.name.trim())));
@@ -353,6 +364,15 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
               รวม <span className="font-semibold">{formatBaht(total)}</span> บาท
             </p>
           </div>
+          {table2Items.length > 0 && (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              ⚠ &quot;{table2Items.join('", "')}&quot; เป็นค่าใช้จ่าย<b>ตาราง 2</b> (ไม่ใช่การจัดซื้อจัดจ้าง) — ควรบันทึกที่เมนู{" "}
+              <Link href="/supplies/expense-claims" className="font-semibold underline">
+                เบิกค่าใช้จ่ายโครงการ (ตาราง 2)
+              </Link>{" "}
+              แทน
+            </div>
+          )}
           {overVendors.length > 0 && <p className="mt-2 text-sm text-red-600">เกินวงเงิน ว.119 (ครั้งละไม่เกิน 10,000 บาท): {overVendors.join(", ")} — ต้องจัดซื้อจัดจ้างตามวิธีปกติ</p>}
         </fieldset>
 
@@ -494,6 +514,14 @@ export default function W119Page() {
           </p>
         </div>
         {isProcStaff && <W119Modal report={null} lookups={lookups} suggestedNo={nextDocNo} onSaved={reload} />}
+      </div>
+
+      <div className="mb-4 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+        <b>ใช้เมนูนี้เมื่อ:</b> จัดซื้อจัดจ้างรายการ<b>ตาราง 1</b> (ป้ายไวนิล วัสดุ เครื่องเขียน ถ่ายเอกสาร ตกแต่งสถานที่ พวงมาลัย ของที่ระลึก น้ำดื่ม ฯลฯ) ครั้งละไม่เกิน
+        10,000 บาท — <b>ค่าอาหาร อาหารว่าง ค่าวิทยากร ค่าที่พัก ค่าพาหนะ</b> ไม่ใช่การจัดซื้อจัดจ้าง ให้ใช้เมนู{" "}
+        <Link href="/supplies/expense-claims" className="font-semibold underline">
+          เบิกค่าใช้จ่ายโครงการ (ตาราง 2)
+        </Link>
       </div>
 
       {reports === null ? (
