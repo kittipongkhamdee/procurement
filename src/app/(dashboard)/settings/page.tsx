@@ -25,6 +25,8 @@ import { MaintenanceForm } from "./maintenance-form";
 import { PhotoOptimizer } from "./photo-optimizer";
 import { ApprovalDocNumberForm } from "./approval-doc-number-form";
 import { DocumentSignersForm } from "./document-signers-form";
+import { DocNumberFormatForm } from "./doc-number-format-form";
+import { DOC_NUMBER_KINDS } from "@/lib/doc-numbers";
 import { DOCUMENT_SIGNERS } from "@/lib/document-signers";
 import { AssetCodeTemplateForm } from "./asset-code-template-form";
 import { CloseIcon } from "@/components/icons";
@@ -45,6 +47,7 @@ import {
   setAiExtractionEnabled,
   setApprovalDocNumberFormat,
   setDocumentSigners,
+  setDocNumberFormats,
   setAssetCodeTemplate,
   setCurrentBudgetYear,
   setGeminiApiKey,
@@ -93,6 +96,7 @@ type SettingsData = {
   approvalDocNumberSeparator: string;
   assetCodeTemplate: string;
   documentSigners: Record<string, string>;
+  docNumberFormats: Record<string, string>;
 };
 
 export default function SettingsPage() {
@@ -137,7 +141,7 @@ export default function SettingsPage() {
       supabase
         .from("proc_app_settings")
         .select("key, value")
-        .in("key", ["approval_doc_number_prefix", "approval_doc_number_separator", "asset_code_template", ...DOCUMENT_SIGNERS.map((d) => d.key)]),
+        .in("key", ["approval_doc_number_prefix", "approval_doc_number_separator", "asset_code_template", ...DOCUMENT_SIGNERS.map((d) => d.key), ...DOC_NUMBER_KINDS.map((d) => d.key)]),
     ]);
 
     const groupIdsByUser = new Map<string, string[]>();
@@ -173,6 +177,7 @@ export default function SettingsPage() {
       approvalDocNumberSeparator: numberFormatMap.get("approval_doc_number_separator") || "/",
       assetCodeTemplate: numberFormatMap.get("asset_code_template") || DEFAULT_ASSET_CODE_TEMPLATE,
       documentSigners: Object.fromEntries(DOCUMENT_SIGNERS.map((d) => [d.key, numberFormatMap.get(d.key) ?? ""])),
+      docNumberFormats: Object.fromEntries(DOC_NUMBER_KINDS.filter((d) => numberFormatMap.has(d.key)).map((d) => [d.key, numberFormatMap.get(d.key) ?? ""])),
     });
   }, []);
 
@@ -298,6 +303,16 @@ export default function SettingsPage() {
               onChanged={reload}
             />
           </div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">รูปแบบเลขที่เอกสารงานพัสดุ</div>
+          <DocNumberFormatForm
+            key={JSON.stringify(data.docNumberFormats)}
+            values={data.docNumberFormats}
+            setDocNumberFormats={setDocNumberFormats}
+            onChanged={reload}
+          />
         </div>
 
         <div className="card">

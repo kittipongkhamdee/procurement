@@ -10,7 +10,7 @@ import { B, CM, CONTENT_W, FS, INDENT, Para, SLACK, Sign, styles, wrap } from ".
 // (เรื่องเดิม / ข้อเท็จจริง / ข้อเสนอและพิจารณา) TH Sarabun New 16pt, หน้าต่อขอบบน 2.5 ซม. แบบเดียวกับ ว.119
 
 export type ExpenseClaimData = {
-  doc_no: string;
+  doc_no: string | null;
   record_date: string;
   event_name: string;
   event_date: string;
@@ -113,7 +113,7 @@ export function ExpenseClaimDocument({ data: d }: { data: ExpenseClaimData }) {
   const L = 595.28 / 2 - 2.5 * CM;
   const heading = (text: string) => <Text style={[styles.bold, { marginLeft: INDENT - 20, marginTop: 2 }]}>{t(text)}</Text>;
   return (
-    <Document title={`ขออนุมัติเบิกค่าใช้จ่าย ${d.doc_no}`}>
+    <Document title={`ขออนุมัติเบิกค่าใช้จ่าย ${d.doc_no ?? ""}`}>
       {/* หน้าต่อ ขอบบน 2.5 ซม. — หน้าแรกดึงหัวบันทึกขึ้นกลับไปที่ 1.5 ซม. */}
       <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
         <View style={{ marginTop: -CM }}>

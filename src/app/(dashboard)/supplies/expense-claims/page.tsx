@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { addWorkingDays, evidenceRule } from "@/lib/w119";
 import { CLAIM_KINDS, claimAmount, claimCalcText, type ClaimKind, type ExpenseRate } from "@/lib/expense-claims";
-import { DOC_PREFIX, withPrefix } from "@/lib/doc-numbers";
+import { DOC_NUMBER_KINDS, docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -36,7 +36,7 @@ type Item = {
 };
 type Claim = {
   id: string;
-  doc_no: string;
+  doc_no: string | null;
   record_date: string;
   event_name: string;
   event_date: string;
@@ -156,7 +156,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
   return (
     <Modal
       ref={modalRef}
-      title={claim ? `แก้ไขบันทึกขอเบิก ${claim.doc_no}` : "บันทึกขออนุมัติเบิกค่าใช้จ่ายใหม่"}
+      title={claim ? `แก้ไขบันทึกขอเบิก ${claim.doc_no ?? ""}` : "บันทึกขออนุมัติเบิกค่าใช้จ่ายใหม่"}
       wide
       lazy
       trigger={
@@ -177,13 +177,8 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
           <div>
-            <label className="label">
-              เลขที่ <span className="text-red-600">*</span>
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-700">{DOC_PREFIX.claim}</span>
-              <input name="doc_no" key={claim?.id ?? suggestedNo} defaultValue={claim?.doc_no ?? suggestedNo} required className="input w-full" />
-            </div>
+            <label className="label">เลขที่</label>
+            <input name="doc_no" key={claim?.id ?? suggestedNo} defaultValue={claim?.doc_no ?? suggestedNo} placeholder="เว้นว่างได้" className="input w-full" />
           </div>
           <div>
             <label className="label">
@@ -491,6 +486,7 @@ export default function ExpenseClaimsPage() {
   const [shown, setShown] = useState(PAGE_SIZE);
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
+  const [numberFormats, setNumberFormats] = useState<Record<string, string>>({});
   const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {}, rates: [] });
 
   const reload = useCallback(async () => {
@@ -528,7 +524,9 @@ export default function ExpenseClaimsPage() {
           .map((i) => ({ ...i, rate: n(i.rate), units: n(i.units), people: n(i.people), days: n(i.days), amount: Number(i.amount) })),
       })),
     );
-    setAllDocNos((nos ?? []).map((r) => r.doc_no));
+    setAllDocNos((nos ?? []).map((r) => r.doc_no ?? ""));
+    const { data: formats } = await supabase.from("proc_app_settings").select("key, value").in("key", DOC_NUMBER_KINDS.map((k) => k.key));
+    setNumberFormats(Object.fromEntries((formats ?? []).map((f) => [f.key, f.value ?? ""])));
     setLookups({
       projects: projects ?? [],
       activities: (activities as Activity[]) ?? [],
@@ -545,17 +543,7 @@ export default function ExpenseClaimsPage() {
   }, [reload]);
 
   // เลขที่ถัดไป <ลำดับที่>/<ปีงบประมาณ> — นับลำดับของเมนูนี้เอง (แก้เองได้)
-  const nextDocNo = useMemo(() => {
-    if (!fiscalYear) return "";
-    const suffix = `/${fiscalYear}`;
-    const max = allDocNos.reduce((m, raw) => {
-      const no = raw.trim();
-      if (!no.endsWith(suffix)) return m;
-      const v = Number(no.slice(0, -suffix.length));
-      return Number.isInteger(v) && v > m ? v : m;
-    }, 0);
-    return `${max + 1}${suffix}`;
-  }, [allDocNos, fiscalYear]);
+  const nextDocNo = useMemo(() => nextDocNumber(docNumberTemplate("claim", numberFormats), fiscalYear, allDocNos), [allDocNos, fiscalYear, numberFormats]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -649,7 +637,7 @@ export default function ExpenseClaimsPage() {
               {visible.map((c) => (
                 <div key={c.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{withPrefix(c.doc_no, "claim")}</span>
+                    <span className="font-medium text-slate-900">{c.doc_no || "(ไม่มีเลขที่)"}</span>
                     <span className="text-sm text-slate-700">{c.event_name}</span>
                     {isLate(c) && lateBadge}
                   </div>
@@ -678,7 +666,7 @@ export default function ExpenseClaimsPage() {
               <tbody>
                 {visible.map((c) => (
                   <tr key={c.id}>
-                    <td className="whitespace-nowrap font-medium text-slate-900">{withPrefix(c.doc_no, "claim")}</td>
+                    <td className="font-medium text-slate-900">{c.doc_no || "-"}</td>
                     <td>{eventDates(c)}</td>
                     <td>
                       <div>{formatThaiDate(c.record_date)}</div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { DOC_NUMBER_KINDS } from "@/lib/doc-numbers";
 import { DOCUMENT_SIGNERS } from "@/lib/document-signers";
 import { createClient } from "@/lib/supabase/server";
 import { testStorageConnection } from "@/lib/storage";
@@ -351,6 +352,20 @@ export async function setApprovalDocNumberFormat(formData: FormData): Promise<{ 
     .upsert({ key: "approval_doc_number_separator", value: separator, updated_at: new Date().toISOString() });
   if (e2) return { error: e2.message };
 
+  revalidatePath("/settings");
+  return {};
+}
+
+// รูปแบบเลขที่เอกสารงานพัสดุ — ค่าว่างเก็บเป็น "-" (= ไม่เสนอเลขอัตโนมัติ) แยกจาก "ยังไม่เคยตั้ง" ที่ใช้ค่าเริ่มต้น
+export async function setDocNumberFormats(formData: FormData): Promise<{ error?: string }> {
+  const supabase = await requireAdmin();
+  const now = new Date().toISOString();
+  for (const { key } of DOC_NUMBER_KINDS) {
+    const raw = String(formData.get(key) ?? "").trim();
+    if (raw && !raw.includes("{n}")) return { error: `รูปแบบ "${raw}" ต้องมี {n} (ลำดับที่)` };
+    const { error } = await supabase.from("proc_app_settings").upsert({ key, value: raw || "-", updated_at: now });
+    if (error) return { error: error.message };
+  }
   revalidatePath("/settings");
   return {};
 }

@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 1 && n <= 8);
   const buffer = await renderProcurementSetPdf(data, sheets);
-  const name = `${data.doc_no.replace(/\s+/g, "-")}${sheets.length === 1 ? `-แผ่น${sheets[0]}` : ""}.pdf`;
+  const name = `${data.doc_type}-${data.doc_no}${sheets.length === 1 ? `-แผ่น${sheets[0]}` : ""}.pdf`;
   return new NextResponse(new Uint8Array(buffer), {
     headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", name) },
   });

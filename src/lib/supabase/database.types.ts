@@ -2768,7 +2768,7 @@ export type Database = {
       proc_expense_claims: {
         Row: {
           id: string
-          doc_no: string
+          doc_no: string | null
           record_date: string
           event_name: string
           event_date: string
@@ -2789,7 +2789,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          doc_no: string
+          doc_no?: string | null
           record_date: string
           event_name: string
           event_date: string
@@ -2810,7 +2810,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          doc_no?: string
+          doc_no?: string | null
           record_date?: string
           event_name?: string
           event_date?: string

@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { addWorkingDays, evidenceRule, W119_LIMIT, W119_TABLE1, W119_TABLE2_EXAMPLES } from "@/lib/w119";
-import { DOC_PREFIX, withPrefix } from "@/lib/doc-numbers";
+import { DOC_NUMBER_KINDS, docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -156,10 +156,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
             <label className="label">
               เลขที่ <span className="text-red-600">*</span>
             </label>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-700">{DOC_PREFIX.w119}</span>
-              <input name="doc_no" key={report?.id ?? suggestedNo} defaultValue={report?.doc_no ?? suggestedNo} required className="input w-full" />
-            </div>
+            <input name="doc_no" key={report?.id ?? suggestedNo} defaultValue={report?.doc_no ?? suggestedNo} required className="input w-full" />
           </div>
           <div>
             <label className="label">กลุ่มสาระ/ฝ่าย</label>
@@ -383,6 +380,7 @@ export default function W119Page() {
   const [shown, setShown] = useState(PAGE_SIZE);
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
+  const [numberFormats, setNumberFormats] = useState<Record<string, string>>({});
   const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {}, vendors: [] });
 
   const reload = useCallback(async () => {
@@ -419,6 +417,8 @@ export default function W119Page() {
       })),
     );
     setAllDocNos((nos ?? []).map((r) => r.doc_no));
+    const { data: formats } = await supabase.from("proc_app_settings").select("key, value").in("key", DOC_NUMBER_KINDS.map((k) => k.key));
+    setNumberFormats(Object.fromEntries((formats ?? []).map((f) => [f.key, f.value ?? ""])));
     setLookups({
       projects: projects ?? [],
       activities: (activities as Activity[]) ?? [],
@@ -435,17 +435,7 @@ export default function W119Page() {
   }, [reload]);
 
   // เลขที่ถัดไป <ลำดับที่>/<ปีงบประมาณ> — ว.119 นับลำดับของตัวเอง (แก้เองได้)
-  const nextDocNo = useMemo(() => {
-    if (!fiscalYear) return "";
-    const suffix = `/${fiscalYear}`;
-    const max = allDocNos.reduce((m, raw) => {
-      const no = raw.trim();
-      if (!no.endsWith(suffix)) return m;
-      const n = Number(no.slice(0, -suffix.length));
-      return Number.isInteger(n) && n > m ? n : m;
-    }, 0);
-    return `${max + 1}${suffix}`;
-  }, [allDocNos, fiscalYear]);
+  const nextDocNo = useMemo(() => nextDocNumber(docNumberTemplate("w119", numberFormats), fiscalYear, allDocNos), [allDocNos, fiscalYear, numberFormats]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -538,7 +528,7 @@ export default function W119Page() {
               {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{withPrefix(r.doc_no, "w119")}</span>
+                    <span className="font-medium text-slate-900">{r.doc_no}</span>
                     <span className="text-sm text-slate-700">{itemSummary(r)}</span>
                     {isLate(r) && lateBadge}
                   </div>
@@ -571,7 +561,7 @@ export default function W119Page() {
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.id}>
-                    <td className="whitespace-nowrap font-medium text-slate-900">{withPrefix(r.doc_no, "w119")}</td>
+                    <td className="font-medium text-slate-900">{r.doc_no}</td>
                     <td>{formatThaiDate(r.purchase_date)}</td>
                     <td>
                       <div>{formatThaiDate(r.record_date)}</div>

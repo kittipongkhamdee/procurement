@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { contentDisposition } from "@/lib/http";
-import { withPrefix } from "@/lib/doc-numbers";
 import { W119Document, W119EvidenceDocument, type W119Data } from "@/lib/pdf/w119-document";
 
 // ว.119 — บันทึกรายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน
@@ -26,7 +25,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const s = new Map((settings ?? []).map((x) => [x.key, x.value]));
   const data: W119Data = {
     ...r,
-    doc_no: withPrefix(r.doc_no, "w119"),
     payment_method: r.payment_method === "transfer" ? "transfer" : "cash",
     amount: Number(r.amount),
     project_name: (r.plan_projects as unknown as { name: string } | null)?.name ?? null,
@@ -41,6 +39,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const evidence = new URL(request.url).searchParams.get("sheet") === "evidence";
   const buffer = await renderToBuffer(evidence ? <W119EvidenceDocument data={data} /> : <W119Document data={data} />);
   return new NextResponse(new Uint8Array(buffer), {
-    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", `${withPrefix(r.doc_no, "w119").replace(/\s+/g, "-")}${evidence ? "-ใบติดหลักฐาน" : ""}.pdf`) },
+    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", `ว119-${r.doc_no}${evidence ? "-ใบติดหลักฐาน" : ""}.pdf`) },
   });
 }

@@ -33,7 +33,6 @@ function parse(formData: FormData) {
   const recordDate = str("record_date");
   const eventDate = str("event_date");
   const eventEnd = str("event_end_date") || null;
-  if (!str("doc_no")) return { error: "กรุณากรอกเลขที่" };
   if (!str("event_name")) return { error: "กรุณากรอกชื่องาน/โครงการที่ดำเนินการ" };
   if (!eventDate) return { error: "กรุณาเลือกวันที่ดำเนินการ" };
   if (!recordDate) return { error: "กรุณาเลือกวันที่บันทึก" };
@@ -78,7 +77,7 @@ function parse(formData: FormData) {
   const amount = Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100;
   return {
     fields: {
-      doc_no: str("doc_no"),
+      doc_no: str("doc_no") || null,
       record_date: recordDate,
       event_name: str("event_name"),
       event_date: eventDate,

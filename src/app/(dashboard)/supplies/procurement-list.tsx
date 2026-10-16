@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
+import { DOC_NUMBER_KINDS, docNumberKind, docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -16,7 +17,6 @@ import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/comp
 import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 import { procurementSheets } from "@/lib/pdf/procurement-sheets";
-import { DOC_PREFIX, procurementDocKind, withPrefix } from "@/lib/doc-numbers";
 import { PhotoGroups, ProcurementPhotosButton, loadProcurementPhotos, type ProcurementPhoto } from "./procurement-photos";
 import { createProcurement, deleteProcurement, updateProcurement } from "./procurement-actions";
 
@@ -310,10 +310,7 @@ function ProcurementModal({
             <label className="label">
               เลขที่ <span className="text-red-600">*</span>
             </label>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-700">{DOC_PREFIX[procurementDocKind(type)]}</span>
-              <input name="doc_no" key={request?.id ?? suggestedNo} defaultValue={request?.doc_no ?? suggestedNo} required className="input w-full" />
-            </div>
+            <input name="doc_no" key={request?.id ?? suggestedNo} defaultValue={request?.doc_no ?? suggestedNo} required className="input w-full" />
           </div>
           <div>
             <label className="label">เลข e-GP</label>
@@ -626,7 +623,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
     ["วันรายงานสรุปผล", r.report_date ? formatThaiDate(r.report_date) : "-"],
   ];
   const common: [string, string][] = [
-    ["เลขที่", withPrefix(r.doc_no, procurementDocKind(type))],
+    ["เลขที่", r.doc_no],
     ["วันที่บันทึกข้อความ", formatThaiDate(r.record_date)],
     [TERMS[type].item, r.item_name ?? "-"],
     ["เพื่อ", r.reason ?? "-"],
@@ -711,7 +708,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
 function SheetsModal({ type, request }: { type: ProcurementType; request: Request }) {
   return (
     <Modal
-      title={`พิมพ์เอกสาร — ${withPrefix(request.doc_no, procurementDocKind(type))}`}
+      title={`พิมพ์เอกสาร — ${request.doc_no}`}
       lazy
       trigger={
         <span title="พิมพ์" className="btn-secondary btn-sm">
@@ -747,6 +744,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
   const [itemSuggestions, setItemSuggestions] = useState<ItemSuggestions | null>(null);
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
+  const [numberFormats, setNumberFormats] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -804,6 +802,8 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     setError(error?.message ?? null);
     setRequests((data as unknown as Request[]) ?? []);
     setAllDocNos((nos ?? []).map((r) => r.doc_no));
+    const { data: formats } = await supabase.from("proc_app_settings").select("key, value").in("key", DOC_NUMBER_KINDS.map((k) => k.key));
+    setNumberFormats(Object.fromEntries((formats ?? []).map((f) => [f.key, f.value ?? ""])));
     setLookups({
       projects: projects ?? [],
       activities: (activities as Activity[]) ?? [],
@@ -825,17 +825,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
   }, [reload]);
 
   // เลขที่ถัดไป <ลำดับที่>/<ปีงบประมาณ> — งานซื้อและงานจ้างนับลำดับแยกกัน (แก้เองได้)
-  const nextDocNo = useMemo(() => {
-    if (!fiscalYear) return "";
-    const suffix = `/${fiscalYear}`;
-    const max = allDocNos.reduce((m, raw) => {
-      const no = raw.trim();
-      if (!no.endsWith(suffix)) return m;
-      const n = Number(no.slice(0, -suffix.length));
-      return Number.isInteger(n) && n > m ? n : m;
-    }, 0);
-    return `${max + 1}${suffix}`;
-  }, [allDocNos, fiscalYear]);
+  const nextDocNo = useMemo(() => nextDocNumber(docNumberTemplate(docNumberKind(type), numberFormats), fiscalYear, allDocNos), [allDocNos, fiscalYear, numberFormats, type]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -919,7 +909,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
               {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{withPrefix(r.doc_no, procurementDocKind(type))}</span>
+                    <span className="font-medium text-slate-900">{r.doc_no}</span>
                     <span className="text-sm text-slate-700">{r.item_name}</span>
                     {!r.proc_purchase_photos?.length && NO_PHOTO_BADGE}
                   </div>
@@ -950,7 +940,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.id}>
-                    <td className="whitespace-nowrap font-medium text-slate-900">{withPrefix(r.doc_no, procurementDocKind(type))}</td>
+                    <td className="font-medium text-slate-900">{r.doc_no}</td>
                     <td>{formatThaiDate(r.record_date)}</td>
                     <td>
                       <div>{r.item_name}</div>
