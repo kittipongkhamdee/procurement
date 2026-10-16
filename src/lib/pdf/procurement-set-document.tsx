@@ -139,6 +139,20 @@ export function Para({ text, indent = INDENT, restIndent = 0, keep, style }: { t
   );
 }
 
+/** ช่องติ๊กความเห็นผู้อำนวยการ (กรอบวาดเอง — ฟอนต์ไม่มีอักษร ☐) */
+function DirectorTicks() {
+  return (
+    <View>
+      {["เห็นชอบ/อนุมัติ", "ไม่เห็นชอบ/ไม่อนุมัติ เนื่องจาก.................."].map((x) => (
+        <View key={x} style={{ flexDirection: "row", alignItems: "flex-start" }}>
+          <View style={{ width: 9, height: 9, borderWidth: B, marginTop: 6, marginRight: 6 }} />
+          <Text>{t(x)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /** ลายมือชื่อ: "ลงชื่อ.......<ตำแหน่ง>" และชื่อในวงเล็บ (ไม่มีชื่อ = เส้นจุด) บรรทัดถัดไปเพิ่มได้ */
 export function Sign({ role, name, extra = [], style }: { role: string; name: string | null; extra?: string[]; style?: Styles[string] }) {
   return (
@@ -340,8 +354,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
               <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginTop: 14 }} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text>{t("- เห็นชอบ")}</Text>
-              <Text>{t("- อนุมัติ")}</Text>
+              <DirectorTicks />
               <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, recordDate]} style={{ marginTop: 14 }} />
             </View>
           </View>
@@ -467,8 +480,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             <>
               <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginLeft: L, marginTop: 12 }} />
               <View style={{ marginTop: 12 }} wrap={false}>
-                <Text>{t("- เห็นชอบ")}</Text>
-                <Text>{t("- อนุมัติ")}</Text>
+                <DirectorTicks />
                 <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`]} style={{ marginTop: 14 }} />
               </View>
             </>
@@ -708,8 +720,9 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L, marginTop: 14 }} />
           <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginLeft: L, marginTop: 12 }} />
           <View style={{ marginTop: 10 }} wrap={false}>
-            <Text style={{ marginLeft: 20 }}>{t("- เห็นชอบ")}</Text>
-            <Text style={{ marginLeft: 20 }}>{t("- อนุมัติ")}</Text>
+            <View style={{ marginLeft: 20 }}>
+              <DirectorTicks />
+            </View>
             <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`]} style={{ marginTop: 14 }} />
           </View>
         </Page>
@@ -755,8 +768,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
               <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginTop: 14 }} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text>{t("- เห็นชอบ")}</Text>
-              <Text>{t("- อนุมัติ")}</Text>
+              <DirectorTicks />
               <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, recordDate]} style={{ marginTop: 14 }} />
             </View>
           </View>
@@ -854,8 +866,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             <Text style={{ marginLeft: INDENT, marginTop: 16 }}>{t("จึงเรียนมาเพื่อโปรดทราบและขออนุมัติเบิกจ่ายต่อไป")}</Text>
             <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L - 50, marginTop: 6 }} />
             <View style={{ marginTop: 6 }}>
-              <Text>{t("- ทราบ")}</Text>
-              <Text>{t("- อนุมัติ")}</Text>
+              <DirectorTicks />
               <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, formatThaiDate(reportIso)]} style={{ marginTop: 10 }} />
             </View>
           </View>
