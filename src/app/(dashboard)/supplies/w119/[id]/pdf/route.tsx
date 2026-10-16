@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { contentDisposition } from "@/lib/http";
-import { W119Document, type W119Data } from "@/lib/pdf/w119-document";
+import { W119Document, W119EvidenceDocument, type W119Data } from "@/lib/pdf/w119-document";
 
 // ว.119 — บันทึกรายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+// ?sheet=evidence → ใบติดหลักฐาน (พิมพ์แยกจากบันทึก)
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
   const { data: r } = await supabase
@@ -35,8 +36,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     procurement_head: s.get("doc_signer_procurement_head") ?? "นายกิตติพงษ์   คำดี",
     director: s.get("approval_signer_director") ?? null,
   };
-  const buffer = await renderToBuffer(<W119Document data={data} />);
+  const evidence = new URL(request.url).searchParams.get("sheet") === "evidence";
+  const buffer = await renderToBuffer(evidence ? <W119EvidenceDocument data={data} /> : <W119Document data={data} />);
   return new NextResponse(new Uint8Array(buffer), {
-    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", `ว119-${r.doc_no}.pdf`) },
+    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", `ว119-${r.doc_no}${evidence ? "-ใบติดหลักฐาน" : ""}.pdf`) },
   });
 }

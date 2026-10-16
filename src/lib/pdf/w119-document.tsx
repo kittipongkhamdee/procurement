@@ -1,6 +1,6 @@
 import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
-import { addWorkingDays } from "@/lib/w119";
+import { addWorkingDays, evidenceRule, RECEIPT_ESSENTIALS } from "@/lib/w119";
 import { t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
 import { B, CONTENT_W, FS, INDENT, Para, SLACK, Sign, styles, wrap } from "./procurement-set-document";
@@ -162,6 +162,83 @@ export function W119Document({ data: d }: { data: W119Data }) {
           </View>
         </View>
       </Page>
+    </Document>
+  );
+}
+
+/** ช่องสี่เหลี่ยมให้ครูติ๊ก (วาดเอง — ฟอนต์ไม่มีอักษร ☐) */
+function CheckLine({ text, indent = 0 }: { text: string; indent?: number }) {
+  const w = CONTENT_W - indent - 18 - SLACK;
+  return (
+    <View style={{ flexDirection: "row", marginLeft: indent }} wrap={false}>
+      <View style={{ width: 9, height: 9, borderWidth: B, marginTop: 6, marginRight: 9 }} />
+      <View style={{ width: w }}>
+        {wrap(text, FS, w, w).map((l, i) => (
+          <Text key={i}>{t(l)}</Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** ใบติดหลักฐาน — หน้าละ 1 หลักฐาน (รายการที่ใช้ใบเสร็จใบเดียวกันรวมเป็นหน้าเดียว) บอกครูว่าต้องติด/แนบอะไร
+ * ใบเสร็จ/บิลเงินสด/ใบสำคัญรับเงิน → ติดในกรอบ, ใบรับรองแทนใบเสร็จ (บก.111) → แนบต่อท้าย ไม่มีกรอบ */
+export function W119EvidenceDocument({ data: d }: { data: W119Data }) {
+  const groups: { key: string; items: W119Data["items"]; first: W119Data["items"][number] }[] = [];
+  d.items.forEach((it) => {
+    const key = [it.vendor, it.evidence, it.receipt_book, it.receipt_no, it.receipt_date].join("|");
+    const g = groups.find((x) => x.key === key && (it.receipt_no || it.receipt_book));
+    if (g) g.items.push(it);
+    else groups.push({ key, items: [it], first: it });
+  });
+  return (
+    <Document title={`ใบติดหลักฐาน ว.119 ${d.doc_no}`}>
+      {groups.map((g, gi) => {
+        const rule = evidenceRule(g.first.evidence);
+        const sum = g.items.reduce((s, i) => s + i.amount, 0);
+        const seqs = g.items.map((i) => d.items.indexOf(i) + 1).join(", ");
+        return (
+          <Page key={gi} size="A4" style={[styles.page, { paddingTop: 1.5 * 28.3465 }]}>
+            <Text style={[styles.title, { marginBottom: 2 }]}>{t("ใบติดหลักฐานการจัดซื้อจัดจ้าง")}</Text>
+            <Text style={{ textAlign: "center", marginBottom: 6 }}>
+              {t(`แนบรายงาน ว.119 ที่ ${d.doc_no} ลงวันที่ ${formatThaiDate(d.record_date)} · หลักฐานที่ ${gi + 1}/${groups.length} (รายการที่ ${seqs})`)}
+            </Text>
+            <Para indent={0} text={`รายการ ${g.items.map((i) => i.name).join(", ")}`} style={{ marginBottom: 0 }} />
+            <Para indent={0} text={`ผู้ขาย/ผู้รับจ้าง ${g.first.vendor ?? "-"}   จำนวนเงิน ${formatBaht(sum)} บาท ${thaiBahtText(sum)}`} style={{ marginBottom: 0 }} />
+            <Para indent={0} text={`หลักฐาน ${evidenceText(g.first)}`} />
+
+            <Text style={styles.bold}>{t("สิ่งที่ต้องติด/แนบ")}</Text>
+            {rule.attach.map((a) => (
+              <CheckLine key={a} text={a} indent={10} />
+            ))}
+            {d.payment_method === "transfer" && gi === 0 && <CheckLine text="หลักฐานการโอนเงินให้ผู้ขาย/ผู้รับจ้าง (สลิปโอนเงิน) (แนบต่อท้าย)" indent={10} />}
+
+            {rule.mode === "paste" ? (
+              <View style={{ flexGrow: 1, minHeight: 200, borderWidth: B, borderStyle: "dashed", alignItems: "center", justifyContent: "center", marginVertical: 8 }}>
+                <Text style={{ color: "#94a3b8" }}>{t(`ติด${rule.attach[0].replace(/ \(.*$/, "")}ในกรอบนี้`)}</Text>
+                <Text style={{ color: "#94a3b8", fontSize: 14 }}>{t("ใบใหญ่กว่ากรอบ ให้พับหรือแนบต่อท้ายแผ่นนี้")}</Text>
+              </View>
+            ) : (
+              <View style={{ flexGrow: 1, minHeight: 120, borderWidth: B, borderStyle: "dashed", alignItems: "center", justifyContent: "center", marginVertical: 8 }}>
+                <Text style={{ color: "#94a3b8" }}>{t("หลักฐานรายการนี้เป็นแบบฟอร์มเต็มแผ่น — แนบต่อท้ายแผ่นนี้ ไม่ต้องติด")}</Text>
+              </View>
+            )}
+
+            <View wrap={false}>
+              <Text style={styles.bold}>{t("ตรวจหลักฐานให้ครบก่อนติด")}</Text>
+              {RECEIPT_ESSENTIALS.map((x) => (
+                <CheckLine key={x} text={x} indent={10} />
+              ))}
+              <Sign
+                role="ผู้ได้รับมอบหมาย"
+                name={d.responsible_name}
+                extra={["ขอรับรองว่าได้จ่ายเงินตามหลักฐานนี้จริง"]}
+                style={{ marginLeft: 595.28 / 2 - 2.5 * 28.3465 - 50, marginTop: 10 }}
+              />
+            </View>
+          </Page>
+        );
+      })}
     </Document>
   );
 }

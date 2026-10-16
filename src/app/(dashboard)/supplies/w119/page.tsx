@@ -8,12 +8,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
-import { addWorkingDays, W119_LIMIT } from "@/lib/w119";
+import { addWorkingDays, evidenceRule, W119_LIMIT } from "@/lib/w119";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-actions";
 
 type Item = { name: string; vendor: string | null; evidence: string | null; receipt_book: string | null; receipt_no: string | null; receipt_date: string | null; amount: number };
@@ -49,7 +49,7 @@ const CATEGORIES = [
   "ค่าใช้จ่ายในพิธีทางศาสนา",
   "ค่ารับรองและพิธีการ",
 ];
-const EVIDENCES = ["ใบเสร็จรับเงิน", "บิลเงินสด", "ใบสำคัญรับเงิน", "ใบรับรองแทนใบเสร็จรับเงิน", "ใบกำกับภาษี/ใบเสร็จรับเงิน"];
+const EVIDENCES = ["ใบเสร็จรับเงิน", "บิลเงินสด", "ใบกำกับภาษี/ใบเสร็จรับเงิน", "ใบสำคัญรับเงิน", "ใบรับรองแทนใบเสร็จรับเงิน"];
 const FUNDS = ["เงินอุดหนุน", "เงินรายได้สถานศึกษา"];
 const POSITIONS = ["ครูผู้ช่วย", "ครู", "ครู วิทยฐานะครูชำนาญการ", "ครู วิทยฐานะครูชำนาญการพิเศษ", "ครู วิทยฐานะครูเชี่ยวชาญ", "เจ้าหน้าที่พัสดุ"];
 const PAGE_SIZE = 20;
@@ -295,11 +295,6 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
               <option key={v} value={v} />
             ))}
           </datalist>
-          <datalist id="w119-evidences">
-            {EVIDENCES.map((v) => (
-              <option key={v} value={v} />
-            ))}
-          </datalist>
           <div className="space-y-3">
             {items.map((it, idx) => (
               <div key={idx} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-6">
@@ -317,8 +312,19 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
                 </div>
                 <div className="col-span-2 sm:col-span-3">
                   <label className="label">หลักฐาน</label>
-                  <input list="w119-evidences" value={it.evidence} onChange={(e) => setItem(idx, { evidence: e.target.value })} className="input w-full" />
+                  <select value={it.evidence} onChange={(e) => setItem(idx, { evidence: e.target.value })} className="input w-full">
+                    {it.evidence && !EVIDENCES.includes(it.evidence) && <option value={it.evidence}>{it.evidence}</option>}
+                    {EVIDENCES.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <p className="col-span-2 text-xs text-slate-500 sm:col-span-6">
+                  {evidenceRule(it.evidence).mode === "paste" ? "ติดในใบติดหลักฐาน: " : "แนบต่อท้ายใบติดหลักฐาน: "}
+                  {evidenceRule(it.evidence).attach.join(" + ")}
+                </p>
                 <div>
                   <label className="label">เล่มที่</label>
                   <input value={it.receipt_book} onChange={(e) => setItem(idx, { receipt_book: e.target.value })} className="input w-full" />
@@ -464,9 +470,13 @@ export default function W119Page() {
   function actions(r: Report) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
-        <a href={`/supplies/w119/${r.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์" className="btn-secondary btn-sm">
+        <a href={`/supplies/w119/${r.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์บันทึกรายงาน" className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />
-          <span className="btn-label">พิมพ์</span>
+          <span className="btn-label">พิมพ์บันทึก</span>
+        </a>
+        <a href={`/supplies/w119/${r.id}/pdf?sheet=evidence`} target="_blank" rel="noreferrer" title="ใบติดหลักฐาน" className="btn-secondary btn-sm">
+          <FileTextIcon className="h-3.5 w-3.5" />
+          <span className="btn-label">ใบติดหลักฐาน</span>
         </a>
         {isProcStaff && <W119Modal report={r} lookups={lookups} suggestedNo="" onSaved={reload} />}
         {isAdmin && (
