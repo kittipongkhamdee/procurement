@@ -18,6 +18,17 @@ export async function setUserRole(formData: FormData) {
   const targetUserId = String(formData.get("user_id") ?? "");
   const newRole = String(formData.get("role") ?? "") as Enums<"proc_user_role">;
 
+  // เปลี่ยนบทบาทของตัวเอง = สลับบทบาทชั่วคราว (ยังเป็นแอดมินอยู่ กลับได้จากแถบด้านบน) — กันแอดมินคนเดียวทำสิทธิ์หลุด
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user && targetUserId === user.id) {
+    const { error } = await supabase.rpc("proc_set_acting_role", { new_role: newRole });
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin/users");
+    return;
+  }
+
   const { error } = await supabase.rpc("proc_admin_set_role", {
     target_user_id: targetUserId,
     new_role: newRole,
