@@ -12,19 +12,30 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { Modal } from "@/components/modal";
 import { TrashIcon, UploadIcon } from "@/components/icons";
 import { addProcurementPhotos, deleteProcurementPhoto } from "./procurement-actions";
+import { addW119Photos, deleteW119Photo } from "./w119/w119-actions";
 
 export const PHOTO_CATEGORIES = ["ใบส่งของ", "ใบส่งมอบงาน", "ใบเสร็จรับเงิน", "ใบสำคัญรับเงิน", "อื่นๆ"];
+
+/** แหล่งเก็บรูป: purchase = งานซื้อ/จ้าง/ว.804 (proc_purchase_photos), w119 = ว.119 (proc_w119_photos) */
+export type PhotoKind = "purchase" | "w119";
+const KINDS = {
+  purchase: { categories: PHOTO_CATEGORIES, add: addProcurementPhotos, remove: deleteProcurementPhoto },
+  w119: {
+    categories: ["ใบเสร็จรับเงิน", "บิลเงินสด", "ใบสำคัญรับเงิน", "สำเนาบัตรประชาชน", "ใบรับรองแทนใบเสร็จรับเงิน", "สลิปโอนเงิน", "ภาพกิจกรรม/พัสดุ", "อื่นๆ"],
+    add: addW119Photos,
+    remove: deleteW119Photo,
+  },
+} as const;
 
 export type ProcurementPhoto = { id: string; category: string; file_ref: string; thumb: string; full: string };
 
 /** โหลดรูปของรายการ พร้อม URL สำหรับแสดง (Drive = thumbnail/ลิงก์ดู, Supabase = signed URL 1 ชม.) */
-export async function loadProcurementPhotos(requestId: string): Promise<ProcurementPhoto[]> {
+export async function loadProcurementPhotos(requestId: string, kind: PhotoKind = "purchase"): Promise<ProcurementPhoto[]> {
   const supabase = createClient();
-  const { data } = await supabase
-    .from("proc_purchase_photos")
-    .select("id, category, file_ref")
-    .eq("purchase_request_id", requestId)
-    .order("created_at");
+  const { data } =
+    kind === "w119"
+      ? await supabase.from("proc_w119_photos").select("id, category, file_ref").eq("report_id", requestId).order("created_at")
+      : await supabase.from("proc_purchase_photos").select("id, category, file_ref").eq("purchase_request_id", requestId).order("created_at");
   const rows = data ?? [];
   const paths = rows.map((r) => r.file_ref).filter((r) => !isDriveRef(r));
   const signed = new Map<string, string>();
@@ -40,10 +51,18 @@ export async function loadProcurementPhotos(requestId: string): Promise<Procurem
 }
 
 /** แสดงรูปจัดกลุ่มตามประเภท (ใช้ทั้งใน popup รูปอ้างอิงและในรายละเอียด) */
-export function PhotoGroups({ photos, onDelete }: { photos: ProcurementPhoto[]; onDelete?: (p: ProcurementPhoto) => void }) {
+export function PhotoGroups({
+  photos,
+  onDelete,
+  categories = PHOTO_CATEGORIES,
+}: {
+  photos: ProcurementPhoto[];
+  onDelete?: (p: ProcurementPhoto) => void;
+  categories?: readonly string[];
+}) {
   // ดูรูปขนาดเต็มในหน้าเดิม (ไม่เปิดลิงก์ Google Drive — มือถือจะเด้งแอป Drive ให้เลือกบัญชี)
   const [viewing, setViewing] = useState<ProcurementPhoto | null>(null);
-  const groups = [...PHOTO_CATEGORIES, ...new Set(photos.map((p) => p.category).filter((c) => !PHOTO_CATEGORIES.includes(c)))]
+  const groups = [...categories, ...new Set(photos.map((p) => p.category).filter((c) => !categories.includes(c)))]
     .map((c) => [c, photos.filter((p) => p.category === c)] as const)
     .filter(([, list]) => list.length > 0);
   if (groups.length === 0) return <p className="text-sm text-slate-500">ยังไม่มีรูปอ้างอิง</p>;
@@ -100,28 +119,31 @@ export function ProcurementPhotosButton({
   count,
   canEdit,
   onChanged,
+  kind = "purchase",
 }: {
   requestId: string;
   count: number;
   canEdit: boolean;
   onChanged: () => void;
+  kind?: PhotoKind;
 }) {
+  const cfg = KINDS[kind];
   const [open, setOpen] = useState(false);
   const [photos, setPhotos] = useState<ProcurementPhoto[] | null>(null);
-  const [category, setCategory] = useState(PHOTO_CATEGORIES[0]);
+  const [category, setCategory] = useState<string>(cfg.categories[0]);
   const [progress, setProgress] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    loadProcurementPhotos(requestId).then((p) => alive && setPhotos(p));
+    loadProcurementPhotos(requestId, kind).then((p) => alive && setPhotos(p));
     return () => {
       alive = false;
     };
-  }, [open, requestId]);
+  }, [open, requestId, kind]);
 
   async function refresh() {
-    setPhotos(await loadProcurementPhotos(requestId));
+    setPhotos(await loadProcurementPhotos(requestId, kind));
     onChanged();
   }
 
@@ -148,7 +170,7 @@ export function ProcurementPhotosButton({
         uploaded.push({ category, ref: res.ref });
       }
       if (uploaded.length > 0) {
-        const res = await addProcurementPhotos(requestId, uploaded);
+        const res = await cfg.add(requestId, uploaded);
         if (res.error) {
           await toastError(res.error);
           return;
@@ -165,7 +187,7 @@ export function ProcurementPhotosButton({
 
   async function remove(p: ProcurementPhoto) {
     if (!(await confirmDelete({ title: "ลบรูปนี้?", text: p.category }))) return;
-    const res = await deleteProcurementPhoto(p.id);
+    const res = await cfg.remove(p.id);
     if (res.error) {
       await toastError(res.error);
       return;
@@ -196,7 +218,7 @@ export function ProcurementPhotosButton({
           <div>
             <label className="label">ประเภทเอกสาร</label>
             <select value={category} onChange={(e) => setCategory(e.target.value)} className="input">
-              {PHOTO_CATEGORIES.map((c) => (
+              {cfg.categories.map((c) => (
                 <option key={c}>{c}</option>
               ))}
             </select>
@@ -217,7 +239,7 @@ export function ProcurementPhotosButton({
           </label>
         </div>
       )}
-      {photos === null ? <p className="text-sm text-slate-500">กำลังโหลด...</p> : <PhotoGroups photos={photos} onDelete={canEdit ? remove : undefined} />}
+      {photos === null ? <p className="text-sm text-slate-500">กำลังโหลด...</p> : <PhotoGroups photos={photos} onDelete={canEdit ? remove : undefined} categories={cfg.categories} />}
     </Modal>
   );
 }

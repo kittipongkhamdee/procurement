@@ -14,6 +14,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { ProcurementPhotosButton } from "../procurement-photos";
 import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-actions";
 
 type Item = { name: string; vendor: string | null; evidence: string | null; receipt_book: string | null; receipt_no: string | null; receipt_date: string | null; amount: number };
@@ -35,6 +36,7 @@ type Report = {
   amount: number;
   plan_projects: { name: string } | null;
   proc_w119_items: Item[];
+  proc_w119_photos: { id: string }[];
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
@@ -391,7 +393,7 @@ export default function W119Page() {
     let listQuery = supabase
       .from("proc_w119_reports")
       .select(
-        "id, doc_no, record_date, purchase_date, admin_group, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq)",
+        "id, doc_no, record_date, purchase_date, admin_group, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;
@@ -474,6 +476,7 @@ export default function W119Page() {
           <PrinterIcon className="h-3.5 w-3.5" />
           <span className="btn-label">พิมพ์บันทึก</span>
         </a>
+        <ProcurementPhotosButton kind="w119" requestId={r.id} count={r.proc_w119_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
         <a href={`/supplies/w119/${r.id}/pdf?sheet=evidence`} target="_blank" rel="noreferrer" title="ใบติดหลักฐาน" className="btn-secondary btn-sm">
           <FileTextIcon className="h-3.5 w-3.5" />
           <span className="btn-label">ใบติดหลักฐาน</span>

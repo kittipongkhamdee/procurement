@@ -2715,6 +2715,38 @@ export type Database = {
           },
         ]
       }
+      proc_w119_photos: {
+        Row: {
+          id: string
+          report_id: string
+          category: string
+          file_ref: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          report_id: string
+          category: string
+          file_ref: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          report_id?: string
+          category?: string
+          file_ref?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_w119_photos_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "proc_w119_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_w119_reports: {
         Row: {
           id: string

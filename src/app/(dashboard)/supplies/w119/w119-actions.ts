@@ -5,6 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { deleteFromStorage } from "@/lib/storage";
 import { W119_LIMIT } from "@/lib/w119";
 
 type Result = { error?: string; id?: string };
@@ -121,8 +122,33 @@ export async function updateW119(id: string, formData: FormData): Promise<Result
 
 export async function deleteW119(id: string): Promise<Result> {
   const supabase = await createClient();
+  const { data: photos } = await supabase.from("proc_w119_photos").select("file_ref").eq("report_id", id);
   const { data, error } = await supabase.from("proc_w119_reports").delete().eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: NO_PERMISSION };
+  await Promise.all((photos ?? []).map((p) => deleteFromStorage(supabase, p.file_ref, "procurement-files").catch(() => {})));
+  return done();
+}
+
+// ---- รูปอ้างอิง (ใบเสร็จ/บิลเงินสด/ใบสำคัญรับเงิน/สำเนาบัตร/สลิปโอน/ภาพกิจกรรม) ----
+
+export async function addW119Photos(reportId: string, photos: { category: string; ref: string }[]): Promise<Result> {
+  const valid = photos.filter((p) => p.category.trim() && (/^gdrive:[\w-]+$/.test(p.ref) || /^procurement-photos\/[\w.-]+$/.test(p.ref)));
+  if (valid.length === 0) return { error: "ไม่มีรูปที่บันทึกได้" };
+  const supabase = await createClient();
+  const { error } = await supabase.from("proc_w119_photos").insert(valid.map((p) => ({ report_id: reportId, category: p.category.trim(), file_ref: p.ref })));
+  if (error) {
+    await Promise.all(valid.map((p) => deleteFromStorage(supabase, p.ref, "procurement-files").catch(() => {})));
+    return { error: error.message };
+  }
+  return done();
+}
+
+export async function deleteW119Photo(id: string): Promise<Result> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("proc_w119_photos").delete().eq("id", id).select("file_ref");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: NO_PERMISSION };
+  await deleteFromStorage(supabase, data[0].file_ref, "procurement-files").catch(() => {});
   return done();
 }
