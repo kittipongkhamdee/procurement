@@ -14,6 +14,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { DocNoBadge, DocNoField } from "@/components/doc-no-field";
 import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { ProcurementPhotosButton } from "../procurement-photos";
 import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-actions";
@@ -60,6 +61,7 @@ function isLate(r: { purchase_date: string; record_date: string }) {
 
 function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report | null; lookups: Lookups; suggestedNo: string; onSaved: () => void }) {
   const modalRef = useRef<ModalHandle>(null);
+  const { isAdmin } = useAuth();
   const [saving, setSaving] = useState(false);
   const [projectId, setProjectId] = useState(report?.project_id ?? "");
   const [activityId, setActivityId] = useState(report?.activity_id ?? "");
@@ -117,7 +119,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
         setPurchaseDate(null);
         setRecordDate(null);
       }
-      await toastSuccess(report ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกเรียบร้อยแล้ว");
+      await toastSuccess(report ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : res.docNo ? `บันทึกเรียบร้อยแล้ว — เลขที่ ${res.docNo}` : "บันทึกเรียบร้อยแล้ว");
       onSaved();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -152,12 +154,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
       <form onSubmit={handleSubmit} className="space-y-5">
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
-          <div>
-            <label className="label">
-              เลขที่ <span className="text-red-600">*</span>
-            </label>
-            <input name="doc_no" key={report?.id ?? suggestedNo} defaultValue={report?.doc_no ?? suggestedNo} required className="input w-full" />
-          </div>
+          <DocNoField current={report ? report.doc_no : undefined} suggested={suggestedNo} isAdmin={isAdmin} />
           <div>
             <label className="label">กลุ่มสาระ/ฝ่าย</label>
             <select name="admin_group" defaultValue={report?.admin_group ?? ""} className="input w-full">
@@ -528,7 +525,7 @@ export default function W119Page() {
               {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{r.doc_no}</span>
+                    <DocNoBadge no={r.doc_no} />
                     <span className="text-sm text-slate-700">{itemSummary(r)}</span>
                     {isLate(r) && lateBadge}
                   </div>
@@ -561,7 +558,9 @@ export default function W119Page() {
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.id}>
-                    <td className="font-medium text-slate-900">{r.doc_no}</td>
+                    <td>
+                      <DocNoBadge no={r.doc_no} />
+                    </td>
                     <td>{formatThaiDate(r.purchase_date)}</td>
                     <td>
                       <div>{formatThaiDate(r.record_date)}</div>

@@ -5,10 +5,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { deleteFromStorage } from "@/lib/storage";
 import { table1Ref, W119_LIMIT } from "@/lib/w119";
 
-type Result = { error?: string; id?: string };
+type Result = { error?: string; id?: string; docNo?: string | null };
 export type W119ItemInput = { name: string; vendor: string; evidence: string; receipt_book: string; receipt_no: string; receipt_date: string; amount: string };
 
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล";
@@ -17,7 +18,6 @@ function parse(formData: FormData) {
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const recordDate = str("record_date");
   const purchaseDate = str("purchase_date");
-  if (!str("doc_no")) return { error: "กรุณากรอกเลขที่" };
   if (!purchaseDate) return { error: "กรุณาเลือกวันที่จัดซื้อจัดจ้าง" };
   if (!recordDate) return { error: "กรุณาเลือกวันที่รายงาน" };
   if (recordDate < purchaseDate) return { error: "วันที่รายงานต้องไม่ก่อนวันที่จัดซื้อจัดจ้าง" };
@@ -46,8 +46,8 @@ function parse(formData: FormData) {
   }
   const amount = Math.round(items.reduce((s, i) => s + Number(i.amount), 0) * 100) / 100;
   return {
+    docNoInput: str("doc_no"),
     fields: {
-      doc_no: str("doc_no"),
       record_date: recordDate,
       purchase_date: purchaseDate,
       admin_group: str("admin_group") || null,
@@ -94,25 +94,34 @@ export async function createW119(formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
+  const admin = await isAdminUser(supabase);
+  if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "w119", parsed.docNoInput))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
+  const docNo = admin && parsed.docNoInput ? parsed.docNoInput : await assignDocNumber(supabase, "w119", parsed.fields.record_date);
+  if (!docNo) return { error: "ยังไม่ได้ตั้งรูปแบบเลขที่เอกสารของเมนูนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าตั้งค่า (รูปแบบเลขที่เอกสารงานพัสดุ)" };
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("proc_w119_reports")
-    .insert({ ...parsed.fields, created_by: user?.id ?? null })
+    .insert({ ...parsed.fields, doc_no: docNo, created_by: user?.id ?? null })
     .select("id")
     .single();
   if (error) return { error: error.message };
   const itemError = await replaceItems(supabase, data.id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
-  return done(data.id);
+  return { ...done(data.id), docNo };
 }
 
 export async function updateW119(id: string, formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
-  const { data, error } = await supabase.from("proc_w119_reports").update(parsed.fields).eq("id", id).select("id");
+  // เลขที่แก้ได้เฉพาะแอดมิน — ผู้ใช้อื่นส่งมาก็ไม่เปลี่ยน
+  const admin = await isAdminUser(supabase);
+  if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "w119", parsed.docNoInput, id))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
+  const docNoPatch = admin ? { doc_no: parsed.docNoInput || undefined } : {};
+  const { data, error } = await supabase.from("proc_w119_reports").update({ ...parsed.fields, ...docNoPatch }).eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: NO_PERMISSION };
   const itemError = await replaceItems(supabase, id, parsed.items);

@@ -5,9 +5,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { docNumberKind } from "@/lib/doc-numbers";
 import { deleteFromStorage } from "@/lib/storage";
 
-type Result = { error?: string; id?: string };
+type Result = { error?: string; id?: string; docNo?: string | null };
 type ItemInput = { name: string; qty: string; unit: string; unitPrice: string };
 
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล";
@@ -21,7 +23,6 @@ function parse(formData: FormData) {
   const docType = str("doc_type") === "จ้าง" ? "จ้าง" : "ซื้อ";
   const recordDate = str("record_date");
   const deliveryDate = str("delivery_date");
-  if (!str("doc_no")) return { error: "กรุณากรอกเลขที่" };
   if (!recordDate) return { error: "กรุณาเลือกวันที่บันทึกข้อความ" };
   if (!deliveryDate) return { error: "กรุณาเลือกวันครบกำหนดส่งมอบ" };
   if (deliveryDate < recordDate) return { error: "วันครบกำหนดส่งมอบต้องไม่ก่อนวันที่บันทึกข้อความ" };
@@ -64,9 +65,9 @@ function parse(formData: FormData) {
   }
   if (orderDate && deliveryDate < orderDate) return { error: `วันครบกำหนดส่งมอบต้องไม่ก่อนวันสั่ง${docType}` };
   return {
+    docNoInput: str("doc_no"),
     fields: {
       doc_type: docType as "ซื้อ" | "จ้าง",
-      doc_no: str("doc_no"),
       record_date: recordDate,
       delivery_date: deliveryDate,
       work_days: daysInclusive(orderDate ?? recordDate, deliveryDate),
@@ -155,31 +156,40 @@ export async function createProcurement(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date);
   if (budgetError) return { error: budgetError };
+  // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
+  const admin = await isAdminUser(supabase);
+  if (admin && parsed.docNoInput && (await docNumberTaken(supabase, docNumberKind(parsed.fields.doc_type), parsed.docNoInput))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
+  const docNo = admin && parsed.docNoInput ? parsed.docNoInput : await assignDocNumber(supabase, docNumberKind(parsed.fields.doc_type), parsed.fields.record_date);
+  if (!docNo) return { error: "ยังไม่ได้ตั้งรูปแบบเลขที่เอกสารของเมนูนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าตั้งค่า (รูปแบบเลขที่เอกสารงานพัสดุ)" };
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("proc_purchase_requests")
-    .insert({ ...parsed.fields, created_by: user?.id ?? null })
+    .insert({ ...parsed.fields, doc_no: docNo, created_by: user?.id ?? null })
     .select("id")
     .single();
   if (error) return { error: error.message };
   const itemError = await replaceItems(supabase, data.id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
   await rememberPosition(supabase, parsed.fields.inspector_name, parsed.fields.inspector_position);
-  return done(data.id);
+  return { ...done(data.id), docNo };
 }
 
 export async function updateProcurement(id: string, formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  // เลขที่แก้ได้เฉพาะแอดมิน — ผู้ใช้อื่นส่งมาก็ไม่เปลี่ยน
+  const admin = await isAdminUser(supabase);
+  if (admin && parsed.docNoInput && (await docNumberTaken(supabase, docNumberKind(parsed.fields.doc_type), parsed.docNoInput, id))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
+  const docNoPatch = admin ? { doc_no: parsed.docNoInput || undefined } : {};
   const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date, id);
   if (budgetError) return { error: budgetError };
   // แก้ไขแล้ว PDF ที่เคยเก็บไว้ (pdf_url) ไม่ตรงข้อมูลใหม่ — ล้างทิ้ง ให้สร้างสดจาก route แทน
   const { data, error } = await supabase
     .from("proc_purchase_requests")
-    .update({ ...parsed.fields, pdf_url: null })
+    .update({ ...parsed.fields, pdf_url: null, ...docNoPatch })
     .eq("id", id)
     .select("id");
   if (error) return { error: error.message };

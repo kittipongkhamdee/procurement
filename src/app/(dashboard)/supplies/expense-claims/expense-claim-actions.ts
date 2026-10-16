@@ -5,10 +5,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { deleteFromStorage } from "@/lib/storage";
 import { CLAIM_KINDS, claimAmount, type ClaimKind } from "@/lib/expense-claims";
 
-type Result = { error?: string; id?: string };
+type Result = { error?: string; id?: string; docNo?: string | null };
 export type ClaimItemInput = {
   kind: string;
   rate_id: string;
@@ -76,8 +77,8 @@ function parse(formData: FormData) {
   if (rows.some((r) => !(r.amount > 0))) return { error: "จำนวนเงินแต่ละรายการต้องมากกว่า 0 (กรอกอัตราหรือจำนวนเงิน)" };
   const amount = Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100;
   return {
+    docNoInput: str("doc_no"),
     fields: {
-      doc_no: str("doc_no") || null,
       record_date: recordDate,
       event_name: str("event_name"),
       event_date: eventDate,
@@ -131,27 +132,35 @@ export async function createExpenseClaim(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const rateError = await checkRates(supabase, parsed.rows);
   if (rateError) return { error: rateError };
+  // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
+  const admin = await isAdminUser(supabase);
+  if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "claim", parsed.docNoInput))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
+  const docNo = admin && parsed.docNoInput ? parsed.docNoInput : await assignDocNumber(supabase, "claim", parsed.fields.record_date);
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("proc_expense_claims")
-    .insert({ ...parsed.fields, created_by: user?.id ?? null })
+    .insert({ ...parsed.fields, doc_no: docNo, created_by: user?.id ?? null })
     .select("id")
     .single();
   if (error) return { error: error.message };
   const itemError = await replaceItems(supabase, data.id, parsed.rows);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
-  return done(data.id);
+  return { ...done(data.id), docNo };
 }
 
 export async function updateExpenseClaim(id: string, formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  // เลขที่แก้ได้เฉพาะแอดมิน — ผู้ใช้อื่นส่งมาก็ไม่เปลี่ยน
+  const admin = await isAdminUser(supabase);
+  if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "claim", parsed.docNoInput, id))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
+  const docNoPatch = admin ? { doc_no: parsed.docNoInput || null } : {};
   const rateError = await checkRates(supabase, parsed.rows);
   if (rateError) return { error: rateError };
-  const { data, error } = await supabase.from("proc_expense_claims").update(parsed.fields).eq("id", id).select("id");
+  const { data, error } = await supabase.from("proc_expense_claims").update({ ...parsed.fields, ...docNoPatch }).eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: NO_PERMISSION };
   const itemError = await replaceItems(supabase, id, parsed.rows);

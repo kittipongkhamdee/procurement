@@ -13,6 +13,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { DocNoBadge, DocNoField } from "@/components/doc-no-field";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
@@ -125,6 +126,7 @@ function ProcurementModal({
   onSaved: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
+  const { isAdmin } = useAuth();
   const terms = TERMS[type];
   const [saving, setSaving] = useState(false);
   const [funding, setFunding] = useState(request?.funding ?? "advance");
@@ -248,7 +250,7 @@ function ProcurementModal({
         setRecordDate(null);
         setDeliveryDate(null);
       }
-      await toastSuccess(request ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกเรียบร้อยแล้ว");
+      await toastSuccess(request ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : res.docNo ? `บันทึกเรียบร้อยแล้ว — เลขที่ ${res.docNo}` : "บันทึกเรียบร้อยแล้ว");
       onSaved();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -306,12 +308,7 @@ function ProcurementModal({
             )}
             {lookups.approvals.length === 0 && <p className="mt-1 text-xs text-red-600">ยังไม่มีบันทึกขออนุมัติในปีงบประมาณนี้ — ต้องทำบันทึกขออนุมัติก่อน</p>}
           </div>
-          <div>
-            <label className="label">
-              เลขที่ <span className="text-red-600">*</span>
-            </label>
-            <input name="doc_no" key={request?.id ?? suggestedNo} defaultValue={request?.doc_no ?? suggestedNo} required className="input w-full" />
-          </div>
+          <DocNoField current={request ? request.doc_no : undefined} suggested={suggestedNo} isAdmin={isAdmin} />
           <div>
             <label className="label">เลข e-GP</label>
             <input name="egp_no" defaultValue={request?.egp_no ?? ""} placeholder="ไม่บังคับ" className="input w-full" />
@@ -909,7 +906,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
               {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{r.doc_no}</span>
+                    <DocNoBadge no={r.doc_no} />
                     <span className="text-sm text-slate-700">{r.item_name}</span>
                     {!r.proc_purchase_photos?.length && NO_PHOTO_BADGE}
                   </div>
@@ -940,7 +937,9 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.id}>
-                    <td className="font-medium text-slate-900">{r.doc_no}</td>
+                    <td>
+                      <DocNoBadge no={r.doc_no} />
+                    </td>
                     <td>{formatThaiDate(r.record_date)}</td>
                     <td>
                       <div>{r.item_name}</div>

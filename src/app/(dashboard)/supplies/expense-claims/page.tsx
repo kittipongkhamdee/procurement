@@ -15,6 +15,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { DocNoBadge, DocNoField } from "@/components/doc-no-field";
 import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { ProcurementPhotosButton } from "../procurement-photos";
 import { createExpenseClaim, deleteExpenseClaim, updateExpenseClaim, type ClaimItemInput } from "./expense-claim-actions";
@@ -83,6 +84,7 @@ function isLate(c: { event_date: string; event_end_date: string | null; record_d
 
 function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | null; lookups: Lookups; suggestedNo: string; onSaved: () => void }) {
   const modalRef = useRef<ModalHandle>(null);
+  const { isAdmin } = useAuth();
   const [saving, setSaving] = useState(false);
   const [projectId, setProjectId] = useState(claim?.project_id ?? "");
   const [activityId, setActivityId] = useState(claim?.activity_id ?? "");
@@ -142,7 +144,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
         setEventEnd(null);
         setRecordDate(null);
       }
-      await toastSuccess(claim ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "บันทึกเรียบร้อยแล้ว");
+      await toastSuccess(claim ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : res.docNo ? `บันทึกเรียบร้อยแล้ว — เลขที่ ${res.docNo}` : "บันทึกเรียบร้อยแล้ว");
       onSaved();
     } catch (err) {
       await toastError(errorMessage(err));
@@ -176,10 +178,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
       <form onSubmit={handleSubmit} className="space-y-5">
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
-          <div>
-            <label className="label">เลขที่</label>
-            <input name="doc_no" key={claim?.id ?? suggestedNo} defaultValue={claim?.doc_no ?? suggestedNo} placeholder="เว้นว่างได้" className="input w-full" />
-          </div>
+          <DocNoField current={claim ? claim.doc_no : undefined} suggested={suggestedNo} isAdmin={isAdmin} />
           <div>
             <label className="label">
               วันที่บันทึกขอเบิก <span className="text-red-600">*</span>
@@ -637,7 +636,7 @@ export default function ExpenseClaimsPage() {
               {visible.map((c) => (
                 <div key={c.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-slate-900">{c.doc_no || "(ไม่มีเลขที่)"}</span>
+                    <DocNoBadge no={c.doc_no} />
                     <span className="text-sm text-slate-700">{c.event_name}</span>
                     {isLate(c) && lateBadge}
                   </div>
@@ -666,7 +665,9 @@ export default function ExpenseClaimsPage() {
               <tbody>
                 {visible.map((c) => (
                   <tr key={c.id}>
-                    <td className="font-medium text-slate-900">{c.doc_no || "-"}</td>
+                    <td>
+                      <DocNoBadge no={c.doc_no} />
+                    </td>
                     <td>{eventDates(c)}</td>
                     <td>
                       <div>{formatThaiDate(c.record_date)}</div>
