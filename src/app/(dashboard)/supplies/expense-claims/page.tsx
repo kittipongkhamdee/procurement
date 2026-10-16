@@ -15,7 +15,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { DocNoBadge, DocNoField } from "@/components/doc-no-field";
+import { DocNoField } from "@/components/doc-no-field";
 import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { ProcurementPhotosButton } from "../procurement-photos";
 import { createExpenseClaim, deleteExpenseClaim, updateExpenseClaim, type ClaimItemInput } from "./expense-claim-actions";
@@ -636,7 +636,7 @@ export default function ExpenseClaimsPage() {
               {visible.map((c) => (
                 <div key={c.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <DocNoBadge no={c.doc_no} />
+                    <span className="font-medium text-slate-900">{c.doc_no || "(ไม่มีเลขที่)"}</span>
                     <span className="text-sm text-slate-700">{c.event_name}</span>
                     {isLate(c) && lateBadge}
                   </div>
@@ -665,9 +665,7 @@ export default function ExpenseClaimsPage() {
               <tbody>
                 {visible.map((c) => (
                   <tr key={c.id}>
-                    <td>
-                      <DocNoBadge no={c.doc_no} />
-                    </td>
+                    <td className="font-medium text-slate-900">{c.doc_no || "-"}</td>
                     <td>{eventDates(c)}</td>
                     <td>
                       <div>{formatThaiDate(c.record_date)}</div>

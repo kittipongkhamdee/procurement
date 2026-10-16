@@ -14,7 +14,7 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { DocNoBadge, DocNoField } from "@/components/doc-no-field";
+import { DocNoField } from "@/components/doc-no-field";
 import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { ProcurementPhotosButton } from "../procurement-photos";
 import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-actions";
@@ -525,7 +525,7 @@ export default function W119Page() {
               {visible.map((r) => (
                 <div key={r.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <DocNoBadge no={r.doc_no} />
+                    <span className="font-medium text-slate-900">{r.doc_no}</span>
                     <span className="text-sm text-slate-700">{itemSummary(r)}</span>
                     {isLate(r) && lateBadge}
                   </div>
@@ -558,9 +558,7 @@ export default function W119Page() {
               <tbody>
                 {visible.map((r) => (
                   <tr key={r.id}>
-                    <td>
-                      <DocNoBadge no={r.doc_no} />
-                    </td>
+                    <td className="font-medium text-slate-900">{r.doc_no}</td>
                     <td>{formatThaiDate(r.purchase_date)}</td>
                     <td>
                       <div>{formatThaiDate(r.record_date)}</div>
