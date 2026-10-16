@@ -2668,6 +2668,128 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_w119_items: {
+        Row: {
+          id: string
+          report_id: string
+          seq: number
+          name: string
+          vendor: string | null
+          evidence: string | null
+          receipt_book: string | null
+          receipt_no: string | null
+          receipt_date: string | null
+          amount: number
+        }
+        Insert: {
+          id?: string
+          report_id: string
+          seq: number
+          name: string
+          vendor?: string | null
+          evidence?: string | null
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+          amount?: number
+        }
+        Update: {
+          id?: string
+          report_id?: string
+          seq?: number
+          name?: string
+          vendor?: string | null
+          evidence?: string | null
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+          amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_w119_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "proc_w119_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_w119_reports: {
+        Row: {
+          id: string
+          doc_no: string
+          record_date: string
+          purchase_date: string
+          admin_group: string | null
+          project_id: string | null
+          activity_id: string | null
+          purpose: string | null
+          expense_category: string
+          table_ref: string | null
+          responsible_name: string | null
+          responsible_position: string | null
+          payment_method: string
+          fund_source: string | null
+          amount: number
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          doc_no: string
+          record_date: string
+          purchase_date: string
+          admin_group?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          purpose?: string | null
+          expense_category: string
+          table_ref?: string | null
+          responsible_name?: string | null
+          responsible_position?: string | null
+          payment_method?: string
+          fund_source?: string | null
+          amount?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          doc_no?: string
+          record_date?: string
+          purchase_date?: string
+          admin_group?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          purpose?: string | null
+          expense_category?: string
+          table_ref?: string | null
+          responsible_name?: string | null
+          responsible_position?: string | null
+          payment_method?: string
+          fund_source?: string | null
+          amount?: number
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_w119_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_w119_reports_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "plan_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

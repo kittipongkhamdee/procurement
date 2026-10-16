@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 // เมื่อสร้างหน้าจริงของเมนูไหน ให้สร้างโฟลเดอร์ /supplies/<slug> แยกของตัวเอง (จะถูกใช้แทนหน้านี้อัตโนมัติ)
 // แล้วลบ slug นั้นออกจากรายการด้านล่าง
 const PAGES: Record<string, { title: string; description: string }> = {
-  w119: { title: "ว.119 ค่าใช้จ่ายบริหารงาน", description: "ค่าใช้จ่ายในการบริหารงาน ตามหนังสือ ว.119" },
   textbooks: { title: "หนังสือเรียน (เรียนฟรี 15 ปี)", description: "จัดซื้อหนังสือเรียนตามโครงการสนับสนุนค่าใช้จ่ายในการจัดการศึกษา" },
   "quarterly-announcements": { title: "ประกาศผลรายไตรมาส", description: "สรุปผลการจัดซื้อจัดจ้างรายไตรมาสเพื่อประกาศเผยแพร่" },
   "withholding-tax": { title: "ภาษีหัก ณ ที่จ่าย", description: "หนังสือรับรองการหักภาษี ณ ที่จ่าย" },

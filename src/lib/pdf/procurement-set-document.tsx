@@ -13,7 +13,7 @@ import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-meas
 // งานจ้างใช้แบบเดียวกัน เปลี่ยนถ้อยคำ ซื้อ→จ้าง, ผู้ขาย→ผู้รับจ้าง, ใบสั่งซื้อ→ใบสั่งจ้าง
 
 registerSarabunFont();
-const FAMILY = "THSarabunNew";
+export const FAMILY = "THSarabunNew";
 Font.register({
   family: FAMILY,
   fonts: [
@@ -21,24 +21,24 @@ Font.register({
     { src: path.join(process.cwd(), "src/lib/pdf/fonts/THSarabunNew-Bold.ttf"), fontWeight: "bold" },
   ],
 });
-const measureText = (text: string, size: number, bold = false) => measureWith(text, size, bold, FAMILY);
-const wrap = (text: string, size: number, first: number, rest: number, keep: string[] = []) =>
+export const measureText = (text: string, size: number, bold = false) => measureWith(text, size, bold, FAMILY);
+export const wrap = (text: string, size: number, first: number, rest: number, keep: string[] = []) =>
   wrapWith(text, size, first, rest, false, FAMILY, keep);
 
-const CM = 28.3465;
+export const CM = 28.3465;
 const PAGE_W = 595.28;
 const PAD_LEFT = 2.5 * CM;
 const PAD_RIGHT = 2 * CM;
-const CONTENT_W = PAGE_W - PAD_LEFT - PAD_RIGHT;
-const FS = 16;
+export const CONTENT_W = PAGE_W - PAD_LEFT - PAD_RIGHT;
+export const FS = 16;
 const FS_SMALL = 14;
-const INDENT = 2.5 * CM;
-const SLACK = 10;
+export const INDENT = 2.5 * CM;
+export const SLACK = 10;
 const MIN_TABLE_ROWS = 15;
-const B = 0.8; // เส้นตาราง
+export const B = 0.8; // เส้นตาราง
 
 
-const styles = StyleSheet.create({
+export const styles = StyleSheet.create({
   page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.2, paddingTop: 1.5 * CM, paddingBottom: 1 * CM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
   bold: { fontWeight: "bold" },
   title: { fontSize: 20, fontWeight: "bold", textAlign: "center" },
@@ -100,7 +100,7 @@ const W804_REF =
   "หนังสือคณะกรรมการวินิจฉัยปัญหาการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ ด่วนที่สุด ที่ กค (กวจ) 0405.2/ว 804 ลงวันที่ 12 พฤศจิกายน 2568 เรื่อง แนวทางปฏิบัติสำหรับการจัดซื้อวงเงินไม่เกิน 50,000 บาท";
 
 /** ปีงบประมาณไทยของวันที่ ISO (ต.ค. ขึ้นปีงบใหม่) */
-function fiscalYearOf(iso: string) {
+export function fiscalYearOf(iso: string) {
   const [y, m] = iso.slice(0, 10).split("-").map(Number);
   return y + 543 + (m >= 10 ? 1 : 0);
 }
@@ -121,7 +121,7 @@ function DistributedLine({ text, style }: { text: string; style?: Styles[string]
 
 /** ย่อหน้า — ตัดบรรทัดเองตามความกว้างจริงของฟอนต์ บรรทัดแรกเยื้อง `indent` บรรทัดถัดไปชิดซ้าย (หรือเยื้อง `restIndent`)
  * ทุกบรรทัดยกเว้นบรรทัดสุดท้ายจัดกระจายแบบไทย */
-function Para({ text, indent = INDENT, restIndent = 0, keep, style }: { text: string; indent?: number; restIndent?: number; keep?: string[]; style?: Styles[string] }) {
+export function Para({ text, indent = INDENT, restIndent = 0, keep, style }: { text: string; indent?: number; restIndent?: number; keep?: string[]; style?: Styles[string] }) {
   const lines = wrap(text, FS, CONTENT_W - indent - SLACK, CONTENT_W - restIndent - SLACK, keep);
   return (
     <View style={[styles.gap, style ?? {}]}>
@@ -140,7 +140,7 @@ function Para({ text, indent = INDENT, restIndent = 0, keep, style }: { text: st
 }
 
 /** ลายมือชื่อ: "ลงชื่อ.......<ตำแหน่ง>" และชื่อในวงเล็บ (ไม่มีชื่อ = เส้นจุด) บรรทัดถัดไปเพิ่มได้ */
-function Sign({ role, name, extra = [], style }: { role: string; name: string | null; extra?: string[]; style?: Styles[string] }) {
+export function Sign({ role, name, extra = [], style }: { role: string; name: string | null; extra?: string[]; style?: Styles[string] }) {
   return (
     <View style={style ?? {}} wrap={false}>
       <Text>{t(`ลงชื่อ.......................................${role}`)}</Text>
