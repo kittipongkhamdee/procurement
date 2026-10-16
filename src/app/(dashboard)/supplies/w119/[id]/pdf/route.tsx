@@ -19,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!r) return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
   const [{ data: items }, { data: settings }, { data: school }] = await Promise.all([
     supabase.from("proc_w119_items").select("name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount").eq("report_id", id).order("seq"),
-    supabase.from("proc_app_settings").select("key, value").in("key", ["approval_signer_director", "doc_signer_procurement_officer", "doc_signer_procurement_head"]),
+    supabase.from("proc_app_settings").select("key, value").in("key", ["approval_signer_director", "doc_signer_procurement_officer", "doc_signer_procurement_head", "approval_signer_finance"]),
     supabase.from("proc_school_settings").select("school_name, education_area").eq("id", true).maybeSingle(),
   ]);
   const s = new Map((settings ?? []).map((x) => [x.key, x.value]));
@@ -35,6 +35,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     procurement_officer: s.get("doc_signer_procurement_officer") ?? "นางสาวโสรดา  ศรีสุข",
     procurement_head: s.get("doc_signer_procurement_head") ?? "นายกิตติพงษ์   คำดี",
     director: s.get("approval_signer_director") ?? null,
+    finance_officer: s.get("approval_signer_finance") || null,
   };
   const evidence = new URL(request.url).searchParams.get("sheet") === "evidence";
   const buffer = await renderToBuffer(evidence ? <W119EvidenceDocument data={data} /> : <W119Document data={data} />);

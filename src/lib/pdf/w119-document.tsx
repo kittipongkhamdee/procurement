@@ -35,6 +35,7 @@ export type W119Data = {
   procurement_officer: string | null;
   procurement_head: string | null;
   director: string | null;
+  finance_officer: string | null;
 };
 
 const shortDate = (iso: string | null) => {
@@ -151,16 +152,20 @@ export function W119Document({ data: d }: { data: W119Data }) {
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณา")}</Text>
           <Para keep={keep} indent={INDENT + 20} text="1. ให้ความเห็นชอบการจัดซื้อจัดจ้างดังกล่าวข้างต้น และให้ถือรายงานนี้เป็นหลักฐานการตรวจรับพัสดุโดยอนุโลม ตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560" style={{ marginBottom: 0 }} />
           <Para keep={keep} indent={INDENT + 20} text={`2. อนุมัติให้เบิกจ่ายเงิน ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกค่าใช้จ่ายในการบริหารงานของส่วนราชการ พ.ศ. 2553 จำนวน ${amount} บาท ${amountText}`} />
-          <Sign role="ผู้ได้รับมอบหมาย" name={d.responsible_name} extra={d.responsible_position ? [`ตำแหน่ง ${d.responsible_position}`] : []} style={{ marginLeft: L - 50, marginTop: 6 }} />
+          <Sign role="เจ้าหน้าที่ผู้รับผิดชอบ" name={d.responsible_name} extra={d.responsible_position ? [`ตำแหน่ง ${d.responsible_position}`] : []} style={{ marginLeft: L - 50, marginTop: 6 }} />
+          {/* ความเห็นหัวหน้างานการเงิน / ผู้มีอำนาจลงนาม — ตามแบบที่โรงเรียนใช้ (Work_119) */}
           <View style={{ flexDirection: "row", marginTop: 14 }}>
             <View style={{ width: L }}>
-              <Sign role="เจ้าหน้าที่" name={d.procurement_officer} />
-              <Sign role="หัวหน้าเจ้าหน้าที่" name={d.procurement_head} style={{ marginTop: 14 }} />
+              <Text style={styles.bold}>{t("ความเห็นหัวหน้างานการเงิน")}</Text>
+              <Text>{t("(   ) เห็นสมควรตามที่เสนอ")}</Text>
+              <Text>{t("(   ) ไม่เห็นสมควร เนื่องจาก..................")}</Text>
+              <Sign role="หัวหน้างานการเงิน" name={d.finance_officer} extra={[formatThaiDate(d.record_date)]} style={{ marginTop: 10 }} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text>{t("- เห็นชอบ")}</Text>
-              <Text>{t("- อนุมัติ")}</Text>
-              <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, formatThaiDate(d.record_date)]} style={{ marginTop: 14 }} />
+              <Text style={styles.bold}>{t("ผู้มีอำนาจลงนาม")}</Text>
+              <Text>{t("(   ) เห็นชอบ/อนุมัติ")}</Text>
+              <Text>{t("(   ) ไม่เห็นชอบ/ไม่อนุมัติ เนื่องจาก..............")}</Text>
+              <Sign role="" name={d.director} extra={[`ตำแหน่ง ผู้อำนวยการ${school}`, formatThaiDate(d.record_date)]} style={{ marginTop: 10 }} />
             </View>
           </View>
         </View>
