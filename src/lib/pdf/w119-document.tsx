@@ -124,7 +124,7 @@ export function W119Document({ data: d }: { data: W119Data }) {
         <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${school}`)}</Text>
         <Para
           keep={keep}
-          text={`ด้วย${d.admin_group ?? school} มีความจำเป็นต้องจัดหาพัสดุที่เกี่ยวกับ${d.expense_category} ได้แก่ ${names}${plan ? ` ตามโครงการ/กิจกรรม ${plan}` : ""}${
+          text={`ด้วย${d.admin_group ?? school} มีความจำเป็นต้องจัดหาพัสดุที่เกี่ยวกับค่าใช้จ่ายในการบริหารงาน ได้แก่ ${names}${plan ? ` ตามโครงการ/กิจกรรม ${plan}` : ""}${
             d.purpose ? ` เพื่อ${d.purpose}` : ""
           } จำนวน ${d.items.length} รายการ เป็นเงินทั้งสิ้น ${amount} บาท ${amountText}`}
         />
@@ -132,7 +132,7 @@ export function W119Document({ data: d }: { data: W119Data }) {
           keep={keep}
           text={`โดยข้าพเจ้า ${d.responsible_name ?? "...................."}${d.responsible_position ? ` ตำแหน่ง ${d.responsible_position}` : ""} ซึ่งเป็นผู้ได้รับมอบหมาย ได้ดำเนินการจัดซื้อจัดจ้างไปก่อนแล้ว เมื่อวันที่ ${formatThaiDate(
             d.purchase_date,
-          )} ตามแนวทางปฏิบัติใน${W119_REF}${d.table_ref ? ` ซึ่งเป็นรายการตาม${d.table_ref}` : ""} และมีวงเงินการจัดซื้อจัดจ้างครั้งหนึ่งไม่เกิน 10,000 บาท โดยมีรายละเอียดดังนี้`}
+          )} ตามแนวทางปฏิบัติใน${W119_REF}${d.table_ref ? ` ซึ่งเป็นรายการตาม${d.table_ref} (${d.expense_category})` : ` ซึ่งเป็นรายการ${d.expense_category}`} และมีวงเงินการจัดซื้อจัดจ้างครั้งหนึ่งไม่เกิน 10,000 บาท โดยมีรายละเอียดดังนี้`}
         />
         <ItemsTable d={d} />
         <Para
@@ -146,8 +146,8 @@ export function W119Document({ data: d }: { data: W119Data }) {
         {/* ย่อหน้าท้ายจนถึงลงชื่อ ไม่แยกหน้า */}
         <View wrap={false}>
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณา")}</Text>
-          <Para keep={keep} indent={INDENT + 20} text="1. ให้ความเห็นชอบการจัดซื้อจัดจ้างดังกล่าวข้างต้น และให้ถือรายงานนี้เป็นหลักฐานการตรวจรับพัสดุโดยอนุโลม" style={{ marginBottom: 0 }} />
-          <Para keep={keep} indent={INDENT + 20} text={`2. อนุมัติให้เบิกจ่ายเงิน จำนวน ${amount} บาท ${amountText}`} />
+          <Para keep={keep} indent={INDENT + 20} text="1. ให้ความเห็นชอบการจัดซื้อจัดจ้างดังกล่าวข้างต้น และให้ถือรายงานนี้เป็นหลักฐานการตรวจรับพัสดุโดยอนุโลม ตามระเบียบกระทรวงการคลังว่าด้วยการจัดซื้อจัดจ้างและการบริหารพัสดุภาครัฐ พ.ศ. 2560" style={{ marginBottom: 0 }} />
+          <Para keep={keep} indent={INDENT + 20} text={`2. อนุมัติให้เบิกจ่ายเงิน ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกค่าใช้จ่ายในการบริหารงานของส่วนราชการ พ.ศ. 2553 จำนวน ${amount} บาท ${amountText}`} />
           <Sign role="ผู้ได้รับมอบหมาย" name={d.responsible_name} extra={d.responsible_position ? [`ตำแหน่ง ${d.responsible_position}`] : []} style={{ marginLeft: L - 50, marginTop: 6 }} />
           <View style={{ flexDirection: "row", marginTop: 14 }}>
             <View style={{ width: L }}>

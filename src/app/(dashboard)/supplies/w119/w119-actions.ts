@@ -6,7 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { deleteFromStorage } from "@/lib/storage";
-import { W119_LIMIT } from "@/lib/w119";
+import { table1Ref, W119_LIMIT } from "@/lib/w119";
 
 type Result = { error?: string; id?: string };
 export type W119ItemInput = { name: string; vendor: string; evidence: string; receipt_book: string; receipt_no: string; receipt_date: string; amount: string };
@@ -55,7 +55,7 @@ function parse(formData: FormData) {
       activity_id: str("activity_id") || null,
       purpose: str("purpose") || null,
       expense_category: str("expense_category"),
-      table_ref: str("table_ref") || null,
+      table_ref: table1Ref(str("expense_category")) ?? (str("table_ref") || null),
       responsible_name: str("responsible_name") || null,
       responsible_position: str("responsible_position") || null,
       payment_method: str("payment_method") === "transfer" ? "transfer" : "cash",

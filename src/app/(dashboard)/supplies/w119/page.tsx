@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
-import { addWorkingDays, evidenceRule, W119_LIMIT } from "@/lib/w119";
+import { addWorkingDays, evidenceRule, W119_LIMIT, W119_TABLE1, W119_TABLE2_EXAMPLES } from "@/lib/w119";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -42,15 +42,6 @@ type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
 type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string>; vendors: string[] };
 
-// ประเภทค่าใช้จ่ายตามหนังสือ ว.119 (เลือกหรือพิมพ์เองได้)
-const CATEGORIES = [
-  "ค่าใช้จ่ายในการบริหารงาน",
-  "ค่าใช้จ่ายในการประชุมราชการ",
-  "ค่าใช้จ่ายในการฝึกอบรม",
-  "ค่าใช้จ่ายในการจัดงาน",
-  "ค่าใช้จ่ายในพิธีทางศาสนา",
-  "ค่ารับรองและพิธีการ",
-];
 const EVIDENCES = ["ใบเสร็จรับเงิน", "บิลเงินสด", "ใบกำกับภาษี/ใบเสร็จรับเงิน", "ใบสำคัญรับเงิน", "ใบรับรองแทนใบเสร็จรับเงิน"];
 const FUNDS = ["เงินอุดหนุน", "เงินรายได้สถานศึกษา"];
 const POSITIONS = ["ครูผู้ช่วย", "ครู", "ครู วิทยฐานะครูชำนาญการ", "ครู วิทยฐานะครูชำนาญการพิเศษ", "ครู วิทยฐานะครูเชี่ยวชาญ", "เจ้าหน้าที่พัสดุ"];
@@ -225,20 +216,25 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
               ))}
             </select>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className="label">
-              ประเภทค่าใช้จ่าย <span className="text-red-600">*</span>
+              ประเภทค่าใช้จ่าย (ตาราง 1 แนบท้ายหนังสือ ว 119) <span className="text-red-600">*</span>
             </label>
-            <input name="expense_category" list="w119-categories" defaultValue={report?.expense_category ?? CATEGORIES[1]} required className="input w-full" />
-            <datalist id="w119-categories">
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c} />
+            <select name="expense_category" defaultValue={report?.expense_category ?? ""} required className="input w-full">
+              <option value="">-- เลือกรายการ --</option>
+              {report?.expense_category && !W119_TABLE1.includes(report.expense_category) && (
+                <option value={report.expense_category}>{report.expense_category} (ข้อมูลเดิม)</option>
+              )}
+              {W119_TABLE1.map((c, i) => (
+                <option key={c} value={c}>
+                  {i + 1}. {c}
+                </option>
               ))}
-            </datalist>
-          </div>
-          <div>
-            <label className="label">อ้างอิงตาราง (ถ้ามี)</label>
-            <input name="table_ref" defaultValue={report?.table_ref ?? ""} placeholder="เช่น ตารางที่ 1 ลำดับที่ 3" className="input w-full" />
+            </select>
+            {report?.expense_category && !W119_TABLE1.includes(report.expense_category) && <input type="hidden" name="table_ref" value={report.table_ref ?? ""} />}
+            <p className="mt-1 text-xs text-amber-700">
+              รายการตาราง 2 ไม่ใช่การจัดซื้อจัดจ้าง ไม่ต้องทำรายงานนี้ (เบิกจ่ายตามระเบียบการเงิน) เช่น {W119_TABLE2_EXAMPLES}
+            </p>
           </div>
           <div className="sm:col-span-2">
             <label className="label">เพื่อ (ใช้สำหรับ)</label>
@@ -302,7 +298,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
               <div key={idx} className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-6">
                 <div className="col-span-2 sm:col-span-4">
                   <label className="label">รายการ {idx + 1}</label>
-                  <input value={it.name} onChange={(e) => setItem(idx, { name: e.target.value })} placeholder="เช่น ค่าอาหารว่างและเครื่องดื่ม 30 คน" className="input w-full" />
+                  <input value={it.name} onChange={(e) => setItem(idx, { name: e.target.value })} placeholder="เช่น ค่าป้ายไวนิลประชุมผู้ปกครอง" className="input w-full" />
                 </div>
                 <div className="col-span-2">
                   <label className="label">จำนวนเงิน (บาท)</label>
