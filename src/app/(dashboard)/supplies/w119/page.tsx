@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ApprovalRefField, approvalRemaining, loadApprovalRefs, type ApprovalRefOption } from "@/components/approval-ref-field";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { addWorkingDays, evidenceRule, looksLikeTable2, W119_LIMIT, W119_TABLE1, W119_TABLE2_EXAMPLES } from "@/lib/w119";
@@ -23,6 +24,7 @@ import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-a
 type Item = { name: string; vendor: string | null; evidence: string | null; receipt_book: string | null; receipt_no: string | null; receipt_date: string | null; amount: number };
 type Report = {
   id: string;
+  approval_id: string | null;
   doc_no: string;
   record_date: string;
   purchase_date: string;
@@ -43,7 +45,7 @@ type Report = {
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
-type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string>; vendors: string[] };
+type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string>; vendors: string[] ; approvals: ApprovalRefOption[] };
 
 const EVIDENCES = ["ใบเสร็จรับเงิน", "บิลเงินสด", "ใบกำกับภาษี/ใบเสร็จรับเงิน", "ใบสำคัญรับเงิน", "ใบรับรองแทนใบเสร็จรับเงิน"];
 const FUNDS = ["เงินอุดหนุน", "เงินรายได้สถานศึกษา"];
@@ -64,6 +66,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
   const modalRef = useRef<ModalHandle>(null);
   const { isAdmin } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [approvalId, setApprovalId] = useState(report?.approval_id ?? "");
   const [projectId, setProjectId] = useState(report?.project_id ?? "");
   const [activityId, setActivityId] = useState(report?.activity_id ?? "");
   const [purchaseDate, setPurchaseDate] = useState<string | null>(report?.purchase_date ?? null);
@@ -102,6 +105,8 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
+    const remaining = approvalRemaining(lookups.approvals.find((a) => a.id === approvalId) ?? null, report ? { approvalId: report.approval_id, amount: report.amount } : undefined);
+    if (remaining != null && total > remaining + 0.005) return void (await toastError(`ยอดรวมเกินวงเงินคงเหลือของบันทึกขออนุมัติ (${formatBaht(remaining)} บาท)`));
     if (overVendors.length) {
       await toastError(`จัดซื้อจัดจ้างจาก "${overVendors[0]}" เกินวงเงิน ว.119 (ครั้งละไม่เกิน 10,000 บาท)`);
       return;
@@ -165,6 +170,20 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
       <form onSubmit={handleSubmit} className="space-y-5">
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
+          <ApprovalRefField
+            approvals={lookups.approvals}
+            value={approvalId}
+            total={total}
+            own={report ? { approvalId: report.approval_id, amount: report.amount } : undefined}
+            onChange={(a, id) => {
+              setApprovalId(id);
+              // ดึงโครงการ/กิจกรรมจากบันทึกขออนุมัติมาเป็นค่าเริ่มต้น (แก้ได้)
+              if (a?.project_id) {
+                setProjectId(a.project_id);
+                setActivityId(lookups.activities.find((x) => x.project_id === a.project_id && x.name === a.activity_name)?.id ?? "");
+              }
+            }}
+          />
           <DocNoField current={report ? report.doc_no : undefined} suggested={suggestedNo} isAdmin={isAdmin} />
           <div>
             <label className="label">กลุ่มสาระ/ฝ่าย</label>
@@ -398,7 +417,7 @@ export default function W119Page() {
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
   const [numberFormats, setNumberFormats] = useState<Record<string, string>>({});
-  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {}, vendors: [] });
+  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {}, vendors: [] , approvals: [] });
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -408,7 +427,7 @@ export default function W119Page() {
     let listQuery = supabase
       .from("proc_w119_reports")
       .select(
-        "id, doc_no, record_date, purchase_date, admin_group, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
+        "id, approval_id, doc_no, record_date, purchase_date, admin_group, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;
@@ -435,8 +454,10 @@ export default function W119Page() {
     );
     setAllDocNos((nos ?? []).map((r) => r.doc_no));
     const { data: formats } = await supabase.from("proc_app_settings").select("key, value").in("key", DOC_NUMBER_KINDS.map((k) => k.key));
+    const approvalRefs = await loadApprovalRefs(supabase, currentYear?.year ?? null);
     setNumberFormats(Object.fromEntries((formats ?? []).map((f) => [f.key, f.value ?? ""])));
     setLookups({
+      approvals: approvalRefs,
       projects: projects ?? [],
       activities: (activities as Activity[]) ?? [],
       groups: groups ?? [],
@@ -476,18 +497,26 @@ export default function W119Page() {
     reload();
   }
 
+  // อ้างอิงบันทึกขออนุมัติที่ยังไม่อนุมัติ → ยังพิมพ์ไม่ได้ (รายการเก่าที่ไม่ได้อ้างอิงพิมพ์ได้ตามเดิม)
+  const printable = (x: Report) => !x.approval_id || lookups.approvals.find((a) => a.id === x.approval_id)?.status === "อนุมัติ";
+
   function actions(r: Report) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
+        {!printable(r) && <span className="badge-amber !text-sm whitespace-nowrap">บันทึกขออนุมัติยังไม่อนุมัติ</span>}
+        {printable(r) && (
         <a href={`/supplies/w119/${r.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์บันทึกรายงาน" className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />
           <span className="btn-label">พิมพ์บันทึก</span>
         </a>
+        )}
         <ProcurementPhotosButton kind="w119" requestId={r.id} count={r.proc_w119_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
+        {printable(r) && (
         <a href={`/supplies/w119/${r.id}/pdf?sheet=evidence`} target="_blank" rel="noreferrer" title="ใบติดหลักฐาน" className="btn-secondary btn-sm">
           <FileTextIcon className="h-3.5 w-3.5" />
           <span className="btn-label">ใบติดหลักฐาน</span>
         </a>
+        )}
         {isProcStaff && <W119Modal report={r} lookups={lookups} suggestedNo="" onSaved={reload} />}
         {isAdmin && (
           <button type="button" onClick={() => handleDelete(r)} title="ลบ" className="btn-danger btn-sm">

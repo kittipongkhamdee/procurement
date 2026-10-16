@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { approvalUsage } from "@/lib/approval-budget";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { DOC_NUMBER_KINDS, docNumberKind, docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
@@ -798,7 +799,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
       { data: teachers },
       { data: positions },
       { data: approvals },
-      { data: usage },
+      usage,
     ] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
       // ว.804 เป็นงานซื้อ — นับเลขที่ต่อเนื่องร่วมกับงานซื้อปกติ (งานจ้างนับแยก)
@@ -812,10 +813,9 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("proc_teacher_positions").select("teacher_name, position"),
       approvalQuery.order("doc_date", { ascending: false }),
-      supabase.from("proc_purchase_requests").select("approval_id, amount").not("approval_id", "is", null),
+      approvalUsage(supabase),
     ]);
-    const usedBy = new Map<string, number>();
-    (usage ?? []).forEach((u) => usedBy.set(u.approval_id as string, (usedBy.get(u.approval_id as string) ?? 0) + Number(u.amount)));
+    const usedBy = usage;
     setError(error?.message ?? null);
     setRequests((data as unknown as Request[]) ?? []);
     setAllDocNos((nos ?? []).map((r) => r.doc_no));

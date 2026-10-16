@@ -5,6 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkApprovalBudget } from "@/lib/approval-budget";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { deleteFromStorage } from "@/lib/storage";
 import { CLAIM_KINDS, claimAmount, type ClaimKind } from "@/lib/expense-claims";
@@ -79,6 +80,7 @@ function parse(formData: FormData) {
   return {
     docNoInput: str("doc_no"),
     fields: {
+      approval_id: str("approval_id") || null,
       record_date: recordDate,
       event_name: str("event_name"),
       event_date: eventDate,
@@ -130,6 +132,9 @@ export async function createExpenseClaim(formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  if (!parsed.fields.approval_id) return { error: "กรุณาเลือกบันทึกขออนุมัติที่อ้างอิง" };
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date);
+  if (budgetError) return { error: budgetError };
   const rateError = await checkRates(supabase, parsed.rows);
   if (rateError) return { error: rateError };
   // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
@@ -154,6 +159,9 @@ export async function updateExpenseClaim(id: string, formData: FormData): Promis
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  if (!parsed.fields.approval_id) return { error: "กรุณาเลือกบันทึกขออนุมัติที่อ้างอิง" };
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date, { kind: "claim", id });
+  if (budgetError) return { error: budgetError };
   // เลขที่แก้ได้เฉพาะแอดมิน — ผู้ใช้อื่นส่งมาก็ไม่เปลี่ยน
   const admin = await isAdminUser(supabase);
   if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "claim", parsed.docNoInput, id))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };

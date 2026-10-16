@@ -12,11 +12,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: r } = await supabase
     .from("proc_expense_claims")
     .select(
-      "doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, plan_projects(name)",
+      "approval_id, doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, plan_projects(name)",
     )
     .eq("id", id)
     .maybeSingle();
   if (!r) return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
+  // อ้างอิงบันทึกขออนุมัติที่ยังไม่อนุมัติ → ยังพิมพ์ไม่ได้
+  if (r.approval_id) {
+    const { data: ap } = await supabase.from("proc_approvals").select("status").eq("id", r.approval_id).maybeSingle();
+    if (ap?.status !== "อนุมัติ") return NextResponse.json({ error: "บันทึกขออนุมัติที่อ้างอิงยังไม่อนุมัติ — พิมพ์ได้เมื่อผู้อำนวยการอนุมัติแล้ว" }, { status: 403 });
+  }
   const [{ data: items }, { data: settings }, { data: school }] = await Promise.all([
     supabase
       .from("proc_expense_claim_items")

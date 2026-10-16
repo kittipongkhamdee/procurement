@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ApprovalRefField, approvalRemaining, loadApprovalRefs, type ApprovalRefOption } from "@/components/approval-ref-field";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { addWorkingDays, evidenceRule } from "@/lib/w119";
@@ -38,6 +39,7 @@ type Item = {
 };
 type Claim = {
   id: string;
+  approval_id: string | null;
   doc_no: string | null;
   record_date: string;
   event_name: string;
@@ -59,7 +61,7 @@ type Claim = {
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
-type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string>; rates: ExpenseRate[] };
+type Lookups = { projects: Option[]; activities: Activity[]; groups: Option[]; teachers: string[]; positions: Record<string, string>; rates: ExpenseRate[] ; approvals: ApprovalRefOption[] };
 
 const EVIDENCES = ["ใบสำคัญรับเงิน", "ใบเสร็จรับเงิน", "บิลเงินสด", "ใบรับรองแทนใบเสร็จรับเงิน", "แบบ บก.4231 (ค่าพาหนะส่วนตัว)"];
 const FUNDS = ["เงินอุดหนุน", "เงินรายได้สถานศึกษา"];
@@ -87,6 +89,7 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
   const modalRef = useRef<ModalHandle>(null);
   const { isAdmin } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [approvalId, setApprovalId] = useState(claim?.approval_id ?? "");
   const [projectId, setProjectId] = useState(claim?.project_id ?? "");
   const [activityId, setActivityId] = useState(claim?.activity_id ?? "");
   const [eventDate, setEventDate] = useState<string | null>(claim?.event_date ?? null);
@@ -121,6 +124,8 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
+    const remaining = approvalRemaining(lookups.approvals.find((a) => a.id === approvalId) ?? null, claim ? { approvalId: claim.approval_id, amount: claim.amount } : undefined);
+    if (remaining != null && total > remaining + 0.005) return void (await toastError(`ยอดรวมเกินวงเงินคงเหลือของบันทึกขออนุมัติ (${formatBaht(remaining)} บาท)`));
     for (const it of items.filter((i) => i.name.trim())) {
       const kindRates = lookups.rates.filter((r) => r.kind === it.kind && r.is_active);
       if (kindRates.length === 0) continue;
@@ -179,6 +184,20 @@ function ClaimModal({ claim, lookups, suggestedNo, onSaved }: { claim: Claim | n
       <form onSubmit={handleSubmit} className="space-y-5">
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
+          <ApprovalRefField
+            approvals={lookups.approvals}
+            value={approvalId}
+            total={total}
+            own={claim ? { approvalId: claim.approval_id, amount: claim.amount } : undefined}
+            onChange={(a, id) => {
+              setApprovalId(id);
+              // ดึงโครงการ/กิจกรรมจากบันทึกขออนุมัติมาเป็นค่าเริ่มต้น (แก้ได้)
+              if (a?.project_id) {
+                setProjectId(a.project_id);
+                setActivityId(lookups.activities.find((x) => x.project_id === a.project_id && x.name === a.activity_name)?.id ?? "");
+              }
+            }}
+          />
           <DocNoField current={claim ? claim.doc_no : undefined} suggested={suggestedNo} isAdmin={isAdmin} />
           <div>
             <label className="label">
@@ -487,7 +506,7 @@ export default function ExpenseClaimsPage() {
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
   const [numberFormats, setNumberFormats] = useState<Record<string, string>>({});
-  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {}, rates: [] });
+  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], teachers: [], positions: {}, rates: [] , approvals: [] });
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -497,7 +516,7 @@ export default function ExpenseClaimsPage() {
     let listQuery = supabase
       .from("proc_expense_claims")
       .select(
-        "id, doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, project_id, activity_id, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, proc_expense_claim_items(kind, rate_id, name, rate, units, people, days, amount, payee, evidence, receipt_book, receipt_no, receipt_date, seq), proc_expense_claim_photos(id)",
+        "id, approval_id, doc_no, record_date, event_name, event_date, event_end_date, venue, admin_group, project_id, activity_id, approval_ref, approval_ref_date, responsible_name, responsible_position, fund_source, payment_method, amount, proc_expense_claim_items(kind, rate_id, name, rate, units, people, days, amount, payee, evidence, receipt_book, receipt_no, receipt_date, seq), proc_expense_claim_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;
@@ -526,8 +545,10 @@ export default function ExpenseClaimsPage() {
     );
     setAllDocNos((nos ?? []).map((r) => r.doc_no ?? ""));
     const { data: formats } = await supabase.from("proc_app_settings").select("key, value").in("key", DOC_NUMBER_KINDS.map((k) => k.key));
+    const approvalRefs = await loadApprovalRefs(supabase, currentYear?.year ?? null);
     setNumberFormats(Object.fromEntries((formats ?? []).map((f) => [f.key, f.value ?? ""])));
     setLookups({
+      approvals: approvalRefs,
       projects: projects ?? [],
       activities: (activities as Activity[]) ?? [],
       groups: groups ?? [],
@@ -567,18 +588,26 @@ export default function ExpenseClaimsPage() {
     reload();
   }
 
+  // อ้างอิงบันทึกขออนุมัติที่ยังไม่อนุมัติ → ยังพิมพ์ไม่ได้ (รายการเก่าที่ไม่ได้อ้างอิงพิมพ์ได้ตามเดิม)
+  const printable = (x: Claim) => !x.approval_id || lookups.approvals.find((a) => a.id === x.approval_id)?.status === "อนุมัติ";
+
   function actions(c: Claim) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
+        {!printable(c) && <span className="badge-amber !text-sm whitespace-nowrap">บันทึกขออนุมัติยังไม่อนุมัติ</span>}
+        {printable(c) && (
         <a href={`/supplies/expense-claims/${c.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์บันทึกขอเบิก" className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />
           <span className="btn-label">พิมพ์บันทึก</span>
         </a>
+        )}
         <ProcurementPhotosButton kind="expense" requestId={c.id} count={c.proc_expense_claim_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
+        {printable(c) && (
         <a href={`/supplies/expense-claims/${c.id}/pdf?sheet=evidence`} target="_blank" rel="noreferrer" title="ใบติดหลักฐาน" className="btn-secondary btn-sm">
           <FileTextIcon className="h-3.5 w-3.5" />
           <span className="btn-label">ใบติดหลักฐาน</span>
         </a>
+        )}
         {isProcStaff && <ClaimModal claim={c} lookups={lookups} suggestedNo="" onSaved={reload} />}
         {isAdmin && (
           <button type="button" onClick={() => handleDelete(c)} title="ลบ" className="btn-danger btn-sm">

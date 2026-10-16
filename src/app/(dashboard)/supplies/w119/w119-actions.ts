@@ -5,6 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { checkApprovalBudget } from "@/lib/approval-budget";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { deleteFromStorage } from "@/lib/storage";
 import { table1Ref, W119_LIMIT } from "@/lib/w119";
@@ -48,6 +49,7 @@ function parse(formData: FormData) {
   return {
     docNoInput: str("doc_no"),
     fields: {
+      approval_id: str("approval_id") || null,
       record_date: recordDate,
       purchase_date: purchaseDate,
       admin_group: str("admin_group") || null,
@@ -94,6 +96,9 @@ export async function createW119(formData: FormData): Promise<Result> {
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  if (!parsed.fields.approval_id) return { error: "กรุณาเลือกบันทึกขออนุมัติที่อ้างอิง" };
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date);
+  if (budgetError) return { error: budgetError };
   // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
   const admin = await isAdminUser(supabase);
   if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "w119", parsed.docNoInput))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
@@ -117,6 +122,9 @@ export async function updateW119(id: string, formData: FormData): Promise<Result
   const parsed = parse(formData);
   if ("error" in parsed) return { error: parsed.error };
   const supabase = await createClient();
+  if (!parsed.fields.approval_id) return { error: "กรุณาเลือกบันทึกขออนุมัติที่อ้างอิง" };
+  const budgetError = await checkApprovalBudget(supabase, parsed.fields.approval_id, parsed.fields.amount, parsed.fields.record_date, { kind: "w119", id });
+  if (budgetError) return { error: budgetError };
   // เลขที่แก้ได้เฉพาะแอดมิน — ผู้ใช้อื่นส่งมาก็ไม่เปลี่ยน
   const admin = await isAdminUser(supabase);
   if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "w119", parsed.docNoInput, id))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };

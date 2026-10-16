@@ -2779,6 +2779,7 @@ export type Database = {
       }
       proc_expense_claims: {
         Row: {
+          approval_id: string | null
           id: string
           doc_no: string | null
           record_date: string
@@ -2800,6 +2801,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          approval_id?: string | null
           id?: string
           doc_no?: string | null
           record_date: string
@@ -2821,6 +2823,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          approval_id?: string | null
           id?: string
           doc_no?: string | null
           record_date?: string
@@ -2978,6 +2981,7 @@ export type Database = {
       }
       proc_w119_reports: {
         Row: {
+          approval_id: string | null
           id: string
           doc_no: string
           record_date: string
@@ -2997,6 +3001,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          approval_id?: string | null
           id?: string
           doc_no: string
           record_date: string
@@ -3016,6 +3021,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          approval_id?: string | null
           id?: string
           doc_no?: string
           record_date?: string
