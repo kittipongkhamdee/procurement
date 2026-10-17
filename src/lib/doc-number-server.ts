@@ -25,6 +25,8 @@ async function existingNumbers(supabase: Supabase, kind: DocNumberKind): Promise
       ? (await supabase.from("proc_purchase_requests").select("doc_no").eq("doc_type", kind === "hire" ? "จ้าง" : "ซื้อ")).data
       : kind === "w119"
         ? (await supabase.from("proc_w119_reports").select("doc_no")).data
+        : kind === "urgent"
+        ? (await supabase.from("proc_urgent_reports").select("doc_no")).data
         : (await supabase.from("proc_expense_claims").select("doc_no")).data;
   return (rows ?? []).map((r) => r.doc_no ?? "").filter(Boolean);
 }
@@ -44,6 +46,8 @@ export async function docNumberTaken(supabase: Supabase, kind: DocNumberKind, do
       ? await supabase.from("proc_purchase_requests").select("id").eq("doc_no", docNo).eq("doc_type", kind === "hire" ? "จ้าง" : "ซื้อ").neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1)
       : kind === "w119"
         ? await supabase.from("proc_w119_reports").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1)
+        : kind === "urgent"
+        ? await supabase.from("proc_urgent_reports").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1)
         : await supabase.from("proc_expense_claims").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1);
   return (data?.length ?? 0) > 0;
 }

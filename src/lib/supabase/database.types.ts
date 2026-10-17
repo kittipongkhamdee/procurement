@@ -2979,6 +2979,78 @@ export type Database = {
           },
         ]
       }
+      proc_urgent_reports: {
+        Row: {
+          id: string
+          doc_no: string | null
+          doc_type: string
+          record_date: string
+          purchase_date: string
+          subject: string
+          reason: string | null
+          work_text: string
+          amount: number
+          payee: string | null
+          receipt_book: string | null
+          receipt_no: string | null
+          receipt_date: string | null
+          responsible_name: string | null
+          responsible_position: string | null
+          admin_group: string | null
+          project_id: string | null
+          activity_id: string | null
+          approval_id: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          doc_no?: string | null
+          doc_type?: string
+          record_date: string
+          purchase_date: string
+          subject: string
+          reason?: string | null
+          work_text: string
+          amount: number
+          payee?: string | null
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+          responsible_name?: string | null
+          responsible_position?: string | null
+          admin_group?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          approval_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          doc_no?: string | null
+          doc_type?: string
+          record_date?: string
+          purchase_date?: string
+          subject?: string
+          reason?: string | null
+          work_text?: string
+          amount?: number
+          payee?: string | null
+          receipt_book?: string | null
+          receipt_no?: string | null
+          receipt_date?: string | null
+          responsible_name?: string | null
+          responsible_position?: string | null
+          admin_group?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          approval_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       proc_w119_reports: {
         Row: {
           approval_id: string | null
