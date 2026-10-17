@@ -63,6 +63,7 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
     loan_date: pr.loan_date,
     spec_author: pr.spec_author,
     requisition_doc_no: requisition?.doc_no ?? null,
+    requisition_exists: !!requisition,
   };
 }
 

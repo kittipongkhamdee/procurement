@@ -4,6 +4,8 @@
 // เพิ่ม/แก้ไขผ่าน popup, พิมพ์ชุดเอกสาร ๘ แผ่นทั้งชุด หรือเลือกพิมพ์แยกทีละแผ่น (/supplies/procurement/[id]/pdf?sheets=n)
 // การ์ดสำหรับพื้นที่แคบ / ตารางสำหรับพื้นที่กว้าง (@container แพทเทิร์นเดียวกับงานสัญญา)
 
+import { offerAutoIssue } from "./stock/offer-issue";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ReceiptTypeSelect } from "@/components/receipt-type-select";
@@ -131,7 +133,7 @@ function ProcurementModal({
   onSaved: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
-  const { isAdmin } = useAuth();
+  const { isAdmin, isProcStaff } = useAuth();
   const terms = TERMS[type];
   const [saving, setSaving] = useState(false);
   const [funding, setFunding] = useState(request?.funding ?? "advance");
@@ -243,6 +245,7 @@ function ProcurementModal({
     const formData = new FormData(form);
     // บันทึกประเภทที่ใช้จริง (ที่ระบบเสนอหรือผู้ใช้เลือก) — ไม่เข้าคลังเก็บเป็น null
     formData.set("items_json", JSON.stringify(filled.map((r) => ({ ...r, itemClass: effectiveItemClass(r, type === "จ้าง") }))));
+    const materialNames = filled.filter((r) => effectiveItemClass(r, type === "จ้าง") === "material").map((r) => r.name.trim());
     setSaving(true);
     try {
       const res = request ? await updateProcurement(request.id, formData) : await createProcurement(formData);
@@ -260,6 +263,11 @@ function ProcurementModal({
       }
       await toastSuccess(request ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : res.docNo ? `บันทึกเรียบร้อยแล้ว — เลขที่ ${res.docNo}` : "บันทึกเรียบร้อยแล้ว");
       onSaved();
+      const savedId = request?.id ?? res.id;
+      if (savedId && materialNames.length) {
+        await offerAutoIssue("purchase", savedId, materialNames, isProcStaff);
+        onSaved();
+      }
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {
@@ -730,7 +738,11 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
 }
 
 /** เลือกพิมพ์แยกทีละแผ่น */
-function SheetsModal({ type, request, approved }: { type: ProcurementType; request: Request; approved: boolean }) {
+function SheetsModal({ type, request, approved, issued }: { type: ProcurementType; request: Request; approved: boolean; issued: boolean }) {
+  const hasMaterial = request.proc_purchase_items.some((i) => i.item_class === "material");
+  const sheets = procurementSheets(type, request.method === "w804", request.proc_purchase_items.length, hasMaterial);
+  // ใบเบิกพัสดุ (แผ่นสุดท้าย) พิมพ์ได้เมื่อเบิกวัสดุที่เมนูบัญชีวัสดุแล้ว — ยังไม่เบิก = ไม่นับในพิมพ์ทั้งชุด
+  const printable = sheets.filter((x) => x.key !== "requisition" || issued);
   return (
     <Modal
       title={`พิมพ์เอกสาร — ${request.doc_no}`}
@@ -751,12 +763,26 @@ function SheetsModal({ type, request, approved }: { type: ProcurementType; reque
         {approved && (
         <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
           <PrinterIcon className="h-4 w-4" />
-          พิมพ์ทั้งชุด ({procurementSheets(type, request.method === "w804", request.proc_purchase_items.length, request.proc_purchase_items.some((i) => i.item_class === "material")).length} แผ่น)
+          พิมพ์ทั้งชุด ({printable.length} แผ่น)
         </a>
         )}
         <p className="mt-2 text-sm font-medium text-slate-600">หรือเลือกพิมพ์แยกแผ่น</p>
-        {procurementSheets(type, request.method === "w804", request.proc_purchase_items.length, request.proc_purchase_items.some((i) => i.item_class === "material")).map((s) =>
-          !approved && s.no !== 1 ? (
+        {sheets.map((s) =>
+          s.key === "requisition" && !issued ? (
+            <div key={s.no} className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm text-amber-900">
+              <div className="flex items-center gap-2 opacity-60">
+                <PrinterIcon className="h-4 w-4" />
+                แผ่นที่ {s.no} · {s.label}
+              </div>
+              <p className="mt-1">
+                ยังไม่ได้เบิกวัสดุ — ทำรายการที่เมนู{" "}
+                <Link href="/supplies/stock" className="font-semibold underline">
+                  บัญชีวัสดุ
+                </Link>{" "}
+                (ดึงจากรายการจัดซื้อ) ก่อน จึงพิมพ์ใบเบิกได้
+              </p>
+            </div>
+          ) : !approved && s.no !== 1 ? (
             <span key={s.no} className="btn-secondary justify-start cursor-not-allowed opacity-50" title="รอบันทึกขออนุมัติได้รับอนุมัติ">
               <PrinterIcon className="h-4 w-4" />
               แผ่นที่ {s.no} · {s.label} (รออนุมัติ)
@@ -781,6 +807,8 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
   const [query, setQuery] = useState("");
   const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], vendors: [], teachers: [], positions: {}, approvals: [] });
   const [itemSuggestions, setItemSuggestions] = useState<ItemSuggestions | null>(null);
+  // รายการจัดซื้อที่ออกใบเบิกวัสดุแล้ว (บัญชีวัสดุ)
+  const [issuedIds, setIssuedIds] = useState<Set<string>>(new Set());
   const [fiscalYear, setFiscalYear] = useState<number | null>(null);
   const [allDocNos, setAllDocNos] = useState<string[]>([]);
   const [numberFormats, setNumberFormats] = useState<Record<string, string>>({});
@@ -790,6 +818,11 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
     setFiscalYear(currentYear?.year ?? null);
+    supabase
+      .from("proc_stock_requisitions")
+      .select("source_id")
+      .eq("source_type", "purchase")
+      .then(({ data }) => setIssuedIds(new Set((data ?? []).map((r) => r.source_id).filter((x): x is string => !!x))));
     // แสดงเฉพาะรายการของปีงบประมาณปัจจุบันที่ตั้งไว้ (1 ต.ค. – 30 ก.ย.)
     let listQuery = supabase
       .from("proc_purchase_requests")
@@ -895,7 +928,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
         <DetailModal type={type} request={r} />
         <ProcurementPhotosButton requestId={r.id} count={r.proc_purchase_photos?.length ?? 0} canEdit={isProcStaff} onChanged={reload} />
         {!approvedOf(r) && <span className="badge-amber !text-sm whitespace-nowrap">บันทึกขออนุมัติยังไม่อนุมัติ</span>}
-        <SheetsModal type={type} request={r} approved={approvedOf(r)} />
+        <SheetsModal type={type} request={r} approved={approvedOf(r)} issued={issuedIds.has(r.id)} />
         {isProcStaff && (
           <ProcurementModal type={type} w804={w804} request={r} lookups={lookups} itemSuggestions={itemSuggestions} suggestedNo="" onSaved={reload} />
         )}

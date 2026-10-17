@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { contentDisposition } from "@/lib/http";
 import { buildProcurementSetData, renderProcurementSetPdf } from "@/lib/pdf/build-procurement-set-pdf";
+import { procurementSheets } from "@/lib/pdf/procurement-sheets";
 
 // ชุดเอกสารงานซื้อ/งานจ้าง — ?sheets=1,3 พิมพ์เฉพาะแผ่นที่เลือก (ไม่ส่ง = ทั้งชุด)
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     : { data: null };
   if (approval?.status !== "อนุมัติ" && !(sheets.length === 1 && sheets[0] === 1)) {
     return NextResponse.json({ error: "บันทึกขออนุมัติยังไม่อนุมัติ — พิมพ์ได้เฉพาะแผ่นที่ 1" }, { status: 403 });
+  }
+  // ใบเบิกพัสดุ (แผ่นสุดท้าย) พิมพ์ได้เมื่อออกใบเบิกที่เมนูบัญชีวัสดุแล้ว
+  const materialSheet = procurementSheets(data.doc_type, data.method === "w804", data.items.length, data.items.some((i) => i.item_class === "material")).find((x) => x.key === "requisition");
+  if (materialSheet && !data.requisition_exists && sheets.length === 1 && sheets[0] === materialSheet.no) {
+    return NextResponse.json({ error: "ยังไม่ได้เบิกวัสดุ — ทำรายการที่เมนูบัญชีวัสดุก่อน แล้วจึงพิมพ์ใบเบิกพัสดุ" }, { status: 403 });
   }
   const buffer = await renderProcurementSetPdf(data, sheets);
   const name = `${data.doc_type}-${data.doc_no}${sheets.length === 1 ? `-แผ่น${sheets[0]}` : ""}.pdf`;

@@ -51,6 +51,28 @@ export async function confirmWarning(opts: { title: string; text?: string; confi
   return result.isConfirmed;
 }
 
+/** ถามตกลง/ไม่ตกลง โดยกำหนดข้อความปุ่มได้ทั้งสองปุ่ม (html แสดงรายละเอียดเป็นรายการได้) */
+export async function confirmChoice(opts: { title: string; text?: string; html?: string; confirmButtonText: string; cancelButtonText: string; icon?: "question" | "warning" | "info" }) {
+  const swal = await loadSwal();
+  const result = await swal.fire({
+    title: opts.title,
+    text: opts.html ? undefined : opts.text,
+    html: opts.html,
+    icon: opts.icon ?? "question",
+    showCancelButton: true,
+    confirmButtonText: opts.confirmButtonText,
+    cancelButtonText: opts.cancelButtonText,
+    reverseButtons: false,
+  });
+  return result.isConfirmed;
+}
+
+/** แจ้งข้อความ (ปุ่มรับทราบปุ่มเดียว) */
+export async function alertInfo(opts: { title: string; text?: string; html?: string }) {
+  const swal = await loadSwal();
+  await swal.fire({ title: opts.title, text: opts.html ? undefined : opts.text, html: opts.html, icon: "info", confirmButtonText: "รับทราบ" });
+}
+
 /** ถามเหตุผล (ข้อความบังคับกรอก) พร้อมยืนยัน/ยกเลิก — คืนค่าเหตุผลที่กรอกถ้ายืนยัน, null ถ้ายกเลิก */
 export async function promptReason(opts: { title: string; inputLabel?: string }) {
   const swal = await loadSwal();

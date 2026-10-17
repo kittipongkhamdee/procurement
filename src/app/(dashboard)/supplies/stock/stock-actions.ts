@@ -309,7 +309,16 @@ export async function importFromProcurement(type: StockSourceType, id: string, a
     const docNo = await assignDocNumber(supabase, "requisition", src.date);
     const { data: req, error } = await supabase
       .from("proc_stock_requisitions")
-      .insert({ doc_no: docNo, req_date: src.date, requester_name: src.requester, requester_position: src.requester_position, purpose: src.purpose, source_type: type, source_id: id })
+      .insert({
+        doc_no: docNo,
+        req_date: src.date,
+        requester_name: src.requester,
+        requester_position: src.requester_position,
+        purpose: src.purpose,
+        source_type: type,
+        source_id: id,
+        note: `นำเข้าอัตโนมัติจาก${SOURCE_LABEL[type]} ${src.doc_no}`,
+      })
       .select("id, doc_no, req_date, requester_name")
       .single();
     if (error) return { error: `รับเข้าแล้ว แต่ออกใบเบิกไม่สำเร็จ: ${error.message}` };

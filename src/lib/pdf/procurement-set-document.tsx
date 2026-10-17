@@ -80,6 +80,8 @@ export type ProcurementSetData = {
   items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null; item_class?: string | null }[];
   /** เลขที่ใบเบิกที่บันทึกไว้ในบัญชีวัสดุ (ยังไม่บันทึก = เว้นว่างให้เขียน) */
   requisition_doc_no?: string | null;
+  /** ออกใบเบิกในบัญชีวัสดุแล้ว — ยังไม่ออก = ไม่พิมพ์แผ่นใบเบิกพัสดุ */
+  requisition_exists?: boolean;
   school_name: string;
   school_address: string | null;
   school_phone: string | null;
@@ -267,7 +269,7 @@ const num = (n: number | null | undefined) => (n == null ? "" : Number.isInteger
 
 export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementSetData; sheets?: number[] }) {
   const materials = d.items.filter((i) => i.item_class === "material" && i.name);
-  const keys = procurementSheets(d.doc_type, d.method === "w804", d.items.length, materials.length > 0).filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
+  const keys = procurementSheets(d.doc_type, d.method === "w804", d.items.length, materials.length > 0 && !!d.requisition_exists).filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
   const show = (k: SheetKey) => keys.includes(k);
   const isHire = d.doc_type === "จ้าง";
   const verb = d.doc_type; // ซื้อ | จ้าง

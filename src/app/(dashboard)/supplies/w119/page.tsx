@@ -4,6 +4,7 @@
 // ตามหนังสือ กค (กวจ) 0405.2/ว 119 ลว. 7 มี.ค. 2561 — ผู้ได้รับมอบหมายซื้อ/จ้างไปก่อน แล้วรายงานภายใน 5 วันทำการ
 // แต่ละรายการมีผู้ขาย/ผู้รับจ้างและหลักฐาน (ใบเสร็จ/บิลเงินสด/ใบสำคัญรับเงิน) ของตัวเอง
 
+import { offerAutoIssue } from "../stock/offer-issue";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -139,7 +140,7 @@ function isLate(r: { purchase_date: string; record_date: string }) {
 
 function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report | null; lookups: Lookups; suggestedNo: string; onSaved: () => void }) {
   const modalRef = useRef<ModalHandle>(null);
-  const { isAdmin } = useAuth();
+  const { isAdmin, isProcStaff } = useAuth();
   const [saving, setSaving] = useState(false);
   const [approvalId, setApprovalId] = useState(report?.approval_id ?? "");
   const [projectId, setProjectId] = useState(report?.project_id ?? "");
@@ -202,6 +203,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
       "items_json",
       JSON.stringify(items.filter((i) => i.name.trim()).map((i) => ({ ...i, itemClass: resolveItemClass(i.itemClass as ItemClassValue, i.name, w119UnitPrice(i)) }))),
     );
+    const materialNames = items.filter((i) => i.name.trim() && resolveItemClass(i.itemClass as ItemClassValue, i.name, w119UnitPrice(i)) === "material").map((i) => i.name.trim());
     setSaving(true);
     try {
       const res = report ? await updateW119(report.id, formData) : await createW119(formData);
@@ -218,6 +220,11 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
       }
       await toastSuccess(report ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : res.docNo ? `บันทึกเรียบร้อยแล้ว — เลขที่ ${res.docNo}` : "บันทึกเรียบร้อยแล้ว");
       onSaved();
+      const savedId = report?.id ?? res.id;
+      if (savedId && materialNames.length) {
+        await offerAutoIssue("w119", savedId, materialNames, isProcStaff);
+        onSaved();
+      }
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {

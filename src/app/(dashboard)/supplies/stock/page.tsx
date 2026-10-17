@@ -28,6 +28,52 @@ type StockItem = {
   min_qty: number | null;
   note: string | null;
 };
+type AutoReq = { id: string; doc_no: string | null; req_date: string; requester_name: string; note: string | null; created_at: string; lines: string[] };
+const DISMISS_KEY = "stock-auto-import-seen";
+
+/** แจ้งรายการที่นำเข้าอัตโนมัติจากฟอร์มจัดซื้อ (ผู้ใช้กดตกลงเบิกทั้งหมดตอนบันทึก) — ปิดแล้วจำไว้ในเครื่องนี้ */
+function AutoImportNotice({ reqs }: { reqs: AutoReq[] }) {
+  const [seen, setSeen] = useState<string>(() => {
+    try {
+      return localStorage.getItem(DISMISS_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const fresh = reqs.filter((r) => r.created_at > seen);
+  if (fresh.length === 0) return null;
+  function dismiss() {
+    const latest = fresh.reduce((m, r) => (r.created_at > m ? r.created_at : m), seen);
+    try {
+      localStorage.setItem(DISMISS_KEY, latest);
+    } catch {
+      // ignore
+    }
+    setSeen(latest);
+  }
+  return (
+    <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <b>นำเข้าบัญชีวัสดุและออกใบเบิกอัตโนมัติแล้ว {fresh.length} รายการ</b>
+        <button type="button" onClick={dismiss} className="btn-secondary btn-sm">
+          รับทราบ
+        </button>
+      </div>
+      <ul className="list-disc space-y-1 pl-5">
+        {fresh.map((r) => (
+          <li key={r.id}>
+            ใบเบิกเลขที่ <b>{r.doc_no ?? "-"}</b> ลงวันที่ {formatThaiDate(r.req_date)} · {r.note ?? ""} · ผู้เบิก {r.requester_name}
+            <div className="text-emerald-800">{r.lines.join(", ")}</div>
+            <a href={`/supplies/requisitions/${r.id}/pdf`} target="_blank" rel="noreferrer" className="font-semibold underline">
+              พิมพ์ใบเบิก
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 type Source = { type: StockSourceType; id: string; doc_no: string; date: string; title: string; requester: string | null; materials: number; imported: number };
 
 const SOURCE_LABEL: Record<StockSourceType, string> = { purchase: "จัดซื้อ/จ้าง", w119: "ว 119", urgent: "เร่งด่วน" };
@@ -512,6 +558,7 @@ export default function StockPage() {
   const [items, setItems] = useState<StockItem[] | null>(null);
   const [moves, setMoves] = useState<StockMove[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+  const [autoReqs, setAutoReqs] = useState<AutoReq[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
@@ -523,13 +570,33 @@ export default function StockPage() {
     const ce = current ? current.year - 543 : null;
     const from = ce ? `${ce - 1}-10-01` : "1900-01-01";
     const to = ce ? `${ce}-09-30` : "2999-12-31";
-    const [{ data: its, error: e1 }, { data: mv }, { data: pr }, { data: w }, { data: u }] = await Promise.all([
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const [{ data: its, error: e1 }, { data: mv }, { data: pr }, { data: w }, { data: u }, { data: auto }] = await Promise.all([
       supabase.from("proc_stock_items").select("id, code, category, name, size_desc, unit, location, max_qty, min_qty, note").order("category").order("code"),
       supabase.from("proc_stock_moves").select("*"),
       supabase.from("proc_purchase_requests").select("id, doc_no, doc_type, record_date, inspected_date, delivered_date, item_name, inspector_name, proc_purchase_items(item_class)").gte("record_date", from).lte("record_date", to),
       supabase.from("proc_w119_reports").select("id, doc_no, purchase_date, purpose, responsible_name, proc_w119_items(name, item_class)").gte("record_date", from).lte("record_date", to),
       supabase.from("proc_urgent_reports").select("id, doc_no, purchase_date, subject, responsible_name, proc_urgent_items(item_class)").gte("record_date", from).lte("record_date", to),
+      supabase
+        .from("proc_stock_requisitions")
+        .select("id, doc_no, req_date, requester_name, note, created_at, proc_stock_moves(qty, proc_stock_items(name, unit))")
+        .like("note", "นำเข้าอัตโนมัติ%")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false }),
     ]);
+    setAutoReqs(
+      (auto ?? []).map((r) => {
+        const sum = new Map<string, { name: string; unit: string; qty: number }>();
+        (r.proc_stock_moves as unknown as { qty: number; proc_stock_items: { name: string; unit: string } | null }[]).forEach((m) => {
+          const name = m.proc_stock_items?.name ?? "-";
+          const unit = m.proc_stock_items?.unit ?? "";
+          const cur = sum.get(`${name}|${unit}`) ?? { name, unit, qty: 0 };
+          cur.qty += Number(m.qty);
+          sum.set(`${name}|${unit}`, cur);
+        });
+        return { id: r.id, doc_no: r.doc_no, req_date: r.req_date, requester_name: r.requester_name, note: r.note, created_at: r.created_at, lines: [...sum.values()].map((x) => `${x.name} ${qtyText(x.qty)} ${x.unit}`) };
+      }),
+    );
     setError(e1?.message ?? null);
     const allMoves = ((mv ?? []) as unknown as StockMove[]).map((m) => ({ ...m, qty: Number(m.qty), unit_price: Number(m.unit_price) }));
     setItems(((its ?? []) as StockItem[]).map((i) => ({ ...i, max_qty: i.max_qty != null ? Number(i.max_qty) : null, min_qty: i.min_qty != null ? Number(i.min_qty) : null })));
@@ -627,6 +694,8 @@ export default function StockPage() {
           </div>
         )}
       </div>
+
+      <AutoImportNotice reqs={autoReqs} />
 
       {isProcStaff && pendingSources > 0 && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
