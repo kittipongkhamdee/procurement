@@ -47,6 +47,7 @@ function parse(formData: FormData) {
       work_text: workText,
       amount,
       payee: str("payee") || null,
+      receipt_type: str("receipt_type") || null,
       receipt_book: str("receipt_book") || null,
       receipt_no: str("receipt_no") || null,
       receipt_date: str("receipt_date") || null,

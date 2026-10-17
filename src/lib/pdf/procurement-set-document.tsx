@@ -86,6 +86,7 @@ export type ProcurementSetData = {
   director: string | null;
   /** วิธีจัดซื้อ: specific = เฉพาะเจาะจงปกติ, w804 = ซื้อไม่เกิน 50,000 ตามหนังสือ ว 804 */
   method: "specific" | "w804";
+  receipt_type?: string | null;
   receipt_book: string | null;
   receipt_no: string | null;
   receipt_date: string | null;
@@ -858,7 +859,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
                 d.funding === "loan"
                   ? `เงินยืมตามสัญญา เลขที่ ${d.loan_contract_no ?? "......"} ลงวันที่ ${d.loan_date ? formatThaiDate(d.loan_date) : "......"}`
                   : "เงินสดสำรองจ่าย"
-              } ชำระให้ผู้ขายเรียบร้อยแล้ว ตามหลักฐานการรับเงิน ใบเสร็จรับเงิน เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${
+              } ชำระให้ผู้ขายเรียบร้อยแล้ว ตามหลักฐานการรับเงิน ${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"} เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${
                 d.receipt_date ? formatThaiDate(d.receipt_date) : "......"
               } และได้รับมอบพัสดุไว้ครบถ้วนเรียบร้อยแล้ว เมื่อวันที่ ${d.delivered_date ? formatThaiDate(d.delivered_date) : "......"}`}
             />
@@ -875,13 +876,13 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
 
       {show("w804_receipt") && (
         <Page size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
-          <Text style={[styles.title, { marginBottom: 10 }]}>{t("ใบติดใบเสร็จรับเงิน")}</Text>
+          <Text style={[styles.title, { marginBottom: 10 }]}>{t(`ใบติด${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"}`)}</Text>
           <View style={{ height: 300, borderWidth: B, borderStyle: "dashed", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <Text style={{ color: "#94a3b8" }}>{t("ติดใบเสร็จรับเงิน")}</Text>
+            <Text style={{ color: "#94a3b8" }}>{t(`ติด${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"}`)}</Text>
           </View>
           <Para
             keep={keep}
-            text={`จำนวนเงินตามใบเสร็จรับเงิน เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${d.receipt_date ? formatThaiDate(d.receipt_date) : "......"}`}
+            text={`จำนวนเงินตาม${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"} เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${d.receipt_date ? formatThaiDate(d.receipt_date) : "......"}`}
           />
           <Para
             keep={keep}

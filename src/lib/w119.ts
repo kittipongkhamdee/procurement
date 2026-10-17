@@ -43,6 +43,9 @@ EVIDENCE_RULES["แบบ บก.4231 (ค่าพาหนะส่วนต�
   ],
 };
 
+/** ประเภทหลักฐานการรับเงินที่เลือกได้ (ซื้อ/จ้าง/อื่นๆ) — งานจ้างบุคคลธรรมดามักใช้ใบสำคัญรับเงิน */
+export const RECEIPT_TYPES = ["ใบเสร็จรับเงิน", "บิลเงินสด", "ใบกำกับภาษี/ใบเสร็จรับเงิน", "ใบสำคัญรับเงิน", "ใบรับรองแทนใบเสร็จรับเงิน"] as const;
+
 export function evidenceRule(evidence: string | null | undefined): EvidenceRule {
   return EVIDENCE_RULES[(evidence ?? "").trim()] ?? EVIDENCE_RULES["ใบเสร็จรับเงิน"];
 }

@@ -15,6 +15,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
+import { ReceiptTypeSelect } from "@/components/receipt-type-select";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { urgentKindLabel } from "@/lib/pdf/urgent-document";
 import { createUrgent, deleteUrgent, updateUrgent, type UrgentItemInput } from "./urgent-actions";
@@ -32,6 +33,7 @@ type Report = {
   work_text: string;
   amount: number;
   payee: string | null;
+  receipt_type: string | null;
   receipt_book: string | null;
   receipt_no: string | null;
   receipt_date: string | null;
@@ -233,8 +235,12 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
             </datalist>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:grid-cols-3">
+            <div className="col-span-2 sm:col-span-3">
+              <label className="label">หลักฐานการรับเงิน</label>
+              <ReceiptTypeSelect defaultValue={report?.receipt_type} />
+            </div>
             <div>
-              <label className="label">ใบเสร็จ เล่มที่</label>
+              <label className="label">เล่มที่</label>
               <input name="receipt_book" defaultValue={report?.receipt_book ?? ""} className="input w-full" />
             </div>
             <div>
@@ -245,7 +251,7 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
               <label className="label">ลงวันที่</label>
               <ThaiDatePicker name="receipt_date" defaultValue={report?.receipt_date ?? null} />
             </div>
-            <p className="col-span-2 -mt-1 text-xs text-slate-500 sm:col-span-3">ไม่บังคับ — ถ้าไม่กรอก ในบันทึกจะเขียนว่า &quot;รายละเอียดตามเอกสารใบเสร็จรับเงินที่แนบมาพร้อมนี้&quot;</p>
+            <p className="col-span-2 -mt-1 text-xs text-slate-500 sm:col-span-3">เล่มที่/เลขที่/ลงวันที่ ไม่บังคับ — ถ้าไม่กรอก ในบันทึกจะเขียนว่า &quot;รายละเอียดตามเอกสาร(หลักฐานที่เลือก)ที่แนบมาพร้อมนี้&quot; · งานจ้างบุคคลทั่วไปที่ไม่มีใบเสร็จ ใช้ใบสำคัญรับเงิน (แนบสำเนาบัตรประชาชนผู้รับเงิน)</p>
           </div>
           <div>
             <label className="label">โครงการ</label>
@@ -352,7 +358,7 @@ function DetailModal({ report: r, approvals }: { report: Report; approvals: Appr
     ["วันที่รายงาน", formatThaiDate(r.record_date)],
     ["ผู้ดำเนินการ", [r.responsible_name, r.responsible_position].filter(Boolean).join(" · ") || "-"],
     ["เบิกจ่ายให้แก่", r.payee ?? `${r.responsible_name ?? "-"} (ผู้ดำเนินการ)`],
-    ["ใบเสร็จรับเงิน", [r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลว. ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-"],
+    ["หลักฐานการรับเงิน", [r.receipt_type || "ใบเสร็จรับเงิน", r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลว. ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-"],
     ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
     ["จำนวนเงิน", `${formatBaht(r.amount)} บาท`],
   ];
@@ -401,7 +407,7 @@ export default function UrgentPage() {
     let listQuery = supabase
       .from("proc_urgent_reports")
       .select(
-        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, project_id, activity_id, proc_urgent_items(kind, name, amount, seq)",
+        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_type, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, project_id, activity_id, proc_urgent_items(kind, name, amount, seq)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;

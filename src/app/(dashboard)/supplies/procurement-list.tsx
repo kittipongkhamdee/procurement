@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ReceiptTypeSelect } from "@/components/receipt-type-select";
 import { approvalUsage } from "@/lib/approval-budget";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
@@ -47,6 +48,7 @@ type Request = {
   order_signer: string | null;
   egp_no: string | null;
   method: string;
+  receipt_type: string | null;
   receipt_book: string | null;
   receipt_no: string | null;
   receipt_date: string | null;
@@ -447,7 +449,12 @@ function ProcurementModal({
               </select>
             </div>
             <div>
-              <label className="label">ใบเสร็จรับเงิน เล่มที่</label>
+              <label className="label">หลักฐานการรับเงิน</label>
+              <ReceiptTypeSelect defaultValue={request?.receipt_type} />
+              <p className="mt-1 text-xs text-slate-500">งานจ้างบุคคลทั่วไปที่ไม่มีใบเสร็จ ใช้ใบสำคัญรับเงิน</p>
+            </div>
+            <div>
+              <label className="label">เล่มที่</label>
               <input name="receipt_book" defaultValue={request?.receipt_book ?? ""} className="input w-full" />
             </div>
             <div>
@@ -455,7 +462,7 @@ function ProcurementModal({
               <input name="receipt_no" defaultValue={request?.receipt_no ?? ""} className="input w-full" />
             </div>
             <div>
-              <label className="label">ลงวันที่ (ใบเสร็จ)</label>
+              <label className="label">ลงวันที่ (หลักฐาน)</label>
               <ThaiDatePicker name="receipt_date" defaultValue={request?.receipt_date ?? null} />
             </div>
             <div>
@@ -619,7 +626,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
   const isW804 = r.method === "w804";
   const w804Rows: [string, string][] = [
     ["ร้านค้า / ผู้ขาย", r.proc_vendors?.name ?? "-"],
-    ["ใบเสร็จรับเงิน", [r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลงวันที่ ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-"],
+    ["หลักฐานการรับเงิน", [r.receipt_type || "ใบเสร็จรับเงิน", r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลงวันที่ ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-"],
     ["วันที่ได้รับมอบพัสดุ", r.delivered_date ? formatThaiDate(r.delivered_date) : "-"],
     ["ชำระเงินโดย", r.funding === "loan" ? `เงินยืม${r.loan_contract_no ? ` สัญญาเลขที่ ${r.loan_contract_no}` : ""}${r.loan_date ? ` ลงวันที่ ${formatThaiDate(r.loan_date)}` : ""}` : "เงินสดสำรองจ่าย / ทดรองจ่าย"],
     ["ผู้รับผิดชอบจัดซื้อ", [r.inspector_name, r.inspector_position].filter(Boolean).join(" · ") || "-"],
@@ -773,7 +780,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id), proc_approvals(status)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id), proc_approvals(status)",
       )
       .eq("doc_type", type)
       .eq("method", method);

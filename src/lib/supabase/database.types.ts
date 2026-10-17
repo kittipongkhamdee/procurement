@@ -2391,6 +2391,7 @@ export type Database = {
       }
       proc_purchase_requests: {
         Row: {
+          receipt_type: string | null
           activity_id: string | null
           approval_id: string | null
           admin_group: string | null
@@ -2430,6 +2431,7 @@ export type Database = {
           work_days: number | null
         }
         Insert: {
+          receipt_type?: string | null
           activity_id?: string | null
           approval_id?: string | null
           admin_group?: string | null
@@ -2469,6 +2471,7 @@ export type Database = {
           work_days?: number | null
         }
         Update: {
+          receipt_type?: string | null
           activity_id?: string | null
           approval_id?: string | null
           admin_group?: string | null
@@ -3016,6 +3019,7 @@ export type Database = {
       }
       proc_urgent_reports: {
         Row: {
+          receipt_type: string | null
           id: string
           doc_no: string | null
           doc_type: string
@@ -3039,6 +3043,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          receipt_type?: string | null
           id?: string
           doc_no?: string | null
           doc_type?: string
@@ -3062,6 +3067,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          receipt_type?: string | null
           id?: string
           doc_no?: string | null
           doc_type?: string

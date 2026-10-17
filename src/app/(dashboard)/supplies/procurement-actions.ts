@@ -90,6 +90,7 @@ function parse(formData: FormData) {
       order_signer: str("order_signer") === "director" ? "director" : "head",
       egp_no: str("egp_no") || null,
       method: str("method") === "w804" ? "w804" : "specific",
+      receipt_type: str("receipt_type") || null,
       receipt_book: str("receipt_book") || null,
       receipt_no: str("receipt_no") || null,
       receipt_date: str("receipt_date") || null,

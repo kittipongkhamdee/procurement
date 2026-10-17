@@ -28,6 +28,7 @@ export type UrgentData = {
   work_text: string;
   amount: number;
   payee: string | null;
+  receipt_type: string | null;
   receipt_book: string | null;
   receipt_no: string | null;
   receipt_date: string | null;
@@ -76,7 +77,7 @@ export function UrgentDocument({ data: d }: { data: UrgentData }) {
           </View>
         ))}
         <Text style={{ textAlign: "right" }}>{t(`รวมเป็นเงิน  ${formatBaht(d.amount)}  บาท  ${thaiBahtText(d.amount)}`)}</Text>
-        <Para keep={keep} indent={0} text={`รายละเอียดตามเอกสารใบเสร็จรับเงิน${receipt ? ` ${receipt} ` : ""}ที่แนบมาพร้อมนี้`} />
+        <Para keep={keep} indent={0} text={`รายละเอียดตามเอกสาร${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"}${receipt ? ` ${receipt} ` : ""}ที่แนบมาพร้อมนี้`} />
         <View wrap={false}>
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณา")}</Text>
           <Para
