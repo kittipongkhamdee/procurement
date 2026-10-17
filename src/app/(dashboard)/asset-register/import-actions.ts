@@ -72,7 +72,5 @@ export async function importAssetsFromProcurement(type: ProcurementSourceType, i
   const { error } = await supabase.from("asset_items").insert(rows);
   if (error) return { error: error.message.includes("row-level") ? "ไม่มีสิทธิ์เพิ่มรายการในทะเบียนคุมทรัพย์สิน" : error.message };
   revalidatePath("/asset-register");
-  return {
-    message: `ส่งครุภัณฑ์เข้าทะเบียนคุมทรัพย์สินแล้ว ${rows.length} รายการ (${todo.map((t) => `${t.name} ${t.qty} ${t.unit}`).join(", ")}) — สถานะ "รอตรวจสอบ" ให้ระบุอาคาร/ห้อง หมวดหมู่ และรหัสครุภัณฑ์ แล้วกดอนุมัติที่แท็บจัดการทรัพย์สิน`,
-  };
+  return { message: `ส่งครุภัณฑ์เข้าทะเบียนแล้ว ${rows.length} รายการ (${todo.map((t) => `${t.name} ${t.qty.toLocaleString("th-TH")} ${t.unit}`).join(", ")})` };
 }

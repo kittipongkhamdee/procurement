@@ -46,34 +46,27 @@ export async function offerAutoIssue(type: StockSourceType, id: string, material
   }
 }
 
-/** หลังบันทึกรายการที่มีครุภัณฑ์ — ถามว่าจะส่งเข้าทะเบียนคุมทรัพย์สินเลยไหม (สถานะรอตรวจสอบ ให้ระบุที่ตั้ง/รหัสต่อ)
- * canManage = ผู้ดูแลระบบ/เจ้าหน้าที่พัสดุ (สิทธิ์ทะเบียนคุมทรัพย์สิน) */
+/** หลังบันทึกรายการที่มีครุภัณฑ์ — ส่งเข้าทะเบียนคุมทรัพย์สินทันที (ไม่ถาม) แล้วแจ้งผล
+ * canManage = ผู้ดูแลระบบ/เจ้าหน้าที่พัสดุ (สิทธิ์ทะเบียนคุมทรัพย์สิน) — ผู้ใช้อื่นแจ้งให้เจ้าหน้าที่พัสดุส่งแทน */
 export async function offerAssetImport(type: StockSourceType, id: string, equipment: string[], canManage: boolean) {
   if (equipment.length === 0) return;
   const { data: existing } = await createClient().from("asset_items").select("source_seq").eq("source_type", type).eq("source_id", id);
   if (new Set((existing ?? []).map((m) => m.source_seq)).size >= equipment.length) return;
-  const list = `<ul style="text-align:left;margin:.5rem 0 0 1.25rem;list-style:disc">${equipment.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>`;
   if (!canManage) {
+    const list = `<ul style="text-align:left;margin:.5rem 0 0 1.25rem;list-style:disc">${equipment.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>`;
     await alertInfo({
       title: "มีรายการครุภัณฑ์",
       html: `รายการนี้มีครุภัณฑ์ ${equipment.length} รายการ${list}<p style="margin-top:.75rem">ให้เจ้าหน้าที่พัสดุส่งเข้า <b>ทะเบียนคุมทรัพย์สิน</b> (ปุ่ม &quot;ดึงจากรายการจัดซื้อ&quot;)</p>`,
     });
     return;
   }
-  const ok = await confirmChoice({
-    title: "ส่งครุภัณฑ์เข้าทะเบียนคุมทรัพย์สินหรือไม่?",
-    html: `ครุภัณฑ์ ${equipment.length} รายการ${list}<p style="margin-top:.75rem">ตกลง = เพิ่มเข้าทะเบียน (1 หน่วย = 1 รายการ) สถานะ &quot;รอตรวจสอบ&quot; แล้วระบุอาคาร/ห้อง หมวดหมู่ และรหัสครุภัณฑ์ภายหลัง</p>`,
-    confirmButtonText: "ตกลง ส่งเข้าทะเบียน",
-    cancelButtonText: "ยังไม่ส่ง",
-  });
-  if (!ok) {
-    await alertInfo({ title: "ยังไม่ได้ส่งครุภัณฑ์", html: "ส่งเข้าทะเบียนภายหลังได้ที่เมนู <b>ทะเบียนคุมทรัพย์สิน</b> (ปุ่ม &quot;ดึงจากรายการจัดซื้อ&quot;)" });
-    return;
-  }
   try {
     const res = await importAssetsFromProcurement(type, id);
     if (res.error) return void (await toastError(res.error));
-    await alertInfo({ title: "ส่งเข้าทะเบียนเรียบร้อย", text: res.message });
+    await alertInfo({
+      title: res.message ?? "ส่งครุภัณฑ์เข้าทะเบียนแล้ว",
+      html: "สถานะ &quot;รอตรวจสอบ&quot; — ระบุอาคาร/ห้อง หมวดหมู่ และรหัสครุภัณฑ์ แล้วกดอนุมัติที่เมนู <b>ทะเบียนคุมทรัพย์สิน</b> (แท็บจัดการทรัพย์สิน)",
+    });
   } catch (err) {
     await toastError(errorMessage(err));
   }
