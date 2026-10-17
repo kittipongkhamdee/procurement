@@ -4,7 +4,7 @@
 // เพิ่ม/แก้ไขผ่าน popup, พิมพ์ชุดเอกสาร ๘ แผ่นทั้งชุด หรือเลือกพิมพ์แยกทีละแผ่น (/supplies/procurement/[id]/pdf?sheets=n)
 // การ์ดสำหรับพื้นที่แคบ / ตารางสำหรับพื้นที่กว้าง (@container แพทเทิร์นเดียวกับงานสัญญา)
 
-import { offerAutoIssue } from "./stock/offer-issue";
+import { offerAssetImport, offerAutoIssue } from "./stock/offer-issue";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -133,7 +133,7 @@ function ProcurementModal({
   onSaved: () => void;
 }) {
   const modalRef = useRef<ModalHandle>(null);
-  const { isAdmin, isProcStaff } = useAuth();
+  const { isAdmin, isProcStaff, role } = useAuth();
   const terms = TERMS[type];
   const [saving, setSaving] = useState(false);
   const [funding, setFunding] = useState(request?.funding ?? "advance");
@@ -245,6 +245,7 @@ function ProcurementModal({
     const formData = new FormData(form);
     // บันทึกประเภทที่ใช้จริง (ที่ระบบเสนอหรือผู้ใช้เลือก) — ไม่เข้าคลังเก็บเป็น null
     formData.set("items_json", JSON.stringify(filled.map((r) => ({ ...r, itemClass: effectiveItemClass(r, type === "จ้าง") }))));
+    const equipmentNames = filled.filter((r) => effectiveItemClass(r, type === "จ้าง") === "equipment").map((r) => r.name.trim());
     const materialNames = filled.filter((r) => effectiveItemClass(r, type === "จ้าง") === "material").map((r) => r.name.trim());
     setSaving(true);
     try {
@@ -266,6 +267,10 @@ function ProcurementModal({
       const savedId = request?.id ?? res.id;
       if (savedId && materialNames.length) {
         await offerAutoIssue("purchase", savedId, materialNames, isProcStaff);
+        onSaved();
+      }
+      if (savedId && equipmentNames.length) {
+        await offerAssetImport("purchase", savedId, equipmentNames, isAdmin || role === "supply_officer");
         onSaved();
       }
     } catch (err) {

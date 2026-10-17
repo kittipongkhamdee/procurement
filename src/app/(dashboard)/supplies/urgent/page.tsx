@@ -4,7 +4,7 @@
 // ตามระเบียบกระทรวงการคลังฯ พ.ศ. 2560 ข้อ 79 วรรคสอง ประกอบหนังสือ กค (กวจ) 0405.2/ว 119 — แบบบันทึก "รายงานขอซื้อ/จ้าง"
 // ครูทุกคนเพิ่มบันทึกได้ แก้ไขได้เฉพาะรายการของตัวเอง (เจ้าหน้าที่แก้ได้ทุกรายการ) ลบได้เฉพาะแอดมิน
 
-import { offerAutoIssue } from "../stock/offer-issue";
+import { offerAssetImport, offerAutoIssue } from "../stock/offer-issue";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ApprovalRefField, approvalRemaining, loadApprovalRefs, type ApprovalRefOption } from "@/components/approval-ref-field";
@@ -70,7 +70,7 @@ const urgentUnitPrice = (i: UrgentItemInput) => (Number(i.amount) || 0) / (Numbe
 const kindOf = (r: Report) => urgentKindLabel(r.proc_urgent_items);
 
 function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report | null; lookups: Lookups; suggestedNo: string; onSaved: () => void }) {
-  const { isAdmin, isProcStaff } = useAuth();
+  const { isAdmin, isProcStaff, role } = useAuth();
   const modalRef = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
   const [approvalId, setApprovalId] = useState(report?.approval_id ?? "");
@@ -104,6 +104,7 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
       "items_json",
       JSON.stringify(items.filter((i) => i.name.trim()).map((i) => ({ ...i, itemClass: resolveItemClass(i.itemClass as ItemClassValue, i.name, urgentUnitPrice(i), i.kind === "จ้าง") }))),
     );
+    const equipmentNames = items.filter((i) => i.name.trim() && resolveItemClass(i.itemClass as ItemClassValue, i.name, urgentUnitPrice(i), i.kind === "จ้าง") === "equipment").map((i) => i.name.trim());
     const materialNames = items.filter((i) => i.name.trim() && resolveItemClass(i.itemClass as ItemClassValue, i.name, urgentUnitPrice(i), i.kind === "จ้าง") === "material").map((i) => i.name.trim());
     setSaving(true);
     try {
@@ -125,6 +126,10 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
       const savedId = report?.id ?? res.id;
       if (savedId && materialNames.length) {
         await offerAutoIssue("urgent", savedId, materialNames, isProcStaff);
+        onSaved();
+      }
+      if (savedId && equipmentNames.length) {
+        await offerAssetImport("urgent", savedId, equipmentNames, isAdmin || role === "supply_officer");
         onSaved();
       }
     } catch (err) {

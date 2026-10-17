@@ -8,13 +8,14 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { loadProcurementSource, PROCUREMENT_SOURCE_LABEL, type ProcurementSourceType } from "@/lib/procurement-source";
 import { allocateFifo, guessStockCategory, nextStockCode, type StockMove } from "@/lib/stock";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 type Result = { error?: string; id?: string; message?: string };
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ (เฉพาะเจ้าหน้าที่พัสดุ/การเงินและผู้ดูแลระบบ)";
 
-export type StockSourceType = "purchase" | "w119" | "urgent";
+export type StockSourceType = ProcurementSourceType;
 
 function done(): void {
   revalidatePath("/supplies/stock");
@@ -200,73 +201,12 @@ export async function deleteRequisition(id: string): Promise<Result> {
 
 // ---------- ดึงจากรายการจัดซื้อ ----------
 
-type SourceItem = { seq: number; name: string; qty: number; unit: string; unit_price: number; party: string | null };
-type SourceInfo = { doc_no: string; date: string; requester: string | null; requester_position: string | null; purpose: string | null; items: SourceItem[] };
-
-/** รายการวัสดุของเอกสารจัดซื้อ 1 ฉบับ (เฉพาะที่ติ๊กเป็นวัสดุ) */
-async function loadSource(supabase: Supabase, type: StockSourceType, id: string): Promise<SourceInfo | null> {
-  if (type === "purchase") {
-    const { data: r } = await supabase
-      .from("proc_purchase_requests")
-      .select("doc_no, record_date, delivered_date, inspected_date, inspector_name, inspector_position, reason, proc_vendors(name)")
-      .eq("id", id)
-      .maybeSingle();
-    if (!r) return null;
-    const { data: items } = await supabase.from("proc_purchase_items").select("seq, name, qty, unit, unit_price, item_class").eq("purchase_request_id", id).order("seq");
-    const vendor = (r.proc_vendors as unknown as { name: string } | null)?.name ?? null;
-    return {
-      doc_no: r.doc_no,
-      date: r.inspected_date ?? r.delivered_date ?? r.record_date,
-      requester: r.inspector_name,
-      requester_position: r.inspector_position,
-      purpose: r.reason,
-      items: (items ?? [])
-        .filter((i) => i.item_class === "material" && i.name && Number(i.qty) > 0)
-        .map((i) => ({ seq: i.seq, name: i.name!.trim(), qty: Number(i.qty), unit: i.unit?.trim() || "หน่วย", unit_price: Number(i.unit_price ?? 0), party: vendor })),
-    };
-  }
-  if (type === "w119") {
-    const { data: r } = await supabase.from("proc_w119_reports").select("doc_no, purchase_date, responsible_name, responsible_position, purpose").eq("id", id).maybeSingle();
-    if (!r) return null;
-    const { data: items } = await supabase.from("proc_w119_items").select("seq, name, qty, unit, amount, vendor, item_class").eq("report_id", id).order("seq");
-    return {
-      doc_no: r.doc_no,
-      date: r.purchase_date,
-      requester: r.responsible_name,
-      requester_position: r.responsible_position,
-      purpose: r.purpose,
-      items: (items ?? [])
-        .filter((i) => i.item_class === "material")
-        .map((i) => {
-          const qty = Number(i.qty) || 1;
-          return { seq: i.seq, name: i.name.trim(), qty, unit: i.unit?.trim() || "หน่วย", unit_price: Math.round((Number(i.amount) / qty) * 100) / 100, party: i.vendor };
-        }),
-    };
-  }
-  const { data: r } = await supabase.from("proc_urgent_reports").select("doc_no, purchase_date, responsible_name, responsible_position, work_text, payee").eq("id", id).maybeSingle();
-  if (!r) return null;
-  const { data: items } = await supabase.from("proc_urgent_items").select("seq, name, qty, unit, amount, item_class").eq("report_id", id).order("seq");
-  return {
-    doc_no: r.doc_no ?? "",
-    date: r.purchase_date,
-    requester: r.responsible_name,
-    requester_position: r.responsible_position,
-    purpose: r.work_text,
-    items: (items ?? [])
-      .filter((i) => i.item_class === "material")
-      .map((i) => {
-        const qty = Number(i.qty) || 1;
-        return { seq: i.seq, name: i.name.trim(), qty, unit: i.unit?.trim() || "หน่วย", unit_price: Math.round((Number(i.amount) / qty) * 100) / 100, party: r.payee ?? r.responsible_name };
-      }),
-  };
-}
-
-const SOURCE_LABEL: Record<StockSourceType, string> = { purchase: "จัดซื้อ", w119: "ว 119", urgent: "เร่งด่วน" };
+const SOURCE_LABEL = PROCUREMENT_SOURCE_LABEL;
 
 /** รับวัสดุเข้าบัญชีจากเอกสารจัดซื้อ — รายการที่ดึงแล้วข้าม (ไม่ซ้ำ) / autoIssue = ออกใบเบิกให้ผู้ตรวจรับ/ผู้รับผิดชอบทั้งหมดทันที */
 export async function importFromProcurement(type: StockSourceType, id: string, autoIssue: boolean): Promise<Result> {
   const supabase = await createClient();
-  const src = await loadSource(supabase, type, id);
+  const src = await loadProcurementSource(supabase, type, id, "material");
   if (!src) return { error: "ไม่พบรายการจัดซื้อ" };
   if (src.items.length === 0) return { error: "เอกสารนี้ไม่มีรายการที่ติ๊กเป็นวัสดุ" };
   const { data: existing } = await supabase.from("proc_stock_moves").select("source_seq").eq("source_type", type).eq("source_id", id).eq("kind", "in");

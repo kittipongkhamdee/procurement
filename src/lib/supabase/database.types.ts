@@ -331,6 +331,9 @@ export type Database = {
       }
       asset_items: {
         Row: {
+          source_seq: number | null
+          source_id: string | null
+          source_type: string | null
           acquired_date: string | null
           acquired_year: number | null
           acquisition_method: string | null
@@ -368,6 +371,9 @@ export type Database = {
           vendor_phone: string | null
         }
         Insert: {
+          source_seq?: number | null
+          source_id?: string | null
+          source_type?: string | null
           acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null
@@ -405,6 +411,9 @@ export type Database = {
           vendor_phone?: string | null
         }
         Update: {
+          source_seq?: number | null
+          source_id?: string | null
+          source_type?: string | null
           acquired_date?: string | null
           acquired_year?: number | null
           acquisition_method?: string | null

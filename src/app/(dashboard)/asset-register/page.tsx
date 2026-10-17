@@ -13,6 +13,7 @@ import { RegisterTab } from "./register-tab";
 import { MasterDataTab } from "./master-data-tab";
 import { SurveyRoundTab } from "./survey-round-tab";
 import { SummaryTab } from "./summary-tab";
+import { AssetImportModal } from "./asset-import-modal";
 
 type Option = { id: string; name: string };
 type Lookup = Option & { is_active: boolean };
@@ -61,6 +62,8 @@ export default function AssetRegisterPage() {
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [rounds, setRounds] = useState<SurveyRound[]>([]);
+  // ส่งครุภัณฑ์จากรายการจัดซื้อแล้ว → โหลดแท็บจัดการทรัพย์สินใหม่
+  const [importTick, setImportTick] = useState(0);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -119,8 +122,16 @@ export default function AssetRegisterPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">ทะเบียนคุมทรัพย์สิน</h1>
-          <p className="page-subtitle">ทะเบียนคุมทรัพย์สินของโรงเรียน จากข้อมูลการสำรวจครุภัณฑ์</p>
+          <p className="page-subtitle">ทะเบียนคุมทรัพย์สินของโรงเรียน จากข้อมูลการสำรวจครุภัณฑ์และรายการจัดซื้อที่เป็นครุภัณฑ์</p>
         </div>
+        {canManage && (
+          <AssetImportModal
+            onDone={() => {
+              setImportTick((n) => n + 1);
+              setTab("register");
+            }}
+          />
+        )}
       </div>
 
       <div className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200">
@@ -143,6 +154,7 @@ export default function AssetRegisterPage() {
       <div className="mt-6">
         {tab === "register" && !isTeacher && (
           <RegisterTab
+            key={importTick}
             canManage={canManage}
             rounds={rounds}
             categories={activeCategories}
