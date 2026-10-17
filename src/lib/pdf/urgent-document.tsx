@@ -28,6 +28,9 @@ export type UrgentData = {
   work_text: string;
   amount: number;
   payee: string | null;
+  receipt_book: string | null;
+  receipt_no: string | null;
+  receipt_date: string | null;
   responsible_name: string | null;
   responsible_position: string | null;
   admin_group: string | null;
@@ -47,6 +50,9 @@ export function UrgentDocument({ data: d }: { data: UrgentData }) {
   const keep = [school.replace(/^โรงเรียน/, ""), d.responsible_name ?? "", d.payee ?? ""].filter(Boolean);
   const kind = urgentKindLabel(d.items);
   const plan = [d.project_name, d.activity_name && `กิจกรรม${d.activity_name}`].filter(Boolean).join(" ");
+  const receipt = [d.receipt_book && `เล่มที่ ${d.receipt_book}`, d.receipt_no && `เลขที่ ${d.receipt_no}`, d.receipt_date && `ลงวันที่ ${formatThaiDate(d.receipt_date)}`]
+    .filter(Boolean)
+    .join(" ");
   const L = 595.28 / 2 - 2.5 * CM;
   const amountX = CONTENT_W - 150;
   return (
@@ -70,7 +76,7 @@ export function UrgentDocument({ data: d }: { data: UrgentData }) {
           </View>
         ))}
         <Text style={{ textAlign: "right" }}>{t(`รวมเป็นเงิน  ${formatBaht(d.amount)}  บาท  ${thaiBahtText(d.amount)}`)}</Text>
-        <Text style={{ marginBottom: 4 }}>{t("รายละเอียดตามเอกสารใบเสร็จรับเงินที่แนบมาพร้อมนี้")}</Text>
+        <Para keep={keep} indent={0} text={`รายละเอียดตามเอกสารใบเสร็จรับเงิน${receipt ? ` ${receipt} ` : ""}ที่แนบมาพร้อมนี้`} />
         <View wrap={false}>
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณา")}</Text>
           <Para
@@ -84,7 +90,7 @@ export function UrgentDocument({ data: d }: { data: UrgentData }) {
           <Sign
             role=""
             name={d.responsible_name}
-            extra={[`ตำแหน่ง ${d.responsible_position ? `${d.responsible_position} ` : ""}${school}`]}
+            extra={d.responsible_position ? [`ตำแหน่ง ${d.responsible_position}`] : []}
             style={{ marginLeft: L - 50, marginTop: 6 }}
           />
 

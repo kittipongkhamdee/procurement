@@ -10,7 +10,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const supabase = await createClient();
   const { data: r } = await supabase
     .from("proc_urgent_reports")
-    .select("approval_id, doc_no, record_date, purchase_date, subject, reason, work_text, amount, payee, responsible_name, responsible_position, admin_group, project_id, activity_id")
+    .select("approval_id, doc_no, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, project_id, activity_id")
     .eq("id", id)
     .maybeSingle();
   if (!r) return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });

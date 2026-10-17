@@ -29,6 +29,7 @@ function parse(formData: FormData) {
   if (!purchaseDate) return { error: "กรุณาเลือกวันที่ดำเนินการ" };
   if (!recordDate) return { error: "กรุณาเลือกวันที่รายงาน" };
   if (recordDate < purchaseDate) return { error: "วันที่รายงานต้องไม่ก่อนวันที่ดำเนินการ" };
+  if (str("receipt_date") && str("receipt_date") > recordDate) return { error: "วันที่ใบเสร็จต้องไม่หลังวันที่รายงาน" };
   const amount = Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100;
   // ภาพรวมที่ดำเนินการ — ไม่กรอก = รวมชื่อรายการ (เช่น "ซื้อวัสดุ และจ้างจัดทำป้ายไวนิล")
   const workText = str("work_text") || rows.map((r) => `${r.kind === "จ้าง" ? "จ้าง" : "จัดซื้อ"}${r.name}`).join(" และ");
@@ -46,6 +47,9 @@ function parse(formData: FormData) {
       work_text: workText,
       amount,
       payee: str("payee") || null,
+      receipt_book: str("receipt_book") || null,
+      receipt_no: str("receipt_no") || null,
+      receipt_date: str("receipt_date") || null,
       responsible_name: str("responsible_name") || null,
       responsible_position: str("responsible_position") || null,
       admin_group: str("admin_group") || null,

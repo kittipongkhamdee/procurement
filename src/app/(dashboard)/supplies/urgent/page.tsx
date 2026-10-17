@@ -223,13 +223,29 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
             <ThaiDatePicker name="record_date" value={recordDate} onChange={setRecordDate} />
           </div>
           <div>
-            <label className="label">เบิกจ่ายให้แก่ (ไม่กรอก = ผู้ดำเนินการ)</label>
-            <input name="payee" list="urgent-vendors" defaultValue={report?.payee ?? ""} className="input w-full" />
+            <label className="label">เบิกจ่ายให้แก่</label>
+            <input name="payee" list="urgent-vendors" defaultValue={report?.payee ?? ""} placeholder="ชื่อผู้ขาย/ผู้รับจ้าง หรือผู้รับเงิน" className="input w-full" />
+            <p className="mt-1 text-xs text-slate-500">ถ้าเว้นว่าง ระบบจะใช้ชื่อผู้ดำเนินการ (ข้าพเจ้า) เป็นผู้รับเงิน</p>
             <datalist id="urgent-vendors">
               {lookups.vendors.map((v) => (
                 <option key={v} value={v} />
               ))}
             </datalist>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:grid-cols-3">
+            <div>
+              <label className="label">ใบเสร็จ เล่มที่</label>
+              <input name="receipt_book" defaultValue={report?.receipt_book ?? ""} className="input w-full" />
+            </div>
+            <div>
+              <label className="label">เลขที่</label>
+              <input name="receipt_no" defaultValue={report?.receipt_no ?? ""} className="input w-full" />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="label">ลงวันที่</label>
+              <ThaiDatePicker name="receipt_date" defaultValue={report?.receipt_date ?? null} />
+            </div>
+            <p className="col-span-2 -mt-1 text-xs text-slate-500 sm:col-span-3">ไม่บังคับ — ถ้าไม่กรอก ในบันทึกจะเขียนว่า &quot;รายละเอียดตามเอกสารใบเสร็จรับเงินที่แนบมาพร้อมนี้&quot;</p>
           </div>
           <div>
             <label className="label">โครงการ</label>
@@ -335,7 +351,8 @@ function DetailModal({ report: r, approvals }: { report: Report; approvals: Appr
     ["วันที่ดำเนินการ", formatThaiDate(r.purchase_date)],
     ["วันที่รายงาน", formatThaiDate(r.record_date)],
     ["ผู้ดำเนินการ", [r.responsible_name, r.responsible_position].filter(Boolean).join(" · ") || "-"],
-    ["เบิกจ่ายให้แก่", r.payee ?? "-"],
+    ["เบิกจ่ายให้แก่", r.payee ?? `${r.responsible_name ?? "-"} (ผู้ดำเนินการ)`],
+    ["ใบเสร็จรับเงิน", [r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลว. ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-"],
     ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
     ["จำนวนเงิน", `${formatBaht(r.amount)} บาท`],
   ];
