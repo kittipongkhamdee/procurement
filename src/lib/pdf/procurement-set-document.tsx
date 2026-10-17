@@ -865,10 +865,16 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             />
             <Sign role="ผู้ตรวจรับพัสดุ (ผู้ได้รับมอบหมาย)" name={d.inspector_name} style={{ marginLeft: L - 50, marginTop: 4 }} />
             <Text style={{ marginLeft: INDENT, marginTop: 16 }}>{t("จึงเรียนมาเพื่อโปรดทราบและขออนุมัติเบิกจ่ายต่อไป")}</Text>
-            <Sign role="เจ้าหน้าที่" name={officer} style={{ marginLeft: L - 50, marginTop: 6 }} />
-            <View style={{ marginTop: 6 }}>
-              <DirectorTicks />
-              <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, formatThaiDate(reportIso)]} style={{ marginTop: 10 }} />
+            {/* เจ้าหน้าที่/หัวหน้าเจ้าหน้าที่ ซ้าย — คำสั่ง ผอ. ขวา (แบบเดียวกับหน้ารายงานขอซื้อ) */}
+            <View style={{ flexDirection: "row", marginTop: 10 }}>
+              <View style={{ width: L }}>
+                <Sign role="เจ้าหน้าที่" name={officer} />
+                <Sign role="หัวหน้าเจ้าหน้าที่" name={head} style={{ marginTop: 14 }} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <DirectorTicks />
+                <Sign role="" name={d.director} extra={[`ผู้อำนวยการ${school}`, formatThaiDate(reportIso)]} style={{ marginTop: 10 }} />
+              </View>
             </View>
           </View>
         </Page>

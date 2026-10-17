@@ -145,7 +145,7 @@ export function W119Document({ data: d }: { data: W119Data }) {
         />
         <Para
           keep={keep}
-          text={`พร้อมกันนี้ ขออนุมัติเบิกจ่ายเงิน${d.fund_source ? `${d.fund_source} ` : ""}จำนวน ${amount} บาท ${amountText} โดยวิธี${d.payment_method === "transfer" ? "โอนเงิน" : "เงินสด"}`}
+          text={`พร้อมกันนี้ ขออนุมัติเบิกจ่ายเงิน${d.fund_source ? `${d.fund_source} ` : ""}จำนวน ${amount} บาท ${amountText}`}
         />
         {/* ย่อหน้าท้ายจนถึงลงชื่อ ไม่แยกหน้า */}
         <View wrap={false}>

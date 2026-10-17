@@ -95,7 +95,7 @@ function W119DetailModal({ report: r, approvals }: { report: Report; approvals: 
     ["วัตถุประสงค์", r.purpose ?? "-"],
     ["ประเภทค่าใช้จ่าย", [r.expense_category, r.table_ref].filter(Boolean).join(" · ")],
     ["ผู้รับผิดชอบ", [r.responsible_name, r.responsible_position].filter(Boolean).join(" · ") || "-"],
-    ["แหล่งเงิน / วิธีจ่าย", `${r.fund_source ?? "-"} · ${r.payment_method === "transfer" ? "โอนเงิน" : "เงินสด"}`],
+    ["เบิกจ่ายจากเงิน", r.fund_source ?? "-"],
     ["จำนวนเงินรวม", `${formatBaht(r.amount)} บาท`],
   ];
   return (
@@ -376,13 +376,6 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
                 <option key={f} value={f} />
               ))}
             </datalist>
-          </div>
-          <div>
-            <label className="label">วิธีจ่ายเงิน</label>
-            <select name="payment_method" defaultValue={report?.payment_method ?? "cash"} className="input w-full">
-              <option value="cash">เงินสด</option>
-              <option value="transfer">โอนเงิน</option>
-            </select>
           </div>
           <div className="sm:col-span-2">
             <label className="label">หมายเหตุ (แสดงในทะเบียนคุม)</label>
