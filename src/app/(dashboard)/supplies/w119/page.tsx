@@ -1,6 +1,6 @@
 "use client";
 
-// ว.119 ค่าใช้จ่ายบริหารงาน — รายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน (ครั้งละไม่เกิน 10,000 บาท)
+// ว 119 ค่าใช้จ่ายบริหารงาน — รายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน (ครั้งละไม่เกิน 10,000 บาท)
 // ตามหนังสือ กค (กวจ) 0405.2/ว 119 ลว. 7 มี.ค. 2561 — ผู้ได้รับมอบหมายซื้อ/จ้างไปก่อน แล้วรายงานภายใน 5 วันทำการ
 // แต่ละรายการมีผู้ขาย/ผู้รับจ้างและหลักฐาน (ใบเสร็จ/บิลเงินสด/ใบสำคัญรับเงิน) ของตัวเอง
 
@@ -99,7 +99,7 @@ function W119DetailModal({ report: r, approvals }: { report: Report; approvals: 
     ["จำนวนเงินรวม", `${formatBaht(r.amount)} บาท`],
   ];
   return (
-    <Modal title={`รายงาน ว.119 ${r.doc_no}`} wide lazy trigger={detailTrigger}>
+    <Modal title={`รายงาน ว 119 ${r.doc_no}`} wide lazy trigger={detailTrigger}>
       <DetailRows rows={rows} />
       <div className="mt-4 overflow-x-auto">
         <table className="table-base">
@@ -180,14 +180,14 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
     const remaining = approvalRemaining(lookups.approvals.find((a) => a.id === approvalId) ?? null, report ? { approvalId: report.approval_id, amount: report.amount } : undefined);
     if (remaining != null && total > remaining + 0.005) return void (await toastError(`ยอดรวมเกินวงเงินคงเหลือของบันทึกขออนุมัติ (${formatBaht(remaining)} บาท)`));
     if (overVendors.length) {
-      await toastError(`จัดซื้อจัดจ้างจาก "${overVendors[0]}" เกินวงเงิน ว.119 (ครั้งละไม่เกิน 10,000 บาท)`);
+      await toastError(`จัดซื้อจัดจ้างจาก "${overVendors[0]}" เกินวงเงิน ว 119 (ครั้งละไม่เกิน 10,000 บาท)`);
       return;
     }
     if (table2Items.length) {
       const ok = await confirmWarning({
         title: "รายการนี้น่าจะอยู่ตาราง 2 — ใช้ผิดเมนูหรือไม่?",
-        text: `"${table2Items.join('", "')}" เป็นค่าใช้จ่ายตาราง 2 (ไม่ใช่การจัดซื้อจัดจ้าง) ควรบันทึกที่เมนู "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)" แทน — ยืนยันบันทึกเป็น ว.119 ต่อไหม?`,
-        confirmButtonText: "บันทึกเป็น ว.119 ต่อ",
+        text: `"${table2Items.join('", "')}" เป็นค่าใช้จ่ายตาราง 2 (ไม่ใช่การจัดซื้อจัดจ้าง) ควรบันทึกที่เมนู "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)" แทน — ยืนยันบันทึกเป็น ว 119 ต่อไหม?`,
+        confirmButtonText: "บันทึกเป็น ว 119 ต่อ",
       });
       if (!ok) return;
     }
@@ -222,7 +222,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
   return (
     <Modal
       ref={modalRef}
-      title={report ? `แก้ไขรายงาน ว.119 ${report.doc_no}` : "บันทึกรายงาน ว.119 ใหม่"}
+      title={report ? `แก้ไขรายงาน ว 119 ${report.doc_no}` : "บันทึกรายงาน ว 119 ใหม่"}
       wide
       lazy
       trigger={
@@ -234,7 +234,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
         ) : (
           <span className="btn-gold inline-flex items-center gap-2">
             <PlusIcon className="h-4 w-4" />
-            บันทึกรายงาน ว.119
+            บันทึกรายงาน ว 119
           </span>
         )
       }
@@ -468,7 +468,7 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
               แทน
             </div>
           )}
-          {overVendors.length > 0 && <p className="mt-2 text-sm text-red-600">เกินวงเงิน ว.119 (ครั้งละไม่เกิน 10,000 บาท): {overVendors.join(", ")} — ต้องจัดซื้อจัดจ้างตามวิธีปกติ</p>}
+          {overVendors.length > 0 && <p className="mt-2 text-sm text-red-600">เกินวงเงิน ว 119 (ครั้งละไม่เกิน 10,000 บาท): {overVendors.join(", ")} — ต้องจัดซื้อจัดจ้างตามวิธีปกติ</p>}
         </fieldset>
 
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
@@ -550,7 +550,7 @@ export default function W119Page() {
     reload();
   }, [reload]);
 
-  // เลขที่ถัดไป <ลำดับที่>/<ปีงบประมาณ> — ว.119 นับลำดับของตัวเอง (แก้เองได้)
+  // เลขที่ถัดไป <ลำดับที่>/<ปีงบประมาณ> — ว 119 นับลำดับของตัวเอง (แก้เองได้)
   const nextDocNo = useMemo(() => nextDocNumber(docNumberTemplate("w119", numberFormats), fiscalYear, allDocNos), [allDocNos, fiscalYear, numberFormats]);
 
   const filtered = useMemo(() => {
@@ -564,7 +564,7 @@ export default function W119Page() {
   const total = filtered.reduce((s, r) => s + r.amount, 0);
 
   async function handleDelete(r: Report) {
-    const ok = await confirmDelete({ title: `ลบรายงาน ว.119 ${r.doc_no}?`, text: r.proc_w119_items.map((i) => i.name).join(", ") });
+    const ok = await confirmDelete({ title: `ลบรายงาน ว 119 ${r.doc_no}?`, text: r.proc_w119_items.map((i) => i.name).join(", ") });
     if (!ok) return;
     const res = await deleteW119(r.id);
     if (res.error) {
@@ -615,7 +615,7 @@ export default function W119Page() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">ว.119 ค่าใช้จ่ายบริหารงาน</h1>
+          <h1 className="page-title">ว 119 ค่าใช้จ่ายบริหารงาน</h1>
           <p className="page-subtitle">
             จัดซื้อจัดจ้างค่าใช้จ่ายบริหารงาน/ฝึกอบรม/จัดงาน/ประชุม ครั้งละไม่เกิน 10,000 บาท ซื้อไปก่อนแล้วรายงานภายใน 5 วันทำการ
             {fiscalYear ? ` · ปีงบประมาณ ${fiscalYear}` : ""}

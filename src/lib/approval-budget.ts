@@ -3,7 +3,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 // ใช้ได้ทั้งฝั่ง server action และฝั่ง client (แสดงวงเงินคงเหลือในฟอร์ม)
 type Supabase = SupabaseClient<Database>;
-/** ตารางที่ตัดยอดจากบันทึกขออนุมัติ — งานซื้อ/จ้าง/ว.804, รายงาน ว.119, เบิกค่าใช้จ่ายโครงการ (ตาราง 2), จัดซื้อ/จัดจ้างกรณีเร่งด่วน */
+/** ตารางที่ตัดยอดจากบันทึกขออนุมัติ — งานซื้อ/จ้าง/ว 804, รายงาน ว 119, เบิกค่าใช้จ่ายโครงการ (ตาราง 2), จัดซื้อ/จัดจ้างกรณีเร่งด่วน */
 export type ApprovalUser = "purchase" | "w119" | "claim" | "urgent";
 const TABLES = { purchase: "proc_purchase_requests", w119: "proc_w119_reports", claim: "proc_expense_claims", urgent: "proc_urgent_reports" } as const;
 

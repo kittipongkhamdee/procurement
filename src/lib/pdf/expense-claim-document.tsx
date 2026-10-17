@@ -8,7 +8,7 @@ import { B, CM, CONTENT_W, FS, INDENT, Para, SLACK, Sign, styles, wrap } from ".
 
 // บันทึกขออนุมัติเบิกค่าใช้จ่ายโครงการ — รายการตาราง 2 แนบท้ายหนังสือ ว 119 (ไม่ใช่การจัดซื้อจัดจ้าง)
 // เช่น ค่าอาหารว่าง ค่าอาหาร ค่าตอบแทนวิทยากร ค่าเบี้ยเลี้ยง ค่าพาหนะ — แบบอ้างอิงคู่มือ สพม.ขอนแก่น หน้า 5
-// (เรื่องเดิม / ข้อเท็จจริง / ข้อเสนอและพิจารณา) TH Sarabun New 16pt, หน้าต่อขอบบน 2.5 ซม. แบบเดียวกับ ว.119
+// (เรื่องเดิม / ข้อเท็จจริง / ข้อเสนอและพิจารณา) TH Sarabun New 16pt, หน้าต่อขอบบน 2.5 ซม. แบบเดียวกับ ว 119
 
 export type ExpenseClaimData = {
   doc_no: string | null;
@@ -149,7 +149,7 @@ export function ExpenseClaimDocument({ data: d }: { data: ExpenseClaimData }) {
             extra={d.responsible_position ? [`ตำแหน่ง ${d.responsible_position}`] : []}
             style={{ marginLeft: L - 50, marginTop: 10 }}
           />
-          {/* ความเห็นเจ้าหน้าที่การเงิน / ผู้มีอำนาจลงนาม — ตารางสองช่องแบบเดียวกับ ว.119 */}
+          {/* ความเห็นเจ้าหน้าที่การเงิน / ผู้มีอำนาจลงนาม — ตารางสองช่องแบบเดียวกับ ว 119 */}
           <View style={{ flexDirection: "row", marginTop: 12, borderWidth: B }}>
             <View style={{ width: L, borderRightWidth: B, padding: 6 }}>
               <Text style={styles.bold}>{t("ความเห็นเจ้าหน้าที่การเงิน")}</Text>

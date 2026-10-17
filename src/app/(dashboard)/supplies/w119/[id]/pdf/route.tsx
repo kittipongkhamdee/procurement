@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { contentDisposition } from "@/lib/http";
 import { W119Document, W119EvidenceDocument, type W119Data } from "@/lib/pdf/w119-document";
 
-// ว.119 — บันทึกรายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน
+// ว 119 — บันทึกรายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน
 // ?sheet=evidence → ใบติดหลักฐาน (พิมพ์แยกจากบันทึก)
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,6 +45,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const evidence = new URL(request.url).searchParams.get("sheet") === "evidence";
   const buffer = await renderToBuffer(evidence ? <W119EvidenceDocument data={data} /> : <W119Document data={data} />);
   return new NextResponse(new Uint8Array(buffer), {
-    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", `ว119-${r.doc_no}${evidence ? "-ใบติดหลักฐาน" : ""}.pdf`) },
+    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", `ว 119-${r.doc_no}${evidence ? "-ใบติดหลักฐาน" : ""}.pdf`) },
   });
 }

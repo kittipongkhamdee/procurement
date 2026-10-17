@@ -1,6 +1,6 @@
 "use server";
 
-// ว.119 ค่าใช้จ่ายบริหารงาน (/supplies/w119) — ตาราง proc_w119_reports + proc_w119_items
+// ว 119 ค่าใช้จ่ายบริหารงาน (/supplies/w119) — ตาราง proc_w119_reports + proc_w119_items
 // คืน { error } แทนการ throw — production ของ Next ซ่อนข้อความ error ที่ throw จาก server action
 
 import { revalidatePath } from "next/cache";
@@ -43,7 +43,7 @@ function parse(formData: FormData) {
     byVendor.set(k, (byVendor.get(k) ?? 0) + Number(i.amount));
   });
   for (const [vendor, sum] of byVendor) {
-    if (sum > W119_LIMIT + 0.005) return { error: `จัดซื้อจัดจ้างจาก "${vendor}" รวม ${sum.toLocaleString("th-TH")} บาท เกินวงเงิน ว.119 (ครั้งละไม่เกิน 10,000 บาท) — ต้องจัดซื้อจัดจ้างตามวิธีปกติ` };
+    if (sum > W119_LIMIT + 0.005) return { error: `จัดซื้อจัดจ้างจาก "${vendor}" รวม ${sum.toLocaleString("th-TH")} บาท เกินวงเงิน ว 119 (ครั้งละไม่เกิน 10,000 บาท) — ต้องจัดซื้อจัดจ้างตามวิธีปกติ` };
   }
   const amount = Math.round(items.reduce((s, i) => s + Number(i.amount), 0) * 100) / 100;
   return {

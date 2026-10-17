@@ -4,7 +4,7 @@
 export type SheetKey = "w804_request" | "w804_spec" | "w804_report" | "w804_receipt" | "request" | "request_attach" | "quote" | "consider" | "order" | "order_attach" | "handover" | "inspect" | "disburse";
 
 const LABELS: Record<SheetKey, (v: string) => string> = {
-  w804_request: () => "รายงานขอซื้อ (ว.804)",
+  w804_request: () => "รายงานขอซื้อ (ว 804)",
   w804_spec: () => "รายละเอียดคุณลักษณะเฉพาะของพัสดุ",
   w804_report: () => "รายงานสรุปผลการจัดซื้อและอนุมัติเบิกจ่าย",
   w804_receipt: () => "ใบติดใบเสร็จรับเงิน",
@@ -24,10 +24,10 @@ const ORDER: Record<"ซื้อ" | "จ้าง", SheetKey[]> = {
   จ้าง: ["request", "quote", "consider", "order", "handover", "inspect", "disburse"],
 };
 
-// ว.804 (ซื้อไม่เกิน 50,000 บาท) ๔ แผ่น ตามแบบที่ผู้ใช้ให้มา
+// ว 804 (ซื้อไม่เกิน 50,000 บาท) ๔ แผ่น ตามแบบที่ผู้ใช้ให้มา
 const W804_ORDER: SheetKey[] = ["w804_request", "w804_spec", "w804_report", "w804_receipt"];
 
-/** จำนวนรายการสูงสุดที่ใส่ในหัวข้อ 1 ของรายงานขอซื้อ ว.804 ได้เลย — ไม่เกินนี้ไม่ต้องพิมพ์แผ่นรายละเอียดคุณลักษณะ (ซ้ำกับหน้าแรก) */
+/** จำนวนรายการสูงสุดที่ใส่ในหัวข้อ 1 ของรายงานขอซื้อ ว 804 ได้เลย — ไม่เกินนี้ไม่ต้องพิมพ์แผ่นรายละเอียดคุณลักษณะ (ซ้ำกับหน้าแรก) */
 export const W804_INLINE_MAX = 2;
 
 export function procurementSheets(type: "ซื้อ" | "จ้าง", w804 = false, itemCount?: number) {

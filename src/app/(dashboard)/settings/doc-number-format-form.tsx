@@ -1,6 +1,6 @@
 "use client";
 
-// รูปแบบเลขที่เอกสารงานพัสดุ (งานซื้อ/ว.804, งานจ้าง, ว.119, เบิกค่าใช้จ่ายโครงการ) — ระบบใช้เสนอเลขที่ถัดไปในฟอร์ม
+// รูปแบบเลขที่เอกสารงานพัสดุ (งานซื้อ/ว 804, งานจ้าง, ว 119, เบิกค่าใช้จ่ายโครงการ) — ระบบใช้เสนอเลขที่ถัดไปในฟอร์ม
 import { useState } from "react";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { DOC_NUMBER_KINDS, docNumberExample, docNumberTemplate } from "@/lib/doc-numbers";
@@ -42,7 +42,7 @@ export function DocNumberFormatForm({
     <form onSubmit={handleSubmit} className="space-y-3">
       <p className="text-sm text-slate-500">
         ตัวแปร: <code>{"{n}"}</code> ลำดับที่ (นับใหม่ทุกปีงบประมาณ) · <code>{"{yyyy}"}</code> ปีงบประมาณ พ.ศ. · <code>{"{yy}"}</code> 2 หลักท้ายของปีงบ —
-        เว้นว่าง = ไม่เสนอเลขอัตโนมัติ (กรอกเองหรือเว้นว่างในเอกสาร) · งานซื้อและ ว.804 นับเลขชุดเดียวกัน
+        เว้นว่าง = ไม่เสนอเลขอัตโนมัติ (กรอกเองหรือเว้นว่างในเอกสาร) · งานซื้อและ ว 804 นับเลขชุดเดียวกัน
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {DOC_NUMBER_KINDS.map((k) => (

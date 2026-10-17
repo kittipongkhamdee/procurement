@@ -1,18 +1,18 @@
 import type { createClient } from "@/lib/supabase/server";
 
-// ทะเบียนคุมจัดซื้อจัดจ้าง — รวมงานซื้อ/งานจ้าง/ว.804 (proc_purchase_requests), รายงาน ว.119 (proc_w119_reports) และ
-// จัดซื้อ/จัดจ้างกรณีเร่งด่วน (proc_urgent_reports) ของปีงบประมาณปัจจุบัน — คอลัมน์ "ประเภท" แยก ซื้อ/จ้าง/ว804/ว119/เร่งด่วน
+// ทะเบียนคุมจัดซื้อจัดจ้าง — รวมงานซื้อ/งานจ้าง/ว 804 (proc_purchase_requests), รายงาน ว 119 (proc_w119_reports) และ
+// จัดซื้อ/จัดจ้างกรณีเร่งด่วน (proc_urgent_reports) ของปีงบประมาณปัจจุบัน — คอลัมน์ "ประเภท" แยก ซื้อ/จ้าง/ว 804/ว 119/เร่งด่วน
 // ใช้ร่วมกันระหว่างหน้าเว็บ / พิมพ์ PDF / ส่งออก Excel — ตัวกรองส่งทาง query string: type, q
 
 /** ประเภทในทะเบียน (ลำดับนี้ = ลำดับการเรียง) */
-export const REGISTER_CATEGORIES = ["ซื้อ", "จ้าง", "ว804", "ว119", "เร่งด่วน"] as const;
+export const REGISTER_CATEGORIES = ["ซื้อ", "จ้าง", "ว 804", "ว 119", "เร่งด่วน"] as const;
 export type RegisterCategory = (typeof REGISTER_CATEGORIES)[number];
 /** หน้าที่ไปแก้ไขรายการแต่ละประเภท */
 export const REGISTER_PAGE: Record<RegisterCategory, string> = {
   ซื้อ: "/supplies/purchase",
   จ้าง: "/supplies/hire",
-  ว804: "/supplies/w804",
-  ว119: "/supplies/w119",
+  "ว 804": "/supplies/w804",
+  "ว 119": "/supplies/w119",
   เร่งด่วน: "/supplies/urgent",
 };
 
@@ -130,12 +130,12 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
     const amount = Number(r.amount);
     return {
       id: r.id,
-      category: "ว119",
+      category: "ว 119",
       doc_type: "ซื้อ",
       doc_no: r.doc_no,
       record_date: r.record_date,
       order_date: r.purchase_date,
-      // ว.119 — รายงานนี้ถือเป็นหลักฐานการตรวจรับโดยอนุโลม
+      // ว 119 — รายงานนี้ถือเป็นหลักฐานการตรวจรับโดยอนุโลม
       inspected_date: r.purchase_date,
       item_name: items.map((i) => i.name).join(", ") || null,
       vendor_name: [...new Set(items.map((i) => i.vendor).filter(Boolean))].join(", ") || null,
@@ -148,7 +148,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
       register_note: r.register_note,
       method: "w119",
       ...extra(amount),
-      status: "รายงาน ว119",
+      status: "รายงาน ว 119",
     };
   });
   const urgentRows: ProcurementRegisterRow[] = (urgent ?? []).map((r) => {
@@ -179,7 +179,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
   });
   const purchaseRows: ProcurementRegisterRow[] = (data ?? []).map((r) => ({
     id: r.id,
-    category: r.method === "w804" ? "ว804" : r.doc_type,
+    category: r.method === "w804" ? "ว 804" : r.doc_type,
     doc_type: r.doc_type,
     doc_no: r.doc_no,
     record_date: r.record_date,

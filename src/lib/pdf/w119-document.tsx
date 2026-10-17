@@ -5,7 +5,7 @@ import { t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
 import { B, CM, CONTENT_W, FS, INDENT, Para, SLACK, Sign, styles, wrap } from "./procurement-set-document";
 
-// ว.119 — บันทึกรายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน (ค่าใช้จ่ายในการบริหารงาน
+// ว 119 — บันทึกรายงานขอความเห็นชอบการจัดซื้อจัดจ้างและขออนุมัติเบิกจ่ายเงิน (ค่าใช้จ่ายในการบริหารงาน
 // การฝึกอบรม การจัดงาน และการประชุม วงเงินครั้งหนึ่งไม่เกิน 10,000 บาท) ตามหนังสือ กค (กวจ) 0405.2/ว 119 ลว. 7 มี.ค. 2561
 // ผู้ได้รับมอบหมายจัดซื้อจัดจ้างไปก่อน แล้วรายงานภายใน 5 วันทำการ — เมื่อเห็นชอบแล้วให้ถือเป็นหลักฐานการตรวจรับโดยอนุโลม
 // แบบอ้างอิงจากตัวอย่างที่ผู้ใช้ให้มา (KruNotAlone, ร.ร.เตรียมอุดมศึกษาพัฒนาการ นนทบุรี, สพม.ขอนแก่น) — TH Sarabun New 16pt
@@ -119,7 +119,7 @@ export function W119Document({ data: d }: { data: W119Data }) {
   const due = formatThaiDate(addWorkingDays(d.purchase_date, 5));
   const L = 595.28 / 2 - 2.5 * 28.3465;
   return (
-    <Document title={`ว.119 ${d.doc_no}`}>
+    <Document title={`ว 119 ${d.doc_no}`}>
       {/* หน้าต่อ (หน้า 2 เป็นต้นไป) ขอบบน 2.5 ซม. — หน้าแรกดึงหัวบันทึกขึ้นกลับไปที่ 1.5 ซม. ด้วย margin ติดลบ */}
       <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
         <View style={{ marginTop: -CM }}>
@@ -203,7 +203,7 @@ function CheckLine({ text, indent = 0 }: { text: string; indent?: number }) {
  * ใบเสร็จ/บิลเงินสด/ใบสำคัญรับเงิน → ติดในกรอบ, ใบรับรองแทนใบเสร็จ (บก.111) → แนบต่อท้าย ไม่มีกรอบ */
 export function W119EvidenceDocument({
   data: d,
-  refLabel = "รายงาน ว.119",
+  refLabel = "รายงาน ว 119",
   title = "ใบติดหลักฐานการจัดซื้อจัดจ้าง",
   partyLabel = "ผู้ขาย/ผู้รับจ้าง",
 }: {

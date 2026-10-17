@@ -3,9 +3,9 @@
 // รูปแบบว่าง = ไม่เสนอเลขอัตโนมัติ (ผู้ใช้กรอกเองหรือเว้นว่างได้) — เลขที่เก็บในฐานข้อมูลเป็นข้อความเต็มตามที่พิมพ์
 
 export const DOC_NUMBER_KINDS = [
-  { kind: "purchase", key: "doc_number_format_purchase", label: "งานซื้อ + ว.804 (นับชุดเดียวกัน)", fallback: "{n}/{yyyy}" },
+  { kind: "purchase", key: "doc_number_format_purchase", label: "งานซื้อ + ว 804 (นับชุดเดียวกัน)", fallback: "{n}/{yyyy}" },
   { kind: "hire", key: "doc_number_format_hire", label: "งานจ้าง", fallback: "{n}/{yyyy}" },
-  { kind: "w119", key: "doc_number_format_w119", label: "ว.119 ค่าใช้จ่ายบริหารงาน", fallback: "{n}/{yyyy} (ว119)" },
+  { kind: "w119", key: "doc_number_format_w119", label: "ว 119 ค่าใช้จ่ายบริหารงาน", fallback: "{n}/{yyyy} (ว119)" },
   { kind: "urgent", key: "doc_number_format_urgent", label: "จัดซื้อ/จัดจ้าง (กรณีจำเป็นเร่งด่วน)", fallback: "{n}/{yyyy} (เร่งด่วน)" },
   { kind: "claim", key: "doc_number_format_claim", label: "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)", fallback: "" },
 ] as const;

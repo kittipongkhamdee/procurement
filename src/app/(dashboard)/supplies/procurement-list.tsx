@@ -231,7 +231,7 @@ function ProcurementModal({
       return;
     }
     if (w804 && total > W804_LIMIT) {
-      await toastError(`ซื้อตาม ว.804 ได้ครั้งละไม่เกิน ${formatBaht(W804_LIMIT)} บาท`);
+      await toastError(`ซื้อตาม ว 804 ได้ครั้งละไม่เกิน ${formatBaht(W804_LIMIT)} บาท`);
       return;
     }
     if (filled.length === 0 || total <= 0) {
@@ -267,7 +267,7 @@ function ProcurementModal({
   return (
     <Modal
       ref={modalRef}
-      title={request ? `แก้ไขรายงานขอ${type}${w804 ? " (ว.804)" : ""} ${request.doc_no}` : `บันทึกรายงานขอ${type}${w804 ? " (ว.804)" : ""}ใหม่`}
+      title={request ? `แก้ไขรายงานขอ${type}${w804 ? " (ว 804)" : ""} ${request.doc_no}` : `บันทึกรายงานขอ${type}${w804 ? " (ว 804)" : ""}ใหม่`}
       wide
       lazy
       onOpenChange={(open) => open && loadItems()}
@@ -288,7 +288,7 @@ function ProcurementModal({
       <form onSubmit={handleSubmit} className="space-y-5">
         <input type="hidden" name="doc_type" value={type} />
         <input type="hidden" name="method" value={w804 ? "w804" : "specific"} />
-        {/* ว.804 ไม่มีขั้นสั่งซื้อ/กำหนดส่งมอบ — ใช้วันที่บันทึกเป็นค่าของคอลัมน์ที่ฐานข้อมูลบังคับ */}
+        {/* ว 804 ไม่มีขั้นสั่งซื้อ/กำหนดส่งมอบ — ใช้วันที่บันทึกเป็นค่าของคอลัมน์ที่ฐานข้อมูลบังคับ */}
         {w804 && <input type="hidden" name="delivery_date" value={recordDate ?? ""} />}
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
@@ -663,7 +663,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
   const rows: [string, string][] = [...common, ...(isW804 ? w804Rows : specific), [`วงเงินที่ขอ${type}`, `${formatBaht(Number(r.amount))} บาท`]]
   return (
     <Modal
-      title={`รายงานขอ${type}${isW804 ? " (ว.804)" : ""} ${r.doc_no}`}
+      title={`รายงานขอ${type}${isW804 ? " (ว 804)" : ""} ${r.doc_no}`}
       wide
       lazy
       onOpenChange={(open) => open && load()}
@@ -815,7 +815,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
       usage,
     ] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
-      // ว.804 เป็นงานซื้อ — นับเลขที่ต่อเนื่องร่วมกับงานซื้อปกติ (งานจ้างนับแยก)
+      // ว 804 เป็นงานซื้อ — นับเลขที่ต่อเนื่องร่วมกับงานซื้อปกติ (งานจ้างนับแยก)
       supabase.from("proc_purchase_requests").select("doc_no").eq("doc_type", type),
       currentYear
         ? supabase.from("plan_projects").select("id, name").eq("budget_year_id", currentYear.id).order("sort_order")

@@ -17,7 +17,7 @@ import { addExpenseClaimPhotos, deleteExpenseClaimPhoto } from "./expense-claims
 
 export const PHOTO_CATEGORIES = ["ใบส่งของ", "ใบส่งมอบงาน", "ใบเสร็จรับเงิน", "ใบสำคัญรับเงิน", "อื่นๆ"];
 
-/** แหล่งเก็บรูป: purchase = งานซื้อ/จ้าง/ว.804 (proc_purchase_photos), w119 = ว.119 (proc_w119_photos), expense = เบิกค่าใช้จ่ายโครงการ (proc_expense_claim_photos) */
+/** แหล่งเก็บรูป: purchase = งานซื้อ/จ้าง/ว 804 (proc_purchase_photos), w119 = ว 119 (proc_w119_photos), expense = เบิกค่าใช้จ่ายโครงการ (proc_expense_claim_photos) */
 export type PhotoKind = "purchase" | "w119" | "expense";
 const KINDS = {
   purchase: { categories: PHOTO_CATEGORIES, add: addProcurementPhotos, remove: deleteProcurementPhoto },

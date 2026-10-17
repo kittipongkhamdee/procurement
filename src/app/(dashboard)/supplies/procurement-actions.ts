@@ -38,7 +38,7 @@ function parse(formData: FormData) {
   if (items.length === 0) return { error: "กรุณากรอกรายการอย่างน้อย 1 รายการ" };
   const amount = Math.round(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0) * 100) / 100;
   if (!(amount > 0)) return { error: "ยอดรวมรายการต้องมากกว่า 0" };
-  if (str("method") === "w804" && (docType !== "ซื้อ" || amount > 50000)) return { error: "ซื้อตาม ว.804 ได้เฉพาะงานซื้อ ครั้งละไม่เกิน 50,000 บาท" };
+  if (str("method") === "w804" && (docType !== "ซื้อ" || amount > 50000)) return { error: "ซื้อตาม ว 804 ได้เฉพาะงานซื้อ ครั้งละไม่เกิน 50,000 บาท" };
 
   const approvalId = str("approval_id");
   if (!approvalId) return { error: "กรุณาเลือกบันทึกขออนุมัติที่อ้างอิง" };

@@ -298,7 +298,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const unit = `${school}${d.education_area ? `  ${d.education_area}` : ""}`;
   const plan = [d.admin_group, d.project_name, d.activity_name].filter(Boolean).join(" ");
   const fy = fiscalYearOf(d.record_date);
-  // ว.804 หัวข้อ 1: รายการละบรรทัด ย่อหน้าเข้าไปเท่าหัวข้อ — เกิน W804_INLINE_MAX รายการให้อ้างรายละเอียดที่แนบ (หน้าแรกจะล้น)
+  // ว 804 หัวข้อ 1: รายการละบรรทัด ย่อหน้าเข้าไปเท่าหัวข้อ — เกิน W804_INLINE_MAX รายการให้อ้างรายละเอียดที่แนบ (หน้าแรกจะล้น)
   const w804SpecText =
     d.items.length <= W804_INLINE_MAX
       ? d.items.map((it, i) => `${i + 1}) ${it.name ?? ""}${it.qty != null ? ` จำนวน ${it.qty.toLocaleString("th-TH")} ${it.unit ?? ""}` : ""}`.trim())
@@ -729,8 +729,8 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
         </Page>
       )}
 
-      {/* ===== ว.804 ซื้อไม่เกิน 50,000 บาท ===== */}
-      {/* ว.804 หัวข้อ 1: รายการน้อยใส่ในบันทึกเลย ถ้าเกิน W804_INLINE_MAX รายการ (หน้าแรกจะล้น) ให้อ้างรายละเอียดแนบหน้า 2 แทน */}
+      {/* ===== ว 804 ซื้อไม่เกิน 50,000 บาท ===== */}
+      {/* ว 804 หัวข้อ 1: รายการน้อยใส่ในบันทึกเลย ถ้าเกิน W804_INLINE_MAX รายการ (หน้าแรกจะล้น) ให้อ้างรายละเอียดแนบหน้า 2 แทน */}
       {show("w804_request") && (
         <Page size="A4" style={styles.page}>
           <MemoHeader unit={unit} docNumber={d.doc_no} isoDate={d.record_date} subject={`รายงานขอซื้อ${d.item_name} โดยวิธีเฉพาะเจาะจง`} />
