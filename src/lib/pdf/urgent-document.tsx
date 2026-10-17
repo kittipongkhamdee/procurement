@@ -10,14 +10,9 @@ import { CM, CONTENT_W, INDENT, Para, Sign, styles } from "./procurement-set-doc
 // ย่อหน้าเหตุผล → "จึงได้ดำเนินการดังนี้" + รายการ (ซื้อ/จ้าง แต่ละรายการมีจำนวนเงิน) → รวม → ข้อเสนอ 3 ข้อ → เจ้าหน้าที่/หัวหน้าเจ้าหน้าที่
 // เสนอ ผอ. → คำสั่ง (เห็นชอบ / อนุมัติ) — เมื่อเห็นชอบแล้วให้ถือเป็นหลักฐานการตรวจรับโดยอนุโลม
 
-export type UrgentItem = { kind: string; name: string; amount: number };
+import { urgentKindLabel, type UrgentItem } from "@/lib/urgent";
 
-/** "ซื้อ" / "จ้าง" / "ซื้อ/ขอจ้าง" ตามประเภทของรายการ — ใช้ต่อท้าย "รายงานขอ" */
-export function urgentKindLabel(items: UrgentItem[]) {
-  const buy = items.some((i) => i.kind !== "จ้าง");
-  const hire = items.some((i) => i.kind === "จ้าง");
-  return buy && hire ? "ซื้อ/ขอจ้าง" : hire ? "จ้าง" : "ซื้อ";
-}
+export { urgentKindLabel };
 
 export type UrgentData = {
   doc_no: string | null;

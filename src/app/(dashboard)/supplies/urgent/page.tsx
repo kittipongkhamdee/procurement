@@ -17,7 +17,7 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
 import { ReceiptTypeSelect } from "@/components/receipt-type-select";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
-import { urgentKindLabel } from "@/lib/pdf/urgent-document";
+import { urgentKindLabel } from "@/lib/urgent";
 import { createUrgent, deleteUrgent, updateUrgent, type UrgentItemInput } from "./urgent-actions";
 
 type Report = {
