@@ -2318,6 +2318,7 @@ export type Database = {
       }
       proc_purchase_items: {
         Row: {
+          item_class: string | null
           id: string
           name: string | null
           purchase_request_id: string
@@ -2328,6 +2329,7 @@ export type Database = {
           unit_price: number | null
         }
         Insert: {
+          item_class?: string | null
           id?: string
           name?: string | null
           purchase_request_id: string
@@ -2338,6 +2340,7 @@ export type Database = {
           unit_price?: number | null
         }
         Update: {
+          item_class?: string | null
           id?: string
           name?: string | null
           purchase_request_id?: string
@@ -2908,6 +2911,9 @@ export type Database = {
       }
       proc_w119_items: {
         Row: {
+          unit: string | null
+          qty: number | null
+          item_class: string | null
           id: string
           report_id: string
           seq: number
@@ -2920,6 +2926,9 @@ export type Database = {
           amount: number
         }
         Insert: {
+          unit?: string | null
+          qty?: number | null
+          item_class?: string | null
           id?: string
           report_id: string
           seq: number
@@ -2932,6 +2941,9 @@ export type Database = {
           amount?: number
         }
         Update: {
+          unit?: string | null
+          qty?: number | null
+          item_class?: string | null
           id?: string
           report_id?: string
           seq?: number
@@ -2985,8 +2997,173 @@ export type Database = {
           },
         ]
       }
+      proc_stock_items: {
+        Row: {
+          id: string
+          code: string | null
+          category: string
+          name: string
+          size_desc: string | null
+          unit: string
+          location: string | null
+          max_qty: number | null
+          min_qty: number | null
+          note: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          code?: string | null
+          category?: string
+          name: string
+          size_desc?: string | null
+          unit: string
+          location?: string | null
+          max_qty?: number | null
+          min_qty?: number | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string | null
+          category?: string
+          name?: string
+          size_desc?: string | null
+          unit?: string
+          location?: string | null
+          max_qty?: number | null
+          min_qty?: number | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      proc_stock_moves: {
+        Row: {
+          id: string
+          item_id: string
+          move_date: string
+          kind: string
+          qty: number
+          requested_qty: number | null
+          unit_price: number
+          party: string | null
+          doc_no: string | null
+          note: string | null
+          source_type: string | null
+          source_id: string | null
+          source_seq: number | null
+          lot_id: string | null
+          requisition_id: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          move_date: string
+          kind: string
+          qty: number
+          requested_qty?: number | null
+          unit_price?: number
+          party?: string | null
+          doc_no?: string | null
+          note?: string | null
+          source_type?: string | null
+          source_id?: string | null
+          source_seq?: number | null
+          lot_id?: string | null
+          requisition_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          move_date?: string
+          kind?: string
+          qty?: number
+          requested_qty?: number | null
+          unit_price?: number
+          party?: string | null
+          doc_no?: string | null
+          note?: string | null
+          source_type?: string | null
+          source_id?: string | null
+          source_seq?: number | null
+          lot_id?: string | null
+          requisition_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_stock_moves_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "proc_stock_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_stock_moves_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "proc_stock_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_stock_requisitions: {
+        Row: {
+          id: string
+          doc_no: string | null
+          req_date: string
+          requester_name: string
+          requester_position: string | null
+          purpose: string | null
+          source_type: string | null
+          source_id: string | null
+          note: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          doc_no?: string | null
+          req_date: string
+          requester_name: string
+          requester_position?: string | null
+          purpose?: string | null
+          source_type?: string | null
+          source_id?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          doc_no?: string | null
+          req_date?: string
+          requester_name?: string
+          requester_position?: string | null
+          purpose?: string | null
+          source_type?: string | null
+          source_id?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       proc_urgent_items: {
         Row: {
+          unit: string | null
+          qty: number | null
+          item_class: string | null
           id: string
           report_id: string
           seq: number
@@ -2995,6 +3172,9 @@ export type Database = {
           amount: number
         }
         Insert: {
+          unit?: string | null
+          qty?: number | null
+          item_class?: string | null
           id?: string
           report_id: string
           seq?: number
@@ -3003,6 +3183,9 @@ export type Database = {
           amount: number
         }
         Update: {
+          unit?: string | null
+          qty?: number | null
+          item_class?: string | null
           id?: string
           report_id?: string
           seq?: number

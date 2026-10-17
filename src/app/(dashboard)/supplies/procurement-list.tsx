@@ -17,7 +17,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
-import { EMPTY_ITEM_ROW, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
+import { EMPTY_ITEM_ROW, effectiveItemClass, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 import { procurementSheets } from "@/lib/pdf/procurement-sheets";
 import { PhotoGroups, ProcurementPhotosButton, loadProcurementPhotos, type ProcurementPhoto } from "./procurement-photos";
@@ -62,7 +62,7 @@ type Request = {
   plan_activities: { name: string } | null;
   proc_vendors: { name: string } | null;
   proc_purchase_photos: { id: string }[];
-  proc_purchase_items: { id: string }[];
+  proc_purchase_items: { id: string; item_class: string | null }[];
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
@@ -205,7 +205,7 @@ function ProcurementModal({
     setItemsLoaded(true);
     createClient()
       .from("proc_purchase_items")
-      .select("name, qty, unit, unit_price")
+      .select("name, qty, unit, unit_price, item_class")
       .eq("purchase_request_id", request.id)
       .order("seq")
       .then(({ data }) => {
@@ -217,6 +217,8 @@ function ProcurementModal({
               unit: r.unit ?? "",
               unitPrice: r.unit_price != null ? String(r.unit_price) : "",
               note: "",
+              // รายการเดิม: null = ยังไม่เคยเลือก (ให้ระบบเสนอ) — งานจ้างที่บันทึกแล้วถือว่าไม่เข้าคลัง
+              itemClass: (r.item_class as ItemRow["itemClass"]) ?? "",
             })),
           );
       });
@@ -239,7 +241,8 @@ function ProcurementModal({
       return;
     }
     const formData = new FormData(form);
-    formData.set("items_json", JSON.stringify(filled));
+    // บันทึกประเภทที่ใช้จริง (ที่ระบบเสนอหรือผู้ใช้เลือก) — ไม่เข้าคลังเก็บเป็น null
+    formData.set("items_json", JSON.stringify(filled.map((r) => ({ ...r, itemClass: effectiveItemClass(r, type === "จ้าง") }))));
     setSaving(true);
     try {
       const res = request ? await updateProcurement(request.id, formData) : await createProcurement(formData);
@@ -401,7 +404,12 @@ function ProcurementModal({
             nameSuggestions={itemSuggestions?.names}
             unitSuggestions={itemSuggestions?.units}
             itemDefaults={itemSuggestions?.defaults}
+            showClass
+            hire={type === "จ้าง"}
           />
+          <p className="mt-1 text-xs text-slate-500">
+            ประเภท: ระบบเสนอให้ (ราคาต่อหน่วยตั้งแต่ 10,000 บาท = ครุภัณฑ์) เปลี่ยนได้ — วัสดุเข้าบัญชีวัสดุ / ครุภัณฑ์เข้าทะเบียนคุมทรัพย์สิน / ไม่เข้าคลัง (งานจ้าง บริการ)
+          </p>
         </fieldset>
 
         {w804 ? (
@@ -743,11 +751,11 @@ function SheetsModal({ type, request, approved }: { type: ProcurementType; reque
         {approved && (
         <a href={pdfHref(request.id)} target="_blank" rel="noopener" className="btn-primary justify-center">
           <PrinterIcon className="h-4 w-4" />
-          พิมพ์ทั้งชุด ({procurementSheets(type, request.method === "w804", request.proc_purchase_items.length).length} แผ่น)
+          พิมพ์ทั้งชุด ({procurementSheets(type, request.method === "w804", request.proc_purchase_items.length, request.proc_purchase_items.some((i) => i.item_class === "material")).length} แผ่น)
         </a>
         )}
         <p className="mt-2 text-sm font-medium text-slate-600">หรือเลือกพิมพ์แยกแผ่น</p>
-        {procurementSheets(type, request.method === "w804", request.proc_purchase_items.length).map((s) =>
+        {procurementSheets(type, request.method === "w804", request.proc_purchase_items.length, request.proc_purchase_items.some((i) => i.item_class === "material")).map((s) =>
           !approved && s.no !== 1 ? (
             <span key={s.no} className="btn-secondary justify-start cursor-not-allowed opacity-50" title="รอบันทึกขออนุมัติได้รับอนุมัติ">
               <PrinterIcon className="h-4 w-4" />
@@ -786,7 +794,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, register_note, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id), proc_approvals(status)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, register_note, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id, item_class), proc_approvals(status)",
       )
       .eq("doc_type", type)
       .eq("method", method);

@@ -27,6 +27,8 @@ async function existingNumbers(supabase: Supabase, kind: DocNumberKind): Promise
         ? (await supabase.from("proc_w119_reports").select("doc_no")).data
         : kind === "urgent"
         ? (await supabase.from("proc_urgent_reports").select("doc_no")).data
+        : kind === "requisition"
+        ? (await supabase.from("proc_stock_requisitions").select("doc_no")).data
         : (await supabase.from("proc_expense_claims").select("doc_no")).data;
   return (rows ?? []).map((r) => r.doc_no ?? "").filter(Boolean);
 }
@@ -48,6 +50,8 @@ export async function docNumberTaken(supabase: Supabase, kind: DocNumberKind, do
         ? await supabase.from("proc_w119_reports").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1)
         : kind === "urgent"
         ? await supabase.from("proc_urgent_reports").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1)
+        : kind === "requisition"
+        ? await supabase.from("proc_stock_requisitions").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1)
         : await supabase.from("proc_expense_claims").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1);
   return (data?.length ?? 0) > 0;
 }

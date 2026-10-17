@@ -16,10 +16,11 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
     .maybeSingle();
   if (!pr) return null;
 
-  const [{ data: items }, { data: settings }, { data: school }] = await Promise.all([
-    supabase.from("proc_purchase_items").select("name, qty, unit, unit_price, total").eq("purchase_request_id", id).order("seq"),
+  const [{ data: items }, { data: settings }, { data: school }, { data: requisition }] = await Promise.all([
+    supabase.from("proc_purchase_items").select("name, qty, unit, unit_price, total, item_class").eq("purchase_request_id", id).order("seq"),
     supabase.from("proc_app_settings").select("key, value").in("key", SETTING_KEYS),
     supabase.from("proc_school_settings").select("school_name, school_address, education_area").eq("id", true).maybeSingle(),
+    supabase.from("proc_stock_requisitions").select("doc_no").eq("source_type", "purchase").eq("source_id", id).order("created_at").limit(1).maybeSingle(),
   ]);
   const s = new Map((settings ?? []).map((r) => [r.key, r.value]));
 
@@ -61,6 +62,7 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
     loan_contract_no: pr.loan_contract_no,
     loan_date: pr.loan_date,
     spec_author: pr.spec_author,
+    requisition_doc_no: requisition?.doc_no ?? null,
   };
 }
 

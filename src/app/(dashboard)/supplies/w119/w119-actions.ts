@@ -6,12 +6,13 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkApprovalBudget } from "@/lib/approval-budget";
+import { parseItemClass } from "@/lib/item-class";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { deleteFromStorage } from "@/lib/storage";
 import { table1Ref, W119_LIMIT } from "@/lib/w119";
 
 type Result = { error?: string; id?: string; docNo?: string | null };
-export type W119ItemInput = { name: string; vendor: string; evidence: string; receipt_book: string; receipt_no: string; receipt_date: string; amount: string };
+export type W119ItemInput = { name: string; vendor: string; evidence: string; receipt_book: string; receipt_no: string; receipt_date: string; amount: string; qty?: string; unit?: string; itemClass?: string };
 
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล";
 
@@ -83,6 +84,9 @@ async function replaceItems(supabase: Awaited<ReturnType<typeof createClient>>, 
       receipt_no: i.receipt_no.trim() || null,
       receipt_date: i.receipt_date || null,
       amount: Number(i.amount),
+      qty: i.qty ? Number(i.qty) : null,
+      unit: i.unit?.trim() || null,
+      item_class: parseItemClass(i.itemClass),
     })),
   );
   return error?.message ?? null;

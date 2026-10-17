@@ -15,6 +15,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
+import { ItemClassSelect, resolveItemClass, type ItemClassValue } from "@/components/item-rows-editor";
 import { ReceiptTypeSelect } from "@/components/receipt-type-select";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { urgentKindLabel } from "@/lib/urgent";
@@ -43,7 +44,7 @@ type Report = {
   register_note: string | null;
   project_id: string | null;
   activity_id: string | null;
-  proc_urgent_items: { kind: string; name: string; amount: number; seq: number }[];
+  proc_urgent_items: { kind: string; name: string; amount: number; seq: number; qty?: number | null; unit?: string | null; item_class?: string | null }[];
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
@@ -63,7 +64,8 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const EMPTY_ITEM: UrgentItemInput = { kind: "ซื้อ", name: "", amount: "" };
+const EMPTY_ITEM: UrgentItemInput = { kind: "ซื้อ", name: "", amount: "", qty: "", unit: "", itemClass: "" };
+const urgentUnitPrice = (i: UrgentItemInput) => (Number(i.amount) || 0) / (Number(i.qty) || 1) || null;
 const kindOf = (r: Report) => urgentKindLabel(r.proc_urgent_items);
 
 function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report | null; lookups: Lookups; suggestedNo: string; onSaved: () => void }) {
@@ -78,7 +80,14 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
   const [responsible, setResponsible] = useState(report?.responsible_name ?? "");
   const [position, setPosition] = useState(report?.responsible_position ?? "");
   const [items, setItems] = useState<UrgentItemInput[]>(
-    report?.proc_urgent_items.length ? report.proc_urgent_items.map((i) => ({ kind: i.kind, name: i.name, amount: String(i.amount) })) : [{ ...EMPTY_ITEM }],
+    report?.proc_urgent_items.length ? report.proc_urgent_items.map((i) => ({
+          kind: i.kind,
+          name: i.name,
+          amount: String(i.amount),
+          qty: i.qty != null ? String(i.qty) : "",
+          unit: i.unit ?? "",
+          itemClass: (i.item_class as ItemClassValue) ?? "",
+        })) : [{ ...EMPTY_ITEM }],
   );
   const total = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const kindLabel = urgentKindLabel(items.filter((i) => i.name.trim()).map((i) => ({ ...i, amount: 0 })));
@@ -90,7 +99,10 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
     const remaining = approvalRemaining(lookups.approvals.find((a) => a.id === approvalId) ?? null, report ? { approvalId: report.approval_id, amount: report.amount } : undefined);
     if (remaining != null && total > remaining + 0.005) return void (await toastError(`ยอดเงินเกินวงเงินคงเหลือของบันทึกขออนุมัติ (${formatBaht(remaining)} บาท)`));
     const formData = new FormData(form);
-    formData.set("items_json", JSON.stringify(items.filter((i) => i.name.trim())));
+    formData.set(
+      "items_json",
+      JSON.stringify(items.filter((i) => i.name.trim()).map((i) => ({ ...i, itemClass: resolveItemClass(i.itemClass as ItemClassValue, i.name, urgentUnitPrice(i), i.kind === "จ้าง") }))),
+    );
     setSaving(true);
     try {
       const res = report ? await updateUrgent(report.id, formData) : await createUrgent(formData);
@@ -328,6 +340,18 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
                 >
                   <TrashIcon className="h-3.5 w-3.5" />
                 </button>
+                <div className="col-start-2 grid grid-cols-3 gap-2 sm:col-span-4 sm:col-start-2">
+                  <input type="number" min="0" step="0.01" value={it.qty ?? ""} onChange={(e) => setItem(idx, { qty: e.target.value })} placeholder="จำนวน" className="input w-full text-center" aria-label="จำนวน" />
+                  <input value={it.unit ?? ""} onChange={(e) => setItem(idx, { unit: e.target.value })} placeholder="หน่วยนับ" className="input w-full text-center" aria-label="หน่วยนับ" />
+                  <ItemClassSelect
+                    value={it.itemClass as ItemClassValue}
+                    name={it.name}
+                    unitPrice={urgentUnitPrice(it)}
+                    hire={it.kind === "จ้าง"}
+                    onChange={(v) => setItem(idx, { itemClass: v })}
+                    className="w-full"
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -417,7 +441,7 @@ export default function UrgentPage() {
     let listQuery = supabase
       .from("proc_urgent_reports")
       .select(
-        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_type, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, register_note, project_id, activity_id, proc_urgent_items(kind, name, amount, seq)",
+        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_type, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, register_note, project_id, activity_id, proc_urgent_items(kind, name, amount, qty, unit, item_class, seq)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;

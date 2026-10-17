@@ -4,6 +4,7 @@ import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
 import { procurementSheets, W804_INLINE_MAX, type SheetKey } from "./procurement-sheets";
+import { RequisitionPage } from "./requisition-document";
 import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
 
 // ชุดเอกสารงานซื้อ / งานจ้าง (วิธีเฉพาะเจาะจง) ๘ แผ่น ตามแบบที่โรงเรียนใช้ (เช่น ชุดซื้อเสารั้ว 81/2569):
@@ -76,7 +77,9 @@ export type ProcurementSetData = {
     phone: string | null;
     tax_id: string | null;
   } | null;
-  items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null }[];
+  items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null; item_class?: string | null }[];
+  /** เลขที่ใบเบิกที่บันทึกไว้ในบัญชีวัสดุ (ยังไม่บันทึก = เว้นว่างให้เขียน) */
+  requisition_doc_no?: string | null;
   school_name: string;
   school_address: string | null;
   school_phone: string | null;
@@ -263,7 +266,8 @@ function ItemTable({
 const num = (n: number | null | undefined) => (n == null ? "" : Number.isInteger(Number(n)) ? Number(n).toLocaleString("th-TH") : formatBaht(Number(n)));
 
 export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementSetData; sheets?: number[] }) {
-  const keys = procurementSheets(d.doc_type, d.method === "w804", d.items.length).filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
+  const materials = d.items.filter((i) => i.item_class === "material" && i.name);
+  const keys = procurementSheets(d.doc_type, d.method === "w804", d.items.length, materials.length > 0).filter((x) => !sheets || sheets.length === 0 || sheets.includes(x.no)).map((x) => x.key);
   const show = (k: SheetKey) => keys.includes(k);
   const isHire = d.doc_type === "จ้าง";
   const verb = d.doc_type; // ซื้อ | จ้าง
@@ -896,6 +900,21 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
           />
           <Sign role="ผู้ขอเบิก" name={d.inspector_name} extra={[`ตำแหน่ง ${d.inspector_position ?? "......................"}`]} style={{ marginLeft: L, marginTop: 20 }} />
         </Page>
+      )}
+      {show("requisition") && (
+        <RequisitionPage
+          data={{
+            doc_no: d.requisition_doc_no ?? null,
+            req_date: d.inspected_date ?? d.delivered_date ?? d.report_date ?? null,
+            school_name: school,
+            requester_name: d.inspector_name,
+            requester_position: d.inspector_position,
+            purpose: d.reason,
+            items: materials.map((i) => ({ name: i.name ?? "", unit: i.unit, requested: i.qty, issued: i.qty })),
+            payer_name: officer,
+            approver_name: head,
+          }}
+        />
       )}
     </Document>
   );

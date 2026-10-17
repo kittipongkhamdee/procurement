@@ -6,10 +6,11 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkApprovalBudget } from "@/lib/approval-budget";
+import { parseItemClass } from "@/lib/item-class";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 
 type Result = { error?: string; id?: string; docNo?: string | null };
-export type UrgentItemInput = { kind: string; name: string; amount: string };
+export type UrgentItemInput = { kind: string; name: string; amount: string; qty?: string; unit?: string; itemClass?: string };
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล";
 
 function parse(formData: FormData) {
@@ -24,7 +25,15 @@ function parse(formData: FormData) {
   }
   if (!str("subject")) return { error: "กรุณากรอกเรื่อง (รายการที่ซื้อ/จ้าง)" };
   if (items.length === 0) return { error: "กรุณากรอกรายการที่ดำเนินการอย่างน้อย 1 รายการ" };
-  const rows = items.map((i, idx) => ({ seq: idx + 1, kind: i.kind === "จ้าง" ? "จ้าง" : "ซื้อ", name: i.name.trim(), amount: Math.round(Number(i.amount) * 100) / 100 }));
+  const rows = items.map((i, idx) => ({
+    seq: idx + 1,
+    kind: i.kind === "จ้าง" ? "จ้าง" : "ซื้อ",
+    name: i.name.trim(),
+    amount: Math.round(Number(i.amount) * 100) / 100,
+    qty: i.qty ? Number(i.qty) : null,
+    unit: i.unit?.trim() || null,
+    item_class: parseItemClass(i.itemClass),
+  }));
   if (rows.some((r) => !(r.amount > 0))) return { error: "จำนวนเงินแต่ละรายการต้องมากกว่า 0" };
   if (!purchaseDate) return { error: "กรุณาเลือกวันที่ดำเนินการ" };
   if (!recordDate) return { error: "กรุณาเลือกวันที่รายงาน" };

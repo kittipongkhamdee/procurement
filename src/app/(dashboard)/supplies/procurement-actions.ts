@@ -6,12 +6,13 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkApprovalBudget } from "@/lib/approval-budget";
+import { parseItemClass } from "@/lib/item-class";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { docNumberKind } from "@/lib/doc-numbers";
 import { deleteFromStorage } from "@/lib/storage";
 
 type Result = { error?: string; id?: string; docNo?: string | null };
-type ItemInput = { name: string; qty: string; unit: string; unitPrice: string };
+type ItemInput = { name: string; qty: string; unit: string; unitPrice: string; itemClass?: string };
 
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล";
 
@@ -117,6 +118,7 @@ async function replaceItems(supabase: Awaited<ReturnType<typeof createClient>>, 
       qty: i.qty ? Number(i.qty) : null,
       unit: i.unit?.trim() || null,
       unit_price: i.unitPrice ? Number(i.unitPrice) : null,
+      item_class: parseItemClass(i.itemClass),
     })),
   );
   return error?.message ?? null;

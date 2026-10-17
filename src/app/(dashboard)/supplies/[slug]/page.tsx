@@ -7,8 +7,6 @@ const PAGES: Record<string, { title: string; description: string }> = {
   textbooks: { title: "หนังสือเรียน (เรียนฟรี 15 ปี)", description: "จัดซื้อหนังสือเรียนตามโครงการสนับสนุนค่าใช้จ่ายในการจัดการศึกษา" },
   "quarterly-announcements": { title: "ประกาศผลรายไตรมาส", description: "สรุปผลการจัดซื้อจัดจ้างรายไตรมาสเพื่อประกาศเผยแพร่" },
   "withholding-tax": { title: "ภาษีหัก ณ ที่จ่าย", description: "หนังสือรับรองการหักภาษี ณ ที่จ่าย" },
-  stock: { title: "บัญชีวัสดุ", description: "บัญชีรับ-จ่ายวัสดุคงคลัง" },
-  requisitions: { title: "ใบเบิกพัสดุ", description: "ใบเบิกวัสดุจากคลัง" },
   loans: { title: "ยืม-คืนพัสดุ", description: "บันทึกการยืมและคืนพัสดุ" },
   reports: { title: "รายงานวัสดุ", description: "รายงานวัสดุคงเหลือและการเบิกจ่าย" },
   prices: { title: "ราคาพัสดุ", description: "ราคากลาง/ราคาอ้างอิงของพัสดุที่ใช้บ่อย" },

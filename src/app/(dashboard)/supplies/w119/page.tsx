@@ -19,9 +19,10 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
 import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { ProcurementPhotosButton } from "../procurement-photos";
+import { ItemClassSelect, resolveItemClass, type ItemClassValue } from "@/components/item-rows-editor";
 import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-actions";
 
-type Item = { name: string; vendor: string | null; evidence: string | null; receipt_book: string | null; receipt_no: string | null; receipt_date: string | null; amount: number };
+type Item = { name: string; vendor: string | null; evidence: string | null; receipt_book: string | null; receipt_no: string | null; receipt_date: string | null; amount: number; qty?: number | null; unit?: string | null; item_class?: string | null };
 type Report = {
   id: string;
   created_by: string | null;
@@ -53,7 +54,9 @@ const EVIDENCES = ["ใบเสร็จรับเงิน", "บิลเ�
 const FUNDS = ["เงินอุดหนุน", "เงินรายได้สถานศึกษา"];
 const POSITIONS = ["ครูผู้ช่วย", "ครู", "ครู วิทยฐานะครูชำนาญการ", "ครู วิทยฐานะครูชำนาญการพิเศษ", "ครู วิทยฐานะครูเชี่ยวชาญ", "เจ้าหน้าที่พัสดุ"];
 const PAGE_SIZE = 20;
-const EMPTY_ITEM: W119ItemInput = { name: "", vendor: "", evidence: "ใบเสร็จรับเงิน", receipt_book: "", receipt_no: "", receipt_date: "", amount: "" };
+const EMPTY_ITEM: W119ItemInput = { name: "", vendor: "", evidence: "ใบเสร็จรับเงิน", receipt_book: "", receipt_no: "", receipt_date: "", amount: "", qty: "", unit: "", itemClass: "" };
+/** ราคาต่อหน่วยของรายการ (จำนวนเงิน ÷ จำนวน) — ใช้เสนอ วัสดุ/ครุภัณฑ์ */
+const w119UnitPrice = (i: W119ItemInput) => (Number(i.amount) || 0) / (Number(i.qty) || 1) || null;
 
 function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -155,6 +158,9 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
           receipt_no: i.receipt_no ?? "",
           receipt_date: i.receipt_date ?? "",
           amount: String(i.amount),
+          qty: i.qty != null ? String(i.qty) : "",
+          unit: i.unit ?? "",
+          itemClass: (i.item_class as ItemClassValue) ?? "",
         }))
       : [{ ...EMPTY_ITEM }],
   );
@@ -192,7 +198,10 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
       if (!ok) return;
     }
     const formData = new FormData(form);
-    formData.set("items_json", JSON.stringify(items.filter((i) => i.name.trim())));
+    formData.set(
+      "items_json",
+      JSON.stringify(items.filter((i) => i.name.trim()).map((i) => ({ ...i, itemClass: resolveItemClass(i.itemClass as ItemClassValue, i.name, w119UnitPrice(i)) }))),
+    );
     setSaving(true);
     try {
       const res = report ? await updateW119(report.id, formData) : await createW119(formData);
@@ -401,6 +410,18 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
                   <label className="label">จำนวนเงิน (บาท)</label>
                   <input type="number" min="0" step="0.01" value={it.amount} onChange={(e) => setItem(idx, { amount: e.target.value })} className="input w-full text-right" />
                 </div>
+                <div>
+                  <label className="label">จำนวน</label>
+                  <input type="number" min="0" step="0.01" value={it.qty ?? ""} onChange={(e) => setItem(idx, { qty: e.target.value })} className="input w-full text-center" />
+                </div>
+                <div>
+                  <label className="label">หน่วยนับ</label>
+                  <input value={it.unit ?? ""} onChange={(e) => setItem(idx, { unit: e.target.value })} placeholder="เช่น ผืน" className="input w-full text-center" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label">ประเภท (ระบบเสนอ เปลี่ยนได้)</label>
+                  <ItemClassSelect value={it.itemClass as ItemClassValue} name={it.name} unitPrice={w119UnitPrice(it)} onChange={(v) => setItem(idx, { itemClass: v })} className="w-full" />
+                </div>
                 <div className="col-span-2 sm:col-span-3">
                   <label className="label">ผู้ขาย/ผู้รับจ้าง</label>
                   <input list="w119-vendors" value={it.vendor} onChange={(e) => setItem(idx, { vendor: e.target.value })} className="input w-full" />
@@ -498,7 +519,7 @@ export default function W119Page() {
     let listQuery = supabase
       .from("proc_w119_reports")
       .select(
-        "id, created_by, approval_id, doc_no, record_date, purchase_date, admin_group, register_note, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
+        "id, created_by, approval_id, doc_no, record_date, purchase_date, admin_group, register_note, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, qty, unit, item_class, seq), proc_w119_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;

@@ -6,9 +6,60 @@
 // ใช้ที่สัญญาซื้อ (contracts/contract-list.tsx) — ฟอร์มบันทึกขออนุมัติยังมีโค้ดชุดเดิมของตัวเองอยู่
 
 import type { ItemDefaults } from "@/lib/unit-suggestions";
+import { suggestItemClass } from "@/lib/item-class";
 
-export type ItemRow = { name: string; qty: string; unit: string; unitPrice: string; note: string };
-export const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unit: "", unitPrice: "", note: "" };
+/** itemClass: "" = ให้ระบบเสนอ (ราคาต่อหน่วย ≥ 10,000 = ครุภัณฑ์), "none" = ไม่เข้าคลัง (งานจ้าง/บริการ) */
+export type ItemRow = { name: string; qty: string; unit: string; unitPrice: string; note: string; itemClass?: ItemClassValue };
+export const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unit: "", unitPrice: "", note: "", itemClass: "" };
+
+/** ประเภทที่ใช้จริงของแถว — ยังไม่เลือกเอง = ระบบเสนอ (งานจ้างเสนอ "ไม่เข้าคลัง") */
+export function effectiveItemClass(row: ItemRow, hire = false): "material" | "equipment" | "none" {
+  return resolveItemClass(row.itemClass, row.name, parseFloat(row.unitPrice) || null, hire);
+}
+
+export type ItemClassValue = "" | "material" | "equipment" | "none";
+
+/** ประเภทที่ใช้จริง จากค่าที่เลือก (ว่าง = ระบบเสนอ) */
+export function resolveItemClass(value: ItemClassValue | undefined, name: string, unitPrice: number | null, hire = false): "material" | "equipment" | "none" {
+  if (value) return value;
+  if (hire) return "none";
+  return suggestItemClass(name, unitPrice);
+}
+
+/** ช่องเลือก วัสดุ/ครุภัณฑ์/ไม่เข้าคลัง — ยังไม่เลือกเอง แสดงค่าที่ระบบเสนอเป็นสีจาง */
+export function ItemClassSelect({
+  value,
+  name,
+  unitPrice,
+  hire = false,
+  onChange,
+  className,
+}: {
+  value: ItemClassValue | undefined;
+  name: string;
+  unitPrice: number | null;
+  hire?: boolean;
+  onChange: (v: ItemClassValue) => void;
+  className?: string;
+}) {
+  return (
+    <select
+      value={resolveItemClass(value, name, unitPrice, hire)}
+      onChange={(e) => onChange(e.target.value as ItemClassValue)}
+      title={value ? "เลือกเอง" : "ระบบเสนอให้ — ราคาต่อหน่วยตั้งแต่ 10,000 บาท = ครุภัณฑ์"}
+      aria-label="ประเภทพัสดุ"
+      className={`input ${value ? "" : "text-slate-500"} ${className ?? ""}`}
+    >
+      <option value="material">วัสดุ</option>
+      <option value="equipment">ครุภัณฑ์</option>
+      <option value="none">ไม่เข้าคลัง</option>
+    </select>
+  );
+}
+
+function ClassSelect({ row, hire, onChange, className }: { row: ItemRow; hire: boolean; onChange: (v: ItemRow["itemClass"]) => void; className?: string }) {
+  return <ItemClassSelect value={row.itemClass} name={row.name} unitPrice={parseFloat(row.unitPrice) || null} hire={hire} onChange={onChange} className={className} />;
+}
 const MAX_ROWS = 100;
 
 function formatBaht(n: number) {
@@ -54,6 +105,8 @@ export function ItemRowsEditor({
   unitSuggestions = [],
   itemDefaults = {},
   totals,
+  showClass = false,
+  hire = false,
 }: {
   rows: ItemRow[];
   onChange: (rows: ItemRow[]) => void;
@@ -64,6 +117,10 @@ export function ItemRowsEditor({
   itemDefaults?: Record<string, ItemDefaults>;
   /** แถวส่วนลดและภาษีมูลค่าเพิ่มท้ายตาราง (ไม่ส่งมา = แสดงแค่ยอดรวม) */
   totals?: ItemTotalsControl;
+  /** แสดงช่องเลือก วัสดุ/ครุภัณฑ์/ไม่เข้าคลัง (รายการจัดซื้อ → บัญชีวัสดุ / ทะเบียนคุมทรัพย์สิน) */
+  showClass?: boolean;
+  /** งานจ้าง — ค่าเริ่มต้นเป็น "ไม่เข้าคลัง" */
+  hire?: boolean;
 }) {
   const nameListId = `${idPrefix}-item-names`;
   const unitListId = `${idPrefix}-item-units`;
@@ -158,6 +215,12 @@ export function ItemRowsEditor({
               </div>
               <label className="label">รายการ</label>
               <input value={row.name} onChange={(e) => changeName(i, e)} onBlur={() => blurName(i)} list={nameListId} autoComplete="off" placeholder="ชื่อพัสดุ" className="input w-full" />
+              {showClass && (
+                <>
+                  <label className="label mt-3">ประเภท (ระบบเสนอให้ เปลี่ยนได้)</label>
+                  <ClassSelect row={row} hire={hire} onChange={(v) => update(i, { itemClass: v })} className="w-full" />
+                </>
+              )}
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div>
                   <label className="label">จำนวน</label>
@@ -222,6 +285,7 @@ export function ItemRowsEditor({
               <th className="w-24 px-2 py-2">หน่วยนับ</th>
               <th className="w-28 px-2 py-2">ราคา/หน่วย</th>
               <th className="w-28 px-2 py-2">จำนวนเงิน</th>
+              {showClass && <th className="w-28 px-2 py-2">ประเภท</th>}
               <th className="w-32 px-2 py-2">หมายเหตุ</th>
               <th className="w-10 px-2 py-2"></th>
             </tr>
@@ -245,6 +309,11 @@ export function ItemRowsEditor({
                     <input type="number" step="0.01" value={row.unitPrice} onChange={(e) => update(i, { unitPrice: e.target.value })} className="input w-full text-center" />
                   </td>
                   <td className="px-2 py-1 text-right font-medium text-slate-700">{rowTotal > 0 ? formatBaht(rowTotal) : ""}</td>
+                  {showClass && (
+                    <td className="px-2 py-1">
+                      <ClassSelect row={row} hire={hire} onChange={(v) => update(i, { itemClass: v })} className="w-full px-1" />
+                    </td>
+                  )}
                   <td className="px-2 py-1">
                     <input value={row.note} onChange={(e) => update(i, { note: e.target.value })} className="input w-full" />
                   </td>
@@ -270,7 +339,7 @@ export function ItemRowsEditor({
                 {t ? "รวมเป็นเงิน" : "รวมทั้งหมด"}
               </td>
               <td className={`px-2 py-2 text-right ${t ? "font-semibold text-slate-700" : "font-bold text-emerald-700"}`}>{formatBaht(total)}</td>
-              <td colSpan={2} />
+              <td colSpan={showClass ? 3 : 2} />
             </tr>
             {t && (
               <>
@@ -279,7 +348,7 @@ export function ItemRowsEditor({
                     หักส่วนลด
                   </td>
                   <td className="px-2 py-1 text-right">{discountInput}</td>
-                  <td colSpan={2} />
+                  <td colSpan={showClass ? 3 : 2} />
                 </tr>
                 <tr>
                   <td colSpan={5} className="px-2 py-1 text-right text-xs font-semibold text-slate-600">
@@ -289,14 +358,14 @@ export function ItemRowsEditor({
                     </div>
                   </td>
                   <td className="px-2 py-1 text-right text-slate-700">{totals!.vatType === "none" ? "-" : formatBaht(t.vat)}</td>
-                  <td colSpan={2} />
+                  <td colSpan={showClass ? 3 : 2} />
                 </tr>
                 <tr>
                   <td colSpan={5} className="px-2 py-2 text-right text-xs font-semibold text-slate-600">
                     รวมทั้งสิ้น
                   </td>
                   <td className="px-2 py-2 text-right font-bold text-emerald-700">{formatBaht(t.net)}</td>
-                  <td colSpan={2} />
+                  <td colSpan={showClass ? 3 : 2} />
                 </tr>
               </>
             )}
