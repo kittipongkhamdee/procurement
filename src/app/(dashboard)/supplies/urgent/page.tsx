@@ -16,7 +16,8 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
-import { createUrgent, deleteUrgent, updateUrgent } from "./urgent-actions";
+import { urgentKindLabel } from "@/lib/pdf/urgent-document";
+import { createUrgent, deleteUrgent, updateUrgent, type UrgentItemInput } from "./urgent-actions";
 
 type Report = {
   id: string;
@@ -39,6 +40,7 @@ type Report = {
   admin_group: string | null;
   project_id: string | null;
   activity_id: string | null;
+  proc_urgent_items: { kind: string; name: string; amount: number; seq: number }[];
 };
 type Option = { id: string; name: string };
 type Activity = { id: string; name: string | null; project_id: string };
@@ -58,14 +60,13 @@ function formatBaht(n: number) {
   return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const receiptText = (r: Report) =>
-  [r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลว. ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-";
+const EMPTY_ITEM: UrgentItemInput = { kind: "ซื้อ", name: "", amount: "" };
+const kindOf = (r: Report) => urgentKindLabel(r.proc_urgent_items);
 
 function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report | null; lookups: Lookups; suggestedNo: string; onSaved: () => void }) {
   const { isAdmin } = useAuth();
   const modalRef = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
-  const [docType, setDocType] = useState(report?.doc_type === "จ้าง" ? "จ้าง" : "ซื้อ");
   const [approvalId, setApprovalId] = useState(report?.approval_id ?? "");
   const [projectId, setProjectId] = useState(report?.project_id ?? "");
   const [activityId, setActivityId] = useState(report?.activity_id ?? "");
@@ -73,8 +74,12 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
   const [recordDate, setRecordDate] = useState<string | null>(report?.record_date ?? null);
   const [responsible, setResponsible] = useState(report?.responsible_name ?? "");
   const [position, setPosition] = useState(report?.responsible_position ?? "");
-  const [amount, setAmount] = useState(report ? String(report.amount) : "");
-  const total = Number(amount) || 0;
+  const [items, setItems] = useState<UrgentItemInput[]>(
+    report?.proc_urgent_items.length ? report.proc_urgent_items.map((i) => ({ kind: i.kind, name: i.name, amount: String(i.amount) })) : [{ ...EMPTY_ITEM }],
+  );
+  const total = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+  const kindLabel = urgentKindLabel(items.filter((i) => i.name.trim()).map((i) => ({ ...i, amount: 0 })));
+  const setItem = (idx: number, patch: Partial<UrgentItemInput>) => setItems((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -82,6 +87,7 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
     const remaining = approvalRemaining(lookups.approvals.find((a) => a.id === approvalId) ?? null, report ? { approvalId: report.approval_id, amount: report.amount } : undefined);
     if (remaining != null && total > remaining + 0.005) return void (await toastError(`ยอดเงินเกินวงเงินคงเหลือของบันทึกขออนุมัติ (${formatBaht(remaining)} บาท)`));
     const formData = new FormData(form);
+    formData.set("items_json", JSON.stringify(items.filter((i) => i.name.trim())));
     setSaving(true);
     try {
       const res = report ? await updateUrgent(report.id, formData) : await createUrgent(formData);
@@ -95,7 +101,7 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
         setApprovalId("");
         setPurchaseDate(null);
         setRecordDate(null);
-        setAmount("");
+        setItems([{ ...EMPTY_ITEM }]);
       }
       await toastSuccess(report ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : res.docNo ? `บันทึกเรียบร้อยแล้ว — เลขที่ ${res.docNo}` : "บันทึกเรียบร้อยแล้ว");
       onSaved();
@@ -111,7 +117,7 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
   return (
     <Modal
       ref={modalRef}
-      title={report ? `แก้ไขรายงานขอ${report.doc_type} (เร่งด่วน) ${report.doc_no ?? ""}` : "บันทึกจัดซื้อ/จัดจ้าง (กรณีมีความจำเป็นเร่งด่วน)"}
+      title={report ? `แก้ไขรายงานขอ${kindOf(report)} (เร่งด่วน) ${report.doc_no ?? ""}` : "บันทึกจัดซื้อ/จัดจ้าง (กรณีมีความจำเป็นเร่งด่วน)"}
       wide
       lazy
       trigger={
@@ -131,19 +137,6 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
       <form onSubmit={handleSubmit} className="space-y-5">
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">บันทึกข้อความ</legend>
-          <div className="sm:col-span-2">
-            <label className="label">
-              ประเภท <span className="text-red-600">*</span>
-            </label>
-            <div className="flex gap-2">
-              {(["ซื้อ", "จ้าง"] as const).map((k) => (
-                <label key={k} className={`cursor-pointer ${docType === k ? "btn-primary" : "btn-secondary"}`}>
-                  <input type="radio" name="doc_type" value={k} checked={docType === k} onChange={() => setDocType(k)} className="sr-only" />
-                  การจัด{k}
-                </label>
-              ))}
-            </div>
-          </div>
           <ApprovalRefField
             approvals={lookups.approvals}
             value={approvalId}
@@ -173,17 +166,17 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
           </div>
           <div className="sm:col-span-2">
             <label className="label">
-              เรื่อง: รายงานขอ{docType} <span className="text-red-600">*</span>
+              เรื่อง: รายงานขอ{kindLabel} … กรณีมีความจำเป็นเร่งด่วน <span className="text-red-600">*</span>
             </label>
-            <input name="subject" defaultValue={report?.subject ?? ""} required placeholder={docType === "จ้าง" ? "เช่น ซ่อมท่อประปาอาคาร 2" : "เช่น วัสดุซ่อมแซมไฟฟ้า"} className="input w-full" />
+            <input name="subject" defaultValue={report?.subject ?? ""} required placeholder="เช่น วัสดุ และจ้างจัดทำป้ายไวนิล" className="input w-full" />
           </div>
           <div className="sm:col-span-2">
-            <label className="label">ด้วย (เหตุผลความจำเป็นเร่งด่วน)</label>
+            <label className="label">ด้วย (ที่มา/เหตุผลความจำเป็นเร่งด่วน)</label>
             <textarea
               name="reason"
               defaultValue={report?.reason ?? ""}
               rows={3}
-              placeholder="เช่น ท่อประปาอาคาร 2 แตก ใช้การไม่ได้ ส่งผลกระทบต่อการเรียนการสอน จำเป็นต้องซ่อมแซมโดยเร่งด่วน"
+              placeholder="เช่น สำนักงานเขตพื้นที่การศึกษาฯ ได้แจ้งขอความร่วมมือโรงเรียนดำเนินการรณรงค์การเลือกตั้ง"
               className="input w-full"
             />
           </div>
@@ -214,16 +207,8 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
             <input name="responsible_position" value={position} onChange={(e) => setPosition(e.target.value)} className="input w-full" />
           </div>
           <div className="sm:col-span-2">
-            <label className="label">
-              จึงได้ดำเนินการ <span className="text-red-600">*</span>
-            </label>
-            <input
-              name="work_text"
-              defaultValue={report?.work_text ?? ""}
-              required
-              placeholder={docType === "จ้าง" ? "เช่น จ้างซ่อมท่อประปาอาคาร 2" : "เช่น ซื้อวัสดุซ่อมแซมระบบไฟฟ้า"}
-              className="input w-full"
-            />
+            <label className="label">ได้ดำเนินการ (ภาพรวม)</label>
+            <input name="work_text" defaultValue={report?.work_text ?? ""} placeholder="ไม่กรอก = ใช้ชื่อรายการด้านล่าง เช่น จัดซื้อวัสดุ และจ้างจัดทำป้ายไวนิล" className="input w-full" />
           </div>
           <div>
             <label className="label">
@@ -238,33 +223,13 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
             <ThaiDatePicker name="record_date" value={recordDate} onChange={setRecordDate} />
           </div>
           <div>
-            <label className="label">
-              จำนวนเงิน (บาท) <span className="text-red-600">*</span>
-            </label>
-            <input name="amount" type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required className="input w-full text-right" />
-          </div>
-          <div>
-            <label className="label">เบิกจ่ายให้แก่ (ผู้ขาย/ผู้รับจ้าง)</label>
+            <label className="label">เบิกจ่ายให้แก่ (ไม่กรอก = ผู้ดำเนินการ)</label>
             <input name="payee" list="urgent-vendors" defaultValue={report?.payee ?? ""} className="input w-full" />
             <datalist id="urgent-vendors">
               {lookups.vendors.map((v) => (
                 <option key={v} value={v} />
               ))}
             </datalist>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:col-span-2 sm:grid-cols-3">
-            <div>
-              <label className="label">ใบเสร็จ เล่มที่</label>
-              <input name="receipt_book" defaultValue={report?.receipt_book ?? ""} className="input w-full" />
-            </div>
-            <div>
-              <label className="label">เลขที่</label>
-              <input name="receipt_no" defaultValue={report?.receipt_no ?? ""} className="input w-full" />
-            </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="label">ลงวันที่</label>
-              <ThaiDatePicker name="receipt_date" defaultValue={report?.receipt_date ?? null} />
-            </div>
           </div>
           <div>
             <label className="label">โครงการ</label>
@@ -297,6 +262,54 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
             </select>
           </div>
         </fieldset>
+        <fieldset>
+          <legend className="mb-2 text-sm font-semibold text-navy-800">จึงได้ดำเนินการดังนี้</legend>
+          <div className="space-y-2">
+            {items.map((it, idx) => (
+              <div key={idx} className="grid grid-cols-[auto_1fr] gap-2 sm:grid-cols-[auto_7rem_1fr_9rem_auto] sm:items-center">
+                <span className="pt-2 text-sm text-slate-500 sm:pt-0">{idx + 1}.</span>
+                <select value={it.kind} onChange={(e) => setItem(idx, { kind: e.target.value })} className="input w-full" aria-label="ประเภท">
+                  <option value="ซื้อ">ซื้อ</option>
+                  <option value="จ้าง">จ้าง</option>
+                </select>
+                <input
+                  value={it.name}
+                  onChange={(e) => setItem(idx, { name: e.target.value })}
+                  placeholder={it.kind === "จ้าง" ? "เช่น จัดทำป้ายไวนิล" : "เช่น วัสดุ"}
+                  className="input w-full max-sm:col-start-2"
+                  aria-label="รายการ"
+                />
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={it.amount}
+                  onChange={(e) => setItem(idx, { amount: e.target.value })}
+                  placeholder="จำนวนเงิน"
+                  className="input w-full text-right max-sm:col-start-2"
+                  aria-label="จำนวนเงิน"
+                />
+                <button
+                  type="button"
+                  onClick={() => setItems((rows) => (rows.length > 1 ? rows.filter((_, i) => i !== idx) : [{ ...EMPTY_ITEM }]))}
+                  className="btn-danger btn-sm max-sm:col-start-2 max-sm:justify-self-start"
+                  title="ลบรายการ"
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <button type="button" onClick={() => setItems((rows) => [...rows, { ...EMPTY_ITEM }])} className="btn-secondary btn-sm">
+              <PlusIcon className="h-3.5 w-3.5" />
+              เพิ่มรายการ
+            </button>
+            <p className="text-sm text-slate-600">
+              รวม <span className="font-semibold">{formatBaht(total)}</span> บาท
+            </p>
+          </div>
+        </fieldset>
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
           <button type="button" onClick={() => modalRef.current?.close()} className="btn-secondary">
             ยกเลิก
@@ -314,22 +327,21 @@ function DetailModal({ report: r, approvals }: { report: Report; approvals: Appr
   const ap = approvals.find((a) => a.id === r.approval_id);
   const rows: [string, string][] = [
     ["เลขที่", r.doc_no ?? "-"],
-    ["ประเภท", `การจัด${r.doc_type}`],
     ["อ้างอิงบันทึกขออนุมัติ", ap ? `${ap.doc_number ?? "(ไม่มีเลขที่)"} · ${ap.activity_name || ap.subject} (${ap.status})` : "-"],
-    ["เรื่อง", `รายงานขอ${r.doc_type} ${r.subject}`],
+    ["เรื่อง", `รายงานขอ${kindOf(r)}${r.subject} กรณีมีความจำเป็นเร่งด่วน`],
     ["เหตุผลความจำเป็นเร่งด่วน", r.reason ?? "-"],
     ["ได้ดำเนินการ", r.work_text],
+    ["รายการ", r.proc_urgent_items.map((i, n) => `${n + 1}. ${i.kind}${i.name} ${formatBaht(i.amount)} บาท`).join("\n") || "-"],
     ["วันที่ดำเนินการ", formatThaiDate(r.purchase_date)],
     ["วันที่รายงาน", formatThaiDate(r.record_date)],
     ["ผู้ดำเนินการ", [r.responsible_name, r.responsible_position].filter(Boolean).join(" · ") || "-"],
     ["เบิกจ่ายให้แก่", r.payee ?? "-"],
-    ["ใบเสร็จรับเงิน", receiptText(r)],
     ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
     ["จำนวนเงิน", `${formatBaht(r.amount)} บาท`],
   ];
   return (
     <Modal
-      title={`รายงานขอ${r.doc_type} (เร่งด่วน) ${r.doc_no ?? ""}`}
+      title={`รายงานขอ${kindOf(r)} (เร่งด่วน) ${r.doc_no ?? ""}`}
       wide
       lazy
       trigger={
@@ -372,7 +384,7 @@ export default function UrgentPage() {
     let listQuery = supabase
       .from("proc_urgent_reports")
       .select(
-        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, project_id, activity_id",
+        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, project_id, activity_id, proc_urgent_items(kind, name, amount, seq)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;
@@ -392,7 +404,13 @@ export default function UrgentPage() {
         loadApprovalRefs(supabase, currentYear?.year ?? null),
       ]);
     setError(error?.message ?? null);
-    setReports((data ?? []).map((r) => ({ ...r, amount: Number(r.amount) })));
+    setReports(
+      (data ?? []).map((r) => ({
+        ...r,
+        amount: Number(r.amount),
+        proc_urgent_items: [...r.proc_urgent_items].sort((a, b) => a.seq - b.seq).map((i) => ({ ...i, amount: Number(i.amount) })),
+      })),
+    );
     setAllDocNos((nos ?? []).map((r) => r.doc_no ?? "").filter(Boolean));
     setNumberFormats(Object.fromEntries((formats ?? []).map((f) => [f.key, f.value ?? ""])));
     setLookups({
@@ -422,7 +440,7 @@ export default function UrgentPage() {
   const total = filtered.reduce((s, r) => s + r.amount, 0);
 
   async function handleDelete(r: Report) {
-    const ok = await confirmDelete({ title: `ลบรายงานขอ${r.doc_type} ${r.doc_no ?? ""}?`, text: r.subject });
+    const ok = await confirmDelete({ title: `ลบรายงานขอ${kindOf(r)} ${r.doc_no ?? ""}?`, text: r.subject });
     if (!ok) return;
     const res = await deleteUrgent(r.id);
     if (res.error) {
@@ -459,7 +477,7 @@ export default function UrgentPage() {
     );
   }
 
-  const typeBadge = (r: Report) => <span className={`${r.doc_type === "จ้าง" ? "badge-amber" : "badge-slate"} !text-sm`}>{r.doc_type}</span>;
+  const typeBadge = (r: Report) => <span className={`${kindOf(r) === "ซื้อ" ? "badge-slate" : "badge-amber"} !text-sm whitespace-nowrap`}>{kindOf(r).replace("ขอ", "")}</span>;
 
   return (
     <div>

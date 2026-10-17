@@ -9,36 +9,43 @@ import { checkApprovalBudget } from "@/lib/approval-budget";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 
 type Result = { error?: string; id?: string; docNo?: string | null };
+export type UrgentItemInput = { kind: string; name: string; amount: string };
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล";
 
 function parse(formData: FormData) {
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const recordDate = str("record_date");
   const purchaseDate = str("purchase_date");
-  const receiptDate = str("receipt_date") || null;
-  const amount = Number(str("amount"));
+  let items: UrgentItemInput[] = [];
+  try {
+    items = (JSON.parse(str("items_json") || "[]") as UrgentItemInput[]).filter((i) => i.name?.trim());
+  } catch {
+    return { error: "รายการไม่ถูกต้อง" };
+  }
   if (!str("subject")) return { error: "กรุณากรอกเรื่อง (รายการที่ซื้อ/จ้าง)" };
-  if (!str("work_text")) return { error: "กรุณากรอกรายการที่ได้ดำเนินการ" };
+  if (items.length === 0) return { error: "กรุณากรอกรายการที่ดำเนินการอย่างน้อย 1 รายการ" };
+  const rows = items.map((i, idx) => ({ seq: idx + 1, kind: i.kind === "จ้าง" ? "จ้าง" : "ซื้อ", name: i.name.trim(), amount: Math.round(Number(i.amount) * 100) / 100 }));
+  if (rows.some((r) => !(r.amount > 0))) return { error: "จำนวนเงินแต่ละรายการต้องมากกว่า 0" };
   if (!purchaseDate) return { error: "กรุณาเลือกวันที่ดำเนินการ" };
   if (!recordDate) return { error: "กรุณาเลือกวันที่รายงาน" };
   if (recordDate < purchaseDate) return { error: "วันที่รายงานต้องไม่ก่อนวันที่ดำเนินการ" };
-  if (receiptDate && receiptDate > recordDate) return { error: "วันที่ใบเสร็จต้องไม่หลังวันที่รายงาน" };
-  if (!(amount > 0)) return { error: "จำนวนเงินต้องมากกว่า 0" };
+  const amount = Math.round(rows.reduce((s, r) => s + r.amount, 0) * 100) / 100;
+  // ภาพรวมที่ดำเนินการ — ไม่กรอก = รวมชื่อรายการ (เช่น "ซื้อวัสดุ และจ้างจัดทำป้ายไวนิล")
+  const workText = str("work_text") || rows.map((r) => `${r.kind === "จ้าง" ? "จ้าง" : "จัดซื้อ"}${r.name}`).join(" และ");
   return {
+    rows,
     docNoInput: str("doc_no"),
     fields: {
-      doc_type: str("doc_type") === "จ้าง" ? "จ้าง" : "ซื้อ",
+      // ประเภทสรุปของรายงาน (จ้างล้วน = จ้าง, มีซื้อ = ซื้อ) — PDF ใช้ประเภทของแต่ละรายการ
+      doc_type: rows.every((r) => r.kind === "จ้าง") ? "จ้าง" : "ซื้อ",
       approval_id: str("approval_id") || null,
       record_date: recordDate,
       purchase_date: purchaseDate,
       subject: str("subject"),
       reason: str("reason") || null,
-      work_text: str("work_text"),
-      amount: Math.round(amount * 100) / 100,
+      work_text: workText,
+      amount,
       payee: str("payee") || null,
-      receipt_book: str("receipt_book") || null,
-      receipt_no: str("receipt_no") || null,
-      receipt_date: receiptDate,
       responsible_name: str("responsible_name") || null,
       responsible_position: str("responsible_position") || null,
       admin_group: str("admin_group") || null,
@@ -46,6 +53,13 @@ function parse(formData: FormData) {
       activity_id: str("activity_id") || null,
     },
   };
+}
+
+async function replaceItems(supabase: Awaited<ReturnType<typeof createClient>>, reportId: string, rows: NonNullable<ReturnType<typeof parse>["rows"]>) {
+  const { error: delError } = await supabase.from("proc_urgent_items").delete().eq("report_id", reportId);
+  if (delError) return delError.message;
+  const { error } = await supabase.from("proc_urgent_items").insert(rows.map((r) => ({ ...r, report_id: reportId })));
+  return error?.message ?? null;
 }
 
 function done(id?: string): Result {
@@ -73,6 +87,8 @@ export async function createUrgent(formData: FormData): Promise<Result> {
     .select("id")
     .single();
   if (error) return { error: error.message };
+  const itemError = await replaceItems(supabase, data.id, parsed.rows);
+  if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
   return { ...done(data.id), docNo };
 }
 
@@ -90,6 +106,8 @@ export async function updateUrgent(id: string, formData: FormData): Promise<Resu
   const { data, error } = await supabase.from("proc_urgent_reports").update({ ...parsed.fields, ...docNoPatch }).eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: NO_PERMISSION };
+  const itemError = await replaceItems(supabase, id, parsed.rows);
+  if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
   return done();
 }
 

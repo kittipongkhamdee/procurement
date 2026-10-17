@@ -2979,6 +2979,41 @@ export type Database = {
           },
         ]
       }
+      proc_urgent_items: {
+        Row: {
+          id: string
+          report_id: string
+          seq: number
+          kind: string
+          name: string
+          amount: number
+        }
+        Insert: {
+          id?: string
+          report_id: string
+          seq?: number
+          kind?: string
+          name: string
+          amount: number
+        }
+        Update: {
+          id?: string
+          report_id?: string
+          seq?: number
+          kind?: string
+          name?: string
+          amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_urgent_items_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "proc_urgent_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_urgent_reports: {
         Row: {
           id: string
