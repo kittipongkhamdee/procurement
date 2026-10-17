@@ -77,6 +77,7 @@ function parse(formData: FormData) {
       inspected_date: inspectedDate,
       report_date: reportDate,
       admin_group: str("admin_group") || null,
+      register_note: str("register_note") || null,
       project_id: str("project_id") || null,
       activity_id: str("activity_id") || null,
       item_name: str("item_name"),

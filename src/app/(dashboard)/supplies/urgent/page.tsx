@@ -40,6 +40,7 @@ type Report = {
   responsible_name: string | null;
   responsible_position: string | null;
   admin_group: string | null;
+  register_note: string | null;
   project_id: string | null;
   activity_id: string | null;
   proc_urgent_items: { kind: string; name: string; amount: number; seq: number }[];
@@ -283,6 +284,10 @@ function UrgentModal({ report, lookups, suggestedNo, onSaved }: { report: Report
               ))}
             </select>
           </div>
+          <div className="sm:col-span-2">
+            <label className="label">หมายเหตุ (แสดงในทะเบียนคุม)</label>
+            <input name="register_note" defaultValue={report?.register_note ?? ""} placeholder="ไม่บังคับ — กรณีอื่นๆ ที่ต้องบันทึกไว้ในทะเบียนคุม" className="input w-full" />
+          </div>
         </fieldset>
         <fieldset>
           <legend className="mb-2 text-sm font-semibold text-navy-800">จึงได้ดำเนินการดังนี้</legend>
@@ -360,6 +365,7 @@ function DetailModal({ report: r, approvals }: { report: Report; approvals: Appr
     ["เบิกจ่ายให้แก่", r.payee ?? `${r.responsible_name ?? "-"} (ผู้ดำเนินการ)`],
     ["หลักฐานการรับเงิน", [r.receipt_type || "ใบเสร็จรับเงิน", r.receipt_book && `เล่มที่ ${r.receipt_book}`, r.receipt_no && `เลขที่ ${r.receipt_no}`, r.receipt_date && `ลว. ${formatThaiDate(r.receipt_date)}`].filter(Boolean).join(" ") || "-"],
     ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
+    ["หมายเหตุ (ทะเบียนคุม)", r.register_note || "-"],
     ["จำนวนเงิน", `${formatBaht(r.amount)} บาท`],
   ];
   return (
@@ -407,7 +413,7 @@ export default function UrgentPage() {
     let listQuery = supabase
       .from("proc_urgent_reports")
       .select(
-        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_type, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, project_id, activity_id, proc_urgent_items(kind, name, amount, seq)",
+        "id, created_by, approval_id, doc_no, doc_type, record_date, purchase_date, subject, reason, work_text, amount, payee, receipt_type, receipt_book, receipt_no, receipt_date, responsible_name, responsible_position, admin_group, register_note, project_id, activity_id, proc_urgent_items(kind, name, amount, seq)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;

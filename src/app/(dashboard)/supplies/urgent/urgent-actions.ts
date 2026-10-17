@@ -54,6 +54,7 @@ function parse(formData: FormData) {
       responsible_name: str("responsible_name") || null,
       responsible_position: str("responsible_position") || null,
       admin_group: str("admin_group") || null,
+      register_note: str("register_note") || null,
       project_id: str("project_id") || null,
       activity_id: str("activity_id") || null,
     },

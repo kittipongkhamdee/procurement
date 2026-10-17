@@ -30,6 +30,7 @@ type Report = {
   record_date: string;
   purchase_date: string;
   admin_group: string | null;
+  register_note: string | null;
   project_id: string | null;
   activity_id: string | null;
   purpose: string | null;
@@ -89,6 +90,7 @@ function W119DetailModal({ report: r, approvals }: { report: Report; approvals: 
     ["วันที่จัดซื้อจัดจ้าง", formatThaiDate(r.purchase_date)],
     ["วันที่รายงาน", formatThaiDate(r.record_date)],
     ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
+    ["หมายเหตุ (ทะเบียนคุม)", r.register_note || "-"],
     ["โครงการ", r.plan_projects?.name ?? "-"],
     ["วัตถุประสงค์", r.purpose ?? "-"],
     ["ประเภทค่าใช้จ่าย", [r.expense_category, r.table_ref].filter(Boolean).join(" · ")],
@@ -382,6 +384,10 @@ function W119Modal({ report, lookups, suggestedNo, onSaved }: { report: Report |
               <option value="transfer">โอนเงิน</option>
             </select>
           </div>
+          <div className="sm:col-span-2">
+            <label className="label">หมายเหตุ (แสดงในทะเบียนคุม)</label>
+            <input name="register_note" defaultValue={report?.register_note ?? ""} placeholder="ไม่บังคับ — กรณีอื่นๆ ที่ต้องบันทึกไว้ในทะเบียนคุม" className="input w-full" />
+          </div>
         </fieldset>
 
         <fieldset>
@@ -499,7 +505,7 @@ export default function W119Page() {
     let listQuery = supabase
       .from("proc_w119_reports")
       .select(
-        "id, created_by, approval_id, doc_no, record_date, purchase_date, admin_group, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
+        "id, created_by, approval_id, doc_no, record_date, purchase_date, admin_group, register_note, project_id, activity_id, purpose, expense_category, table_ref, responsible_name, responsible_position, payment_method, fund_source, amount, plan_projects(name), proc_w119_items(name, vendor, evidence, receipt_book, receipt_no, receipt_date, amount, seq), proc_w119_photos(id)",
       );
     if (currentYear) {
       const ce = currentYear.year - 543;

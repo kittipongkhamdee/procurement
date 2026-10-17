@@ -35,6 +35,7 @@ type Request = {
   inspected_date: string | null;
   report_date: string | null;
   admin_group: string | null;
+  register_note: string | null;
   project_id: string | null;
   activity_id: string | null;
   approval_id: string | null;
@@ -321,6 +322,10 @@ function ProcurementModal({
           <div>
             <label className="label">เลข e-GP</label>
             <input name="egp_no" defaultValue={request?.egp_no ?? ""} placeholder="ไม่บังคับ" className="input w-full" />
+          </div>
+          <div className="">
+            <label className="label">หมายเหตุ (แสดงในทะเบียนคุม)</label>
+            <input name="register_note" defaultValue={request?.register_note ?? ""} placeholder="ไม่บังคับ — กรณีอื่นๆ ที่ต้องบันทึกไว้ในทะเบียนคุม" className="input w-full" />
           </div>
           <div>
             <label className="label">
@@ -639,6 +644,7 @@ function DetailModal({ type, request: r }: { type: ProcurementType; request: Req
     [TERMS[type].item, r.item_name ?? "-"],
     ["เพื่อ", r.reason ?? "-"],
     ["กลุ่มสาระ/ฝ่าย", r.admin_group ?? "-"],
+    ["หมายเหตุ (ทะเบียนคุม)", r.register_note || "-"],
     ["โครงการ", r.plan_projects?.name ?? "-"],
     ["กิจกรรม", r.plan_activities?.name ?? "-"],
     ["เลข e-GP", r.egp_no || "-"],
@@ -780,7 +786,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id), proc_approvals(status)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, register_note, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id), proc_approvals(status)",
       )
       .eq("doc_type", type)
       .eq("method", method);

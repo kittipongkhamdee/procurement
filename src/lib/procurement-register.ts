@@ -36,6 +36,7 @@ export type ProcurementRegisterRow = {
   status: string;
   report_date: string | null;
   egp_no: string | null;
+  register_note: string | null;
   method: string;
 };
 
@@ -63,7 +64,7 @@ function stepStatus(r: { doc_type: string; order_date: string | null; inspected_
 
 /** หมายเหตุ — ใช้กับกรณีอื่นๆ (ประเภทแยกคอลัมน์แล้ว) */
 export function registerNote(r: ProcurementRegisterRow) {
-  return r.egp_no ? `e-GP ${r.egp_no}` : "";
+  return [r.egp_no ? `e-GP ${r.egp_no}` : "", r.register_note ?? ""].filter(Boolean).join(" · ");
 }
 
 export type ProcurementRegisterFilter = { type?: string; q?: string };
@@ -96,7 +97,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
   let query = supabase
     .from("proc_purchase_requests")
     .select(
-      "id, doc_type, doc_no, record_date, order_date, inspected_date, report_date, egp_no, method, item_name, amount, proc_vendors(name), proc_approvals(doc_number), plan_projects(name), proc_purchase_photos(id)",
+      "id, doc_type, doc_no, record_date, order_date, inspected_date, report_date, egp_no, register_note, method, item_name, amount, proc_vendors(name), proc_approvals(doc_number), plan_projects(name), proc_purchase_photos(id)",
     );
   if (current) {
     const ce = current.year - 543;
@@ -104,10 +105,10 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
   }
   let w119Query = supabase
     .from("proc_w119_reports")
-    .select("id, doc_no, record_date, purchase_date, amount, proc_approvals(doc_number), plan_projects(name), proc_w119_items(name, vendor), proc_w119_photos(id)");
+    .select("id, doc_no, record_date, purchase_date, amount, register_note, proc_approvals(doc_number), plan_projects(name), proc_w119_items(name, vendor), proc_w119_photos(id)");
   let urgentQuery = supabase
     .from("proc_urgent_reports")
-    .select("id, doc_no, doc_type, record_date, purchase_date, subject, payee, responsible_name, amount, approval_id, project_id, proc_urgent_items(kind, name)");
+    .select("id, doc_no, doc_type, record_date, purchase_date, subject, register_note, payee, responsible_name, amount, approval_id, project_id, proc_urgent_items(kind, name)");
   if (current) {
     const ce = current.year - 543;
     w119Query = w119Query.gte("record_date", `${ce - 1}-10-01`).lte("record_date", `${ce}-09-30`);
@@ -144,9 +145,10 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
       photo_count: (r.proc_w119_photos as unknown as { id: string }[] | null)?.length ?? 0,
       report_date: r.record_date,
       egp_no: null,
+      register_note: r.register_note,
       method: "w119",
       ...extra(amount),
-      status: "รายงาน ว.119",
+      status: "รายงาน ว119",
     };
   });
   const urgentRows: ProcurementRegisterRow[] = (urgent ?? []).map((r) => {
@@ -169,6 +171,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
       photo_count: 0,
       report_date: r.record_date,
       egp_no: null,
+      register_note: r.register_note,
       method: "urgent",
       ...extra(amount),
       status: "รายงานกรณีเร่งด่วน",
@@ -190,6 +193,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
     photo_count: (r.proc_purchase_photos as unknown as { id: string }[] | null)?.length ?? 0,
     report_date: r.report_date,
     egp_no: r.egp_no,
+    register_note: r.register_note,
     method: r.method,
     withholding: withholdingTax(Number(r.amount)),
     net: Math.round((Number(r.amount) - withholdingTax(Number(r.amount))) * 100) / 100,
@@ -197,6 +201,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
   }));
   const rows = [...purchaseRows, ...w119Rows, ...urgentRows];
   const order = (c: RegisterCategory) => REGISTER_CATEGORIES.indexOf(c);
-  rows.sort((a, b) => (a.category === b.category ? docSeq(a.doc_no) - docSeq(b.doc_no) : order(a.category) - order(b.category)));
+  // เรียงตามวันที่บันทึกข้อความ แล้วตามลำดับเลขที่ (ประเภทเดียวกันวันเดียวกัน) — ประเภทต่างกันวันเดียวกันเรียงตามลำดับประเภท
+  rows.sort((a, b) => a.record_date.localeCompare(b.record_date) || order(a.category) - order(b.category) || docSeq(a.doc_no) - docSeq(b.doc_no));
   return { year: current?.year ?? null, rows };
 }

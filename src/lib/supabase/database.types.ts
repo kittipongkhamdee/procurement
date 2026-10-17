@@ -2391,6 +2391,7 @@ export type Database = {
       }
       proc_purchase_requests: {
         Row: {
+          register_note: string | null
           receipt_type: string | null
           activity_id: string | null
           approval_id: string | null
@@ -2431,6 +2432,7 @@ export type Database = {
           work_days: number | null
         }
         Insert: {
+          register_note?: string | null
           receipt_type?: string | null
           activity_id?: string | null
           approval_id?: string | null
@@ -2471,6 +2473,7 @@ export type Database = {
           work_days?: number | null
         }
         Update: {
+          register_note?: string | null
           receipt_type?: string | null
           activity_id?: string | null
           approval_id?: string | null
@@ -3019,6 +3022,7 @@ export type Database = {
       }
       proc_urgent_reports: {
         Row: {
+          register_note: string | null
           receipt_type: string | null
           id: string
           doc_no: string | null
@@ -3043,6 +3047,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          register_note?: string | null
           receipt_type?: string | null
           id?: string
           doc_no?: string | null
@@ -3067,6 +3072,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          register_note?: string | null
           receipt_type?: string | null
           id?: string
           doc_no?: string | null
@@ -3094,6 +3100,7 @@ export type Database = {
       }
       proc_w119_reports: {
         Row: {
+          register_note: string | null
           approval_id: string | null
           id: string
           doc_no: string
@@ -3114,6 +3121,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          register_note?: string | null
           approval_id?: string | null
           id?: string
           doc_no: string
@@ -3134,6 +3142,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          register_note?: string | null
           approval_id?: string | null
           id?: string
           doc_no?: string

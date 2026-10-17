@@ -41,7 +41,7 @@ export default function ProcurementRegisterPage() {
         <div>
           <h1 className="page-title">ทะเบียนคุมจัดซื้อจัดจ้าง</h1>
           <p className="page-subtitle">
-            รวมงานซื้อ งานจ้าง ว.804 ว.119 และกรณีเร่งด่วน{data?.year ? ` · ปีงบประมาณ ${data.year}` : ""}
+            รวมงานซื้อ งานจ้าง ว804 ว119 และกรณีเร่งด่วน{data?.year ? ` · ปีงบประมาณ ${data.year}` : ""}
           </p>
         </div>
       </div>
