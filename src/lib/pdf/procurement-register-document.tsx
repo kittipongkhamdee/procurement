@@ -1,6 +1,6 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
-import { shortThaiDate } from "@/lib/procurement-register";
+import { registerNote, shortThaiDate } from "@/lib/procurement-register";
 import type { ProcurementRegisterRow } from "@/lib/procurement-register";
 import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
@@ -29,9 +29,9 @@ const KEEP = ["ประเภท", "เฉพาะ", "เจาะจง", "�
 const COLS = [
   { key: "no", label: "ที่", width: 26, align: "center" as const },
   { key: "date", label: "วันที่", width: 62, align: "center" as const },
-  { key: "noBuy", label: "ซื้อ", width: 56, align: "center" as const, group: true },
-  { key: "noHire", label: "จ้าง", width: 56, align: "center" as const, group: true },
-  { key: "item", label: "รายการซื้อ / จ้าง", width: 200, wrap: true },
+  { key: "docNo", label: "เลขที่", width: 86, align: "center" as const, wrap: true },
+  { key: "category", label: "ประเภท", width: 52, align: "center" as const },
+  { key: "item", label: "รายการซื้อ / จ้าง", width: 174, wrap: true },
   { key: "vendor", label: "ผู้ขาย / ผู้รับจ้าง", width: 150, wrap: true },
   { key: "amount", label: "จำนวนเงิน", width: 72, align: "right" as const },
   { key: "inspected", label: "วัน\nตรวจรับ", width: 64, align: "center" as const, wrap: true },
@@ -61,25 +61,8 @@ export function ProcurementRegisterDocument({
         <Text style={{ textAlign: "center", fontSize: 18, lineHeight: 1.3 }}>{t(`${schoolName}${educationArea ? ` ${educationArea}` : ""}`)}</Text>
         <Text style={styles.sub}>{t(`${year ? `ปีงบประมาณ ${year} · ` : ""}ข้อมูล ณ วันที่ ${formatThaiDate(today)}`)}</Text>
         <View style={styles.table}>
-          {/* หัวตาราง: "เลขที่" ครอบสองคอลัมน์ย่อย ซื้อ | จ้าง */}
           <View style={styles.row} fixed>
-            {COLS.map((c, ci) => {
-              if ("group" in c) {
-                if (COLS[ci - 1] && "group" in COLS[ci - 1]) return null;
-                const groupCols = COLS.filter((x) => "group" in x);
-                return (
-                  <View key="docNo" style={{ width: groupCols.reduce((sum, x) => sum + x.width, 0) }}>
-                    <Text style={[styles.cell, styles.head]}>{t("เลขที่")}</Text>
-                    <View style={styles.row}>
-                      {groupCols.map((g) => (
-                        <Text key={g.key} style={[styles.cell, styles.head, { width: g.width }]}>
-                          {t(g.label)}
-                        </Text>
-                      ))}
-                    </View>
-                  </View>
-                );
-              }
+            {COLS.map((c) => {
               return (
                 <View key={c.key} style={[styles.cell, styles.head, { width: c.width, justifyContent: "center" }]}>
                   {cellLines(c.label, c.width).map((l, j) => (
@@ -95,13 +78,13 @@ export function ProcurementRegisterDocument({
             const values: Record<string, string> = {
               no: String(i + 1),
               date: shortThaiDate(r.record_date),
-              noBuy: r.doc_type === "ซื้อ" ? r.doc_no : "",
-              noHire: r.doc_type === "จ้าง" ? r.doc_no : "",
+              docNo: r.doc_no,
+              category: r.category,
               item: r.item_name ?? "-",
               vendor: r.vendor_name ?? "-",
               amount: formatBaht(r.amount),
               inspected: r.inspected_date ? shortThaiDate(r.inspected_date) : "—",
-              note: [r.method === "w804" ? "ว.804" : "", r.egp_no ? `e-GP ${r.egp_no}` : ""].filter(Boolean).join(" · "),
+              note: registerNote(r),
             };
             return (
               <View key={r.id} style={styles.row} wrap={false}>

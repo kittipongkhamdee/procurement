@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buildExcelBuffer } from "@/lib/excel";
 import { contentDisposition } from "@/lib/http";
 import { formatThaiDate } from "@/lib/thai";
-import { applyRegisterFilter, fetchProcurementRegister, filterFromSearchParams } from "@/lib/procurement-register";
+import { applyRegisterFilter, fetchProcurementRegister, filterFromSearchParams, registerNote } from "@/lib/procurement-register";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -14,8 +14,8 @@ export async function GET(request: Request) {
     [
       { header: "ที่", key: "no", width: 6 },
       { header: "วันที่", key: "date", width: 18 },
-      { header: "เลขที่ซื้อ", key: "noBuy", width: 12 },
-      { header: "เลขที่จ้าง", key: "noHire", width: 12 },
+      { header: "เลขที่", key: "docNo", width: 18 },
+      { header: "ประเภท", key: "category", width: 10 },
       { header: "รายการซื้อ / จ้าง", key: "item", width: 40 },
       { header: "ผู้ขาย / ผู้รับจ้าง", key: "vendor", width: 30 },
       { header: "จำนวนเงิน", key: "amount", width: 14, numFmt: "#,##0.00" },
@@ -27,13 +27,13 @@ export async function GET(request: Request) {
     filtered.map((r, i) => ({
       no: i + 1,
       date: formatThaiDate(r.record_date),
-      noBuy: r.doc_type === "ซื้อ" ? r.doc_no : "",
-      noHire: r.doc_type === "จ้าง" ? r.doc_no : "",
+      docNo: r.doc_no,
+      category: r.category,
       item: r.item_name ?? "-",
       vendor: r.vendor_name ?? "-",
       amount: r.amount,
       inspected: r.inspected_date ? formatThaiDate(r.inspected_date) : "-",
-      note: [r.method === "w804" ? "ว.804" : "", r.egp_no ? `e-GP ${r.egp_no}` : ""].filter(Boolean).join(" · "),
+      note: registerNote(r),
       project: r.project_name ?? "-",
       approval: r.approval_no ?? "-",
     })),
