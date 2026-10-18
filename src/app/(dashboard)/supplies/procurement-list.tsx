@@ -20,6 +20,7 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
 import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { EMPTY_ITEM_ROW, effectiveItemClass, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
+import { computeTotals, parseVatType, type VatType } from "@/lib/vat";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
 import { procurementSheets } from "@/lib/pdf/procurement-sheets";
 import { PhotoGroups, ProcurementPhotosButton, loadProcurementPhotos, type ProcurementPhoto } from "./procurement-photos";
@@ -45,6 +46,8 @@ type Request = {
   item_name: string | null;
   reason: string | null;
   vendor_id: string | null;
+  vat_type?: string | null;
+  discount?: number | null;
   inspector_name: string | null;
   inspector_position: string | null;
   penalty_rate: number | null;
@@ -85,7 +88,7 @@ type Lookups = {
   projects: Option[];
   activities: Activity[];
   groups: Option[];
-  vendors: Option[];
+  vendors: (Option & { vat_registered?: boolean | null })[];
   teachers: string[];
   positions: Record<string, string>;
   approvals: ApprovalRef[];
@@ -192,7 +195,16 @@ function ProcurementModal({
   const [recordDate, setRecordDate] = useState<string | null>(request?.record_date ?? null);
   const [deliveryDate, setDeliveryDate] = useState<string | null>(request?.delivery_date ?? null);
   const [inspectorPosition, setInspectorPosition] = useState(request?.inspector_position ?? "");
-  const total = itemRowsTotal(items);
+  const [vatType, setVatType] = useState<VatType>(parseVatType(request?.vat_type));
+  const [discount, setDiscount] = useState(request?.discount ? String(request.discount) : "");
+  // ยอดสุทธิ (หลังส่วนลด รวมภาษี) — ใช้ตรวจวงเงินอนุมัติ/ว 804 ตรงกับฝั่ง server
+  const total = computeTotals(itemRowsTotal(items), parseFloat(discount) || 0, vatType).net;
+  // เลือกร้านค้า → ตั้งค่าภาษีตามสถานะจดทะเบียน VAT ของร้าน (ถ้าบันทึกไว้)
+  function onVendorChange(id: string) {
+    const v = lookups.vendors.find((x) => x.id === id);
+    if (v?.vat_registered === false) setVatType("none");
+    else if (v?.vat_registered === true && vatType === "none") setVatType("include");
+  }
   const days = recordDate && deliveryDate && deliveryDate >= recordDate ? Math.round((Date.parse(deliveryDate) - Date.parse(recordDate)) / 86_400_000) + 1 : null;
 
   // โครงการเดิมที่ไม่อยู่ในปีปัจจุบัน — ให้ยังเลือกค้างไว้ได้ตอนแก้ไข
@@ -419,7 +431,10 @@ function ProcurementModal({
             itemDefaults={itemSuggestions?.defaults}
             showClass
             hire={type === "จ้าง"}
+            totals={{ discount, onDiscountChange: setDiscount, vatType, onVatTypeChange: setVatType }}
           />
+          <input type="hidden" name="vat_type" value={vatType} />
+          <input type="hidden" name="discount" value={parseFloat(discount) || 0} />
           <p className="mt-1 text-xs text-slate-500">
             ประเภท: ระบบเสนอให้ (ราคาต่อหน่วยตั้งแต่ 10,000 บาท = ครุภัณฑ์) เปลี่ยนได้ — วัสดุเข้าบัญชีวัสดุ / ครุภัณฑ์เข้าทะเบียนคุมทรัพย์สิน / ไม่เข้าคลัง (งานจ้าง บริการ)
           </p>
@@ -465,7 +480,7 @@ function ProcurementModal({
             <p className="text-xs text-slate-500 sm:col-span-2">กรอกส่วนด้านล่างหลังซื้อเสร็จ (ใช้ในรายงานสรุปผลการจัดซื้อและใบติดใบเสร็จรับเงิน)</p>
             <div className="sm:col-span-2">
               <label className="label">ร้านค้า / ผู้ขาย</label>
-              <select name="vendor_id" defaultValue={request?.vendor_id ?? ""} className="input w-full">
+              <select name="vendor_id" defaultValue={request?.vendor_id ?? ""} onChange={(e) => onVendorChange(e.target.value)} className="input w-full">
                 <option value="">-- เลือกจากรายชื่อร้านค้า/ผู้ขาย --</option>
                 {lookups.vendors.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -524,7 +539,7 @@ function ProcurementModal({
           <legend className="mb-2 text-sm font-semibold text-navy-800">{terms.party} / การส่งมอบ</legend>
           <div className="sm:col-span-2">
             <label className="label">{terms.party} (ร้านค้า)</label>
-            <select name="vendor_id" defaultValue={request?.vendor_id ?? ""} className="input w-full">
+            <select name="vendor_id" defaultValue={request?.vendor_id ?? ""} onChange={(e) => onVendorChange(e.target.value)} className="input w-full">
               <option value="">-- เลือกจากรายชื่อร้านค้า/ผู้ขาย --</option>
               {lookups.vendors.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -832,7 +847,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     let listQuery = supabase
       .from("proc_purchase_requests")
       .select(
-        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, register_note, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id, item_class), proc_approvals(status)",
+        "id, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, admin_group, register_note, project_id, activity_id, approval_id, item_name, reason, vendor_id, inspector_name, inspector_position, penalty_rate, order_signer, egp_no, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, amount, vat_type, discount, plan_projects(name), plan_activities(name), proc_vendors(name), proc_purchase_photos(id), proc_purchase_items(id, item_class), proc_approvals(status)",
       )
       .eq("doc_type", type)
       .eq("method", method);
@@ -868,7 +883,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
         : Promise.resolve({ data: [] as Option[] }),
       supabase.from("plan_activities").select("id, name, project_id").order("sort_order"),
       supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order"),
-      supabase.from("proc_vendors").select("id, name").order("name"),
+      supabase.from("proc_vendors").select("id, name, vat_registered").order("name"),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("proc_teacher_positions").select("teacher_name, position"),
       approvalQuery.order("doc_date", { ascending: false }),

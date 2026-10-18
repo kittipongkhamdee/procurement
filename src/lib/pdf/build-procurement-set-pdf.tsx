@@ -10,7 +10,7 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
   const { data: pr } = await supabase
     .from("proc_purchase_requests")
     .select(
-      "doc_type, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, work_days, admin_group, item_name, reason, amount, penalty_rate, order_signer, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, inspector_name, inspector_position, plan_projects(name), plan_activities(name), proc_vendors(name, house_no, moo, tambon, amphoe, province, phone, tax_id)",
+      "doc_type, doc_no, record_date, delivery_date, order_date, delivered_date, inspected_date, report_date, work_days, admin_group, item_name, reason, amount, vat_type, discount, penalty_rate, order_signer, method, receipt_type, receipt_book, receipt_no, receipt_date, funding, loan_contract_no, loan_date, spec_author, inspector_name, inspector_position, plan_projects(name), plan_activities(name), proc_vendors(name, house_no, moo, tambon, amphoe, province, phone, tax_id)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -40,6 +40,8 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
     item_name: pr.item_name ?? "",
     reason: pr.reason,
     amount: Number(pr.amount),
+    vat_type: pr.vat_type === "none" || pr.vat_type === "exclude" ? pr.vat_type : "include",
+    discount: Number(pr.discount ?? 0),
     penalty_rate: pr.penalty_rate != null ? Number(pr.penalty_rate) : null,
     order_signer: pr.order_signer === "director" ? "director" : "head",
     inspector_name: pr.inspector_name,

@@ -49,9 +49,11 @@ export function shortThaiDate(iso: string | null | undefined): string {
   return `${d} ${SHORT_MONTHS[m]} ${String(y + 543).slice(-2)}`;
 }
 
-/** ภาษีหัก ณ ที่จ่าย 1% ของยอดก่อน VAT เมื่อจ่ายตั้งแต่ 10,000 บาทขึ้นไป (ส่วนราชการ) */
-export function withholdingTax(amount: number): number {
-  return amount >= 10000 ? Math.round((amount / 1.07) * 0.01 * 100) / 100 : 0;
+/** ภาษีหัก ณ ที่จ่าย 1% ของยอดก่อน VAT เมื่อจ่ายตั้งแต่ 10,000 บาทขึ้นไป (ส่วนราชการ)
+ *  ร้านไม่จด VAT (vat_type "none") ฐานภาษี = ยอดจ่ายทั้งจำนวน ไม่ต้องถอด 7% */
+export function withholdingTax(amount: number, vatType: string = "include"): number {
+  const base = vatType === "none" ? amount : amount / 1.07;
+  return amount >= 10000 ? Math.round(base * 0.01 * 100) / 100 : 0;
 }
 
 /** สถานะตามขั้นตอนล่าสุดที่บันทึกวันไว้ */
@@ -97,7 +99,7 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
   let query = supabase
     .from("proc_purchase_requests")
     .select(
-      "id, doc_type, doc_no, record_date, order_date, inspected_date, report_date, egp_no, register_note, method, item_name, amount, proc_vendors(name), proc_approvals(doc_number), plan_projects(name), proc_purchase_photos(id)",
+      "id, doc_type, doc_no, record_date, order_date, inspected_date, report_date, egp_no, register_note, method, item_name, amount, vat_type, proc_vendors(name), proc_approvals(doc_number), plan_projects(name), proc_purchase_photos(id)",
     );
   if (current) {
     const ce = current.year - 543;
@@ -195,8 +197,8 @@ export async function fetchProcurementRegister(supabase: Supabase): Promise<{ ye
     egp_no: r.egp_no,
     register_note: r.register_note,
     method: r.method,
-    withholding: withholdingTax(Number(r.amount)),
-    net: Math.round((Number(r.amount) - withholdingTax(Number(r.amount))) * 100) / 100,
+    withholding: withholdingTax(Number(r.amount), r.vat_type),
+    net: Math.round((Number(r.amount) - withholdingTax(Number(r.amount), r.vat_type)) * 100) / 100,
     status: stepStatus(r),
   }));
   const rows = [...purchaseRows, ...w119Rows, ...urgentRows];

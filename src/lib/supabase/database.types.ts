@@ -2403,6 +2403,8 @@ export type Database = {
       }
       proc_purchase_requests: {
         Row: {
+          vat_type: string
+          discount: number
           register_note: string | null
           receipt_type: string | null
           activity_id: string | null
@@ -2444,6 +2446,8 @@ export type Database = {
           work_days: number | null
         }
         Insert: {
+          vat_type?: string
+          discount?: number
           register_note?: string | null
           receipt_type?: string | null
           activity_id?: string | null
@@ -2485,6 +2489,8 @@ export type Database = {
           work_days?: number | null
         }
         Update: {
+          vat_type?: string
+          discount?: number
           register_note?: string | null
           receipt_type?: string | null
           activity_id?: string | null
@@ -2655,6 +2661,7 @@ export type Database = {
       }
       proc_vendors: {
         Row: {
+          vat_registered: boolean | null
           amphoe: string | null
           created_at: string
           house_no: string | null
@@ -2669,6 +2676,7 @@ export type Database = {
           zipcode: string | null
         }
         Insert: {
+          vat_registered?: boolean | null
           amphoe?: string | null
           created_at?: string
           house_no?: string | null
@@ -2683,6 +2691,7 @@ export type Database = {
           zipcode?: string | null
         }
         Update: {
+          vat_registered?: boolean | null
           amphoe?: string | null
           created_at?: string
           house_no?: string | null

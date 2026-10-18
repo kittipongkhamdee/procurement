@@ -11,7 +11,7 @@ import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiAddressInput } from "@/components/thai-address-input";
 import type { Tables } from "@/lib/supabase/database.types";
-import { createVendor, deleteVendor } from "./actions";
+import { createVendor, deleteVendor, setVendorVat } from "./actions";
 
 type Vendor = Tables<"proc_vendors">;
 
@@ -77,6 +77,11 @@ export default function VendorsPage() {
           <input name="phone" placeholder="โทรศัพท์" className="input" />
           <input name="house_no" placeholder="เลขที่" className="input" />
           <input name="moo" placeholder="หมู่ที่" className="input" />
+          <select name="vat_registered" defaultValue="" className="input">
+            <option value="">ภาษีมูลค่าเพิ่ม: ไม่ระบุ</option>
+            <option value="yes">จดทะเบียนภาษีมูลค่าเพิ่ม</option>
+            <option value="no">ไม่จดทะเบียนภาษีมูลค่าเพิ่ม</option>
+          </select>
           <div className="sm:col-span-3">
             <p className="mb-1 text-xs text-slate-500">พิมพ์ตำบล อำเภอ จังหวัด หรือรหัสไปรษณีย์ แล้วเลือกจากรายการ ช่องที่เหลือจะเติมให้อัตโนมัติ</p>
             <ThaiAddressInput key={addressKey} />
@@ -97,6 +102,7 @@ export default function VendorsPage() {
               <tr>
                 <th>ชื่อผู้ขาย/ร้านค้า</th>
                 <th>เลขประจำตัวผู้เสียภาษี</th>
+                <th>ภาษีมูลค่าเพิ่ม</th>
                 <th>ที่อยู่</th>
                 <th>โทรศัพท์</th>
                 <th></th>
@@ -107,6 +113,20 @@ export default function VendorsPage() {
                 <tr key={v.id}>
                   <td className="font-medium text-slate-900">{v.name}</td>
                   <td>{v.tax_id ?? "-"}</td>
+                  <td>
+                    <select
+                      defaultValue={v.vat_registered === true ? "yes" : v.vat_registered === false ? "no" : ""}
+                      onChange={async (e) => {
+                        const res = await setVendorVat(v.id, e.target.value as "yes" | "no" | "");
+                        await (res.error ? toastError(res.error) : toastSuccess("บันทึกสถานะภาษีแล้ว"));
+                      }}
+                      className="input py-1 text-sm"
+                    >
+                      <option value="">ไม่ระบุ</option>
+                      <option value="yes">จด VAT</option>
+                      <option value="no">ไม่จด VAT</option>
+                    </select>
+                  </td>
                   <td>
                     {[v.house_no, v.moo && `หมู่ ${v.moo}`, v.tambon, v.amphoe, v.province, v.zipcode]
                       .filter(Boolean)
@@ -126,7 +146,7 @@ export default function VendorsPage() {
               ))}
               {vendors.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="table-empty">
+                  <td colSpan={6} className="table-empty">
                     ยังไม่มีข้อมูล
                   </td>
                 </tr>

@@ -10,6 +10,7 @@ import { parseItemClass } from "@/lib/item-class";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { docNumberKind } from "@/lib/doc-numbers";
 import { deleteFromStorage } from "@/lib/storage";
+import { computeTotals, parseVatType } from "@/lib/vat";
 
 type Result = { error?: string; id?: string; docNo?: string | null };
 type ItemInput = { name: string; qty: string; unit: string; unitPrice: string; itemClass?: string };
@@ -37,7 +38,12 @@ function parse(formData: FormData) {
     return { error: "รายการไม่ถูกต้อง" };
   }
   if (items.length === 0) return { error: "กรุณากรอกรายการอย่างน้อย 1 รายการ" };
-  const amount = Math.round(items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0) * 100) / 100;
+  const subtotal = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0);
+  const vatType = parseVatType(str("vat_type"));
+  const discount = Math.max(Number(str("discount")) || 0, 0);
+  if (discount > subtotal) return { error: "ส่วนลดต้องไม่เกินยอดรวมรายการ" };
+  // amount = ยอดสุทธิ (หลังหักส่วนลด รวมภาษีแล้ว) — ใช้ตรวจวงเงินอนุมัติ/ว 804 และแสดงในทะเบียน
+  const amount = computeTotals(subtotal, discount, vatType).net;
   if (!(amount > 0)) return { error: "ยอดรวมรายการต้องมากกว่า 0" };
   if (str("method") === "w804" && (docType !== "ซื้อ" || amount > 50000)) return { error: "ซื้อตาม ว 804 ได้เฉพาะงานซื้อ ครั้งละไม่เกิน 50,000 บาท" };
 
@@ -101,6 +107,8 @@ function parse(formData: FormData) {
       loan_contract_no: str("funding") === "loan" ? str("loan_contract_no") || null : null,
       loan_date: str("funding") === "loan" ? str("loan_date") || null : null,
       spec_author: str("spec_author") || null,
+      vat_type: vatType,
+      discount,
       amount,
     },
     items,

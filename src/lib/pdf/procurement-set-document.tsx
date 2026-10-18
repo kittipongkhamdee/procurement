@@ -1,6 +1,7 @@
 import path from "node:path";
 import { Document, Font, Page, StyleSheet, Text, View, type Styles } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
+import { VAT_RATE } from "@/lib/vat";
 import { registerSarabunFont, t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
 import { procurementSheets, W804_INLINE_MAX, type SheetKey } from "./procurement-sheets";
@@ -63,6 +64,9 @@ export type ProcurementSetData = {
   item_name: string;
   reason: string | null;
   amount: number;
+  /** none = ร้านไม่จด VAT, exclude = ราคารายการยังไม่รวมภาษี, include = รวมแล้ว (ค่าเดิม) */
+  vat_type?: "none" | "exclude" | "include";
+  discount?: number;
   penalty_rate: number | null;
   order_signer: "head" | "director" | null;
   inspector_name: string | null;
@@ -184,6 +188,7 @@ function ItemTable({
   totalLabel,
   total,
   minRows = MIN_TABLE_ROWS,
+  note,
   footer,
 }: {
   cols: Col[];
@@ -194,6 +199,8 @@ function ItemTable({
   total: string;
   minRows?: number;
   /** ส่วนท้ายต่อจากแถวรวม (เช่น ลายมือชื่อ) — ไม่ถูกแยกไปหน้าใหม่ลำพัง */
+  /** บรรทัดแจกแจงส่วนลด/ภาษี ใต้ตาราง (ก่อน footer) */
+  note?: React.ReactNode;
   footer?: React.ReactNode;
 }) {
   // minRows = 0 → ไม่เติมแถวว่าง
@@ -259,6 +266,7 @@ function ItemTable({
             <Text style={{ textAlign: "right" }}>{total}</Text>
           </View>
         </View>
+        {note}
         {footer}
       </View>
     </View>
@@ -293,6 +301,23 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const amount = formatBaht(d.amount);
   const amountText = thaiBahtText(d.amount);
   const amountTextBare = amountText.replace(/^\(|\)$/g, "");
+  // ภาษีมูลค่าเพิ่ม/ส่วนลด — แจกแจงใต้ตารางเฉพาะเมื่อมีส่วนลดหรือราคายังไม่รวมภาษี (เอกสารเดิม "รวมภาษีแล้ว" พิมพ์เหมือนเดิม)
+  const vatType = d.vat_type ?? "include";
+  const discount = d.discount ?? 0;
+  const itemsSum = d.items.reduce((s, i) => s + (i.total ?? (i.qty ?? 0) * (i.unit_price ?? 0)), 0);
+  const vatAmount = vatType === "none" ? 0 : Math.round(((d.amount * VAT_RATE) / (1 + VAT_RATE)) * 100) / 100;
+  const vatPhrase = vatType === "none" ? "ซึ่งเป็นราคาที่รวมค่าใช้จ่ายทั้งปวงไว้แล้ว" : "ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่ม รวมทั้งภาษีอากรอื่น และค่าใช้จ่ายทั้งปวงไว้ด้วยแล้ว";
+  const breakdown =
+    discount > 0 || vatType === "exclude"
+      ? [
+          `ราคารวมรายการ ${formatBaht(itemsSum)} บาท`,
+          discount > 0 ? `หักส่วนลด ${formatBaht(discount)} บาท` : "",
+          vatType !== "none" ? `ราคาก่อนภาษี ${formatBaht(d.amount - vatAmount)} บาท ภาษีมูลค่าเพิ่ม 7% ${formatBaht(vatAmount)} บาท` : "",
+        ]
+          .filter(Boolean)
+          .join("  ")
+      : null;
+  const breakdownNote = breakdown ? <Text style={{ fontSize: FS_SMALL, marginTop: 2 }}>{t(breakdown)}</Text> : null;
   const days = d.work_days ?? 0;
   const penalty = d.penalty_rate ?? (isHire ? 0.1 : 0.2);
   // ค่าปรับ: ส่งมอบช้ากว่าวันครบกำหนด → วันละ (อัตรา% × ราคา) งานจ้างขั้นต่ำวันละ 100 บาท ตามเงื่อนไขในใบสั่ง
@@ -387,6 +412,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             rows={itemRows.map((it) => [String(it.seq), it.name ?? "", num(it.qty), it.unit ?? "", num(it.unit_price), num(it.unit_price), num(it.total)])}
             totalLabel={`รวมเป็นเงินทั้งสิ้น  ( ${amountTextBare} )`}
             total={amount}
+            note={breakdownNote}
             footer={
               <View style={{ flexDirection: "row", marginTop: 24 }}>
                 <Sign role="เจ้าหน้าที่" name={officer} style={{ width: L }} />
@@ -419,9 +445,10 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             rows={itemRows.map((it) => [String(it.seq), it.name ?? "", [num(it.qty), it.unit].filter(Boolean).join(" "), num(it.unit_price), num(it.total)])}
             totalLabel={`รวมเป็นเงินทั้งสิ้น  ( ${amountTextBare} )`}
             total={amount}
+            note={breakdownNote}
             footer={
               <View style={{ marginTop: 4 }}>
-                <Text>{t("ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่ม รวมทั้งภาษีอากรอื่น และค่าใช้จ่ายทั้งปวงไว้ด้วยแล้ว")}</Text>
+                <Text>{t(vatPhrase)}</Text>
                 <Text>{t("3. คำเสนอนี้จะยืนอยู่ในระยะเวลา  30 วัน  นับตั้งแต่วันที่ได้ยื่นใบเสนอราคา")}</Text>
                 <Text>{t(`4. กำหนดส่งมอบพัสดุตามรายละเอียดรายการข้างต้น ภายใน ${days} วัน  นับถัดจากวันลงนามในใบสั่ง${verb}`)}</Text>
                 <Text>{t(`เสนอมา   ณ   วันที่  ${recordDate}`)}</Text>
@@ -476,8 +503,9 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
               </View>
             </View>
           </View>
+          {breakdownNote}
           <Text style={{ fontSize: FS_SMALL, marginBottom: 8 }}>
-            {t("* ราคาที่เสนอ และราคาที่ตกลงซื้อหรือจ้าง เป็นราคารวมภาษีมูลค่าเพิ่มและภาษีอื่น ค่าขนส่ง ค่าจดทะเบียน และค่าใช้จ่ายอื่นๆ ทั้งปวง")}
+            {t(vatType === "none" ? "* ราคาที่เสนอ และราคาที่ตกลงซื้อหรือจ้าง เป็นราคาที่รวมค่าขนส่ง ค่าจดทะเบียน และค่าใช้จ่ายอื่นๆ ทั้งปวงไว้แล้ว" : "* ราคาที่เสนอ และราคาที่ตกลงซื้อหรือจ้าง เป็นราคารวมภาษีมูลค่าเพิ่มและภาษีอื่น ค่าขนส่ง ค่าจดทะเบียน และค่าใช้จ่ายอื่นๆ ทั้งปวง")}
           </Text>
           <Text>{t("โดยเกณฑ์การพิจารณาผลการยื่นข้อเสนอครั้งนี้ จะพิจารณาตัดสินโดยใช้หลักเกณฑ์ราคา")}</Text>
           <Para keep={keep} text={`งานพัสดุ${school} พิจารณาแล้ว เห็นสมควร${isHire ? "จัดจ้าง" : "จัดซื้อ"}จากผู้เสนอราคาดังกล่าว`} style={{ marginBottom: 0 }} />
@@ -655,6 +683,7 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             rows={itemRows.map((it) => [String(it.seq), it.name ?? "", num(it.qty), it.unit ?? "", num(it.unit_price), num(it.total)])}
             totalLabel={`รวมเป็นเงินทั้งสิ้น  ( ${amountTextBare} )`}
             total={amount}
+            note={breakdownNote}
             footer={
               <View style={{ flexDirection: "row", marginTop: 24 }}>
                 <Sign role={`ผู้สั่ง${verb}`} name={orderer.name} extra={[`ตำแหน่ง ${orderer.position}`, `วันที่ ${orderDate}`]} style={{ width: L }} />
@@ -855,7 +884,8 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             rows={itemRows.map((it) => [String(it.seq), it.name ?? "", num(it.qty), it.unit ?? "", num(it.unit_price), num(it.total)])}
             totalLabel={`รวมเป็นเงิน  ( ${amountTextBare} )`}
             total={amount}
-            footer={<Text style={{ fontSize: FS_SMALL }}>{t("**ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่มและค่าใช้จ่ายทั้งปวงไว้แล้วด้วย")}</Text>}
+            note={breakdownNote}
+            footer={<Text style={{ fontSize: FS_SMALL }}>{t(vatType === "none" ? "**ซึ่งเป็นราคาที่รวมค่าใช้จ่ายทั้งปวงไว้แล้ว" : "**ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่มและค่าใช้จ่ายทั้งปวงไว้แล้วด้วย")}</Text>}
           />
           {/* ย่อหน้าผลการจัดซื้อจนถึงส่วนลงชื่อ ไม่แยกหน้า — ล้นหน้าให้ขึ้นหน้าใหม่ทั้งก้อน */}
           <View wrap={false}>
