@@ -1,29 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
-import { createPurchaseRequest } from "../actions";
-import { PurchaseRequestForm } from "./purchase-request-form";
+import { redirect } from "next/navigation";
 
-export default async function NewPurchaseRequestPage() {
-  const supabase = await createClient();
-
-  const [{ data: projects }, { data: activities }, { data: vendors }] = await Promise.all([
-    supabase.from("plan_projects").select("id, name").order("sort_order"),
-    supabase.from("plan_activities").select("id, name, project_id").order("sort_order"),
-    supabase.from("proc_vendors").select("*").order("name"),
-  ]);
-
-  return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">แบบบันทึกขอซื้อ/ขอจ้าง</h1>
-        </div>
-      </div>
-      <PurchaseRequestForm
-        action={createPurchaseRequest}
-        projects={projects ?? []}
-        activities={activities ?? []}
-        vendors={vendors ?? []}
-      />
-    </div>
-  );
+// ปิดหน้า "รายการขอซื้อ-ขอจ้าง" แล้ว — ใช้เมนูงานซื้อ/งานจ้าง (ตาราง proc_purchase_requests ชุดเดียวกัน) แทน
+export default function NewPurchaseRequestPage() {
+  redirect("/supplies/purchase");
 }

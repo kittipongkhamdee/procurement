@@ -30,14 +30,13 @@ type NavSection = { heading: string | null; items: NavItem[] };
 const BOTTOM_TABS = [
   { href: "/", label: "หน้าแรก", icon: HomeIcon },
   { href: "/projects", label: "โครงการ", icon: FolderIcon },
-  { href: "/purchase-requests", label: "ขอซื้อ-จ้าง", icon: ShoppingCartIcon },
+  { href: "/supplies/purchase", label: "ซื้อ-จ้าง", icon: ShoppingCartIcon },
   { href: "/project-disbursements", label: "การเงิน", icon: WalletIcon },
 ];
 
 // เมนูที่กำลังตรวจ/แก้ไขอยู่ ยังไม่พร้อมให้ใช้งานจริง — ปิดลิงก์ไว้ก่อนชั่วคราว (ยังเข้าหน้าตรงๆ
 // ผ่าน URL ได้ปกติสำหรับคนที่กำลังพัฒนา/ตรวจสอบอยู่) เอาออกจาก Set นี้เมื่อพร้อมเปิดใช้งานจริง
 const DISABLED_HREFS = new Set([
-  "/purchase-requests",
   "/project-disbursements",
   "/allowance",
 ]);
