@@ -46,11 +46,14 @@ export async function loadItemSuggestions(
       .from("proc_approval_items")
       .select("name, unit, unit_price, proc_approvals(created_at)")
       .not("name", "is", null)
+      // เรียงใหม่ไปเก่าก่อนตัด limit — ข้อมูลเกิน 3,000 รายการจะได้ตัดของเก่าทิ้ง ไม่ใช่ของใหม่
+      .order("proc_approvals(created_at)", { ascending: false })
       .limit(3000),
     supabase
       .from("proc_purchase_items")
       .select("name, unit, unit_price, proc_purchase_requests(created_at)")
       .not("name", "is", null)
+      .order("proc_purchase_requests(created_at)", { ascending: false })
       .limit(3000),
   ]);
 

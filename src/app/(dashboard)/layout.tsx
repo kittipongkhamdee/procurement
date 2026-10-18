@@ -18,7 +18,6 @@ import {
   SettingsIcon,
   ShoppingCartIcon,
   StoreIcon,
-  TagIcon,
   TruckIcon,
   UploadIcon,
   UsersIcon,
@@ -77,7 +76,6 @@ const NAV_SECTIONS = [
   {
     heading: "ข้อมูลตั้งต้น",
     items: [
-      { href: "/supplies/prices", label: "ราคาพัสดุ", icon: <TagIcon className={ICON_CLASS} /> },
       { href: "/vendors", label: "ร้านค้า / ผู้ขาย", icon: <StoreIcon className={ICON_CLASS} /> },
       { href: "/expense-rates", label: "อัตราค่าใช้จ่ายตามระเบียบ", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/standards-strategies", label: "มาตรฐานและกลยุทธ์", icon: <GridIcon className={ICON_CLASS} /> },
