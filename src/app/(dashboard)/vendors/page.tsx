@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiAddressInput } from "@/components/thai-address-input";
 import type { Tables } from "@/lib/supabase/database.types";
@@ -41,7 +41,11 @@ export default function VendorsPage() {
     const form = e.currentTarget;
     const formData = new FormData(form);
     try {
-      await createVendor(formData);
+      const res = await createVendor(formData);
+      if (res.error) {
+        await toastError(res.error);
+        return;
+      }
       await toastSuccess("บันทึกข้อมูลเรียบร้อยแล้ว");
       form.reset();
       setAddressKey((k) => k + 1); // ช่องที่อยู่เก็บค่าใน state ของตัวเอง form.reset() ล้างไม่ถึง — remount ใหม่
@@ -52,9 +56,14 @@ export default function VendorsPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!(await confirmDelete({ title: "ลบร้านค้านี้?" }))) return;
     try {
-      await deleteVendor(id);
-      reload();
+      const res = await deleteVendor(id);
+      if (res.error) await toastError(res.error);
+      else {
+        await toastSuccess("ลบร้านค้าแล้ว");
+        reload();
+      }
     } catch (err) {
       await toastError(errorMessage(err));
     }
@@ -137,7 +146,7 @@ export default function VendorsPage() {
                     <button
                       type="button"
                       onClick={() => handleDelete(v.id)}
-                      className="text-xs font-medium text-red-600 hover:underline"
+                      className="btn-danger btn-sm"
                     >
                       ลบ
                     </button>

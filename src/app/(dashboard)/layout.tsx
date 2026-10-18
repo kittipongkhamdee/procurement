@@ -13,7 +13,6 @@ import {
   GridIcon,
   HomeIcon,
   LightbulbIcon,
-  LockIcon,
   PieChartIcon,
   SettingsIcon,
   ShoppingCartIcon,
@@ -92,7 +91,6 @@ const ADMIN_SECTION = {
   items: [
     { href: "/admin/users", label: "จัดการผู้ใช้และสิทธิ์", icon: <UsersIcon className={ICON_CLASS} /> },
     { href: "/settings", label: "ตั้งค่าระบบ", icon: <SettingsIcon className={ICON_CLASS} /> },
-    { href: "/supplies/audit-log", label: "ประวัติการแก้ไข", icon: <LockIcon className={ICON_CLASS} /> },
   ],
 };
 

@@ -8,7 +8,6 @@ const PAGES: Record<string, { title: string; description: string }> = {
   "quarterly-announcements": { title: "ประกาศผลรายไตรมาส", description: "สรุปผลการจัดซื้อจัดจ้างรายไตรมาสเพื่อประกาศเผยแพร่" },
   "withholding-tax": { title: "ภาษีหัก ณ ที่จ่าย", description: "หนังสือรับรองการหักภาษี ณ ที่จ่าย" },
   loans: { title: "ยืม-คืนพัสดุ", description: "บันทึกการยืมและคืนพัสดุ" },
-  "audit-log": { title: "ประวัติการแก้ไข", description: "ประวัติการเพิ่ม/แก้ไข/ลบข้อมูลในระบบ" },
 };
 
 export default async function SuppliesPlaceholderPage({ params }: { params: Promise<{ slug: string }> }) {

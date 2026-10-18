@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
-export async function createVendor(formData: FormData) {
+export async function createVendor(formData: FormData): Promise<{ error?: string }> {
   const supabase = await createClient();
 
   const { error } = await supabase.from("proc_vendors").insert({
@@ -19,12 +19,11 @@ export async function createVendor(formData: FormData) {
     vat_registered: parseVat(formData.get("vat_registered")),
   });
 
-  if (error) {
-    // RLS blocks this for non-staff roles (teacher/director) — expected, not a bug
-    throw new Error(error.message);
-  }
-
+  // RLS blocks this for non-staff roles (teacher/director) — expected, not a bug
+  // คืน { error } แทน throw — production ของ Next ซ่อนข้อความ error ที่ throw (ขึ้น React error #441)
+  if (error) return { error: error.message.includes("row-level") ? "ไม่มีสิทธิ์เพิ่มร้านค้า" : error.message };
   revalidatePath("/vendors");
+  return {};
 }
 
 function parseVat(v: FormDataEntryValue | null): boolean | null {
@@ -40,9 +39,12 @@ export async function setVendorVat(id: string, value: "yes" | "no" | ""): Promis
   return {};
 }
 
-export async function deleteVendor(id: string) {
+export async function deleteVendor(id: string): Promise<{ error?: string }> {
   const supabase = await createClient();
-  const { error } = await supabase.from("proc_vendors").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { data, error } = await supabase.from("proc_vendors").delete().eq("id", id).select("id");
+  // 23503 = ร้านนี้ถูกอ้างถึงในเอกสารจัดซื้อ/สัญญา ลบไม่ได้
+  if (error) return { error: error.code === "23503" ? "ลบไม่ได้ เพราะร้านนี้ถูกใช้ในเอกสารจัดซื้อ/จัดจ้างหรือสัญญาแล้ว" : error.message };
+  if (!data?.length) return { error: "ลบไม่สำเร็จ (ไม่มีสิทธิ์ลบ หรือไม่พบร้านค้า)" };
   revalidatePath("/vendors");
+  return {};
 }
