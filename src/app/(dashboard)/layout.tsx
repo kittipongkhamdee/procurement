@@ -65,7 +65,6 @@ const NAV_SECTIONS = [
       { href: "/supplies/stock", label: "บัญชีวัสดุ", icon: <ArchiveIcon className={ICON_CLASS} /> },
       { href: "/supplies/requisitions", label: "ใบเบิกพัสดุ", icon: <UploadIcon className={ICON_CLASS} /> },
       { href: "/supplies/loans", label: "ยืม-คืนพัสดุ", icon: <TruckIcon className={ICON_CLASS} /> },
-      { href: "/supplies/reports", label: "รายงานวัสดุ", icon: <PieChartIcon className={ICON_CLASS} /> },
     ],
   },
   {
