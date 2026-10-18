@@ -74,9 +74,9 @@ export function DashboardShell({
   const [profileOpen, setProfileOpen] = useState(false);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
-  // กลุ่มเมนูที่กางอยู่ตอนนี้ — แต่ละกลุ่มกาง/หุบอิสระจากกัน (กดกลุ่มอื่นไม่กระทบกลุ่มที่กางไว้แล้ว)
-  // ค่าเริ่มต้นกาง "งานแผนงาน" ไว้ก่อน กลุ่มอื่นหุบหมด
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(["งานแผนงาน"]));
+  // กลุ่มเมนูที่ผู้ใช้กดหุบไว้ — แต่ละกลุ่มกาง/หุบอิสระจากกัน ค่าเริ่มต้นกางทุกกลุ่ม
+  // (เก็บเป็น "กลุ่มที่หุบ" คีย์ใหม่ sidebar-closed-sections — ค่าเก่า sidebar-open-sections ไม่ใช้แล้ว ทุกคนเริ่มที่กางหมด)
+  const [closedSections, setClosedSections] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (localStorage.getItem("sidebar-collapsed") === "1") {
@@ -84,12 +84,12 @@ export function DashboardShell({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCollapsed(true);
     }
-    const savedSections = localStorage.getItem("sidebar-open-sections");
+    const savedSections = localStorage.getItem("sidebar-closed-sections");
     if (savedSections) {
       try {
-        setOpenSections(new Set(JSON.parse(savedSections) as string[]));
+        setClosedSections(new Set(JSON.parse(savedSections) as string[]));
       } catch {
-        // ค่าที่เก็บไว้เสีย/format เก่า — ใช้ค่าเริ่มต้น (กาง "งานแผนงาน" อย่างเดียว) แทนไปเลย
+        // ค่าที่เก็บไว้เสีย — ใช้ค่าเริ่มต้น (กางทุกกลุ่ม)
       }
     }
   }, []);
@@ -109,11 +109,11 @@ export function DashboardShell({
   }
 
   function toggleSection(heading: string) {
-    setOpenSections((prev) => {
+    setClosedSections((prev) => {
       const next = new Set(prev);
       if (next.has(heading)) next.delete(heading);
       else next.add(heading);
-      localStorage.setItem("sidebar-open-sections", JSON.stringify([...next]));
+      localStorage.setItem("sidebar-closed-sections", JSON.stringify([...next]));
       return next;
     });
   }
@@ -201,7 +201,7 @@ export function DashboardShell({
 
         <nav className="flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-3 py-4">
           {navSections.map((section, sectionIndex) => {
-            const sectionCollapsed = !!section.heading && !openSections.has(section.heading);
+            const sectionCollapsed = !!section.heading && closedSections.has(section.heading);
             return (
             <div key={`${section.heading ?? "root"}-${sectionIndex}`}>
               {section.heading && (
