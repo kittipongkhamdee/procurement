@@ -3206,6 +3206,7 @@ export type Database = {
       }
       proc_loan_repayments: {
         Row: {
+          voucher_count: number | null
           id: string
           loan_id: string
           repay_date: string
@@ -3217,6 +3218,7 @@ export type Database = {
           created_at: string
         }
         Insert: {
+          voucher_count?: number | null
           id?: string
           loan_id: string
           repay_date: string
@@ -3228,6 +3230,7 @@ export type Database = {
           created_at?: string
         }
         Update: {
+          voucher_count?: number | null
           id?: string
           loan_id?: string
           repay_date?: string

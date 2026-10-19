@@ -117,6 +117,7 @@ export async function addRepayment(loanId: string, formData: FormData): Promise<
     repay_date: repayDate,
     cash_amount: cash,
     voucher_amount: voucher,
+    voucher_count: Number(str("voucher_count")) || null,
     receipt_no: str("receipt_no") || null,
     note: str("note") || null,
   });

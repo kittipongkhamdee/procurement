@@ -12,7 +12,7 @@ export const LOAN_TYPE_LABEL: Record<LoanType, string> = {
 export const LOAN_DUE_DAYS: Record<LoanType, number> = { other: 30, travel: 15 };
 
 export type LoanItem = { detail: string; amount: number };
-export type LoanRepayment = { id: string; repay_date: string; cash_amount: number; voucher_amount: number; receipt_no: string | null; note: string | null };
+export type LoanRepayment = { id: string; repay_date: string; cash_amount: number; voucher_amount: number; voucher_count: number | null; receipt_no: string | null; note: string | null };
 
 export function parseLoanType(v: unknown): LoanType {
   return v === "travel" ? "travel" : "other";

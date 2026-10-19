@@ -1,33 +1,40 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, thaiBahtText } from "@/lib/thai";
-import type { LoanItem, LoanRepayment } from "@/lib/loan";
+import type { LoanItem, LoanRepayment, LoanType } from "@/lib/loan";
 import { shortThaiDate } from "@/lib/procurement-register";
 import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
 
-// สัญญาการยืมเงิน (แบบที่กระทรวงการคลังกำหนด ตามระเบียบฯ การเบิกเงินจากคลัง พ.ศ. 2562 ข้อ 55) — A4 แนวตั้ง 2 หน้า
-//  หน้า 1 (ด้านหน้า): ยื่นต่อ/เลขที่/วันครบกำหนด · ข้าพเจ้า…ขอยืมเงินจาก…เพื่อเป็นค่าใช้จ่ายในการ… · ตารางรายละเอียด ·
-//         ข้อสัญญา · ลายมือชื่อผู้ยืม · เสนอ (ตรวจสอบแล้ว) · คำอนุมัติ · ใบรับเงิน
-//  หน้า 2 (ด้านหลัง): รายการส่งใช้ (ครั้งที่ วันที่ เงินสด/ใบสำคัญ จำนวนเงิน คงค้าง ลายมือชื่อผู้รับ ใบรับเลขที่) + หมายเหตุ
-// ข้อ 61 จัดทำสองฉบับ (ส่วนราชการเก็บ 1 ผู้ยืมเก็บ 1) — พิมพ์ 2 ชุดเอง — TH Sarabun New 16pt
+// สัญญาการยืมเงิน แบบ 8500 (แบบที่กระทรวงการคลังกำหนด ตามระเบียบฯ การเบิกเงินจากคลัง พ.ศ. 2562 ข้อ 55) — A4 แนวตั้ง 2 หน้า
+// จัดรูปแบบตามตัวอย่างที่ผู้ใช้ส่งมา (แบบ 8500 ของโรงเรียน/โรงพยาบาล): กรอบล้อมทั้งแผ่น แบ่งช่องด้วยเส้น
+//  ด้านหน้า: [สัญญาการยืมเงิน + ยื่นต่อ | เลขที่ / วันครบกำหนด] · ข้าพเจ้า…ตำแหน่ง…สังกัด…จังหวัด…ขอยืมเงินจาก…เพื่อเป็นค่าใช้จ่ายในการ…
+//           · [รายละเอียด | จำนวนเงิน] (ตัวอักษร)…รวมเงิน (บาท) · ข้อสัญญา ( ) 30 วัน / ( ) 15 วัน + ลายมือชื่อผู้ยืม
+//           · เสนอ (เจ้าหน้าที่การเงินตรวจสอบ) · คำอนุมัติ · ใบรับเงิน
+//  ด้านหลัง: รายการส่งใช้เงินยืม (ครั้งที่ วันเดือนปี [รายการส่งใช้: เงินสดหรือใบสำคัญ | จำนวนเงิน] คงค้าง ลายมือชื่อผู้รับ ใบรับเลขที่)
+//           · ใบรับใบสำคัญ (ตามตัวอย่างโรงเรียน) · หมายเหตุ (1)–(4) ของแบบ 8500
+// ข้อ 61 จัดทำสองฉบับ (ส่วนราชการเก็บ 1 ผู้ยืมเก็บ 1) — TH Sarabun New 16pt
 
 registerThSarabunFont();
 const FAMILY = "THSarabunNew";
 const FS = 16;
 const CM = 28.3465;
 const B = 0.8;
-const PAD_L = 2.5 * CM;
-const PAD_R = 2 * CM;
+const PAD_L = 2 * CM;
+const PAD_R = 1.5 * CM;
 const CONTENT_W = 595.28 - PAD_L - PAD_R;
+const INNER = 6;
+const BOX_W = CONTENT_W - 2 * INNER;
+const RIGHT_COL = 140;
 const DOTS = "....................................";
 
 const styles = StyleSheet.create({
-  page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.12, paddingTop: 1.2 * CM, paddingBottom: 1 * CM, paddingLeft: PAD_L, paddingRight: PAD_R },
-  title: { fontSize: 22, fontWeight: "bold", textAlign: "center", marginBottom: 6 },
+  page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.12, paddingTop: 1 * CM, paddingBottom: 0.8 * CM, paddingLeft: PAD_L, paddingRight: PAD_R },
+  frame: { borderWidth: B },
+  box: { borderBottomWidth: B, paddingHorizontal: INNER, paddingVertical: 3 },
   bold: { fontWeight: "bold" },
-  cell: { borderRightWidth: B, borderBottomWidth: B, paddingHorizontal: 4, paddingVertical: 1 },
+  center: { textAlign: "center" },
+  cell: { borderRightWidth: B, borderBottomWidth: B, paddingHorizontal: 3, paddingVertical: 1 },
   head: { fontWeight: "bold", textAlign: "center" },
-  section: { marginTop: 5, borderTopWidth: 0.5, paddingTop: 2 },
 });
 
 export type LoanContractData = {
@@ -44,8 +51,8 @@ export type LoanContractData = {
   purpose: string;
   items: LoanItem[];
   amount: number;
+  loan_type: LoanType;
   due_days: number;
-  due_basis: string;
   received_date: string | null;
   checker_name: string | null;
   checker_position: string | null;
@@ -56,12 +63,12 @@ export type LoanContractData = {
 
 const dateOr = (iso: string | null | undefined) => (iso ? formatThaiDate(iso) : "..............................");
 
-function Para({ text, indent = true, keep = [] }: { text: string; indent?: boolean; keep?: string[] }) {
-  const first = indent ? CONTENT_W - 2.5 * CM - 6 : CONTENT_W - 6;
+function Para({ text, width = BOX_W, indent = true, keep = [] }: { text: string; width?: number; indent?: boolean; keep?: string[] }) {
+  const first = indent ? width - 1.5 * CM - 4 : width - 4;
   return (
     <View>
-      {wrapByWidth(text, FS, first, CONTENT_W - 6, false, FAMILY, keep).map((l, i) => (
-        <Text key={i} style={i === 0 && indent ? { marginLeft: 2.5 * CM } : undefined}>
+      {wrapByWidth(text, FS, first, width - 4, false, FAMILY, keep).map((l, i) => (
+        <Text key={i} style={i === 0 && indent ? { marginLeft: 1.5 * CM } : undefined}>
           {t(l)}
         </Text>
       ))}
@@ -69,19 +76,16 @@ function Para({ text, indent = true, keep = [] }: { text: string; indent?: boole
   );
 }
 
-function Sign({ role, name, position, date }: { role: string; name: string | null; position?: string | null; date?: string | null }) {
+/** ลงชื่อ…บทบาท  วันที่…  /  (ชื่อ)  /  ตำแหน่ง — แบบ 8500 วางลายมือชื่อชิดซ้ายกลางกล่อง วันที่อยู่บรรทัดเดียวกัน */
+function SignRow({ role, name, position, date, label = "ลงชื่อ" }: { role: string; name: string | null; position?: string | null; date?: string | null; label?: string }) {
   return (
-    <View style={{ marginLeft: CONTENT_W / 2 - 90, width: CONTENT_W / 2 + 90, alignItems: "center", marginTop: 6 }} wrap={false}>
-      <Text>{t(`ลงชื่อ.................................................${role}`)}</Text>
-      <Text>{t(name ? `(${name})` : `(${DOTS})`)}</Text>
-      {position !== undefined && date !== undefined ? (
-        <Text>{t(`ตำแหน่ง ${position || DOTS}  วันที่ ${dateOr(date)}`)}</Text>
-      ) : (
-        <>
-          {position !== undefined && <Text>{t(`ตำแหน่ง ${position || DOTS}`)}</Text>}
-          {date !== undefined && <Text>{t(`วันที่ ${dateOr(date)}`)}</Text>}
-        </>
-      )}
+    <View style={{ marginTop: 6, marginLeft: 0.8 * CM }} wrap={false}>
+      <View style={{ flexDirection: "row" }}>
+        <Text style={{ width: 270 }}>{t(`${label}..............................................${role}`)}</Text>
+        {date !== undefined && <Text>{t(`วันที่ ${dateOr(date)}`)}</Text>}
+      </View>
+      <Text style={{ width: 270, textAlign: "center" }}>{t(name ? `(${name})` : `(${DOTS})`)}</Text>
+      {position !== undefined && <Text style={{ width: 270, textAlign: "center" }}>{t(`ตำแหน่ง ${position || DOTS}`)}</Text>}
     </View>
   );
 }
@@ -91,146 +95,203 @@ function FrontPage({ d }: { d: LoanContractData }) {
   const amountText = thaiBahtText(d.amount);
   const rows = d.items.length > 0 ? d.items : [{ detail: d.purpose, amount: d.amount }];
   const minRows = Math.max(0, 3 - rows.length);
-  const detailW = CONTENT_W - 110;
+  const detailW = CONTENT_W - RIGHT_COL;
+  const mark = (on: boolean) => (on ? "( / )" : "(   )");
   return (
     <Page size="A4" style={styles.page}>
-      <Text style={styles.title}>{t("สัญญาการยืมเงิน")}</Text>
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ width: CONTENT_W - 190 }}>{t(`ยื่นต่อ  ${d.submit_to}`)}</Text>
-        <View style={{ width: 190 }}>
-          <Text>{t(`สัญญาเลขที่  ${d.doc_no || "................"}`)}</Text>
-          <Text>{t(`วันครบกำหนด  ${dateOr(d.due_date)}`)}</Text>
+      <Text style={{ textAlign: "right", fontSize: 14 }}>{t("แบบ 8500")}</Text>
+      <View style={styles.frame}>
+        {/* หัว: ชื่อแบบ + ยื่นต่อ | เลขที่ + วันครบกำหนด */}
+        <View style={{ flexDirection: "row", borderBottomWidth: B }}>
+          <View style={{ width: CONTENT_W - RIGHT_COL, borderRightWidth: B, paddingHorizontal: INNER, paddingVertical: 3 }}>
+            <Text style={[styles.bold, styles.center, { fontSize: 20 }]}>{t("สัญญาการยืมเงิน")}</Text>
+            <Text style={{ marginTop: 6 }}>{t(`ยื่นต่อ  ${d.submit_to}`)}</Text>
+          </View>
+          <View style={{ width: RIGHT_COL, paddingHorizontal: INNER, paddingVertical: 3 }}>
+            <Text>{t(`เลขที่  ${d.doc_no || "................"}`)}</Text>
+            <Text style={styles.bold}>{t("วันครบกำหนด")}</Text>
+            <Text>{t(dateOr(d.due_date))}</Text>
+          </View>
         </View>
-      </View>
-      <View style={{ marginTop: 4 }}>
-        <Para
-          text={`ข้าพเจ้า ${d.borrower_name} ตำแหน่ง ${d.borrower_position || DOTS} สังกัด ${d.affiliation} จังหวัด${d.province} มีความประสงค์ขอยืมเงินจาก ${d.fund_source || DOTS} เพื่อเป็นค่าใช้จ่ายในการ${d.purpose.replace(/^เพื่อ(เป็นค่าใช้จ่ายในการ)?\s*/, "")} ดังรายละเอียดต่อไปนี้`}
-          keep={[d.borrower_name, d.school_name.replace(/^โรงเรียน/, "")]}
-        />
-      </View>
-      <View style={{ borderTopWidth: B, borderLeftWidth: B, marginTop: 4 }}>
-        <View style={{ flexDirection: "row" }}>
-          <Text style={[styles.cell, styles.head, { width: detailW }]}>{t("รายละเอียด")}</Text>
-          <Text style={[styles.cell, styles.head, { width: 110 }]}>{t("จำนวนเงิน (บาท)")}</Text>
+
+        {/* ผู้ยืม */}
+        <View style={styles.box}>
+          <Para
+            indent={false}
+            text={`ข้าพเจ้า ${d.borrower_name} ตำแหน่ง ${d.borrower_position || DOTS} ${d.school_name} สังกัด ${d.affiliation} จังหวัด${d.province} มีความประสงค์ขอยืมเงินจาก ${d.fund_source || DOTS} ${d.school_name} เพื่อเป็นค่าใช้จ่ายในการ${d.purpose.replace(/^เพื่อ(เป็นค่าใช้จ่ายในการ)?\s*/, "")} ดังรายละเอียดต่อไปนี้`}
+            keep={[d.borrower_name, d.school_name, d.affiliation]}
+          />
         </View>
+
+        {/* รายละเอียด | จำนวนเงิน */}
         {rows.map((it, i) => (
           <View key={i} style={{ flexDirection: "row" }} wrap={false}>
-            <View style={[styles.cell, { width: detailW }]}>
-              {wrapByWidth(`${rows.length > 1 ? `${i + 1}. ` : ""}${it.detail}`, FS, detailW - 10, detailW - 10, false, FAMILY).map((l, j) => (
+            <View style={{ width: detailW, borderRightWidth: B, paddingHorizontal: INNER, paddingTop: i === 0 ? 3 : 0 }}>
+              {wrapByWidth(`${rows.length > 1 ? `${i + 1}. ` : ""}${it.detail}`, FS, detailW - 2 * INNER - 4, detailW - 2 * INNER - 4, false, FAMILY).map((l, j) => (
                 <Text key={j}>{t(l)}</Text>
               ))}
             </View>
-            <Text style={[styles.cell, { width: 110, textAlign: "right" }]}>{t(formatBaht(it.amount))}</Text>
+            <Text style={{ width: RIGHT_COL, paddingHorizontal: INNER, paddingTop: i === 0 ? 3 : 0, textAlign: "right" }}>{t(formatBaht(it.amount))}</Text>
           </View>
         ))}
         {Array.from({ length: minRows }, (_, i) => (
           <View key={`e${i}`} style={{ flexDirection: "row" }}>
-            <Text style={[styles.cell, { width: detailW }]}>{t(" ")}</Text>
-            <Text style={[styles.cell, { width: 110 }]}>{t(" ")}</Text>
+            <Text style={{ width: detailW, borderRightWidth: B }}>{t(" ")}</Text>
+            <Text style={{ width: RIGHT_COL }}>{t(" ")}</Text>
           </View>
         ))}
-        <View style={{ flexDirection: "row" }}>
-          <Text style={[styles.cell, styles.bold, { width: detailW, textAlign: "center" }]}>{t(`รวมเงิน  ${amountText}`)}</Text>
-          <Text style={[styles.cell, styles.bold, { width: 110, textAlign: "right" }]}>{t(amount)}</Text>
+        <View style={{ flexDirection: "row", borderBottomWidth: B }}>
+          <View style={{ width: detailW, borderRightWidth: B, paddingHorizontal: INNER, paddingBottom: 2, flexDirection: "row", justifyContent: "space-between" }}>
+            <Text>{t(`(ตัวอักษร) ${amountText}`)}</Text>
+            <Text>{t("รวมเงิน (บาท)")}</Text>
+          </View>
+          <Text style={[styles.bold, { width: RIGHT_COL, paddingHorizontal: INNER, textAlign: "right" }]}>{t(amount)}</Text>
         </View>
-      </View>
-      <View style={{ marginTop: 6 }}>
-        <Para
-          text={`ข้าพเจ้าสัญญาว่าจะปฏิบัติตามระเบียบของทางราชการทุกประการ และจะนำใบสำคัญคู่จ่ายที่ถูกต้อง พร้อมทั้งเงินเหลือจ่าย (ถ้ามี) ส่งใช้ภายในกำหนดไว้ในระเบียบการเบิกจ่ายเงินจากคลัง คือภายใน ${d.due_days} วัน ${d.due_basis} ถ้าข้าพเจ้าไม่ส่งตามกำหนด ข้าพเจ้ายินยอมให้หักเงินเดือน ค่าจ้าง เบี้ยหวัด บำเหน็จ บำนาญ หรือเงินอื่นใดที่ข้าพเจ้าจะพึงได้รับจากทางราชการ ชดใช้จำนวนเงินที่ยืมไปจนครบถ้วนได้ทันที`}
-        />
-      </View>
-      <Sign role="ผู้ยืม" name={d.borrower_name} date={d.request_date} />
 
-      <View style={styles.section} wrap={false}>
-        <Text>{t(`เสนอ  ${d.submit_to}`)}</Text>
-        <Para text={`ได้ตรวจสอบแล้ว เห็นสมควรอนุมัติให้ยืมตามใบยืมฉบับนี้ได้ จำนวน ${amount} บาท ${amountText}`} />
-        <Sign role="" name={d.checker_name} position={d.checker_position} date={null} />
-      </View>
+        {/* ข้อสัญญา + ผู้ยืม */}
+        <View style={styles.box}>
+          <Para
+            text={`ข้าพเจ้าสัญญาว่าจะปฏิบัติตามระเบียบของทางราชการทุกประการ และจะนำใบสำคัญคู่จ่ายที่ถูกต้อง พร้อมทั้งเงินเหลือจ่าย (ถ้ามี) ส่งใช้ภายในกำหนดไว้ในระเบียบการเบิกจ่ายเงินจากคลัง คือ`}
+          />
+          <Text style={{ marginLeft: 1.5 * CM }}>
+            {t(`${mark(d.loan_type === "other")} ภายใน ${d.loan_type === "other" ? d.due_days : 30} วัน นับแต่วันที่ได้รับเงินยืมนี้`)}
+          </Text>
+          <Text style={{ marginLeft: 1.5 * CM }}>
+            {t(`${mark(d.loan_type === "travel")} ภายใน ${d.loan_type === "travel" ? d.due_days : 15} วัน นับแต่วันที่กลับมาปฏิบัติราชการ`)}
+          </Text>
+          <Para
+            indent={false}
+            text="ถ้าข้าพเจ้าไม่ส่งตามกำหนด ข้าพเจ้ายินยอมให้หักเงินเดือน ค่าจ้าง เบี้ยหวัด บำเหน็จ บำนาญ หรือเงินอื่นใดที่ข้าพเจ้าพึงได้รับจากทางราชการ ชดใช้จำนวนเงินที่ยืมไปจนครบถ้วนได้ทันที"
+          />
+          <SignRow label="ลายมือชื่อ" role="ผู้ยืม" name={d.borrower_name} date={d.request_date} />
+        </View>
 
-      <View style={styles.section} wrap={false}>
-        <Text style={styles.bold}>{t("คำอนุมัติ")}</Text>
-        <Para text={`อนุมัติให้ยืมตามเงื่อนไขข้างต้นได้ เป็นเงิน ${amount} บาท ${amountText}`} />
-        <Sign role="ผู้อนุมัติ" name={d.approver_name} position={d.approver_position} date={null} />
-      </View>
+        {/* เสนอ */}
+        <View style={styles.box} wrap={false}>
+          <Text>{t(`เสนอ  ${d.submit_to}`)}</Text>
+          <Para text={`ได้ตรวจสอบแล้ว เห็นสมควรอนุมัติให้ยืมตามใบยืมฉบับนี้ได้ จำนวน ${amount} บาท (${amountText.replace(/^\(|\)$/g, "")})`} />
+          <SignRow role="" name={d.checker_name} position={d.checker_position} date={null} />
+        </View>
 
-      <View style={styles.section} wrap={false}>
-        <Text style={styles.bold}>{t("ใบรับเงิน")}</Text>
-        <Para text={`ได้รับเงินยืม จำนวน ${amount} บาท ${amountText} ไปเป็นการถูกต้องแล้ว`} />
-        <Sign role="ผู้รับเงิน" name={d.borrower_name} date={d.received_date} />
+        {/* คำอนุมัติ */}
+        <View style={styles.box} wrap={false}>
+          <Text style={[styles.bold, styles.center]}>{t("คำอนุมัติ")}</Text>
+          <Para text={`อนุมัติให้ยืมตามเงื่อนไขข้างต้นได้ เป็นเงิน ${amount} บาท (${amountText.replace(/^\(|\)$/g, "")})`} />
+          <SignRow role="ผู้อนุมัติ" name={d.approver_name} position={d.approver_position} date={null} />
+        </View>
+
+        {/* ใบรับเงิน */}
+        <View style={[styles.box, { borderBottomWidth: 0 }]} wrap={false}>
+          <Text style={[styles.bold, styles.center]}>{t("ใบรับเงิน")}</Text>
+          <Para text={`ได้รับเงินยืม จำนวน ${amount} บาท (${amountText.replace(/^\(|\)$/g, "")}) ไปเป็นการถูกต้องแล้ว`} />
+          <SignRow role="ผู้รับเงิน" name={d.borrower_name} position={d.borrower_position} date={d.received_date} />
+        </View>
       </View>
     </Page>
   );
 }
 
-const BACK_COLS = [
-  { label: ["ครั้งที่"], width: 34 },
-  { label: ["วัน เดือน ปี"], width: 70 },
-  { label: ["เงินสด", "หรือใบสำคัญ"], width: 72 },
-  { label: ["จำนวนเงิน"], width: 66 },
-  { label: ["คงค้าง"], width: 66 },
-  { label: ["ลายมือชื่อ", "ผู้รับ"], width: 0 },
-  { label: ["ใบรับ", "เลขที่"], width: 62 },
-];
-BACK_COLS[5].width = CONTENT_W - BACK_COLS.reduce((s, c) => s + c.width, 0);
+const BACK_COLS = [34, 72, 96, 74, 74, 0, 80];
+BACK_COLS[5] = CONTENT_W - BACK_COLS.reduce((s, w) => s + w, 0);
 
 function BackPage({ d }: { d: LoanContractData }) {
   let left = d.amount;
-  const lines: string[][] = [];
-  d.repayments.forEach((r) => {
-    const parts: [string, number][] = [];
-    if (Number(r.voucher_amount) > 0) parts.push(["ใบสำคัญ", Number(r.voucher_amount)]);
-    if (Number(r.cash_amount) > 0) parts.push(["เงินสด", Number(r.cash_amount)]);
-    parts.forEach(([kind, value], j) => {
-      left = Math.round((left - value) * 100) / 100;
-      lines.push([j === 0 ? String(lines.length + 1) : "", j === 0 ? shortThaiDate(r.repay_date) : "", kind, formatBaht(value), formatBaht(Math.max(left, 0)), "", j === 0 ? r.receipt_no ?? "" : ""]);
-    });
+  const rows = d.repayments.map((r, i) => {
+    const voucher = Number(r.voucher_amount);
+    const cash = Number(r.cash_amount);
+    left = Math.round((left - voucher - cash) * 100) / 100;
+    const kinds = [voucher > 0 ? `ใบสำคัญ${r.voucher_count ? ` ${r.voucher_count} ฉบับ` : ""}` : "", cash > 0 ? "เงินสด" : ""].filter(Boolean);
+    const amounts = [voucher > 0 ? formatBaht(voucher) : "", cash > 0 ? formatBaht(cash) : ""].filter(Boolean);
+    return { no: String(i + 1), date: shortThaiDate(r.repay_date), kinds, amounts, left: formatBaht(Math.max(left, 0)), receipt: r.receipt_no ?? "" };
   });
-  const empty = Math.max(0, 12 - lines.length);
+  const empty = Math.max(0, 8 - rows.length);
+  // ใบรับใบสำคัญ — ใช้รายการส่งใช้ที่มีใบสำคัญครั้งล่าสุด (ยังไม่ส่งใช้ = เว้นว่างให้เขียน)
+  const lastVoucher = [...d.repayments].reverse().find((r) => Number(r.voucher_amount) > 0);
+  const vAmount = lastVoucher ? Number(lastVoucher.voucher_amount) : null;
+  const cellText = (v: string, w: number, align: "left" | "center" | "right" = "center") => (
+    <Text style={[styles.cell, { width: w, textAlign: align }]}>{t(v || " ")}</Text>
+  );
   return (
     <Page size="A4" style={styles.page}>
-      <Text style={[styles.title, { fontSize: 18 }]}>{t(`รายการส่งใช้เงินยืม  สัญญาเลขที่ ${d.doc_no || "................"}`)}</Text>
+      <Text style={[styles.bold, styles.center, { fontSize: 18, marginBottom: 4 }]}>{t("รายการส่งใช้เงินยืม")}</Text>
       <View style={{ borderTopWidth: B, borderLeftWidth: B, fontSize: 15 }}>
         <View style={{ flexDirection: "row" }}>
-          {BACK_COLS.map((c, i) => (
-            <View key={i} style={[styles.cell, { width: c.width, justifyContent: "center" }]}>
-              {c.label.map((l, j) => (
-                <Text key={j} style={styles.head}>
-                  {t(l)}
+          <Text style={[styles.cell, styles.head, { width: BACK_COLS[0], paddingTop: 10 }]}>{t("ครั้งที่")}</Text>
+          <Text style={[styles.cell, styles.head, { width: BACK_COLS[1], paddingTop: 10 }]}>{t("วัน เดือน ปี")}</Text>
+          <View style={{ width: BACK_COLS[2] + BACK_COLS[3] }}>
+            <Text style={[styles.cell, styles.head]}>{t("รายการส่งใช้")}</Text>
+            <View style={{ flexDirection: "row" }}>
+              <Text style={[styles.cell, styles.head, { width: BACK_COLS[2] }]}>{t("เงินสดหรือใบสำคัญ")}</Text>
+              <Text style={[styles.cell, styles.head, { width: BACK_COLS[3] }]}>{t("จำนวนเงิน")}</Text>
+            </View>
+          </View>
+          <Text style={[styles.cell, styles.head, { width: BACK_COLS[4], paddingTop: 10 }]}>{t("คงค้าง")}</Text>
+          <Text style={[styles.cell, styles.head, { width: BACK_COLS[5], paddingTop: 10 }]}>{t("ลายมือชื่อผู้รับ")}</Text>
+          <Text style={[styles.cell, styles.head, { width: BACK_COLS[6], paddingTop: 10 }]}>{t("ใบรับเลขที่")}</Text>
+        </View>
+        {rows.map((r, i) => (
+          <View key={i} style={{ flexDirection: "row" }} wrap={false}>
+            {cellText(r.no, BACK_COLS[0])}
+            {cellText(r.date, BACK_COLS[1])}
+            <View style={[styles.cell, { width: BACK_COLS[2] }]}>
+              {r.kinds.map((k, j) => (
+                <Text key={j}>{t(`${r.kinds.length > 1 ? `${j + 1}. ` : ""}${k}`)}</Text>
+              ))}
+            </View>
+            <View style={[styles.cell, { width: BACK_COLS[3] }]}>
+              {r.amounts.map((a, j) => (
+                <Text key={j} style={{ textAlign: "right" }}>
+                  {t(a)}
                 </Text>
               ))}
             </View>
-          ))}
-        </View>
-        {lines.map((row, i) => (
-          <View key={i} style={{ flexDirection: "row" }} wrap={false}>
-            {row.map((v, j) => (
-              <Text key={j} style={[styles.cell, { width: BACK_COLS[j].width, textAlign: j >= 3 && j <= 4 ? "right" : "center" }]}>
-                {t(v || " ")}
-              </Text>
-            ))}
+            {cellText(r.left, BACK_COLS[4], "right")}
+            {cellText("", BACK_COLS[5])}
+            {cellText(r.receipt, BACK_COLS[6])}
           </View>
         ))}
         {Array.from({ length: empty }, (_, i) => (
           <View key={`e${i}`} style={{ flexDirection: "row" }}>
-            {BACK_COLS.map((c, j) => (
-              <Text key={j} style={[styles.cell, { width: c.width }]}>
+            {BACK_COLS.map((w, j) => (
+              <Text key={j} style={[styles.cell, { width: w }]}>
                 {t(" ")}
               </Text>
             ))}
           </View>
         ))}
       </View>
-      <View style={{ marginTop: 10, fontSize: 14 }}>
+
+      {/* ใบรับใบสำคัญ */}
+      <View style={[styles.frame, { marginTop: 10, paddingHorizontal: INNER, paddingVertical: 4 }]} wrap={false}>
+        <Text style={[styles.bold, styles.center]}>{t("ใบรับใบสำคัญ")}</Text>
+        <View style={{ alignItems: "flex-end" }}>
+          <Text>{t(`เลขที่ ${lastVoucher?.receipt_no || "บค........./.........."}`)}</Text>
+          <Text>{t(d.school_name)}</Text>
+          <Text>{t(`วันที่ ${dateOr(lastVoucher?.repay_date)}`)}</Text>
+        </View>
+        <Para
+          width={BOX_W}
+          text={`ได้รับใบสำคัญจาก ${d.borrower_name} ตำแหน่ง ${d.borrower_position || DOTS} ${d.school_name} สังกัด ${d.affiliation} เพื่อส่งใช้เงินยืมตามสัญญาการยืมเงินเลขที่ ${d.doc_no || "......../........"} ลงวันที่ ${formatThaiDate(d.request_date)} รวม ${lastVoucher?.voucher_count ?? "........"} ฉบับ เป็นเงิน ${vAmount != null ? formatBaht(vAmount) : "................"} บาท ${vAmount != null ? thaiBahtText(vAmount) : "(..................................................)"} ไว้เป็นการถูกต้องแล้ว`}
+          keep={[d.borrower_name, d.school_name, d.affiliation]}
+        />
+        <View style={{ marginLeft: CONTENT_W / 2 - 40, alignItems: "center", marginTop: 6 }}>
+          <Text>{t("ลงชื่อ..............................................ผู้รับใบสำคัญ")}</Text>
+          <Text>{t(d.checker_name ? `(${d.checker_name})` : `(${DOTS})`)}</Text>
+          <Text>{t(`ตำแหน่ง ${d.checker_position || "เจ้าหน้าที่การเงิน"}`)}</Text>
+        </View>
+      </View>
+
+      <View style={{ marginTop: 8, fontSize: 14 }}>
         <Text style={styles.bold}>{t("หมายเหตุ")}</Text>
         {[
-          "(1) ยื่นต่อหัวหน้าส่วนราชการผู้ให้ยืม หรือผู้ที่ได้รับมอบหมาย",
-          "(2) ใส่ชื่อส่วนราชการที่ผู้ยืมสังกัด และจัดทำสัญญาการยืมเงินสองฉบับ ส่วนราชการผู้ให้ยืมเก็บไว้หนึ่งฉบับ ผู้ยืมเก็บไว้หนึ่งฉบับ (ข้อ 61)",
-          "(3) ส่งใช้ภายใน 15 วันนับแต่วันกลับมาถึง กรณีเดินทางไปราชการ หรือภายใน 30 วันนับแต่วันได้รับเงิน กรณีปฏิบัติราชการอื่น (ข้อ 65)",
-          "(4) เจ้าหน้าที่ผู้รับคืนบันทึกการรับคืนในสัญญานี้ และออกใบรับใบสำคัญให้ผู้ยืมไว้เป็นหลักฐาน (ข้อ 66)",
+          "(1) ยื่นต่อ ผู้อำนวยการกองคลัง หัวหน้ากองคลัง หัวหน้าแผนกคลัง หรือตำแหน่งอื่นใดที่ปฏิบัติงานเช่นเดียวกันแล้วแต่กรณี",
+          "(2) ให้ระบุชื่อส่วนราชการที่จ่ายเงินยืม",
+          "(3) ระบุวัตถุประสงค์ที่จะนำเงินยืมไปใช้จ่าย",
+          "(4) เสนอต่อผู้มีอำนาจอนุมัติ",
         ].map((x, i) => (
           <View key={i}>
-            {wrapByWidth(x, 14, CONTENT_W - 6, CONTENT_W - 18, false, FAMILY).map((l, j) => (
-              <Text key={j} style={j > 0 ? { marginLeft: 12 } : undefined}>
+            {wrapByWidth(x, 14, CONTENT_W - 6, CONTENT_W - 24, false, FAMILY).map((l, j) => (
+              <Text key={j} style={{ marginLeft: j > 0 ? 24 : 6 }}>
                 {t(l)}
               </Text>
             ))}

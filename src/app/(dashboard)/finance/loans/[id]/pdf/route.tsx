@@ -14,7 +14,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const names = [r.checker_name, r.approver_name, r.borrower_name].filter((n): n is string => !!n);
   const [{ data: settings }, { data: school }, { data: positions }] = await Promise.all([
     supabase.from("proc_app_settings").select("key, value").in("key", ["approval_signer_director", "approval_signer_finance"]),
-    supabase.from("proc_school_settings").select("school_name, school_address").eq("id", true).maybeSingle(),
+    supabase.from("proc_school_settings").select("school_name, school_address, education_area").eq("id", true).maybeSingle(),
     supabase.from("proc_teacher_positions").select("teacher_name, position").in("teacher_name", names),
   ]);
   const s = new Map((settings ?? []).map((x) => [x.key, x.value]));
@@ -22,7 +22,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const schoolName = school?.school_name ?? "โรงเรียนตาเบาวิทยา";
   const province = /จังหวัด\s*(\S+)/.exec(school?.school_address ?? "")?.[1] ?? "สุรินทร์";
   const approver = r.approver_name ?? s.get("approval_signer_director") ?? null;
-  const travel = parseLoanType(r.loan_type) === "travel";
   const repayments = [...(r.proc_loan_repayments ?? [])].sort((a, b) => a.repay_date.localeCompare(b.repay_date) || a.created_at.localeCompare(b.created_at));
   const buffer = await renderToBuffer(
     <LoanContractDocument
@@ -34,14 +33,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         submit_to: `ผู้อำนวยการ${schoolName}`,
         borrower_name: r.borrower_name,
         borrower_position: r.borrower_position ?? pos.get(r.borrower_name) ?? null,
-        affiliation: schoolName,
+        affiliation: school?.education_area ?? "สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาสุรินทร์",
         province,
         fund_source: r.fund_source,
         purpose: r.purpose,
         items: (r.items as unknown as LoanItem[]) ?? [],
         amount: Number(r.amount),
+        loan_type: parseLoanType(r.loan_type),
         due_days: r.due_days,
-        due_basis: travel ? "นับแต่วันกลับมาถึง" : "นับแต่วันได้รับเงินยืมนี้",
         received_date: r.received_date,
         checker_name: r.checker_name ?? s.get("approval_signer_finance") ?? null,
         checker_position: (r.checker_name && pos.get(r.checker_name)) || "เจ้าหน้าที่การเงิน",

@@ -337,10 +337,14 @@ function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; 
             <input name="voucher_amount" type="number" min="0" step="0.01" defaultValue={outstanding} className="input w-full text-right" />
           </div>
           <div>
+            <label className="label">จำนวนใบสำคัญ (ฉบับ)</label>
+            <input name="voucher_count" type="number" min="0" step="1" className="input w-full text-right" />
+          </div>
+          <div>
             <label className="label">เงินสดเหลือจ่ายคืน (บาท)</label>
             <input name="cash_amount" type="number" min="0" step="0.01" defaultValue="" className="input w-full text-right" />
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className="label">หมายเหตุ</label>
             <input name="note" className="input w-full" />
           </div>
