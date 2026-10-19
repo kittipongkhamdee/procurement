@@ -195,11 +195,11 @@ const BACK_COLS = [34, 72, 96, 74, 74, 0, 80];
 BACK_COLS[5] = CONTENT_W - BACK_COLS.reduce((s, w) => s + w, 0);
 
 function BackPage({ d }: { d: LoanContractData }) {
-  let left = d.amount;
+  const paidThrough = (i: number) => d.repayments.slice(0, i + 1).reduce((s, r) => s + Number(r.voucher_amount) + Number(r.cash_amount), 0);
   const rows = d.repayments.map((r, i) => {
     const voucher = Number(r.voucher_amount);
     const cash = Number(r.cash_amount);
-    left = Math.round((left - voucher - cash) * 100) / 100;
+    const left = Math.round((d.amount - paidThrough(i)) * 100) / 100;
     const kinds = [voucher > 0 ? `ใบสำคัญ${r.voucher_count ? ` ${r.voucher_count} ฉบับ` : ""}` : "", cash > 0 ? "เงินสด" : ""].filter(Boolean);
     const amounts = [voucher > 0 ? formatBaht(voucher) : "", cash > 0 ? formatBaht(cash) : ""].filter(Boolean);
     return { no: String(i + 1), date: shortThaiDate(r.repay_date), kinds, amounts, left: formatBaht(Math.max(left, 0)), receipt: r.receipt_no ?? "" };
