@@ -92,6 +92,8 @@ type Lookups = {
   teachers: string[];
   positions: Record<string, string>;
   approvals: ApprovalRef[];
+  /** สัญญาการยืมเงิน (เมนูการเงินและบัญชี) — เลือกเลขที่แล้วเติมวันที่สัญญาให้ */
+  loans: { doc_no: string; request_date: string; borrower_name: string; amount: number }[];
 };
 
 // ตำแหน่งผู้ตรวจรับ — ระบบจำตำแหน่งที่เลือกไว้กับชื่อครู (proc_teacher_positions) แล้วเติมให้ครั้งต่อไป
@@ -140,6 +142,7 @@ function ProcurementModal({
   const terms = TERMS[type];
   const [saving, setSaving] = useState(false);
   const [funding, setFunding] = useState(request?.funding ?? "advance");
+  const [loanDate, setLoanDate] = useState<string | null>(request?.loan_date ?? null);
   const [projectId, setProjectId] = useState(request?.project_id ?? "");
   const [activityId, setActivityId] = useState(request?.activity_id ?? "");
   const [adminGroup, setAdminGroup] = useState(request?.admin_group ?? "");
@@ -525,11 +528,28 @@ function ProcurementModal({
             <fieldset disabled={funding !== "loan"} className="contents [&:disabled_.input]:cursor-not-allowed [&:disabled_.input]:opacity-50 [&:disabled_label]:opacity-50">
             <div>
               <label className="label">สัญญายืมเงิน เลขที่ (ถ้ายืม)</label>
-              <input name="loan_contract_no" defaultValue={request?.loan_contract_no ?? ""} className="input w-full" />
+              <input
+                name="loan_contract_no"
+                list="proc-loan-contracts"
+                defaultValue={request?.loan_contract_no ?? ""}
+                onChange={(e) => {
+                  const loan = lookups.loans.find((l) => l.doc_no === e.target.value.trim());
+                  if (loan) setLoanDate(loan.request_date);
+                }}
+                placeholder="เลือกจากเมนูสัญญายืมเงิน หรือพิมพ์เอง"
+                className="input w-full"
+              />
+              <datalist id="proc-loan-contracts">
+                {lookups.loans.map((l) => (
+                  <option key={l.doc_no} value={l.doc_no}>
+                    {`${l.borrower_name} · ${l.amount.toLocaleString("th-TH")} บาท`}
+                  </option>
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="label">ลงวันที่ (สัญญายืม)</label>
-              <ThaiDatePicker name="loan_date" defaultValue={request?.loan_date ?? null} />
+              <ThaiDatePicker name="loan_date" value={loanDate} onChange={setLoanDate} />
             </div>
             </fieldset>
           </fieldset>
@@ -825,7 +845,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
   const [requests, setRequests] = useState<Request[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], vendors: [], teachers: [], positions: {}, approvals: [] });
+  const [lookups, setLookups] = useState<Lookups>({ projects: [], activities: [], groups: [], vendors: [], teachers: [], positions: {}, approvals: [], loans: [] });
   const [itemSuggestions, setItemSuggestions] = useState<ItemSuggestions | null>(null);
   // รายการจัดซื้อที่ออกใบเบิกวัสดุแล้ว (บัญชีวัสดุ)
   const [issuedIds, setIssuedIds] = useState<Set<string>>(new Set());
@@ -874,6 +894,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
       { data: positions },
       { data: approvals },
       usage,
+      { data: loans },
     ] = await Promise.all([
       listQuery.order("record_date", { ascending: false }).order("created_at", { ascending: false }),
       // ว 804 เป็นงานซื้อ — นับเลขที่ต่อเนื่องร่วมกับงานซื้อปกติ (งานจ้างนับแยก)
@@ -888,6 +909,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
       supabase.from("proc_teacher_positions").select("teacher_name, position"),
       approvalQuery.order("doc_date", { ascending: false }),
       approvalUsage(supabase),
+      supabase.from("proc_loan_contracts").select("doc_no, request_date, borrower_name, amount").not("doc_no", "is", null).order("request_date", { ascending: false }),
     ]);
     const usedBy = usage;
     setError(error?.message ?? null);
@@ -903,6 +925,7 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
       teachers: (teachers ?? []).map((t) => t.name),
       positions: Object.fromEntries((positions ?? []).map((p) => [p.teacher_name, p.position])),
       approvals: (approvals ?? []).map((a) => ({ ...a, requested_amount: Number(a.requested_amount), used: usedBy.get(a.id) ?? 0 })),
+      loans: (loans ?? []).map((l) => ({ doc_no: l.doc_no!, request_date: l.request_date, borrower_name: l.borrower_name, amount: Number(l.amount) })),
     });
   }, [type, method]);
 

@@ -20,6 +20,7 @@ import {
   TruckIcon,
   UploadIcon,
   UsersIcon,
+  WalletIcon,
 } from "@/components/icons";
 
 const ICON_CLASS = "h-[18px] w-[18px]";
@@ -64,6 +65,10 @@ const NAV_SECTIONS = [
       { href: "/supplies/requisitions", label: "ใบเบิกพัสดุ", icon: <UploadIcon className={ICON_CLASS} /> },
       { href: "/supplies/loans", label: "ยืม-คืนพัสดุ", icon: <TruckIcon className={ICON_CLASS} /> },
     ],
+  },
+  {
+    heading: "การเงินและบัญชี",
+    items: [{ href: "/finance/loans", label: "สัญญายืมเงิน", icon: <WalletIcon className={ICON_CLASS} /> }],
   },
   {
     heading: "ทรัพย์สิน",

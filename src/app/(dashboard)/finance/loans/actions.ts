@@ -1,0 +1,135 @@
+"use server";
+
+// สัญญาการยืมเงิน (/finance/loans) — บันทึกสัญญา/การส่งใช้ ตามระเบียบกระทรวงการคลังฯ พ.ศ. 2562 หมวด 5 (ดู src/lib/loan.ts)
+// คืน { error } แทนการ throw — production ของ Next ซ่อนข้อความ error ที่ throw จาก server action
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { LOAN_DUE_DAYS, loanBalance, loanDueDate, parseLoanType, type LoanItem } from "@/lib/loan";
+
+type Result = { error?: string; id?: string; docNo?: string | null };
+const PATH = "/finance/loans";
+
+function rlsMessage(msg: string) {
+  return msg.includes("row-level") ? "เฉพาะผู้ดูแลระบบ เจ้าหน้าที่พัสดุ หรือเจ้าหน้าที่การเงินเท่านั้น" : msg;
+}
+
+export async function saveLoan(id: string | null, formData: FormData): Promise<Result> {
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  const requestDate = str("request_date");
+  const borrower = str("borrower_name");
+  const purpose = str("purpose");
+  if (!requestDate) return { error: "กรุณาระบุวันที่ยื่นสัญญา" };
+  if (!borrower) return { error: "กรุณาระบุชื่อผู้ยืม" };
+  if (!purpose) return { error: "กรุณาระบุว่ายืมเพื่อเป็นค่าใช้จ่ายในการใด" };
+  let items: LoanItem[] = [];
+  try {
+    items = (JSON.parse(str("items_json") || "[]") as { detail: string; amount: string }[])
+      .map((i) => ({ detail: String(i.detail ?? "").trim(), amount: Math.round((Number(i.amount) || 0) * 100) / 100 }))
+      .filter((i) => i.detail || i.amount);
+  } catch {
+    return { error: "รายการไม่ถูกต้อง" };
+  }
+  if (items.some((i) => !i.detail)) return { error: "กรุณากรอกรายละเอียดของทุกรายการ" };
+  const amount = Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+  if (!(amount > 0)) return { error: "จำนวนเงินยืมต้องมากกว่า 0" };
+
+  const loanType = parseLoanType(str("loan_type"));
+  const dueDays = Number(str("due_days")) || LOAN_DUE_DAYS[loanType];
+  const receivedDate = str("received_date") || null;
+  const travelReturnDate = loanType === "travel" ? str("travel_return_date") || null : null;
+  if (receivedDate && receivedDate < requestDate) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
+  const fields = {
+    request_date: requestDate,
+    borrower_name: borrower,
+    borrower_position: str("borrower_position") || null,
+    fund_source: str("fund_source") || null,
+    purpose,
+    loan_type: loanType,
+    travel_return_date: travelReturnDate,
+    items,
+    amount,
+    due_days: dueDays,
+    received_date: receivedDate,
+    due_date: loanDueDate(loanType, dueDays, receivedDate, travelReturnDate),
+    checker_name: str("checker_name") || null,
+    approver_name: str("approver_name") || null,
+    note: str("note") || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const supabase = await createClient();
+  const admin = await isAdminUser(supabase);
+  const docNoInput = str("doc_no");
+  if (admin && docNoInput && (await docNumberTaken(supabase, "loan", docNoInput, id ?? undefined))) return { error: `เลขที่ ${docNoInput} ถูกใช้แล้ว` };
+
+  if (id) {
+    const { error } = await supabase
+      .from("proc_loan_contracts")
+      .update({ ...fields, ...(admin && docNoInput ? { doc_no: docNoInput } : {}) })
+      .eq("id", id);
+    if (error) return { error: rlsMessage(error.message) };
+    revalidatePath(PATH);
+    return { id };
+  }
+
+  // ข้อ 59 ห้ามอนุมัติให้ยืมเงินรายใหม่ เมื่อผู้ยืมยังไม่ชำระคืนเงินยืมรายเก่าให้เสร็จสิ้น
+  const { data: old } = await supabase.from("proc_loan_contracts").select("doc_no, amount, proc_loan_repayments(cash_amount, voucher_amount)").eq("borrower_name", borrower);
+  const pending = (old ?? []).filter((o) => !loanBalance(Number(o.amount), o.proc_loan_repayments ?? []).cleared);
+  if (pending.length > 0)
+    return {
+      error: `${borrower} ยังส่งใช้เงินยืมรายเก่าไม่ครบ (สัญญาเลขที่ ${pending.map((p) => p.doc_no ?? "-").join(", ")}) — ระเบียบฯ ข้อ 59 ห้ามอนุมัติให้ยืมรายใหม่จนกว่าจะชำระรายเก่าเสร็จสิ้น`,
+    };
+
+  const docNo = admin && docNoInput ? docNoInput : await assignDocNumber(supabase, "loan", requestDate);
+  const { data, error } = await supabase.from("proc_loan_contracts").insert({ ...fields, doc_no: docNo }).select("id").single();
+  if (error) return { error: rlsMessage(error.message) };
+  revalidatePath(PATH);
+  return { id: data.id, docNo };
+}
+
+export async function deleteLoan(id: string): Promise<Result> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("proc_loan_contracts").delete().eq("id", id).select("id");
+  if (error) return { error: rlsMessage(error.message) };
+  if (!data?.length) return { error: "ลบไม่สำเร็จ (ไม่มีสิทธิ์ หรือไม่พบสัญญา)" };
+  revalidatePath(PATH);
+  return {};
+}
+
+/** บันทึกการส่งใช้ (ข้อ 66 — เจ้าหน้าที่ผู้รับคืนบันทึกการรับคืนในสัญญาการยืมเงิน) */
+export async function addRepayment(loanId: string, formData: FormData): Promise<Result> {
+  const str = (k: string) => String(formData.get(k) ?? "").trim();
+  const repayDate = str("repay_date");
+  const cash = Math.round((Number(str("cash_amount")) || 0) * 100) / 100;
+  const voucher = Math.round((Number(str("voucher_amount")) || 0) * 100) / 100;
+  if (!repayDate) return { error: "กรุณาระบุวันที่ส่งใช้" };
+  if (cash < 0 || voucher < 0 || cash + voucher <= 0) return { error: "กรุณาระบุจำนวนเงินสดหรือใบสำคัญที่ส่งใช้" };
+  const supabase = await createClient();
+  const { data: loan } = await supabase.from("proc_loan_contracts").select("amount, request_date, proc_loan_repayments(cash_amount, voucher_amount)").eq("id", loanId).maybeSingle();
+  if (!loan) return { error: "ไม่พบสัญญา" };
+  if (repayDate < loan.request_date) return { error: "วันที่ส่งใช้ต้องไม่ก่อนวันที่ยื่นสัญญา" };
+  const { outstanding } = loanBalance(Number(loan.amount), loan.proc_loan_repayments ?? []);
+  if (cash + voucher > outstanding + 0.001) return { error: `ส่งใช้เกินยอดคงค้าง (คงค้าง ${outstanding.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท)` };
+  const { error } = await supabase.from("proc_loan_repayments").insert({
+    loan_id: loanId,
+    repay_date: repayDate,
+    cash_amount: cash,
+    voucher_amount: voucher,
+    receipt_no: str("receipt_no") || null,
+    note: str("note") || null,
+  });
+  if (error) return { error: rlsMessage(error.message) };
+  revalidatePath(PATH);
+  return {};
+}
+
+export async function deleteRepayment(id: string): Promise<Result> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("proc_loan_repayments").delete().eq("id", id).select("id");
+  if (error) return { error: rlsMessage(error.message) };
+  if (!data?.length) return { error: "ลบไม่สำเร็จ" };
+  revalidatePath(PATH);
+  return {};
+}

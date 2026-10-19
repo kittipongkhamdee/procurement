@@ -3135,6 +3135,119 @@ export type Database = {
           },
         ]
       }
+      proc_loan_contracts: {
+        Row: {
+          id: string
+          doc_no: string | null
+          request_date: string
+          borrower_name: string
+          borrower_position: string | null
+          fund_source: string | null
+          purpose: string
+          loan_type: string
+          travel_return_date: string | null
+          items: Json
+          amount: number
+          due_days: number
+          received_date: string | null
+          due_date: string | null
+          checker_name: string | null
+          approver_name: string | null
+          note: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          doc_no?: string | null
+          request_date: string
+          borrower_name: string
+          borrower_position?: string | null
+          fund_source?: string | null
+          purpose: string
+          loan_type?: string
+          travel_return_date?: string | null
+          items?: Json
+          amount?: number
+          due_days?: number
+          received_date?: string | null
+          due_date?: string | null
+          checker_name?: string | null
+          approver_name?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          doc_no?: string | null
+          request_date?: string
+          borrower_name?: string
+          borrower_position?: string | null
+          fund_source?: string | null
+          purpose?: string
+          loan_type?: string
+          travel_return_date?: string | null
+          items?: Json
+          amount?: number
+          due_days?: number
+          received_date?: string | null
+          due_date?: string | null
+          checker_name?: string | null
+          approver_name?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      proc_loan_repayments: {
+        Row: {
+          id: string
+          loan_id: string
+          repay_date: string
+          cash_amount: number
+          voucher_amount: number
+          receipt_no: string | null
+          note: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          loan_id: string
+          repay_date: string
+          cash_amount?: number
+          voucher_amount?: number
+          receipt_no?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          loan_id?: string
+          repay_date?: string
+          cash_amount?: number
+          voucher_amount?: number
+          receipt_no?: string | null
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_loan_repayments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "proc_loan_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_stock_requisitions: {
         Row: {
           id: string
