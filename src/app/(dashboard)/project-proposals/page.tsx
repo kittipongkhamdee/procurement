@@ -287,7 +287,7 @@ export default function ProjectProposalsPage() {
         )}
       </div>
 
-      {(canEndorse || canApprove) && (
+      {/* การ์ดสรุปของทั้งโรงเรียน — ทุกคนเห็น (ครูด้วย) */}
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="stat-card" style={{ "--accent": "#b45309" } as React.CSSProperties}>
             <div className="flex items-start gap-3">
@@ -329,7 +329,6 @@ export default function ProjectProposalsPage() {
             </div>
           </div>
         </div>
-      )}
 
       {drafts.length > 0 && (
         <div className="group relative mb-4">

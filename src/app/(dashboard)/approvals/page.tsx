@@ -673,7 +673,8 @@ export default function ApprovalsPage() {
         </a>
       </div>
 
-      {approvals !== null && (canApproveDeputy || canApproveDirector || canAckPlanning) && (
+      {/* การ์ดสรุปของทั้งโรงเรียน — ทุกคนเห็น (ครูด้วย) */}
+      {approvals !== null && (
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="stat-card" style={{ "--accent": "#b45309" } as React.CSSProperties}>
             <div className="flex items-start gap-3">
