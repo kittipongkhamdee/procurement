@@ -321,6 +321,20 @@ export function DashboardShell({
           <div className="ml-auto flex shrink-0 items-center gap-3">
             <span className="hidden text-xs text-slate-400 lg:inline">{dateLabel}</span>
 
+            {/* แอดมินตัวจริง: เลือกบทบาทที่จะใช้งาน/ทดสอบได้จากแถบบนตลอด (มือถืออยู่ในเมนูโปรไฟล์ + แถบสถานะ) */}
+            {canSwitchRole && (
+              <label className="hidden items-center gap-1.5 text-xs text-slate-500 md:flex">
+                บทบาท
+                <select value={role} disabled={switching} onChange={(e) => switchRole(e.target.value)} className="input w-auto py-1 text-sm">
+                  {SWITCHABLE_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {roleLabelOf(r)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             {!DISABLED_HREFS.has("/project-disbursements") && (
               <Link
                 href="/project-disbursements"
@@ -409,18 +423,34 @@ export function DashboardShell({
             </div>
           </div>
         </header>
+        {/* แถบสถานะบทบาท — ติดใต้แถบบนตลอดเวลาเลื่อนหน้า ตราบใดที่แอดมินสลับไปใช้บทบาทอื่นอยู่ (ระบบยังจำ real_role = admin ไว้) */}
+        {isActingRole && (
+          <div className="sticky top-14 z-20 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-amber-300 bg-amber-100 px-4 py-1.5 text-sm text-amber-950 shadow-sm print:hidden lg:px-6">
+            <span className="flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-600" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              กำลังใช้งานในบทบาท <b>{roleLabel}</b>
+              <span className="hidden sm:inline"> — เมนูและสิทธิ์เป็นของบทบาทนี้ (บัญชีจริงของคุณคือผู้ดูแลระบบ)</span>
+            </span>
+            <select
+              value={role}
+              disabled={switching}
+              onChange={(e) => switchRole(e.target.value)}
+              aria-label="เปลี่ยนบทบาท"
+              className="input w-auto border-amber-300 bg-white py-0.5 text-sm"
+            >
+              {SWITCHABLE_ROLES.filter((r) => r !== "admin").map((r) => (
+                <option key={r} value={r}>
+                  {roleLabelOf(r)}
+                </option>
+              ))}
+            </select>
+            <button type="button" disabled={switching} onClick={() => switchRole("admin")} className="btn-primary btn-sm">
+              {switching ? "กำลังเปลี่ยน..." : "กลับเป็นผู้ดูแลระบบ"}
+            </button>
+          </div>
+        )}
 
         <main className="min-w-0 flex-1 bg-slate-100 p-4 pb-24 print:bg-white print:p-0 lg:p-6 lg:pb-6">
-          {isActingRole && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 print:hidden">
-              <span>
-                กำลังทำงานในบทบาท <b>{roleLabel}</b> — สิทธิ์และเมนูเป็นของบทบาทนี้
-              </span>
-              <button type="button" disabled={switching} onClick={() => switchRole("admin")} className="btn-secondary btn-sm">
-                กลับเป็นผู้ดูแลระบบ
-              </button>
-            </div>
-          )}
           {children}
         </main>
       </div>
