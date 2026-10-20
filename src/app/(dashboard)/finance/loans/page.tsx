@@ -642,7 +642,7 @@ export default function LoansPage() {
   const [rows, setRows] = useState<Loan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | "open" | "overdue" | "cleared">("open");
+  const [filter, setFilter] = useState<"all" | "open" | "overdue" | "cleared">("all");
   const [mineOnly, setMineOnly] = useState(false);
   const [lookups, setLookups] = useState<Lookups>({ teachers: [], positions: {}, projects: [], activities: [] });
 
