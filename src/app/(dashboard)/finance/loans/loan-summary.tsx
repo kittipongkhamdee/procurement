@@ -78,11 +78,11 @@ export function LoanSummary({ loan }: { loan: Loan }) {
   ];
   return (
     <div className="space-y-3 text-sm">
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[11rem_1fr]">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[11rem_minmax(0,1fr)]">
         {rows.map(([k, v]) => (
           <div key={k} className="contents">
             <dt className="text-slate-500">{k}</dt>
-            <dd className="mb-1 text-slate-900 sm:mb-0">{v}</dd>
+            <dd className="mb-1 min-w-0 break-words text-slate-900 sm:mb-0">{v}</dd>
           </div>
         ))}
       </dl>

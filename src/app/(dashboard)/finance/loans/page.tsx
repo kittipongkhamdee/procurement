@@ -500,6 +500,7 @@ function DetailModal({ loan }: { loan: Loan }) {
   return (
     <Modal
       title={`รายละเอียดสัญญา ${loan.doc_no ?? "(ยังไม่ออกเลขที่)"}`}
+      wide
       lazy
       trigger={
         <span title="รายละเอียด" className="btn-secondary btn-sm">
