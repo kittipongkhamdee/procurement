@@ -12,8 +12,8 @@ import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { CoinsIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
-import { addRepayment, deleteLoan, deleteRepayment, saveLoan } from "./actions";
+import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
+import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber } from "./actions";
 import { LoanDashboard } from "./loan-dashboard";
 
 type Loan = {
@@ -35,6 +35,7 @@ type Loan = {
   due_days: number;
   received_date: string | null;
   due_date: string | null;
+  checked_date: string | null;
   checker_name: string | null;
   approver_name: string | null;
   note: string | null;
@@ -449,6 +450,195 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
   );
 }
 
+/** ข้อมูลสัญญาแบบอ่านอย่างเดียว — ใช้ทั้งหน้าต่าง "รายละเอียด" และหัวหน้าต่างออกเลขที่/บันทึกจ่ายเงิน */
+function LoanSummary({ loan }: { loan: Loan }) {
+  const rows: [string, React.ReactNode][] = [
+    ["เลขที่สัญญา", loan.doc_no ?? <span className="text-amber-700">ยังไม่ออกเลขที่</span>],
+    ["วันที่ยื่น", formatThaiDate(loan.request_date)],
+    ["ผู้ยืม", `${loan.borrower_name}${loan.borrower_position ? ` (${loan.borrower_position})` : ""}`],
+    ["ขอยืมเงินจาก", loan.fund_source ?? "-"],
+    ["เพื่อเป็นค่าใช้จ่ายในการ", loanPurpose(loan) || "-"],
+    ["ลักษณะการยืม", `${LOAN_TYPE_LABEL[parseLoanType(loan.loan_type)]} — ${LOAN_DUE_RULE[parseLoanType(loan.loan_type)]}`],
+    ["วันที่การเงินตรวจสอบ", loan.checked_date ? formatThaiDate(loan.checked_date) : "-"],
+    ["วันที่ได้รับเงิน", loan.received_date ? formatThaiDate(loan.received_date) : "-"],
+    ["วันครบกำหนดส่งใช้", loan.due_date ? formatThaiDate(loan.due_date) : "-"],
+  ];
+  return (
+    <div className="space-y-3 text-sm">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[11rem_1fr]">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-slate-500">{k}</dt>
+            <dd className="mb-1 text-slate-900 sm:mb-0">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <table className="table-base w-full">
+        <thead>
+          <tr>
+            <th>รายละเอียด</th>
+            <th className="text-right">จำนวนเงิน (บาท)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loan.items.map((it, i) => (
+            <tr key={i}>
+              <td>{it.detail}</td>
+              <td className="text-right tabular-nums">{baht(Number(it.amount))}</td>
+            </tr>
+          ))}
+          <tr>
+            <td className="font-semibold">รวม</td>
+            <td className="text-right font-semibold tabular-nums">{baht(loan.amount)}</td>
+          </tr>
+        </tbody>
+      </table>
+      {loan.note && <p className="text-slate-600">หมายเหตุ: {loan.note}</p>}
+    </div>
+  );
+}
+
+function DetailModal({ loan }: { loan: Loan }) {
+  return (
+    <Modal
+      title={`รายละเอียดสัญญา ${loan.doc_no ?? "(ยังไม่ออกเลขที่)"}`}
+      lazy
+      trigger={
+        <span title="รายละเอียด" className="btn-secondary btn-sm">
+          <FileTextIcon className="h-3.5 w-3.5" />
+          <span className="btn-label">รายละเอียด</span>
+        </span>
+      }
+    >
+      <LoanSummary loan={loan} />
+    </Modal>
+  );
+}
+
+/** การเงินรับเรื่องสัญญาที่ครูยื่น: ออกเลขที่ (ระบบเสนอเลขถัดไป แก้ได้) + วันที่ตรวจสอบ — ไม่ต้องเปิดแก้ไข/กดพิมพ์ */
+function IssueNumberModal({ loan, onSaved }: { loan: Loan; onSaved: () => void }) {
+  const ref = useRef<ModalHandle>(null);
+  const [docNo, setDocNo] = useState("");
+  const [saving, setSaving] = useState(false);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setSaving(true);
+    try {
+      const res = await issueLoanNumber(loan.id, docNo, String(fd.get("checked_date") ?? ""));
+      if (res.error) return void (await toastError(res.error));
+      await toastSuccess(`ออกเลขที่ ${res.docNo} แล้ว — เขียนเลขที่และวันที่ลงสัญญาตัวจริง`);
+      ref.current?.close();
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Modal
+      ref={ref}
+      title={`ออกเลขที่สัญญา — ${loan.borrower_name}`}
+      wide
+      lazy
+      onOpenChange={(open) => {
+        if (open && !docNo) suggestLoanNumber(loan.request_date).then((r) => setDocNo(r.docNo ?? ""));
+      }}
+      trigger={
+        <span title="ออกเลขที่สัญญา" className="btn-primary btn-sm">
+          <TagIcon className="h-3.5 w-3.5" />
+          <span className="btn-label">ออกเลขที่</span>
+        </span>
+      }
+    >
+      <LoanSummary loan={loan} />
+      <form onSubmit={submit} className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+        <div>
+          <label className="label">
+            เลขที่สัญญา <span className="text-red-600">*</span>
+          </label>
+          <input value={docNo} onChange={(e) => setDocNo(e.target.value)} required placeholder="กำลังหาเลขถัดไป..." className="input w-full" />
+          <p className="mt-1 text-xs text-slate-500">ระบบเสนอเลขถัดไปให้ แก้ได้ (ห้ามซ้ำ)</p>
+        </div>
+        <div>
+          <label className="label">
+            วันที่การเงินตรวจสอบ <span className="text-red-600">*</span>
+          </label>
+          <ThaiDatePicker name="checked_date" defaultValue={todayLocal()} required />
+        </div>
+        <div className="flex justify-end gap-2 sm:col-span-2">
+          <button type="button" onClick={() => ref.current?.close()} className="btn-secondary">
+            ยกเลิก
+          </button>
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving ? "กำลังบันทึก..." : "ออกเลขที่"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** การเงินจ่ายเงินยืมแล้ว: บันทึกวันที่ได้รับเงิน (+ วันกลับ กรณีไปราชการ) → ระบบคำนวณวันครบกำหนด */
+function RecordPaymentModal({ loan, onSaved }: { loan: Loan; onSaved: () => void }) {
+  const ref = useRef<ModalHandle>(null);
+  const [saving, setSaving] = useState(false);
+  const travel = parseLoanType(loan.loan_type) === "travel";
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    setSaving(true);
+    try {
+      const res = await recordLoanPayment(loan.id, String(fd.get("received_date") ?? ""), travel ? String(fd.get("travel_return_date") ?? "") || null : null);
+      if (res.error) return void (await toastError(res.error));
+      await toastSuccess("บันทึกจ่ายเงินแล้ว — ระบบคำนวณวันครบกำหนดส่งใช้ให้");
+      ref.current?.close();
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Modal
+      ref={ref}
+      title={`บันทึกจ่ายเงินยืม — สัญญาเลขที่ ${loan.doc_no}`}
+      wide
+      lazy
+      trigger={
+        <span title="บันทึกจ่ายเงิน" className="btn-primary btn-sm">
+          <CheckIcon className="h-3.5 w-3.5" />
+          <span className="btn-label">บันทึกจ่ายเงิน</span>
+        </span>
+      }
+    >
+      <LoanSummary loan={loan} />
+      <form onSubmit={submit} className="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
+        <div>
+          <label className="label">
+            วันที่ผู้ยืมได้รับเงิน <span className="text-red-600">*</span>
+          </label>
+          <ThaiDatePicker name="received_date" defaultValue={todayLocal()} required />
+        </div>
+        {travel && (
+          <div>
+            <label className="label">วันที่กลับมาถึง (ถ้าทราบแล้ว)</label>
+            <ThaiDatePicker name="travel_return_date" defaultValue={loan.travel_return_date} />
+            <p className="mt-1 text-xs text-slate-500">ไปราชการ: ครบกำหนด 15 วันนับแต่วันกลับ — ยังไม่ทราบให้กรอกภายหลังที่ปุ่มแก้ไข</p>
+          </div>
+        )}
+        <p className="text-sm text-slate-600 sm:col-span-2">{LOAN_DUE_RULE[parseLoanType(loan.loan_type)]}</p>
+        <div className="flex justify-end gap-2 sm:col-span-2">
+          <button type="button" onClick={() => ref.current?.close()} className="btn-secondary">
+            ยกเลิก
+          </button>
+          <button type="submit" disabled={saving} className="btn-primary">
+            {saving ? "กำลังบันทึก..." : "บันทึกจ่ายเงิน"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activities">) {
   return [r.purpose, r.plan_projects && `โครงการ${r.plan_projects.name.replace(/^โครงการ\s*/, "")}`, r.plan_activities?.name && `กิจกรรม${r.plan_activities.name.replace(/^กิจกรรม\s*/, "")}`].filter(Boolean).join(" ");
 }
@@ -531,13 +721,16 @@ export default function LoansPage() {
   function actions(r: Loan) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
+        {/* ขั้นตอนการเงิน: ออกเลขที่ → บันทึกจ่ายเงิน → ส่งใช้ */}
+        {isProcStaff && !r.doc_no && <IssueNumberModal loan={r} onSaved={reload} />}
+        {isProcStaff && r.doc_no && !r.received_date && <RecordPaymentModal loan={r} onSaved={reload} />}
+        <DetailModal loan={r} />
         {canPrint(r) && (
           <a
             href={`/finance/loans/${r.id}/pdf`}
             target="_blank"
             rel="noreferrer"
-            onClick={() => isProcStaff && !r.doc_no && setTimeout(reload, 3000)}
-            title={isProcStaff ? "พิมพ์สัญญา (หน้า-หลัง) — ออกเลขที่และวันที่การเงินให้อัตโนมัติ" : "พิมพ์สัญญา (หน้า-หลัง) — เลขที่/วันที่เว้นว่างให้การเงินเขียน"}
+            title={isProcStaff ? "พิมพ์สัญญา (หน้า-หลัง) — พิมพ์เลขที่/วันที่การเงินตามที่บันทึกไว้" : "พิมพ์สัญญา (หน้า-หลัง) — เลขที่/วันที่เว้นว่างให้การเงินเขียน"}
             className="btn-secondary btn-sm"
           >
             <PrinterIcon className="h-3.5 w-3.5" />

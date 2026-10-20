@@ -1,6 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { createClient } from "@/lib/supabase/server";
-import { assignDocNumber } from "@/lib/doc-number-server";
 import { parseLoanType, type LoanItem } from "@/lib/loan";
 import { LoanContractDocument, VoucherReceiptDocument, type LoanContractData } from "./loan-contract-document";
 
@@ -17,11 +16,6 @@ async function printer(supabase: Supabase) {
   const { data: profile } = await supabase.from("proc_profiles").select("role").eq("user_id", user?.id ?? "").maybeSingle();
   const role = profile?.role ?? "";
   return { userId: user?.id ?? null, staff: ["admin", "supply_officer", "finance_officer"].includes(role), executive: ["director", "deputy_director"].includes(role) };
-}
-
-/** วันที่ปัจจุบันตามเวลาไทย (ISO) */
-function todayBangkok() {
-  return new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
 }
 
 async function loadLoan(supabase: Supabase, id: string): Promise<LoanPdfData | null> {
@@ -78,21 +72,9 @@ export async function buildLoanContractPdf(supabase: Supabase, id: string, view:
   if (!data) return { status: 404 as const };
   const me = await printer(supabase);
   if (!me.staff && !me.executive && data.created_by !== me.userId) return { status: 403 as const };
-  // เจ้าหน้าที่พิมพ์สัญญา: ออกเลขที่ (ถ้ายังไม่มี) และตั้งวันที่การเงินตรวจสอบเป็นวันนี้ (ถ้ายังไม่มี) แล้วพิมพ์ลงเอกสาร
-  // ผู้ยืม/ผู้บริหารพิมพ์: เว้นว่างเลขที่และวันที่ทุกช่อง ให้การเงินเขียนมือ
-  if (me.staff) {
-    data.printed_by = "finance";
-    if (view === "contract" && (!data.doc_no || !data.checked_date)) {
-      const patch: { doc_no?: string; checked_date?: string } = {};
-      if (!data.doc_no) {
-        const no = await assignDocNumber(supabase, "loan", data.request_date);
-        if (no) patch.doc_no = no;
-      }
-      if (!data.checked_date) patch.checked_date = todayBangkok();
-      const { error } = await supabase.from("proc_loan_contracts").update(patch).eq("id", id);
-      if (!error) Object.assign(data, patch);
-    }
-  }
+  // เจ้าหน้าที่พิมพ์: พิมพ์เลขที่/วันที่การเงินตามที่บันทึกไว้ (ออกเลขที่ด้วยปุ่ม "ออกเลขที่" — การพิมพ์ไม่ออกเลขให้เอง)
+  // ผู้ยืม/ผู้บริหารพิมพ์: เว้นว่างเลขที่และวันที่ฝั่งการเงิน ให้การเงินเขียนมือ
+  if (me.staff) data.printed_by = "finance";
   return { status: 200 as const, docNo: data.doc_no, buffer: await renderToBuffer(<LoanContractDocument data={data} view={view} />) };
 }
 

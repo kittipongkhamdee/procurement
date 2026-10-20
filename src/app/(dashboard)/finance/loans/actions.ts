@@ -86,9 +86,8 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   if (admin && docNoInput && (await docNumberTaken(supabase, "loan", docNoInput, id ?? undefined))) return { error: `เลขที่ ${docNoInput} ถูกใช้แล้ว` };
 
   if (id) {
-    // สัญญาที่ครูยื่นยังไม่มีเลขที่ — เจ้าหน้าที่ออกเลขให้ตอนบันทึก/ตรวจสอบครั้งแรก
-    const { data: cur } = await supabase.from("proc_loan_contracts").select("doc_no").eq("id", id).maybeSingle();
-    const docNo = admin && docNoInput ? docNoInput : me.staff && !cur?.doc_no ? await assignDocNumber(supabase, "loan", requestDate) : undefined;
+    // แก้ไขไม่ออกเลขให้เอง — สัญญาที่ครูยื่น การเงินออกเลขที่ด้วยปุ่ม "ออกเลขที่" (issueLoanNumber) แอดมินแก้เลขได้ที่นี่
+    const docNo = admin && docNoInput ? docNoInput : undefined;
     const { data, error } = await supabase
       .from("proc_loan_contracts")
       .update({ ...fields, ...(docNo ? { doc_no: docNo } : {}) })
@@ -160,4 +159,56 @@ export async function deleteRepayment(id: string): Promise<Result> {
   if (!data?.length) return { error: "ลบไม่สำเร็จ" };
   revalidatePath(PATH);
   return {};
+}
+
+async function requireStaff(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const me = await currentUser(supabase);
+  return me.staff ? null : "เฉพาะเจ้าหน้าที่การเงิน เจ้าหน้าที่พัสดุ หรือผู้ดูแลระบบ";
+}
+
+/** เลขที่สัญญาถัดไปตามรูปแบบที่ตั้งไว้ (ยังไม่บันทึก) — ใช้เติมให้ในหน้าต่าง "ออกเลขที่" */
+export async function suggestLoanNumber(requestDate: string): Promise<{ docNo: string | null }> {
+  const supabase = await createClient();
+  return { docNo: await assignDocNumber(supabase, "loan", requestDate) };
+}
+
+/** การเงินรับเรื่อง: ออกเลขที่สัญญา + วันที่ตรวจสอบ (ช่อง "เสนอ") — ปุ่ม "ออกเลขที่" */
+export async function issueLoanNumber(id: string, docNo: string, checkedDate: string): Promise<Result> {
+  const supabase = await createClient();
+  const denied = await requireStaff(supabase);
+  if (denied) return { error: denied };
+  const no = docNo.trim();
+  if (!no) return { error: "กรุณาระบุเลขที่สัญญา" };
+  if (!checkedDate) return { error: "กรุณาระบุวันที่ตรวจสอบ" };
+  if (await docNumberTaken(supabase, "loan", no, id)) return { error: `เลขที่ ${no} ถูกใช้แล้ว` };
+  const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date").eq("id", id).maybeSingle();
+  if (!cur) return { error: "ไม่พบสัญญา" };
+  if (checkedDate < cur.request_date) return { error: "วันที่ตรวจสอบต้องไม่ก่อนวันที่ยื่นสัญญา" };
+  const { error } = await supabase.from("proc_loan_contracts").update({ doc_no: no, checked_date: checkedDate, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) return { error: rlsMessage(error.message) };
+  revalidatePath(PATH);
+  return { id, docNo: no };
+}
+
+/** การเงินจ่ายเงินยืมแล้ว: บันทึกวันที่ผู้ยืมได้รับเงิน (และวันกลับ กรณีไปราชการ) → คำนวณวันครบกำหนด — ปุ่ม "บันทึกจ่ายเงิน" */
+export async function recordLoanPayment(id: string, receivedDate: string, travelReturnDate: string | null): Promise<Result> {
+  const supabase = await createClient();
+  const denied = await requireStaff(supabase);
+  if (denied) return { error: denied };
+  if (!receivedDate) return { error: "กรุณาระบุวันที่ได้รับเงินยืม" };
+  const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date, loan_type, doc_no").eq("id", id).maybeSingle();
+  if (!cur) return { error: "ไม่พบสัญญา" };
+  if (!cur.doc_no) return { error: "ยังไม่ได้ออกเลขที่สัญญา — กด \"ออกเลขที่\" ก่อน" };
+  if (receivedDate < cur.request_date) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
+  const loanType = parseLoanType(cur.loan_type);
+  const ret = loanType === "travel" ? travelReturnDate || null : null;
+  if (ret && ret < receivedDate) return { error: "วันที่กลับมาถึงต้องไม่ก่อนวันที่ได้รับเงิน" };
+  const dueDays = LOAN_DUE_DAYS[loanType];
+  const { error } = await supabase
+    .from("proc_loan_contracts")
+    .update({ received_date: receivedDate, travel_return_date: ret, due_days: dueDays, due_date: loanDueDate(loanType, dueDays, receivedDate, ret), updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { error: rlsMessage(error.message) };
+  revalidatePath(PATH);
+  return { id };
 }
