@@ -81,14 +81,17 @@ function Tile({
 export function LoanDashboard({ loans, onFilter }: { loans: DashLoan[]; onFilter: (f: DashFilter) => void }) {
   const today = todayIso();
   const fy = fiscalYear(today);
-  const open = loans.filter((l) => !l.cleared);
+  // ค้างส่งใช้ = จ่ายเงินยืมแล้ว (มีวันรับเงิน) แต่ยังส่งใช้ไม่ครบ — สัญญาที่ยังไม่จ่ายเงินยังไม่มีหนี้ต้องส่งใช้
+  const open = loans.filter((l) => !l.cleared && l.received_date);
   const overdue = open.filter((l) => l.overdue);
   const soon = open.filter((l) => !l.overdue && l.due_date && daysBetween(today, l.due_date) <= SOON_DAYS);
-  const pendingCheck = loans.filter((l) => !l.doc_no);
-  const waitingPay = open.filter((l) => l.doc_no && !l.received_date);
+  const notPaid = loans.filter((l) => !l.cleared && !l.received_date);
+  const pendingCheck = notPaid.filter((l) => !l.doc_no);
+  const waitingPay = notPaid.filter((l) => l.doc_no);
   const sum = (xs: DashLoan[], k: "outstanding" | "amount" | "repaid") => xs.reduce((s, l) => s + l[k], 0);
 
-  const yearLoans = loans.filter((l) => fiscalYear(l.request_date) === fy);
+  // ยอดยืมของปีงบ = สัญญาที่จ่ายเงินแล้วในปีงบนี้ (นับตามวันรับเงิน)
+  const yearLoans = loans.filter((l) => l.received_date && fiscalYear(l.received_date) === fy);
   const yearAmount = sum(yearLoans, "amount");
   const yearRepaid = sum(yearLoans, "repaid");
   const repaidPct = yearAmount > 0 ? Math.min(100, (yearRepaid / yearAmount) * 100) : 0;
@@ -103,7 +106,7 @@ export function LoanDashboard({ loans, onFilter }: { loans: DashLoan[]; onFilter
           label="ค้างส่งใช้"
           value={baht(sum(open, "outstanding"))}
           suffix="บาท"
-          sub={`${open.length.toLocaleString("th-TH")} สัญญา${waitingPay.length ? ` (รอรับเงิน ${waitingPay.length})` : ""}`}
+          sub={`${open.length.toLocaleString("th-TH")} สัญญา (จ่ายเงินแล้ว ยังส่งใช้ไม่ครบ)`}
           accent={WARN}
           onClick={() => onFilter("open")}
         />
@@ -123,10 +126,10 @@ export function LoanDashboard({ loans, onFilter }: { loans: DashLoan[]; onFilter
           accent={WARN}
         />
         <Tile
-          label="รอการเงินตรวจสอบ"
-          value={pendingCheck.length.toLocaleString("th-TH")}
+          label="รอการเงินดำเนินการ"
+          value={notPaid.length.toLocaleString("th-TH")}
           suffix="สัญญา"
-          sub="ยื่นแล้ว ยังไม่ออกเลขที่สัญญา"
+          sub={`รอออกเลขที่ ${pendingCheck.length} · รอจ่ายเงิน ${waitingPay.length} (${baht(sum(notPaid, "amount"))} บาท)`}
           accent={BRAND}
         />
       </div>

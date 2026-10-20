@@ -427,7 +427,7 @@ export function DashboardShell({
         {isActingRole && (
           <div className="sticky top-14 z-20 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-amber-300 bg-amber-100 px-4 py-1.5 text-sm text-amber-950 shadow-sm print:hidden lg:px-6">
             <span className="flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-600" aria-hidden="true" />
-            <span className="min-w-0 flex-1">
+            <span className="min-w-0 basis-[calc(100%-1.5rem)] sm:basis-auto sm:flex-1">
               กำลังใช้งานในบทบาท <b>{roleLabel}</b>
               <span className="hidden sm:inline"> — เมนูและสิทธิ์เป็นของบทบาทนี้ (บัญชีจริงของคุณคือผู้ดูแลระบบ)</span>
             </span>
