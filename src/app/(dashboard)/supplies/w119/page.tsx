@@ -18,7 +18,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
-import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { ProcurementPhotosButton } from "../procurement-photos";
 import { ItemClassSelect, resolveItemClass, type ItemClassValue } from "@/components/item-rows-editor";
 import { createW119, deleteW119, updateW119, type W119ItemInput } from "./w119-actions";
@@ -641,6 +641,10 @@ export default function W119Page() {
     <div>
       <div className="page-header">
         <div>
+          <Link href="/supplies/procurement" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            การจัดซื้อจัดจ้าง
+          </Link>
           <h1 className="page-title">ว 119 ค่าใช้จ่ายบริหารงาน</h1>
           <p className="page-subtitle">
             จัดซื้อจัดจ้างค่าใช้จ่ายบริหารงาน/ฝึกอบรม/จัดงาน/ประชุม ครั้งละไม่เกิน 10,000 บาท ซื้อไปก่อนแล้วรายงานภายใน 5 วันทำการ

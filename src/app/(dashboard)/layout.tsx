@@ -45,13 +45,9 @@ const NAV_SECTIONS = [
   {
     heading: "งานจัดซื้อจัดจ้าง",
     items: [
-      { href: "/supplies/purchase", label: "งานซื้อ", icon: <FileTextIcon className={ICON_CLASS} /> },
-      { href: "/supplies/hire", label: "งานจ้าง", icon: <HomeIcon className={ICON_CLASS} /> },
+      // หน้ารวมการ์ด: งานซื้อ/งานจ้าง (ปกติ), ว 804, ว 119, กรณีเร่งด่วน, เบิกค่าใช้จ่ายโครงการ (ตาราง 2)
+      { href: "/supplies/procurement", label: "การจัดซื้อจัดจ้าง", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
       { href: "/supplies/procurement-register", label: "ทะเบียนคุมจัดซื้อจัดจ้าง", icon: <FileTextIcon className={ICON_CLASS} /> },
-      { href: "/supplies/w804", label: "ว 804 ซื้อไม่เกิน 50,000", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
-      { href: "/supplies/w119", label: "ว 119 ค่าใช้จ่ายบริหารงาน", icon: <FileTextIcon className={ICON_CLASS} /> },
-      { href: "/supplies/urgent", label: "จัดซื้อ/จัดจ้าง (กรณีมีความจำเป็นเร่งด่วน)", icon: <ShoppingCartIcon className={ICON_CLASS} /> },
-      { href: "/supplies/expense-claims", label: "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/supplies/textbooks", label: "หนังสือเรียน (เรียนฟรี 15 ปี)", icon: <FileTextIcon className={ICON_CLASS} /> },
       { href: "/supplies/quarterly-announcements", label: "ประกาศผลรายไตรมาส", icon: <FileSignatureIcon className={ICON_CLASS} /> },
       { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },

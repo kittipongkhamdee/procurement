@@ -18,7 +18,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
-import { FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { ProcurementPhotosButton } from "../procurement-photos";
 import { createExpenseClaim, deleteExpenseClaim, updateExpenseClaim, type ClaimItemInput } from "./expense-claim-actions";
 
@@ -706,6 +706,10 @@ export default function ExpenseClaimsPage() {
     <div>
       <div className="page-header">
         <div>
+          <Link href="/supplies/procurement" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            การจัดซื้อจัดจ้าง
+          </Link>
           <h1 className="page-title">เบิกค่าใช้จ่ายโครงการ (ตาราง 2)</h1>
           <p className="page-subtitle">
             ค่าอาหารว่าง ค่าอาหาร ค่าวิทยากร ค่าเบี้ยเลี้ยง ค่าที่พัก ค่าพาหนะ — ไม่ใช่การจัดซื้อจัดจ้าง (ตาราง 2 ว 119) เบิกผ่านงานการเงิน

@@ -30,7 +30,7 @@ type NavSection = { heading: string | null; items: NavItem[] };
 const BOTTOM_TABS = [
   { href: "/", label: "หน้าแรก", icon: HomeIcon },
   { href: "/projects", label: "โครงการ", icon: FolderIcon },
-  { href: "/supplies/purchase", label: "ซื้อ-จ้าง", icon: ShoppingCartIcon },
+  { href: "/supplies/procurement", label: "ซื้อ-จ้าง", icon: ShoppingCartIcon },
   { href: "/project-disbursements", label: "การเงิน", icon: WalletIcon },
 ];
 

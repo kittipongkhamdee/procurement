@@ -5,6 +5,7 @@
 // ครูทุกคนเพิ่มบันทึกได้ แก้ไขได้เฉพาะรายการของตัวเอง (เจ้าหน้าที่แก้ได้ทุกรายการ) ลบได้เฉพาะแอดมิน
 
 import { offerAssetImport, offerAutoIssue } from "../stock/offer-issue";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ApprovalRefField, approvalRemaining, loadApprovalRefs, type ApprovalRefOption } from "@/components/approval-ref-field";
@@ -18,7 +19,7 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
 import { ItemClassSelect, resolveItemClass, type ItemClassValue } from "@/components/item-rows-editor";
 import { ReceiptTypeSelect } from "@/components/receipt-type-select";
-import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { urgentKindLabel } from "@/lib/urgent";
 import { createUrgent, deleteUrgent, updateUrgent, type UrgentItemInput } from "./urgent-actions";
 
@@ -552,6 +553,10 @@ export default function UrgentPage() {
     <div>
       <div className="page-header">
         <div>
+          <Link href="/supplies/procurement" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            การจัดซื้อจัดจ้าง
+          </Link>
           <h1 className="page-title">จัดซื้อ/จัดจ้าง (กรณีมีความจำเป็นเร่งด่วน)</h1>
           <p className="page-subtitle">
             ซื้อ/จ้างไปก่อนเพราะเหตุจำเป็นเร่งด่วน แล้วรายงานขอความเห็นชอบ ตามระเบียบฯ พ.ศ. 2560 ข้อ 79 วรรคสอง

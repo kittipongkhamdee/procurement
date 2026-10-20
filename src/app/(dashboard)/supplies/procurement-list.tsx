@@ -19,7 +19,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { DocNoField } from "@/components/doc-no-field";
-import { PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { EMPTY_ITEM_ROW, effectiveItemClass, ItemRowsEditor, itemRowsTotal, type ItemRow } from "@/components/item-rows-editor";
 import { computeTotals, parseVatType, type VatType } from "@/lib/vat";
 import { loadItemSuggestions, loadUnitSuggestions, type ItemDefaults } from "@/lib/unit-suggestions";
@@ -983,6 +983,10 @@ export function ProcurementList({ type, title, subtitle, w804 = false }: { type:
     <div>
       <div className="page-header">
         <div>
+          <Link href="/supplies/procurement" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            การจัดซื้อจัดจ้าง
+          </Link>
           <h1 className="page-title">{title}</h1>
           <p className="page-subtitle">
             {subtitle}
