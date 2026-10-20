@@ -6,8 +6,12 @@
 
 export type LoanType = "travel" | "other";
 export const LOAN_TYPE_LABEL: Record<LoanType, string> = {
-  other: "ปฏิบัติราชการอื่น (จัดซื้อ/จัดจ้าง/จัดกิจกรรม) — ส่งใช้ภายใน 30 วันนับแต่วันได้รับเงิน",
-  travel: "เดินทางไปราชการ — ส่งใช้ภายใน 15 วันนับแต่วันกลับมาถึง",
+  other: "ปฏิบัติราชการอื่น (จัดซื้อ/จัดจ้าง/กิจกรรม)",
+  travel: "เดินทางไปราชการ",
+};
+export const LOAN_DUE_RULE: Record<LoanType, string> = {
+  other: "ส่งใช้ภายใน 30 วัน นับแต่วันที่ได้รับเงินยืม",
+  travel: "ส่งใช้ภายใน 15 วัน นับแต่วันที่กลับมาปฏิบัติราชการ",
 };
 export const LOAN_DUE_DAYS: Record<LoanType, number> = { other: 30, travel: 15 };
 

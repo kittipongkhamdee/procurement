@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
-import { isOverdue, LOAN_DUE_DAYS, LOAN_TYPE_LABEL, loanBalance, parseLoanType, type LoanItem, type LoanRepayment, type LoanType } from "@/lib/loan";
+import { isOverdue, LOAN_DUE_RULE, LOAN_TYPE_LABEL, loanBalance, parseLoanType, type LoanItem, type LoanRepayment, type LoanType } from "@/lib/loan";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -60,7 +60,6 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   const ref = useRef<ModalHandle>(null);
   const { role, isProcStaff, displayName } = useAuth();
   const [loanType, setLoanType] = useState<LoanType>(parseLoanType(loan?.loan_type));
-  const [dueDays, setDueDays] = useState(String(loan?.due_days ?? LOAN_DUE_DAYS.other));
   const [position, setPosition] = useState(loan?.borrower_position ?? (isProcStaff ? "" : lookups.positions[displayName.trim()] ?? ""));
   const [projectId, setProjectId] = useState(loan?.project_id ?? "");
   const [activityId, setActivityId] = useState(loan?.activity_id ?? "");
@@ -261,7 +260,6 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
             onChange={(e) => {
               const v = parseLoanType(e.target.value);
               setLoanType(v);
-              setDueDays(String(LOAN_DUE_DAYS[v]));
             }}
             className="input w-full"
           >
@@ -271,10 +269,8 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
               </option>
             ))}
           </select>
-        </div>
-        <div>
-          <label className="label">ส่งใช้ภายใน (วัน)</label>
-          <input name="due_days" type="number" min="1" value={dueDays} onChange={(e) => setDueDays(e.target.value)} className="input w-full" />
+          {/* จำนวนวันส่งใช้กำหนดตายตัวตามระเบียบ — ไม่ให้กรอกเอง */}
+          <p className="mt-1 text-sm text-slate-600">{LOAN_DUE_RULE[loanType]}</p>
         </div>
         {isProcStaff && (
           <div>

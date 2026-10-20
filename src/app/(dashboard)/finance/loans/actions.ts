@@ -56,7 +56,8 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   if (!(amount > 0)) return { error: "จำนวนเงินยืมต้องมากกว่า 0" };
 
   const loanType = parseLoanType(str("loan_type"));
-  const dueDays = Number(str("due_days")) || LOAN_DUE_DAYS[loanType];
+  // จำนวนวันส่งใช้ตามระเบียบฯ ข้อ 65 เท่านั้น (30 / 15 วัน) — ไม่รับค่าที่กรอกเอง
+  const dueDays = LOAN_DUE_DAYS[loanType];
   const receivedDate = me.staff ? str("received_date") || null : null;
   const travelReturnDate = loanType === "travel" ? str("travel_return_date") || null : null;
   if (receivedDate && receivedDate < requestDate) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
