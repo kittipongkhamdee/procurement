@@ -1,12 +1,30 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { createClient } from "@/lib/supabase/server";
+import { assignDocNumber } from "@/lib/doc-number-server";
 import { parseLoanType, type LoanItem } from "@/lib/loan";
 import { LoanContractDocument, VoucherReceiptDocument, type LoanContractData } from "./loan-contract-document";
 
 // โหลดข้อมูลสัญญาการยืมเงิน + ค่าตั้งโรงเรียน แล้วเรนเดอร์ PDF — ใช้ทั้งสัญญา (หน้า-หลัง), สรุปรายการส่งใช้ และใบรับใบสำคัญ
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-async function loadLoan(supabase: Supabase, id: string): Promise<LoanContractData | null> {
+type LoanPdfData = LoanContractData & { created_by: string | null };
+
+/** สิทธิ์พิมพ์ — เจ้าหน้าที่ (admin/พัสดุ/การเงิน) และผู้บริหารพิมพ์ได้ทุกสัญญา, ครูพิมพ์ได้เฉพาะสัญญาที่ตัวเองยื่น */
+async function printer(supabase: Supabase) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase.from("proc_profiles").select("role").eq("user_id", user?.id ?? "").maybeSingle();
+  const role = profile?.role ?? "";
+  return { userId: user?.id ?? null, staff: ["admin", "supply_officer", "finance_officer"].includes(role), executive: ["director", "deputy_director"].includes(role) };
+}
+
+/** วันที่ปัจจุบันตามเวลาไทย (ISO) */
+function todayBangkok() {
+  return new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+}
+
+async function loadLoan(supabase: Supabase, id: string): Promise<LoanPdfData | null> {
   const { data: r } = await supabase.from("proc_loan_contracts").select("*, proc_loan_repayments(*), plan_projects(name), plan_activities(name)").eq("id", id).maybeSingle();
   if (!r) return null;
   const names = [r.checker_name, r.approver_name, r.borrower_name].filter((n): n is string => !!n);
@@ -21,6 +39,9 @@ async function loadLoan(supabase: Supabase, id: string): Promise<LoanContractDat
   const checker = r.checker_name ?? s.get("approval_signer_finance") ?? null;
   const repayments = [...(r.proc_loan_repayments ?? [])].sort((a, b) => a.repay_date.localeCompare(b.repay_date) || a.created_at.localeCompare(b.created_at));
   return {
+    created_by: r.created_by,
+    printed_by: "borrower",
+    checked_date: r.checked_date,
     doc_no: r.doc_no,
     request_date: r.request_date,
     due_date: r.due_date,
@@ -54,14 +75,33 @@ async function loadLoan(supabase: Supabase, id: string): Promise<LoanContractDat
 
 export async function buildLoanContractPdf(supabase: Supabase, id: string, view: "contract" | "summary") {
   const data = await loadLoan(supabase, id);
-  if (!data) return null;
-  return { docNo: data.doc_no, buffer: await renderToBuffer(<LoanContractDocument data={data} view={view} />) };
+  if (!data) return { status: 404 as const };
+  const me = await printer(supabase);
+  if (!me.staff && !me.executive && data.created_by !== me.userId) return { status: 403 as const };
+  // เจ้าหน้าที่พิมพ์สัญญา: ออกเลขที่ (ถ้ายังไม่มี) และตั้งวันที่การเงินตรวจสอบเป็นวันนี้ (ถ้ายังไม่มี) แล้วพิมพ์ลงเอกสาร
+  // ผู้ยืม/ผู้บริหารพิมพ์: เว้นว่างเลขที่และวันที่ทุกช่อง ให้การเงินเขียนมือ
+  if (me.staff) {
+    data.printed_by = "finance";
+    if (view === "contract" && (!data.doc_no || !data.checked_date)) {
+      const patch: { doc_no?: string; checked_date?: string } = {};
+      if (!data.doc_no) {
+        const no = await assignDocNumber(supabase, "loan", data.request_date);
+        if (no) patch.doc_no = no;
+      }
+      if (!data.checked_date) patch.checked_date = todayBangkok();
+      const { error } = await supabase.from("proc_loan_contracts").update(patch).eq("id", id);
+      if (!error) Object.assign(data, patch);
+    }
+  }
+  return { status: 200 as const, docNo: data.doc_no, buffer: await renderToBuffer(<LoanContractDocument data={data} view={view} />) };
 }
 
 export async function buildVoucherReceiptPdf(supabase: Supabase, id: string, repaymentId: string) {
   const data = await loadLoan(supabase, id);
   const rep = data?.repayments.find((r) => r.id === repaymentId);
   if (!data || !rep) return null;
+  const me = await printer(supabase);
+  if (!me.staff && !me.executive && data.created_by !== me.userId) return null;
   const buffer = await renderToBuffer(
     <VoucherReceiptDocument
       data={{

@@ -307,7 +307,7 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   );
 }
 
-function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; onSaved: () => void }) {
+function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit: boolean; canPrint: boolean; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const { outstanding } = loanBalance(loan.amount, loan.proc_loan_repayments);
@@ -372,10 +372,12 @@ function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; 
               <td>{r.receipt_no ?? "-"}</td>
               <td className="whitespace-nowrap text-right">
                 <div className="flex justify-end gap-1">
-                  <a href={`/finance/loans/${loan.id}/receipt/${r.id}`} target="_blank" rel="noreferrer" title="พิมพ์ใบรับใบสำคัญ" className="btn-secondary btn-sm">
-                    <PrinterIcon className="h-3.5 w-3.5" />
-                    ใบรับ
-                  </a>
+                  {canPrint && (
+                    <a href={`/finance/loans/${loan.id}/receipt/${r.id}`} target="_blank" rel="noreferrer" title="พิมพ์ใบรับใบสำคัญ" className="btn-secondary btn-sm">
+                      <PrinterIcon className="h-3.5 w-3.5" />
+                      ใบรับ
+                    </a>
+                  )}
                   {canEdit && (
                     <button type="button" onClick={() => remove(r)} title="ลบ" className="btn-danger btn-sm">
                       <TrashIcon className="h-3.5 w-3.5" />
@@ -394,7 +396,7 @@ function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; 
           )}
         </tbody>
       </table>
-      {reps.length > 0 && (
+      {canPrint && reps.length > 0 && (
         <a href={`/finance/loans/${loan.id}/pdf?view=summary`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm mb-4">
           <PrinterIcon className="h-3.5 w-3.5" />
           พิมพ์สรุปรายการส่งใช้ (ตรวจทาน/แนบเรื่อง)
@@ -444,9 +446,11 @@ function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activitie
 }
 
 export default function LoansPage() {
-  const { isProcStaff, user } = useAuth();
+  const { isProcStaff, user, role } = useAuth();
   // ครูแก้/ลบได้เฉพาะสัญญาที่ตัวเองยื่นและการเงินยังไม่จ่ายเงิน (ตรงกับ RLS)
   const canEditLoan = (r: Loan) => isProcStaff || (r.created_by === user?.userId && !r.received_date);
+  // พิมพ์: เจ้าหน้าที่/ผู้บริหารทุกสัญญา ครูเฉพาะของตัวเอง (ตรงกับ build-loan-pdf)
+  const canPrint = (r: Loan) => isProcStaff || role === "director" || role === "deputy_director" || r.created_by === user?.userId;
   const [rows, setRows] = useState<Loan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -521,11 +525,20 @@ export default function LoansPage() {
   function actions(r: Loan) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
-        <a href={`/finance/loans/${r.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์สัญญา (หน้า-หลัง)" className="btn-secondary btn-sm">
-          <PrinterIcon className="h-3.5 w-3.5" />
-          <span className="btn-label">พิมพ์</span>
-        </a>
-        <RepayModal loan={r} canEdit={isProcStaff} onSaved={reload} />
+        {canPrint(r) && (
+          <a
+            href={`/finance/loans/${r.id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => isProcStaff && !r.doc_no && setTimeout(reload, 3000)}
+            title={isProcStaff ? "พิมพ์สัญญา (หน้า-หลัง) — ออกเลขที่และวันที่การเงินให้อัตโนมัติ" : "พิมพ์สัญญา (หน้า-หลัง) — เลขที่/วันที่เว้นว่างให้การเงินเขียน"}
+            className="btn-secondary btn-sm"
+          >
+            <PrinterIcon className="h-3.5 w-3.5" />
+            <span className="btn-label">พิมพ์</span>
+          </a>
+        )}
+        <RepayModal loan={r} canEdit={isProcStaff} canPrint={canPrint(r)} onSaved={reload} />
         {canEditLoan(r) && <LoanForm loan={r} lookups={lookups} onSaved={reload} />}
         {canEditLoan(r) && (
           <button type="button" onClick={() => remove(r)} title="ลบ" className="btn-danger btn-sm">

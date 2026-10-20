@@ -42,6 +42,10 @@ export type LoanContractData = {
   doc_no: string | null;
   request_date: string;
   due_date: string | null;
+  /** ผู้พิมพ์ — "borrower": ผู้ยืมพิมพ์เอง เว้นว่างเลขที่/วันที่ทุกช่องให้การเงินเขียนมือ
+   *  "finance": เจ้าหน้าที่การเงินพิมพ์ พิมพ์เลขที่ วันที่ผู้ยืม (=วันที่สัญญา) วันที่การเงิน — วันที่ผู้อำนวยการ/วันที่รับเงิน เขียนมือเสมอ */
+  printed_by: "borrower" | "finance";
+  checked_date: string | null;
   school_name: string;
   submit_to: string;
   borrower_name: string;
@@ -92,6 +96,8 @@ function SignRow({ role, name, position, date, label = "ลงชื่อ" }: {
 }
 
 function FrontPage({ d }: { d: LoanContractData }) {
+  const fin = d.printed_by === "finance";
+  const docNo = fin ? d.doc_no : null;
   const amount = formatBaht(d.amount);
   const amountText = thaiBahtText(d.amount);
   const rows = d.items.length > 0 ? d.items : [{ detail: d.purpose, amount: d.amount }];
@@ -109,9 +115,9 @@ function FrontPage({ d }: { d: LoanContractData }) {
             <Text style={{ marginTop: 6 }}>{t(`ยื่นต่อ  ${d.submit_to}`)}</Text>
           </View>
           <View style={{ width: RIGHT_COL, paddingHorizontal: INNER, paddingVertical: 3 }}>
-            <Text>{t(`เลขที่  ${d.doc_no || "................"}`)}</Text>
+            <Text>{t(`เลขที่  ${docNo || "................"}`)}</Text>
             <Text style={styles.bold}>{t("วันครบกำหนด")}</Text>
-            <Text>{t(dateOr(d.due_date))}</Text>
+            <Text>{t(dateOr(d.printed_by === "finance" ? d.due_date : null))}</Text>
           </View>
         </View>
 
@@ -164,14 +170,14 @@ function FrontPage({ d }: { d: LoanContractData }) {
             indent={false}
             text="ถ้าข้าพเจ้าไม่ส่งตามกำหนด ข้าพเจ้ายินยอมให้หักเงินเดือน ค่าจ้าง เบี้ยหวัด บำเหน็จ บำนาญ หรือเงินอื่นใดที่ข้าพเจ้าพึงได้รับจากทางราชการ ชดใช้จำนวนเงินที่ยืมไปจนครบถ้วนได้ทันที"
           />
-          <SignRow label="ลายมือชื่อ" role="ผู้ยืม" name={d.borrower_name} date={d.request_date} />
+          <SignRow label="ลายมือชื่อ" role="ผู้ยืม" name={d.borrower_name} date={fin ? d.request_date : null} />
         </View>
 
         {/* เสนอ */}
         <View style={styles.box} wrap={false}>
           <Text>{t(`เสนอ  ${d.submit_to}`)}</Text>
           <Para text={`ได้ตรวจสอบแล้ว เห็นสมควรอนุมัติให้ยืมตามใบยืมฉบับนี้ได้ จำนวน ${amount} บาท (${amountText.replace(/^\(|\)$/g, "")})`} />
-          <SignRow role="" name={d.checker_name} position={d.checker_position} date={null} />
+          <SignRow role="" name={d.checker_name} position={d.checker_position} date={fin ? d.checked_date : null} />
         </View>
 
         {/* คำอนุมัติ */}
@@ -185,7 +191,7 @@ function FrontPage({ d }: { d: LoanContractData }) {
         <View style={[styles.box, { borderBottomWidth: 0 }]} wrap={false}>
           <Text style={[styles.bold, styles.center]}>{t("ใบรับเงิน")}</Text>
           <Para text={`ได้รับเงินยืม จำนวน ${amount} บาท (${amountText.replace(/^\(|\)$/g, "")}) ไปเป็นการถูกต้องแล้ว`} />
-          <SignRow role="ผู้รับเงิน" name={d.borrower_name} position={d.borrower_position} date={d.received_date} />
+          <SignRow role="ผู้รับเงิน" name={d.borrower_name} position={d.borrower_position} date={null} />
         </View>
       </View>
     </Page>
@@ -223,7 +229,7 @@ function BackPage({ d, filled }: { d: LoanContractData; filled: boolean }) {
     <Page size="A4" style={styles.page}>
       <Text style={[styles.bold, styles.center, { fontSize: 18 }]}>{t(filled ? "สรุปรายการส่งใช้เงินยืม (ตามที่บันทึกในระบบ)" : "รายการส่งใช้เงินยืม")}</Text>
       <Text style={[styles.center, { marginBottom: 4 }]}>
-        {t(`สัญญาการยืมเงินเลขที่ ${d.doc_no || "......../........"} ลงวันที่ ${formatThaiDate(d.request_date)}  ผู้ยืม ${d.borrower_name}  จำนวนเงิน ${formatBaht(d.amount)} บาท`)}
+        {t(`สัญญาการยืมเงินเลขที่ ${(d.printed_by === "finance" && d.doc_no) || "......../........"} ลงวันที่ ${d.printed_by === "finance" ? formatThaiDate(d.request_date) : "............................"}  ผู้ยืม ${d.borrower_name}  จำนวนเงิน ${formatBaht(d.amount)} บาท`)}
       </Text>
       <View style={{ borderTopWidth: B, borderLeftWidth: B, fontSize: 15 }}>
         <View style={{ flexDirection: "row" }}>

@@ -9,7 +9,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const view = new URL(request.url).searchParams.get("view") === "summary" ? "summary" : "contract";
   const pdf = await buildLoanContractPdf(await createClient(), id, view);
-  if (!pdf) return NextResponse.json({ error: "ไม่พบสัญญา" }, { status: 404 });
+  if (pdf.status === 404) return NextResponse.json({ error: "ไม่พบสัญญา" }, { status: 404 });
+  if (pdf.status === 403) return NextResponse.json({ error: "พิมพ์ได้เฉพาะสัญญาที่คุณยื่นเอง" }, { status: 403 });
   const name = `${view === "summary" ? "สรุปส่งใช้เงินยืม" : "สัญญายืมเงิน"}-${pdf.docNo ?? ""}.pdf`;
   return new NextResponse(new Uint8Array(pdf.buffer), {
     headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", name) },

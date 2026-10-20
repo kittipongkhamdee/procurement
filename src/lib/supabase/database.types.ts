@@ -3137,6 +3137,7 @@ export type Database = {
       }
       proc_loan_contracts: {
         Row: {
+          checked_date: string | null
           project_id: string | null
           activity_id: string | null
           id: string
@@ -3161,6 +3162,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          checked_date?: string | null
           project_id?: string | null
           activity_id?: string | null
           id?: string
@@ -3185,6 +3187,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          checked_date?: string | null
           project_id?: string | null
           activity_id?: string | null
           id?: string
