@@ -284,13 +284,12 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
   );
 }
 
-/** ลายมือชื่อ "(ลงชื่อ)……… <ตำแหน่ง>" + ชื่อในวงเล็บใต้เส้น — ชื่อเริ่มที่แนวเดียวกับ ")" ของ "(ลงชื่อ)" */
+/** ลายมือชื่อ "(ลงชื่อ)……… <ตำแหน่ง>" + ชื่อในวงเล็บใต้เส้น — จัดกึ่งกลางคอลัมน์เดียวกัน (ผู้ใช้ขอ ต.ค. 2569 ให้เหมือนเอกสารอื่นในระบบ) */
 function SignatureBlock({ suffix, name, size = FS, valueWidth = 90 }: { suffix: string; name: string | null; size?: number; valueWidth?: number }) {
-  const nameLeft = measureText("(ลงชื่อ", size);
   return (
-    <View style={{ alignItems: "flex-start" }}>
+    <View style={{ alignSelf: "flex-start", alignItems: "center" }}>
       <FieldRow prefix="(ลงชื่อ)" value="" suffix={suffix} size={size} valueWidth={valueWidth} />
-      <Text style={{ fontSize: size, marginLeft: nameLeft }}>{t(name ? `(${name})` : "(                                    )")}</Text>
+      <Text style={{ fontSize: size }}>{t(name ? `(${name})` : "(                                    )")}</Text>
     </View>
   );
 }
@@ -637,7 +636,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           <Text>{t("จึงเรียนมาเพื่อโปรดพิจารณาอนุญาตและอนุมัติ")}</Text>
         </View>
 
-        {/* ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บเริ่มที่แนวเดียวกับ ")" ของ "(ลงชื่อ)" */}
+        {/* ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บจัดกึ่งกลางใต้บรรทัดลงชื่อ */}
         <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 8, marginBottom: 2 }}>
           <SignatureBlock suffix="ผู้รับผิดชอบโครงการ" name={data.requested_by_name} />
         </View>

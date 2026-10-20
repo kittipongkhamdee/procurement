@@ -38,6 +38,7 @@ type Loan = {
   approver_name: string | null;
   note: string | null;
   created_by: string | null;
+  submitted_by_name: string | null;
   proc_loan_repayments: LoanRepayment[];
 };
 type Lookups = {
@@ -60,7 +61,7 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   const ref = useRef<ModalHandle>(null);
   const { role, isProcStaff, displayName } = useAuth();
   const [loanType, setLoanType] = useState<LoanType>(parseLoanType(loan?.loan_type));
-  const [position, setPosition] = useState(loan?.borrower_position ?? (isProcStaff ? "" : lookups.positions[displayName.trim()] ?? ""));
+  const [position, setPosition] = useState(loan?.borrower_position ?? lookups.positions[displayName.trim()] ?? "");
   const [projectId, setProjectId] = useState(loan?.project_id ?? "");
   const [activityId, setActivityId] = useState(loan?.activity_id ?? "");
   const [fund, setFund] = useState(loan?.fund_source ?? "");
@@ -138,22 +139,19 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           <label className="label">
             ชื่อผู้ยืม <span className="text-red-600">*</span>
           </label>
-          {isProcStaff ? (
-            <input
-              name="borrower_name"
-              list="loan-teachers"
-              defaultValue={loan?.borrower_name ?? ""}
-              onChange={(e) => {
-                const p = lookups.positions[e.target.value.trim()];
-                if (p) setPosition(p);
-              }}
-              required
-              className="input w-full"
-            />
-          ) : (
-            // ครูยื่นได้เฉพาะในชื่อตัวเอง (ฝั่ง server ใช้ชื่อจากโปรไฟล์)
-            <input value={loan?.borrower_name ?? displayName} disabled className="input w-full" />
-          )}
+          {/* ค่าเริ่มต้น = ชื่อตัวเอง (ตามโปรไฟล์) — เลือกชื่อคนอื่นได้ = ยื่นแทน ระบบบันทึกชื่อผู้ยื่นไว้ (ไม่พิมพ์ลง PDF) */}
+          <input
+            name="borrower_name"
+            list="loan-teachers"
+            defaultValue={loan?.borrower_name ?? displayName}
+            onChange={(e) => {
+              const p = lookups.positions[e.target.value.trim()];
+              if (p) setPosition(p);
+            }}
+            required
+            className="input w-full"
+          />
+          {!loan && <p className="mt-1 text-xs text-slate-500">ยื่นแทนคนอื่นได้ — ระบบจะบันทึกว่ายื่นแทนโดย {displayName || "คุณ"}</p>}
           <datalist id="loan-teachers">
             {lookups.teachers.map((n) => (
               <option key={n} value={n} />
@@ -448,6 +446,12 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
   );
 }
 
+/** ยื่นแทน — ผู้ยื่นในระบบไม่ใช่ผู้ยืม (แสดงในระบบเท่านั้น ไม่พิมพ์ลง PDF) */
+function proxyNote(r: Pick<Loan, "borrower_name" | "submitted_by_name">) {
+  if (!r.submitted_by_name || r.submitted_by_name.trim() === r.borrower_name.trim()) return null;
+  return <p className="text-xs text-amber-700">ยื่นแทนโดย {r.submitted_by_name}</p>;
+}
+
 function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activities">) {
   return [r.purpose, r.plan_projects && `โครงการ${r.plan_projects.name.replace(/^โครงการ\s*/, "")}`, r.plan_activities?.name && `กิจกรรม${r.plan_activities.name.replace(/^กิจกรรม\s*/, "")}`].filter(Boolean).join(" ");
 }
@@ -608,6 +612,7 @@ export default function LoansPage() {
                     {r.borrower_name} · {baht(r.amount)} บาท
                   </p>
                   <p className="text-xs text-slate-500">{loanPurpose(r)}</p>
+                  {proxyNote(r)}
                   <p className="text-xs text-slate-500">
                     คงค้าง {baht(r.outstanding)} บาท{r.due_date ? ` · ครบกำหนด ${formatThaiDate(r.due_date)}` : ""}
                   </p>
@@ -635,7 +640,10 @@ export default function LoansPage() {
                   <tr key={r.id}>
                     <td className="whitespace-nowrap font-medium text-slate-900">{r.doc_no ?? "-"}</td>
                     <td className="whitespace-nowrap">{formatThaiDate(r.request_date)}</td>
-                    <td>{r.borrower_name}</td>
+                    <td>
+                      {r.borrower_name}
+                      {proxyNote(r)}
+                    </td>
                     <td>{loanPurpose(r)}</td>
                     <td className="text-right tabular-nums">{baht(r.amount)}</td>
                     <td className="text-right tabular-nums">{baht(r.outstanding)}</td>
