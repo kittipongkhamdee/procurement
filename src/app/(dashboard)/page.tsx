@@ -8,9 +8,8 @@
 // status = "อนุมัติ" เท่านั้น — ไม่ใช้ proc_project_disbursements (เมนู "เบิกจ่ายงบประมาณโครงการ")
 // ตามที่ผู้ใช้ยืนยันไว้ เพราะการเบิกจ่ายจริงในระบบนี้อ้างอิงบันทึกขออนุมัติเป็นหลัก
 //
-// "สรุปงบที่ใช้ (แยกตามประเภทรายจ่าย)" ดึงจาก proc_approvals.summary_items ซึ่งเป็นรายการย่อย 5
-// หมวดคงที่ต่อเอกสาร 1 ใบ (ดู SUMMARY_LABELS ใน approvals/approval-form.tsx) — จับคู่ด้วยข้อความ
-// label ตรงๆ แทนตำแหน่ง index กันกรณีลำดับที่บันทึกไว้ไม่ตรงกัน
+// "สรุปงบที่ใช้ (แยกตามประเภทรายจ่าย)" ดึงจาก proc_approvals.summary_items — หมวดคงที่ 6 หมวด
+// (src/lib/expense-categories.ts) จับคู่ด้วยชื่อหมวด (ขึ้นต้นด้วย) แทนตำแหน่ง index กันกรณีลำดับไม่ตรง/บันทึกหมวดเดิม
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -18,16 +17,11 @@ import { useSchoolSettings } from "@/lib/school-settings";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { PrinterIcon } from "@/components/icons";
 import { PendingActionsPanel } from "./pending-actions-panel";
+import { EXPENSE_CATEGORIES, expenseCategoryIndex } from "@/lib/expense-categories";
 
-const SUMMARY_LABELS = [
-  "จัดซื้อจัดจ้าง",
-  "ค่าเบี้ยเลี้ยง/ค่าตอบแทน",
-  "ค่าเดินทางไปราชการ",
-  "ค่าสาธารณูปโภค",
-  "อื่นๆ (ระบุ)",
-];
-const SUMMARY_DISPLAY_LABELS = ["จัดซื้อจัดจ้าง", "เบี้ยเลี้ยง/ค่าตอบแทน", "เดินทางไปราชการ", "สาธารณูปโภค", "อื่นๆ"];
-const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"];
+// หมวดตามหลักการจำแนกประเภทรายจ่าย 6 หมวด (src/lib/expense-categories.ts) — บันทึกเก่าที่ใช้หมวดเดิมแปลงเข้าหมวดใหม่ด้วย expenseCategoryIndex
+const SUMMARY_DISPLAY_LABELS = EXPENSE_CATEGORIES.map((c) => c.short);
+const CAT_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#7c5cd6", "#e87ba4"];
 
 const GOOD = "#059669"; // อนุมัติจ่ายแล้ว / เสร็จสิ้น
 const WARN = "#d97706"; // คงเหลือ
@@ -270,7 +264,7 @@ export default function DashboardPage() {
   const [adminGroups, setAdminGroups] = useState<GroupItem[]>([]);
   const [budgetSources, setBudgetSources] = useState<GroupItem[]>([]);
   const [approvedByProject, setApprovedByProject] = useState<Map<string, number>>(new Map());
-  const [expenseTotals, setExpenseTotals] = useState<number[]>([0, 0, 0, 0, 0]);
+  const [expenseTotals, setExpenseTotals] = useState<number[]>(EXPENSE_CATEGORIES.map(() => 0));
   const [completedProjectIds, setCompletedProjectIds] = useState<Set<string>>(new Set());
   const [notImplementedProjectIds, setNotImplementedProjectIds] = useState<Set<string>>(new Set());
 
@@ -327,7 +321,7 @@ export default function DashboardPage() {
     const projectIds = new Set(rows.map((r) => r.id));
 
     const nextApprovedByProject = new Map<string, number>();
-    const nextExpenseTotals = [0, 0, 0, 0, 0];
+    const nextExpenseTotals = EXPENSE_CATEGORIES.map(() => 0);
     for (const a of approvals ?? []) {
       if (!a.project_id || !projectIds.has(a.project_id)) continue;
       nextApprovedByProject.set(
@@ -336,7 +330,7 @@ export default function DashboardPage() {
       );
       const items = (a.summary_items as { label: string; amount: number | null }[] | null) ?? [];
       for (const item of items) {
-        const idx = SUMMARY_LABELS.indexOf(item.label);
+        const idx = expenseCategoryIndex(item.label);
         if (idx >= 0) nextExpenseTotals[idx] += Number(item.amount ?? 0);
       }
     }

@@ -2,6 +2,7 @@ import path from "node:path";
 import { Document, Font, Image, Line, Page, Path, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate, THAI_MONTHS } from "@/lib/thai";
 import type { ApprovalPdfData } from "./approval-types";
+import { EXPENSE_LABELS, expenseCategoryIndex, isLegacySummary } from "@/lib/expense-categories";
 import { registerSarabunFont, t } from "./thai-pdf";
 import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
 
@@ -248,12 +249,15 @@ function CheckRow({ checked, children }: { checked: boolean; children: React.Rea
   );
 }
 
-const SUMMARY_DEFAULT_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
+/** หมวดเดิม 5 แถว (ก่อน ต.ค. 2569) — ใช้พิมพ์บันทึกเก่าให้หน้าตาเหมือนเดิม; บันทึกใหม่ใช้ 6 หมวดตามหลักการจำแนกประเภทรายจ่าย */
+const LEGACY_SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
 
 const SUMMARY_COLS = { no: 30, amount: 84, note: 84 };
 
 function SummaryTable({ data }: { data: ApprovalPdfData }) {
-  const rows = SUMMARY_DEFAULT_LABELS.map((label, i) => data.summary_items[i] ?? { label, amount: null, note: null });
+  const rows = isLegacySummary(data.summary_items)
+    ? LEGACY_SUMMARY_LABELS.map((label, i) => data.summary_items[i] ?? { label, amount: null, note: null })
+    : EXPENSE_LABELS.map((label, i) => data.summary_items.find((it) => expenseCategoryIndex(it.label) === i) ?? { label, amount: null, note: null });
   const total = data.summary_items.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
   const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 17 };

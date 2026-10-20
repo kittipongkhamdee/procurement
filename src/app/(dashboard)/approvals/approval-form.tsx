@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatThaiDate } from "@/lib/thai";
+import { EXPENSE_CATEGORIES, EXPENSE_LABELS, expenseCategoryIndex } from "@/lib/expense-categories";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
@@ -24,7 +25,8 @@ const MAX_ITEM_ROWS = 100;
 type ItemRow = { name: string; qty: string; unit: string; unitPrice: string; note: string };
 const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unit: "", unitPrice: "", note: "" };
 
-const SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
+// หมวดตามหลักการจำแนกประเภทรายจ่าย (ดู src/lib/expense-categories.ts)
+const SUMMARY_LABELS = EXPENSE_LABELS;
 
 // แถวสุดท้าย "อื่นๆ (ระบุ)" ให้กรอกข้อความระบุเองได้ — ใน state เก็บเฉพาะข้อความที่พิมพ์ (label ของแถวนี้) แล้วค่อยประกอบเป็น
 // "อื่นๆ (ข้อความ)" ตอนบันทึก ถ้าเว้นว่างจะเก็บเป็น "อื่นๆ (ระบุ)" เหมือนเดิม
@@ -103,15 +105,21 @@ export type ApprovalFormPrefill = Pick<ApprovalFormInitial, "project_id" | "subj
 
 function initialSummaryRows(initial?: Pick<ApprovalFormInitial, "summary_items">): SummaryRow[] {
   if (!initial) return emptySummaryRows();
-  return SUMMARY_LABELS.map((label, i) => {
-    const row = initial.summary_items[i];
-    return {
-      // แถวทั่วไปใช้ชื่อมาตรฐาน แต่ถ้าชื่อที่บันทึกไว้ต่อท้ายรายละเอียด (เช่น "จัดซื้อจัดจ้าง ค่าจ้าง... ประจำเดือน...") ให้คงไว้
-      label: i === OTHER_INDEX ? otherLabelText(row?.label) : row?.label?.startsWith(label) ? row.label : label,
-      amount: row?.amount != null ? String(row.amount) : "",
-      note: row?.note ?? "",
+  // จับคู่ตามชื่อหมวด (ไม่ใช่ลำดับแถว) — รองรับบันทึกที่ใช้หมวดเดิม 5 แถว (แปลงเข้าหมวดใหม่ ดู expenseCategoryIndex)
+  const rows = emptySummaryRows();
+  for (const saved of initial.summary_items ?? []) {
+    const i = expenseCategoryIndex(saved.label);
+    if (i < 0) continue;
+    const cur = rows[i];
+    const amount = (parseFloat(cur.amount) || 0) + Number(saved.amount ?? 0);
+    rows[i] = {
+      // แถวทั่วไปใช้ชื่อมาตรฐาน แต่ถ้าชื่อที่บันทึกไว้ต่อท้ายรายละเอียด (เช่น "ค่าใช้สอย ค่าจ้าง... ประจำเดือน...") ให้คงไว้
+      label: i === OTHER_INDEX ? otherLabelText(saved.label) : saved.label.startsWith(SUMMARY_LABELS[i]) ? saved.label : cur.label,
+      amount: saved.amount != null || cur.amount ? String(amount) : "",
+      note: [cur.note, saved.note].filter(Boolean).join(" "),
     };
-  });
+  }
+  return rows;
 }
 
 function initialItemRows(initial?: Pick<ApprovalFormInitial, "items">): ItemRow[] {
@@ -559,6 +567,7 @@ export function ApprovalForm({
             <div key={i} className="rounded-md border border-slate-200 p-3">
               <div className="mb-2 text-sm font-semibold text-slate-600">
                 {i + 1}. {i === OTHER_INDEX ? "อื่นๆ" : row.label}
+                <p className="text-xs font-normal text-slate-400">{EXPENSE_CATEGORIES[i]?.hint}</p>
               </div>
               {i === OTHER_INDEX && (
                 <div className="mb-3">
@@ -632,6 +641,7 @@ export function ApprovalForm({
                     ) : (
                       row.label
                     )}
+                    <p className="text-xs text-slate-400">{EXPENSE_CATEGORIES[i]?.hint}</p>
                   </td>
                   <td className="px-2 py-1">
                     <input

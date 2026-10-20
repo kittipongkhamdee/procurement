@@ -46,7 +46,7 @@ export function ItemClassSelect({
     <select
       value={resolveItemClass(value, name, unitPrice, hire)}
       onChange={(e) => onChange(e.target.value as ItemClassValue)}
-      title={value ? "เลือกเอง" : "ระบบเสนอให้ — ราคาต่อหน่วยตั้งแต่ 10,000 บาท = ครุภัณฑ์"}
+      title={value ? "เลือกเอง" : "ระบบเสนอให้ — ครุภัณฑ์ = คงทนถาวร อายุใช้งานยืนนาน, วัสดุ = สิ้นเปลือง/อายุใช้งานไม่ยืนนาน (ราคาตั้งแต่ 10,000 บาทเสนอเป็นครุภัณฑ์ไว้ก่อน)"}
       aria-label="ประเภทพัสดุ"
       className={`input ${value ? "" : "text-slate-500"} ${className ?? ""}`}
     >

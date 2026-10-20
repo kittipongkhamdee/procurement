@@ -40,8 +40,8 @@ async function prefillFromDelivery(
     prefill: {
       project_id: c.project_id,
       subject: "ขออนุญาตดำเนินการและอนุมัติใช้เงินโครงการ",
-      // หน้า ๑ ตารางสรุป แถว "จัดซื้อจัดจ้าง" ต่อท้ายรายละเอียดงานตามสัญญา + ประจำเดือน; ไม่สร้างรายการวัสดุ (หน้า ๒)
-      summary_items: [{ label: `จัดซื้อจัดจ้าง ${c.detail || `ตามสัญญา${c.contract_type}`}${period}`, amount, note: `สัญญาเลขที่ ${c.contract_no}` }],
+      // หน้า ๑ ตารางสรุป แถว "ค่าใช้สอย" (จ้างเหมาบริการตามสัญญา) ต่อท้ายรายละเอียดงาน + ประจำเดือน; ไม่สร้างรายการวัสดุ (หน้า ๒)
+      summary_items: [{ label: `ค่าใช้สอย ${c.detail || `ตามสัญญา${c.contract_type}`}${period}`, amount, note: `สัญญาเลขที่ ${c.contract_no}` }],
       // ฝ่าย/กลุ่มงาน = กลุ่มบริหารงานของโครงการ, วันที่บันทึก = วันนี้, จะดำเนินการวันที่ = วันที่ส่งมอบงาน
       department: (c.plan_projects as unknown as { plan_admin_groups: { name: string } | null } | null)?.plan_admin_groups?.name ?? null,
       doc_date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" }),
