@@ -84,14 +84,15 @@ function Para({ text, width = BOX_W, indent = true, keep = [] }: { text: string;
 
 /** ลงชื่อ…บทบาท  วันที่…  /  (ชื่อ)  /  ตำแหน่ง — แบบ 8500 วางลายมือชื่อชิดซ้ายกลางกล่อง วันที่อยู่บรรทัดเดียวกัน */
 function SignRow({ role, name, position, date, label = "ลงชื่อ" }: { role: string; name: string | null; position?: string | null; date?: string | null; label?: string }) {
+  // ลงชื่อ…บทบาท / (ชื่อ) / ตำแหน่ง จัดกึ่งกลางคอลัมน์เดียวกัน — วันที่อยู่ขวาบรรทัดแรก
   return (
-    <View style={{ marginTop: 6, marginLeft: 0.8 * CM }} wrap={false}>
-      <View style={{ flexDirection: "row" }}>
-        <Text style={{ width: 270 }}>{t(`${label}..............................................${role}`)}</Text>
-        {date !== undefined && <Text>{t(`วันที่ ${dateOr(date)}`)}</Text>}
+    <View style={{ marginTop: 6, flexDirection: "row" }} wrap={false}>
+      <View style={{ width: 300, alignItems: "center" }}>
+        <Text>{t(`${label}..............................................${role}`)}</Text>
+        <Text>{t(name ? `(${name})` : `(${DOTS})`)}</Text>
+        {position !== undefined && <Text>{t(`ตำแหน่ง ${position || DOTS}`)}</Text>}
       </View>
-      <Text style={{ width: 270, textAlign: "center" }}>{t(name ? `(${name})` : `(${DOTS})`)}</Text>
-      {position !== undefined && <Text style={{ width: 270, textAlign: "center" }}>{t(`ตำแหน่ง ${position || DOTS}`)}</Text>}
+      {date !== undefined && <Text style={{ marginLeft: 12 }}>{t(`วันที่ ${dateOr(date)}`)}</Text>}
     </View>
   );
 }
