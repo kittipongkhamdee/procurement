@@ -535,6 +535,35 @@ function AcknowledgeTimeline({ round }: { round: Round }) {
   );
 }
 
+/** การ์ดสรุปผลตรวจนับ (ทั้งหมด/ตรงบัญชี/ต่างจากบัญชี/ไม่พบ) + แถบความคืบหน้า — ทุกคนที่เปิดรอบตรวจเห็นเหมือนกัน */
+function AuditTotalsCards({ totals, inspectedCount }: { totals: { total: number; match: number; diff: number; notFound: number }; inspectedCount: number }) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
+          <p className="stat-label">รายการทั้งหมด</p>
+          <p className="stat-value">{totals.total.toLocaleString("th-TH")}</p>
+        </div>
+        <div className="stat-card" style={{ "--accent": "#059669" } as React.CSSProperties}>
+          <p className="stat-label">พบตรงบัญชี</p>
+          <p className="stat-value">{totals.match.toLocaleString("th-TH")}</p>
+        </div>
+        <div className="stat-card" style={{ "--accent": "#d97706" } as React.CSSProperties}>
+          <p className="stat-label">สภาพต่างจากบัญชี</p>
+          <p className="stat-value">{totals.diff.toLocaleString("th-TH")}</p>
+        </div>
+        <div className="stat-card" style={{ "--accent": "#dc2626" } as React.CSSProperties}>
+          <p className="stat-label">ตรวจไม่พบ</p>
+          <p className="stat-value">{totals.notFound.toLocaleString("th-TH")}</p>
+        </div>
+      </div>
+      <div className="card mt-4">
+        <AuditProgressBar inspected={inspectedCount} total={totals.total} />
+  </div>
+    </>
+  );
+}
+
 // หน้าสรุปข้อมูลสำหรับรองผู้อำนวยการ/ผู้อำนวยการ (ไม่ใช่เจ้าหน้าที่พัสดุ/ผู้ตรวจสอบ) — แทนที่หน้าแท็บ
 // ตรวจนับแบบละเอียดที่ออกแบบมาสำหรับครู/เจ้าหน้าที่พัสดุ ด้วยภาพรวมสารสนเทศอ่านง่าย + การ์ดพับได้
 // ให้กดดูรายละเอียดเพิ่มเติมทีละส่วน (คณะผู้ตรวจสอบ/รายการผลต่าง/ข้อเสนอแนะ) แทนการยัดทุกอย่างไว้
@@ -591,27 +620,7 @@ function ExecutiveOverview({
 
       <div>
         <div className="mb-3 text-sm font-semibold text-slate-700">ภาพรวมผลตรวจนับ</div>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
-            <p className="stat-label">รายการทั้งหมด</p>
-            <p className="stat-value">{totals.total.toLocaleString("th-TH")}</p>
-          </div>
-          <div className="stat-card" style={{ "--accent": "#059669" } as React.CSSProperties}>
-            <p className="stat-label">พบตรงบัญชี</p>
-            <p className="stat-value">{totals.match.toLocaleString("th-TH")}</p>
-          </div>
-          <div className="stat-card" style={{ "--accent": "#d97706" } as React.CSSProperties}>
-            <p className="stat-label">สภาพต่างจากบัญชี</p>
-            <p className="stat-value">{totals.diff.toLocaleString("th-TH")}</p>
-          </div>
-          <div className="stat-card" style={{ "--accent": "#dc2626" } as React.CSSProperties}>
-            <p className="stat-label">ตรวจไม่พบ</p>
-            <p className="stat-value">{totals.notFound.toLocaleString("th-TH")}</p>
-          </div>
-        </div>
-        <div className="card mt-4">
-          <AuditProgressBar inspected={inspectedCount} total={totals.total} />
-        </div>
+        <AuditTotalsCards totals={totals} inspectedCount={inspectedCount} />
       </div>
 
       <AccordionSection title="คณะผู้ตรวจสอบพัสดุ" icon={<UsersIcon className="h-4 w-4" />} defaultOpen>
@@ -1016,6 +1025,10 @@ export default function AssetAuditDetailPage() {
       <p className="mt-2 text-sm text-slate-500">
         คณะผู้ตรวจสอบ: {inspectors.map((i) => i.full_name_snapshot).join(", ") || "-"}
       </p>
+
+      <div className="mt-4">
+        <AuditTotalsCards totals={totals} inspectedCount={inspectedCount} />
+      </div>
 
       <div className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200">
         {[
