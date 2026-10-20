@@ -104,6 +104,7 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
       .select("id");
     if (error) return { error: rlsMessage(error.message) };
     if (!data?.length) return { error: "บันทึกไม่สำเร็จ — สัญญาที่การเงินจ่ายเงินแล้ว แก้ไขได้เฉพาะเจ้าหน้าที่" };
+    await rememberPosition(supabase, borrower, fields.borrower_position);
     revalidatePath(PATH);
     return { id, docNo: docNo ?? null };
   }
@@ -120,8 +121,15 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   const docNo = admin && docNoInput ? docNoInput : me.staff ? await assignDocNumber(supabase, "loan", requestDate) : null;
   const { data, error } = await supabase.from("proc_loan_contracts").insert({ ...fields, doc_no: docNo }).select("id").single();
   if (error) return { error: rlsMessage(error.message) };
+  await rememberPosition(supabase, borrower, fields.borrower_position);
   revalidatePath(PATH);
   return { id: data.id, docNo };
+}
+
+/** จำตำแหน่งผู้ยืมไว้กับชื่อ ให้ฟอร์มครั้งต่อไป (และฟอร์มจัดซื้อจัดจ้าง) เติมให้อัตโนมัติ — บันทึกไม่สำเร็จก็ไม่กระทบสัญญา */
+async function rememberPosition(supabase: Awaited<ReturnType<typeof createClient>>, name: string, position: string | null) {
+  if (!name || !position) return;
+  await supabase.from("proc_teacher_positions").upsert({ teacher_name: name, position, updated_at: new Date().toISOString() });
 }
 
 export async function deleteLoan(id: string): Promise<Result> {

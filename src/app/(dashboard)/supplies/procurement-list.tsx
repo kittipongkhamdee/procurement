@@ -4,6 +4,7 @@
 // เพิ่ม/แก้ไขผ่าน popup, พิมพ์ชุดเอกสาร ๘ แผ่นทั้งชุด หรือเลือกพิมพ์แยกทีละแผ่น (/supplies/procurement/[id]/pdf?sheets=n)
 // การ์ดสำหรับพื้นที่แคบ / ตารางสำหรับพื้นที่กว้าง (@container แพทเทิร์นเดียวกับงานสัญญา)
 
+import { TEACHER_POSITIONS } from "@/lib/teacher-positions";
 import { offerAssetImport, offerAutoIssue } from "./stock/offer-issue";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -98,14 +99,7 @@ type Lookups = {
 
 // ตำแหน่งผู้ตรวจรับ — ระบบจำตำแหน่งที่เลือกไว้กับชื่อครู (proc_teacher_positions) แล้วเติมให้ครั้งต่อไป
 // พิมพ์ในเอกสารเป็น "ตำแหน่ง <ค่าที่เลือก>" เช่น "ตำแหน่ง ครู วิทยฐานะครูชำนาญการ"
-const POSITIONS = [
-  "ครูผู้ช่วย",
-  "ครู",
-  "ครู วิทยฐานะครูชำนาญการ",
-  "ครู วิทยฐานะครูชำนาญการพิเศษ",
-  "ครู วิทยฐานะครูเชี่ยวชาญ",
-  "ครู วิทยฐานะครูเชี่ยวชาญพิเศษ",
-];
+const POSITIONS = TEACHER_POSITIONS;
 
 const TERMS: Record<ProcurementType, { party: string; item: string; reason: string; penalty: number }> = {
   ซื้อ: { party: "ผู้ขาย", item: "พัสดุที่จะซื้อ", reason: "ใช้ในการ...", penalty: 0.2 },

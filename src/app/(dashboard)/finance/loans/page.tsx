@@ -14,6 +14,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
 import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber, suggestReceiptNo, updateReceiptNo } from "./actions";
+import { TEACHER_POSITIONS } from "@/lib/teacher-positions";
 import { LoanDashboard } from "./loan-dashboard";
 import { ApproveLoanModal, CancelLoanApprovalButton } from "./loan-approve-modal";
 import { baht, LOAN_SELECT, loanPurpose, LoanSummary, type Loan } from "./loan-summary";
@@ -41,7 +42,9 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   const ref = useRef<ModalHandle>(null);
   const { role, isProcStaff, displayName } = useAuth();
   const [loanType, setLoanType] = useState<LoanType>(parseLoanType(loan?.loan_type));
-  const [position, setPosition] = useState(loan?.borrower_position ?? (isProcStaff ? "" : lookups.positions[displayName.trim()] ?? ""));
+  // ตำแหน่ง: ระบบจำไว้กับชื่อผู้ยืม (proc_teacher_positions) — เติมให้ตอนเปิดฟอร์ม (lookups อาจโหลดเสร็จหลังสร้างฟอร์ม)
+  const defaultBorrower = loan?.borrower_name ?? (isProcStaff ? "" : displayName);
+  const [position, setPosition] = useState(loan?.borrower_position ?? "");
   const [projectId, setProjectId] = useState(loan?.project_id ?? "");
   const [activityId, setActivityId] = useState(loan?.activity_id ?? "");
   const [fund, setFund] = useState(loan?.fund_source ?? "");
@@ -80,6 +83,9 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
       title={loan ? `แก้ไขสัญญาการยืมเงิน ${loan.doc_no ?? ""}` : "ทำสัญญาการยืมเงิน"}
       wide
       lazy
+      onOpenChange={(open) => {
+        if (open && !position) setPosition(lookups.positions[defaultBorrower.trim()] ?? "");
+      }}
       trigger={
         loan ? (
           <span title="แก้ไข" className="btn-secondary btn-sm">
@@ -128,6 +134,10 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
                 const p = lookups.positions[e.target.value.trim()];
                 if (p) setPosition(p);
               }}
+              onBlur={(e) => {
+                const p = lookups.positions[e.target.value.trim()];
+                if (p && !position) setPosition(p);
+              }}
               required
               className="input w-full"
             />
@@ -143,7 +153,13 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
         </div>
         <div>
           <label className="label">ตำแหน่ง</label>
-          <input name="borrower_position" value={position} onChange={(e) => setPosition(e.target.value)} className="input w-full" />
+          <input name="borrower_position" list="loan-positions" value={position} onChange={(e) => setPosition(e.target.value)} placeholder="เลือกหรือพิมพ์ เช่น ครู วิทยฐานะครูชำนาญการ" className="input w-full" />
+          <datalist id="loan-positions">
+            {TEACHER_POSITIONS.map((p) => (
+              <option key={p} value={p} />
+            ))}
+          </datalist>
+          <p className="mt-1 text-xs text-slate-500">ระบบจำตำแหน่งไว้กับชื่อผู้ยืม ครั้งต่อไปเติมให้อัตโนมัติ</p>
         </div>
         <div>
           <label className="label">โครงการ</label>
