@@ -3,7 +3,7 @@ import { Document, Font, Page, StyleSheet, Text, View, type Styles } from "@reac
 import { formatBaht, formatThaiDate, thaiBahtText, THAI_MONTHS } from "@/lib/thai";
 import { registerSarabunFont, t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
-import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
+import { wrapByWidth as wrapWith } from "./thai-measure";
 
 // ชุดเอกสารส่งมอบงานตามสัญญา ๔ หน้า (ตามแบบที่โรงเรียนใช้): ใบส่งมอบงาน, ใบตรวจรับพัสดุ (ระเบียบฯ ข้อ ๑๗๕),
 // บันทึกข้อความรายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน, ใบสำคัญรับเงิน
@@ -19,7 +19,6 @@ Font.register({
     { src: path.join(process.cwd(), "src/lib/pdf/fonts/THSarabunNew-Bold.ttf"), fontWeight: "bold" },
   ],
 });
-const measureText = (text: string, size: number, bold = false) => measureWith(text, size, bold, FAMILY);
 /** keep = ชื่อเฉพาะที่ห้ามตัดกลางบรรทัด */
 const wrap = (text: string, size: number, first: number, rest: number, keep: string[] = []) =>
   wrapWith(text, size, first, rest, false, FAMILY, keep);
@@ -107,12 +106,12 @@ function Para({ text, indent = INDENT, style, keep }: { text: string; indent?: n
   );
 }
 
-/** ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ ชื่อในวงเล็บอยู่ใต้เส้น */
+/** ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ — บรรทัดลงชื่อ/ชื่อในวงเล็บจัดกึ่งกลางกัน */
 function Sign({ role, name, marginTop = 18, left = PAGE_W / 2 - PAD_LEFT }: { role: string; name: string | null; marginTop?: number; left?: number }) {
   return (
-    <View style={{ marginLeft: left, marginTop }} wrap={false}>
+    <View style={{ marginLeft: left, marginTop, alignSelf: "flex-start", alignItems: "center" }} wrap={false}>
       <Text>{t(`ลงชื่อ.......................................${role}`)}</Text>
-      <Text style={{ marginLeft: measureText("ลงชื่อ", FS) - 4 }}>{t(name ? `(${name})` : "(.......................................)")}</Text>
+      <Text>{t(name ? `(${name})` : "(.......................................)")}</Text>
     </View>
   );
 }
@@ -220,10 +219,12 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
         <View style={{ marginTop: 10 }} wrap={false}>
           <Text>{t("- ทราบ")}</Text>
           <Text>{t("- อนุมัติ")}</Text>
-          <Text style={{ marginTop: 14 }}>{t("ลงชื่อ.......................................")}</Text>
-          <Text style={{ marginLeft: 24 }}>{t(d.director ? `(${d.director})` : "(.......................................)")}</Text>
-          <Text>{t(`ผู้อำนวยการ${d.school_name}`)}</Text>
-          <Text>{t(`วันที่ ${deliveryDate}`)}</Text>
+          <View style={{ marginTop: 14, alignSelf: "flex-start", alignItems: "center" }}>
+            <Text>{t("ลงชื่อ.......................................")}</Text>
+            <Text>{t(d.director ? `(${d.director})` : "(.......................................)")}</Text>
+            <Text>{t(`ผู้อำนวยการ${d.school_name}`)}</Text>
+            <Text>{t(`วันที่ ${deliveryDate}`)}</Text>
+          </View>
         </View>
       </Page>
 

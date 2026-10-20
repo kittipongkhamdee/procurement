@@ -163,16 +163,15 @@ function DirectorTicks() {
   );
 }
 
-/** ลายมือชื่อ: "ลงชื่อ.......<ตำแหน่ง>" และชื่อในวงเล็บ (ไม่มีชื่อ = เส้นจุด) บรรทัดถัดไปเพิ่มได้ */
+/** ลายมือชื่อ: "ลงชื่อ.......<ตำแหน่ง>" / ชื่อในวงเล็บ (ไม่มีชื่อ = เส้นจุด) / บรรทัดเพิ่มเติม — ทุกบรรทัดจัดกึ่งกลางคอลัมน์เดียวกัน
+ *  (style.width กำหนด = กึ่งกลางในความกว้างนั้น, ไม่กำหนด = กว้างเท่าบรรทัดที่ยาวที่สุด) */
 export function Sign({ role, name, extra = [], style }: { role: string; name: string | null; extra?: string[]; style?: Styles[string] }) {
   return (
-    <View style={style ?? {}} wrap={false}>
+    <View style={[{ alignSelf: "flex-start", alignItems: "center" }, style ?? {}]} wrap={false}>
       <Text>{t(`ลงชื่อ.......................................${role}`)}</Text>
-      <Text style={{ marginLeft: measureText("ลงชื่อ", FS) - 4 }}>{t(name ? `(${name})` : "(.......................................)")}</Text>
+      <Text>{t(name ? `(${name})` : "(.......................................)")}</Text>
       {extra.map((x, i) => (
-        <Text key={i} style={{ marginLeft: measureText("ลงชื่อ", FS) - 4 }}>
-          {t(x)}
-        </Text>
+        <Text key={i}>{t(x)}</Text>
       ))}
     </View>
   );
