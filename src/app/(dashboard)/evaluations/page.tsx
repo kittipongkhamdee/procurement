@@ -6,6 +6,7 @@
 // eval_forms_teacher_own, ที่นี่แค่ซ่อนปุ่มไม่ให้กดของคนอื่น และจัดการ template คำถามมาตรฐาน
 // ได้เพิ่ม (ดู /root/.claude/plans)
 
+import { ChevronLeftIcon } from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/AuthContext";
@@ -98,6 +99,10 @@ export default function EvaluationsPage() {
     <div>
       <div className="page-header">
         <div>
+          <Link href="/reports" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            รายงานโครงการ
+          </Link>
           <h1 className="page-title">ประเมินความพึงพอใจ</h1>
           <p className="page-subtitle">สร้างแบบประเมินความพึงพอใจโครงการ แจกลิงก์ให้ผู้ตอบโดยไม่ต้องล็อกอิน</p>
         </div>

@@ -14,7 +14,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { isDriveRef, resolveEmbedUrl, resolveFileUrl } from "@/lib/storage/ref";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { CheckIcon, ClipboardCheckIcon, LightbulbIcon, PlusIcon } from "@/components/icons";
+import { CheckIcon, ChevronLeftIcon, ClipboardCheckIcon, LightbulbIcon, PlusIcon } from "@/components/icons";
 import { ProposalsTable } from "./proposals-table";
 import {
   approveProposal,
@@ -269,6 +269,10 @@ export default function ProjectProposalsPage() {
     <div>
       <div className="page-header">
         <div>
+          <Link href="/planning" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            จัดทำแผน
+          </Link>
           <h1 className="page-title">เสนอโครงการ</h1>
           <p className="page-subtitle">
             {isApproverOnly

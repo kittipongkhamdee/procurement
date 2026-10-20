@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
 import { formatThaiDate } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { FileTextIcon, PencilIcon, PrinterIcon, WordFileIcon } from "@/components/icons";
+import { ChevronLeftIcon, FileTextIcon, PencilIcon, PrinterIcon, WordFileIcon } from "@/components/icons";
 import { DeleteReportButton } from "./delete-report-button";
 import { sortProjectsByGroup } from "./project-select";
 import { deleteProjectReport } from "./actions";
@@ -216,6 +216,10 @@ export default function ProjectReportsPage() {
     <div>
       <div className="page-header">
         <div>
+          <Link href="/reports" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            รายงานโครงการ
+          </Link>
           <h1 className="page-title">ระบบรายงานโครงการ</h1>
           <p className="page-subtitle">สรุปผลการดำเนินงานหลังปิดโครงการ พร้อมออกรายงาน PDF และ Word</p>
         </div>

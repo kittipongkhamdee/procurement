@@ -3,6 +3,8 @@
 // หน้า "การจัดสรรเงิน" — shell แบบแท็บ: นักเรียนและรายหัว / รายรับ / จัดสรรเงิน / คัดลอกโครงการเดิม / ร่างโครงการปีงบประมาณนี้ ใช้ปีงบประมาณเดียวกัน
 // ทั้งหน้า (ดู /root/.claude/plans) — client-fetch pattern เดียวกับ /projects
 
+import Link from "next/link";
+import { ChevronLeftIcon } from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -59,6 +61,10 @@ export default function FundAllocationPage() {
     <div>
       <div className={`page-header ${tab === "draft" ? "print:hidden" : ""}`}>
         <div>
+          <Link href="/planning" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <ChevronLeftIcon className="h-4 w-4" />
+            จัดทำแผน
+          </Link>
           <h1 className="page-title">การจัดสรรเงิน</h1>
           <p className="page-subtitle">ประมาณการรายรับ จัดสรรงบประมาณตามกลุ่มบริหารงาน และจัดสรรให้แต่ละโครงการ</p>
         </div>
