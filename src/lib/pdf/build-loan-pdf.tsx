@@ -7,9 +7,9 @@ import { LoanContractDocument, VoucherReceiptDocument, type LoanContractData } f
 // โหลดข้อมูลสัญญาการยืมเงิน + ค่าตั้งโรงเรียน แล้วเรนเดอร์ PDF — ใช้ทั้งสัญญา (หน้า-หลัง), สรุปรายการส่งใช้ และใบรับใบสำคัญ
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
-type LoanPdfData = LoanContractData & { created_by: string | null };
+type LoanPdfData = LoanContractData & { created_by: string | null; borrower_user_id: string | null };
 
-/** สิทธิ์พิมพ์ — เจ้าหน้าที่ (admin/พัสดุ/การเงิน) และผู้บริหารพิมพ์ได้ทุกสัญญา, ครูพิมพ์ได้เฉพาะสัญญาที่ตัวเองยื่น */
+/** สิทธิ์พิมพ์ — เจ้าหน้าที่ (admin/พัสดุ/การเงิน) และผู้บริหารพิมพ์ได้ทุกสัญญา, ครูพิมพ์ได้เฉพาะสัญญาของตัวเอง (เป็นผู้ยืม หรือเป็นผู้กรอกแทน) */
 async function printer(supabase: Supabase) {
   const {
     data: { user },
@@ -40,6 +40,7 @@ async function loadLoan(supabase: Supabase, id: string): Promise<LoanPdfData | n
   const repayments = [...(r.proc_loan_repayments ?? [])].sort((a, b) => a.repay_date.localeCompare(b.repay_date) || a.created_at.localeCompare(b.created_at));
   return {
     created_by: r.created_by,
+    borrower_user_id: r.borrower_user_id,
     printed_by: "borrower",
     checked_date: r.checked_date,
     doc_no: r.doc_no,
@@ -77,7 +78,7 @@ export async function buildLoanContractPdf(supabase: Supabase, id: string, view:
   const data = await loadLoan(supabase, id);
   if (!data) return { status: 404 as const };
   const me = await printer(supabase);
-  if (!me.staff && !me.executive && data.created_by !== me.userId) return { status: 403 as const };
+  if (!me.staff && !me.executive && data.created_by !== me.userId && data.borrower_user_id !== me.userId) return { status: 403 as const };
   // เจ้าหน้าที่พิมพ์สัญญา: ออกเลขที่ (ถ้ายังไม่มี) และตั้งวันที่การเงินตรวจสอบเป็นวันนี้ (ถ้ายังไม่มี) แล้วพิมพ์ลงเอกสาร
   // ผู้ยืม/ผู้บริหารพิมพ์: เว้นว่างเลขที่และวันที่ทุกช่อง ให้การเงินเขียนมือ
   if (me.staff) {
@@ -101,7 +102,7 @@ export async function buildVoucherReceiptPdf(supabase: Supabase, id: string, rep
   const rep = data?.repayments.find((r) => r.id === repaymentId);
   if (!data || !rep) return null;
   const me = await printer(supabase);
-  if (!me.staff && !me.executive && data.created_by !== me.userId) return null;
+  if (!me.staff && !me.executive && data.created_by !== me.userId && data.borrower_user_id !== me.userId) return null;
   const buffer = await renderToBuffer(
     <VoucherReceiptDocument
       data={{

@@ -3137,6 +3137,7 @@ export type Database = {
       }
       proc_loan_contracts: {
         Row: {
+          borrower_user_id: string | null
           submitted_by_name: string | null
           checked_date: string | null
           project_id: string | null
@@ -3163,6 +3164,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          borrower_user_id?: string | null
           submitted_by_name?: string | null
           checked_date?: string | null
           project_id?: string | null
@@ -3189,6 +3191,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          borrower_user_id?: string | null
           submitted_by_name?: string | null
           checked_date?: string | null
           project_id?: string | null
@@ -3531,6 +3534,10 @@ export type Database = {
       proc_set_acting_role: {
         Args: { new_role: string | null }
         Returns: undefined
+      }
+      proc_user_id_by_name: {
+        Args: { full_name: string }
+        Returns: string
       }
       proc_loan_pending: {
         Args: { borrower: string }

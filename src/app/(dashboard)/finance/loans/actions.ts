@@ -83,6 +83,9 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   };
 
   const admin = await isAdminUser(supabase);
+  // ผู้ยืมจริงเป็นเจ้าของสัญญา — ผูกบัญชีจากชื่อ-สกุล ให้ผู้ยืมเห็น/แก้/พิมพ์ได้เหมือนยื่นเอง (ผู้กรอกแทนแค่บันทึกข้อมูลให้)
+  const { data: borrowerUserId } = await supabase.rpc("proc_user_id_by_name", { full_name: borrower });
+  Object.assign(fields, { borrower_user_id: borrowerUserId ?? null });
   const docNoInput = str("doc_no");
   if (admin && docNoInput && (await docNumberTaken(supabase, "loan", docNoInput, id ?? undefined))) return { error: `เลขที่ ${docNoInput} ถูกใช้แล้ว` };
 
