@@ -725,7 +725,7 @@ export default function LoansPage() {
             href={`/finance/loans/${r.id}/pdf`}
             target="_blank"
             rel="noreferrer"
-            title={isProcStaff ? "พิมพ์สัญญา (หน้า-หลัง) — พิมพ์เลขที่/วันที่การเงินตามที่บันทึกไว้" : "พิมพ์สัญญา (หน้า-หลัง) — เลขที่/วันที่เว้นว่างให้การเงินเขียน"}
+            title="พิมพ์สัญญา (หน้า-หลัง) — เลขที่/วันครบกำหนด/วันที่แต่ละขั้นตอนตามที่บันทึกไว้ ขั้นตอนที่ยังไม่ถึงเว้นจุดไว้"
             className="btn-secondary btn-sm"
           >
             <PrinterIcon className="h-3.5 w-3.5" />

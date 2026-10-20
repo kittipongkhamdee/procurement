@@ -34,8 +34,8 @@ async function loadLoan(supabase: Supabase, id: string): Promise<LoanPdfData | n
   const repayments = [...(r.proc_loan_repayments ?? [])].sort((a, b) => a.repay_date.localeCompare(b.repay_date) || a.created_at.localeCompare(b.created_at));
   return {
     created_by: r.created_by,
-    printed_by: "borrower",
     checked_date: r.checked_date,
+    approved_date: r.director_approved_at ? new Date(r.director_approved_at).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" }) : null,
     doc_no: r.doc_no,
     request_date: r.request_date,
     due_date: r.due_date,
@@ -72,9 +72,6 @@ export async function buildLoanContractPdf(supabase: Supabase, id: string, view:
   if (!data) return { status: 404 as const };
   const me = await printer(supabase);
   if (!me.staff && !me.executive && data.created_by !== me.userId) return { status: 403 as const };
-  // เจ้าหน้าที่พิมพ์: พิมพ์เลขที่/วันที่การเงินตามที่บันทึกไว้ (ออกเลขที่ด้วยปุ่ม "ออกเลขที่" — การพิมพ์ไม่ออกเลขให้เอง)
-  // ผู้ยืม/ผู้บริหารพิมพ์: เว้นว่างเลขที่และวันที่ฝั่งการเงิน ให้การเงินเขียนมือ
-  if (me.staff) data.printed_by = "finance";
   return { status: 200 as const, docNo: data.doc_no, buffer: await renderToBuffer(<LoanContractDocument data={data} view={view} />) };
 }
 
