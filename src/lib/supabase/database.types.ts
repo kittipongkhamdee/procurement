@@ -3137,6 +3137,8 @@ export type Database = {
       }
       proc_loan_contracts: {
         Row: {
+          project_id: string | null
+          activity_id: string | null
           id: string
           doc_no: string | null
           request_date: string
@@ -3159,6 +3161,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          project_id?: string | null
+          activity_id?: string | null
           id?: string
           doc_no?: string | null
           request_date: string
@@ -3181,6 +3185,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          project_id?: string | null
+          activity_id?: string | null
           id?: string
           doc_no?: string | null
           request_date?: string
@@ -3202,7 +3208,22 @@ export type Database = {
           created_at?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "proc_loan_contracts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_loan_contracts_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "plan_activities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proc_loan_repayments: {
         Row: {

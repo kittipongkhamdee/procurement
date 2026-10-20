@@ -23,6 +23,10 @@ type Loan = {
   borrower_position: string | null;
   fund_source: string | null;
   purpose: string;
+  project_id: string | null;
+  activity_id: string | null;
+  plan_projects: { name: string } | null;
+  plan_activities: { name: string } | null;
   loan_type: string;
   travel_return_date: string | null;
   items: LoanItem[];
@@ -35,7 +39,13 @@ type Loan = {
   note: string | null;
   proc_loan_repayments: LoanRepayment[];
 };
-type Lookups = { teachers: string[]; positions: Record<string, string> };
+type Lookups = {
+  teachers: string[];
+  positions: Record<string, string>;
+  /** โครงการปีงบปัจจุบัน + แหล่งเงิน (plan_budget_sources) ไว้เติม "ขอยืมเงินจาก" อัตโนมัติ */
+  projects: { id: string; name: string; fund: string | null }[];
+  activities: { id: string; name: string; project_id: string }[];
+};
 
 const FUND_SOURCES = ["เงินอุดหนุนรายหัว", "เงินอุดหนุนกิจกรรมพัฒนาผู้เรียน", "เงินรายได้สถานศึกษา", "เงินงบประมาณ", "เงินนอกงบประมาณ"];
 const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -46,6 +56,14 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   const [loanType, setLoanType] = useState<LoanType>(parseLoanType(loan?.loan_type));
   const [dueDays, setDueDays] = useState(String(loan?.due_days ?? LOAN_DUE_DAYS.other));
   const [position, setPosition] = useState(loan?.borrower_position ?? "");
+  const [projectId, setProjectId] = useState(loan?.project_id ?? "");
+  const [activityId, setActivityId] = useState(loan?.activity_id ?? "");
+  const [fund, setFund] = useState(loan?.fund_source ?? "");
+  const projectOptions =
+    loan?.project_id && !lookups.projects.some((p) => p.id === loan.project_id)
+      ? [{ id: loan.project_id, name: loan.plan_projects?.name ?? "(โครงการปีก่อน)", fund: null }, ...lookups.projects]
+      : lookups.projects;
+  const activityOptions = lookups.activities.filter((a) => a.project_id === projectId);
   const [items, setItems] = useState<{ detail: string; amount: string }[]>(
     loan?.items?.length ? loan.items.map((i) => ({ detail: i.detail, amount: String(i.amount) })) : [{ detail: "", amount: "" }],
   );
@@ -130,9 +148,44 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           <label className="label">ตำแหน่ง</label>
           <input name="borrower_position" value={position} onChange={(e) => setPosition(e.target.value)} className="input w-full" />
         </div>
+        <div>
+          <label className="label">โครงการ</label>
+          <select
+            name="project_id"
+            value={projectId}
+            onChange={(e) => {
+              setProjectId(e.target.value);
+              setActivityId("");
+              const f = projectOptions.find((p) => p.id === e.target.value)?.fund;
+              if (f) setFund(f);
+            }}
+            className="input w-full"
+          >
+            <option value="">-- ไม่ระบุ --</option>
+            {projectOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">กิจกรรม</label>
+          <select name="activity_id" value={activityId} onChange={(e) => setActivityId(e.target.value)} disabled={!projectId} className="input w-full">
+            <option value="">{projectId ? "-- ไม่ระบุ --" : "-- เลือกโครงการก่อน --"}</option>
+            {loan?.activity_id && !activityOptions.some((a) => a.id === loan.activity_id) && loan.project_id === projectId && (
+              <option value={loan.activity_id}>{loan.plan_activities?.name ?? "(กิจกรรมเดิม)"}</option>
+            )}
+            {activityOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="sm:col-span-2">
           <label className="label">ขอยืมเงินจาก (ประเภทเงิน)</label>
-          <input name="fund_source" list="loan-funds" defaultValue={loan?.fund_source ?? ""} placeholder="เช่น เงินอุดหนุนรายหัว" className="input w-full" />
+          <input name="fund_source" list="loan-funds" value={fund} onChange={(e) => setFund(e.target.value)} placeholder="เลือกโครงการแล้วเติมให้อัตโนมัติ หรือพิมพ์เอง" className="input w-full" />
           <datalist id="loan-funds">
             {FUND_SOURCES.map((n) => (
               <option key={n} value={n} />
@@ -141,9 +194,9 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
         </div>
         <div className="sm:col-span-2">
           <label className="label">
-            เพื่อเป็นค่าใช้จ่ายในการ <span className="text-red-600">*</span>
+            เพื่อเป็นค่าใช้จ่ายในการ {!projectId && <span className="text-red-600">*</span>}
           </label>
-          <input name="purpose" defaultValue={loan?.purpose ?? ""} required placeholder="เช่น จัดซื้อวัสดุโครงการพัฒนาห้องสมุด" className="input w-full" />
+          <input name="purpose" defaultValue={loan?.purpose ?? ""} required={!projectId} placeholder="เช่น จัดซื้อวัสดุ (ระบบต่อท้ายด้วยชื่อโครงการ/กิจกรรมที่เลือกให้)" className="input w-full" />
         </div>
 
         <fieldset className="sm:col-span-2">
@@ -374,24 +427,40 @@ function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; 
   );
 }
 
+function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activities">) {
+  return [r.purpose, r.plan_projects && `โครงการ${r.plan_projects.name.replace(/^โครงการ\s*/, "")}`, r.plan_activities?.name && `กิจกรรม${r.plan_activities.name.replace(/^กิจกรรม\s*/, "")}`].filter(Boolean).join(" ");
+}
+
 export default function LoansPage() {
   const { isProcStaff } = useAuth();
   const [rows, setRows] = useState<Loan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "open" | "overdue" | "cleared">("open");
-  const [lookups, setLookups] = useState<Lookups>({ teachers: [], positions: {} });
+  const [lookups, setLookups] = useState<Lookups>({ teachers: [], positions: {}, projects: [], activities: [] });
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data, error }, { data: teachers }, { data: positions }] = await Promise.all([
-      supabase.from("proc_loan_contracts").select("*, proc_loan_repayments(*)").order("request_date", { ascending: false }).order("created_at", { ascending: false }),
+    const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
+    const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
+    const [{ data, error }, { data: teachers }, { data: positions }, { data: projects }] = await Promise.all([
+      supabase.from("proc_loan_contracts").select("*, proc_loan_repayments(*), plan_projects(name), plan_activities(name)").order("request_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("proc_teacher_positions").select("teacher_name, position"),
+      currentYear
+        ? supabase.from("plan_projects").select("id, name, plan_budget_sources(name), plan_activities(id, name, sort_order)").eq("budget_year_id", currentYear.id).order("sort_order")
+        : Promise.resolve({ data: [] }),
     ]);
     setError(error?.message ?? null);
     setRows(((data ?? []) as unknown as Loan[]).map((r) => ({ ...r, amount: Number(r.amount) })));
-    setLookups({ teachers: (teachers ?? []).map((t) => t.name), positions: Object.fromEntries((positions ?? []).map((p) => [p.teacher_name, p.position])) });
+    type P = { id: string; name: string; plan_budget_sources: { name: string } | null; plan_activities: { id: string; name: string | null; sort_order: number }[] };
+    const ps = (projects ?? []) as unknown as P[];
+    setLookups({
+      teachers: (teachers ?? []).map((t) => t.name),
+      positions: Object.fromEntries((positions ?? []).map((p) => [p.teacher_name, p.position])),
+      projects: ps.map((p) => ({ id: p.id, name: p.name, fund: p.plan_budget_sources?.name ?? null })),
+      activities: ps.flatMap((p) => [...p.plan_activities].sort((a, b) => a.sort_order - b.sort_order).filter((a) => a.name).map((a) => ({ id: a.id, name: a.name!, project_id: p.id }))),
+    });
   }, []);
 
   useEffect(() => {
@@ -412,7 +481,7 @@ export default function LoansPage() {
     return withStatus.filter(
       (r) =>
         (filter === "all" || (filter === "open" && !r.cleared) || (filter === "overdue" && r.overdue) || (filter === "cleared" && r.cleared)) &&
-        (!q || [r.doc_no, r.borrower_name, r.purpose].some((v) => v?.toLowerCase().includes(q))),
+        (!q || [r.doc_no, r.borrower_name, r.purpose, r.plan_projects?.name].some((v) => v?.toLowerCase().includes(q))),
     );
   }, [withStatus, query, filter]);
   const totalOutstanding = withStatus.reduce((s, r) => s + r.outstanding, 0);
@@ -494,7 +563,7 @@ export default function LoansPage() {
                   <p className="text-sm text-slate-700">
                     {r.borrower_name} · {baht(r.amount)} บาท
                   </p>
-                  <p className="text-xs text-slate-500">{r.purpose}</p>
+                  <p className="text-xs text-slate-500">{loanPurpose(r)}</p>
                   <p className="text-xs text-slate-500">
                     คงค้าง {baht(r.outstanding)} บาท{r.due_date ? ` · ครบกำหนด ${formatThaiDate(r.due_date)}` : ""}
                   </p>
@@ -523,7 +592,7 @@ export default function LoansPage() {
                     <td className="whitespace-nowrap font-medium text-slate-900">{r.doc_no ?? "-"}</td>
                     <td className="whitespace-nowrap">{formatThaiDate(r.request_date)}</td>
                     <td>{r.borrower_name}</td>
-                    <td>{r.purpose}</td>
+                    <td>{loanPurpose(r)}</td>
                     <td className="text-right tabular-nums">{baht(r.amount)}</td>
                     <td className="text-right tabular-nums">{baht(r.outstanding)}</td>
                     <td className="whitespace-nowrap">{r.due_date ? formatThaiDate(r.due_date) : "-"}</td>

@@ -22,7 +22,8 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   const purpose = str("purpose");
   if (!requestDate) return { error: "กรุณาระบุวันที่ยื่นสัญญา" };
   if (!borrower) return { error: "กรุณาระบุชื่อผู้ยืม" };
-  if (!purpose) return { error: "กรุณาระบุว่ายืมเพื่อเป็นค่าใช้จ่ายในการใด" };
+  const projectId = str("project_id") || null;
+  if (!purpose && !projectId) return { error: "กรุณาระบุว่ายืมเพื่อเป็นค่าใช้จ่ายในการใด หรือเลือกโครงการ" };
   let items: LoanItem[] = [];
   try {
     items = (JSON.parse(str("items_json") || "[]") as { detail: string; amount: string }[])
@@ -46,6 +47,8 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
     borrower_position: str("borrower_position") || null,
     fund_source: str("fund_source") || null,
     purpose,
+    project_id: projectId,
+    activity_id: projectId ? str("activity_id") || null : null,
     loan_type: loanType,
     travel_return_date: travelReturnDate,
     items,

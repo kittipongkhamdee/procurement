@@ -7,7 +7,7 @@ import { LoanContractDocument, VoucherReceiptDocument, type LoanContractData } f
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 async function loadLoan(supabase: Supabase, id: string): Promise<LoanContractData | null> {
-  const { data: r } = await supabase.from("proc_loan_contracts").select("*, proc_loan_repayments(*)").eq("id", id).maybeSingle();
+  const { data: r } = await supabase.from("proc_loan_contracts").select("*, proc_loan_repayments(*), plan_projects(name), plan_activities(name)").eq("id", id).maybeSingle();
   if (!r) return null;
   const names = [r.checker_name, r.approver_name, r.borrower_name].filter((n): n is string => !!n);
   const [{ data: settings }, { data: school }, { data: positions }] = await Promise.all([
@@ -31,7 +31,14 @@ async function loadLoan(supabase: Supabase, id: string): Promise<LoanContractDat
     affiliation: school?.education_area ?? "สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาสุรินทร์",
     province: /จังหวัด\s*(\S+)/.exec(school?.school_address ?? "")?.[1] ?? "สุรินทร์",
     fund_source: r.fund_source,
-    purpose: r.purpose,
+    // เพื่อเป็นค่าใช้จ่ายในการ <ที่กรอก> โครงการ… กิจกรรม…
+    purpose: [
+      r.purpose,
+      r.plan_projects?.name && `โครงการ${r.plan_projects.name.replace(/^โครงการ\s*/, "")}`,
+      r.plan_activities?.name && `กิจกรรม${r.plan_activities.name.replace(/^กิจกรรม\s*/, "")}`,
+    ]
+      .filter(Boolean)
+      .join(" "),
     items: (r.items as unknown as LoanItem[]) ?? [],
     amount: Number(r.amount),
     loan_type: parseLoanType(r.loan_type),
