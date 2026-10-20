@@ -11,7 +11,8 @@ import { wrapByWidth } from "./thai-measure";
 //           · [รายละเอียด | จำนวนเงิน] (ตัวอักษร)…รวมเงิน (บาท) · ข้อสัญญา ( ) 30 วัน / ( ) 15 วัน + ลายมือชื่อผู้ยืม
 //           · เสนอ (เจ้าหน้าที่การเงินตรวจสอบ) · คำอนุมัติ · ใบรับเงิน
 //  ด้านหลัง: รายการส่งใช้เงินยืม (ครั้งที่ วันเดือนปี [รายการส่งใช้: เงินสดหรือใบสำคัญ | จำนวนเงิน] คงค้าง ลายมือชื่อผู้รับ ใบรับเลขที่)
-//           · ใบรับใบสำคัญ (ตามตัวอย่างโรงเรียน) · หมายเหตุ (1)–(4) ของแบบ 8500
+//           · หมายเหตุ (1)–(4) ของแบบ 8500 — ตารางเปล่าเสมอ ให้เจ้าหน้าที่เขียนเติมด้วยมือบนสัญญาตัวจริงตอนส่งใช้
+//  แยกอีก 2 เอกสาร: สรุปรายการส่งใช้จากระบบ (view="summary") และใบรับใบสำคัญต่อครั้ง (VoucherReceiptDocument)
 // ข้อ 61 จัดทำสองฉบับ (ส่วนราชการเก็บ 1 ผู้ยืมเก็บ 1) — TH Sarabun New 16pt
 
 registerThSarabunFont();
@@ -194,9 +195,18 @@ function FrontPage({ d }: { d: LoanContractData }) {
 const BACK_COLS = [34, 72, 96, 74, 74, 0, 80];
 BACK_COLS[5] = CONTENT_W - BACK_COLS.reduce((s, w) => s + w, 0);
 
-function BackPage({ d }: { d: LoanContractData }) {
+const NOTES = [
+  "(1) ยื่นต่อ ผู้อำนวยการกองคลัง หัวหน้ากองคลัง หัวหน้าแผนกคลัง หรือตำแหน่งอื่นใดที่ปฏิบัติงานเช่นเดียวกันแล้วแต่กรณี",
+  "(2) ให้ระบุชื่อส่วนราชการที่จ่ายเงินยืม",
+  "(3) ระบุวัตถุประสงค์ที่จะนำเงินยืมไปใช้จ่าย",
+  "(4) เสนอต่อผู้มีอำนาจอนุมัติ",
+];
+
+/** ด้านหลังสัญญา — filled=false (พิมพ์พร้อมด้านหน้าตอนยืม): ตารางเปล่าให้เจ้าหน้าที่เขียนเติมด้วยมือทุกครั้งที่ส่งใช้ (ข้อ 66)
+ *  filled=true (สรุปรายการส่งใช้จากระบบ): เติมทุกครั้งที่บันทึกไว้ ใช้ตรวจทาน/แนบเรื่อง — ไม่ใช่สำหรับพิมพ์ทับสัญญาตัวจริง */
+function BackPage({ d, filled }: { d: LoanContractData; filled: boolean }) {
   const paidThrough = (i: number) => d.repayments.slice(0, i + 1).reduce((s, r) => s + Number(r.voucher_amount) + Number(r.cash_amount), 0);
-  const rows = d.repayments.map((r, i) => {
+  const rows = (filled ? d.repayments : []).map((r, i) => {
     const voucher = Number(r.voucher_amount);
     const cash = Number(r.cash_amount);
     const left = Math.round((d.amount - paidThrough(i)) * 100) / 100;
@@ -204,16 +214,17 @@ function BackPage({ d }: { d: LoanContractData }) {
     const amounts = [voucher > 0 ? formatBaht(voucher) : "", cash > 0 ? formatBaht(cash) : ""].filter(Boolean);
     return { no: String(i + 1), date: shortThaiDate(r.repay_date), kinds, amounts, left: formatBaht(Math.max(left, 0)), receipt: r.receipt_no ?? "" };
   });
-  const empty = Math.max(0, 8 - rows.length);
-  // ใบรับใบสำคัญ — ใช้รายการส่งใช้ที่มีใบสำคัญครั้งล่าสุด (ยังไม่ส่งใช้ = เว้นว่างให้เขียน)
-  const lastVoucher = [...d.repayments].reverse().find((r) => Number(r.voucher_amount) > 0);
-  const vAmount = lastVoucher ? Number(lastVoucher.voucher_amount) : null;
+  const empty = Math.max(0, (filled ? 10 : 16) - rows.length);
+  const repaid = Math.round(paidThrough(d.repayments.length - 1) * 100) / 100;
   const cellText = (v: string, w: number, align: "left" | "center" | "right" = "center") => (
     <Text style={[styles.cell, { width: w, textAlign: align }]}>{t(v || " ")}</Text>
   );
   return (
     <Page size="A4" style={styles.page}>
-      <Text style={[styles.bold, styles.center, { fontSize: 18, marginBottom: 4 }]}>{t("รายการส่งใช้เงินยืม")}</Text>
+      <Text style={[styles.bold, styles.center, { fontSize: 18 }]}>{t(filled ? "สรุปรายการส่งใช้เงินยืม (ตามที่บันทึกในระบบ)" : "รายการส่งใช้เงินยืม")}</Text>
+      <Text style={[styles.center, { marginBottom: 4 }]}>
+        {t(`สัญญาการยืมเงินเลขที่ ${d.doc_no || "......../........"} ลงวันที่ ${formatThaiDate(d.request_date)}  ผู้ยืม ${d.borrower_name}  จำนวนเงิน ${formatBaht(d.amount)} บาท`)}
+      </Text>
       <View style={{ borderTopWidth: B, borderLeftWidth: B, fontSize: 15 }}>
         <View style={{ flexDirection: "row" }}>
           <Text style={[styles.cell, styles.head, { width: BACK_COLS[0], paddingTop: 10 }]}>{t("ครั้งที่")}</Text>
@@ -253,60 +264,96 @@ function BackPage({ d }: { d: LoanContractData }) {
         {Array.from({ length: empty }, (_, i) => (
           <View key={`e${i}`} style={{ flexDirection: "row" }}>
             {BACK_COLS.map((w, j) => (
-              <Text key={j} style={[styles.cell, { width: w }]}>
+              <Text key={j} style={[styles.cell, { width: w, paddingVertical: filled ? 1 : 4 }]}>
                 {t(" ")}
               </Text>
             ))}
           </View>
         ))}
       </View>
-
-      {/* ใบรับใบสำคัญ */}
-      <View style={[styles.frame, { marginTop: 10, paddingHorizontal: INNER, paddingVertical: 4 }]} wrap={false}>
-        <Text style={[styles.bold, styles.center]}>{t("ใบรับใบสำคัญ")}</Text>
-        <View style={{ alignItems: "flex-end" }}>
-          <Text>{t(`เลขที่ ${lastVoucher?.receipt_no || "บค........./.........."}`)}</Text>
-          <Text>{t(d.school_name)}</Text>
-          <Text>{t(`วันที่ ${dateOr(lastVoucher?.repay_date)}`)}</Text>
+      {filled && (
+        <Text style={{ marginTop: 6 }}>
+          {t(`ส่งใช้แล้ว ${formatBaht(repaid)} บาท  คงค้าง ${formatBaht(Math.max(d.amount - repaid, 0))} บาท${d.due_date ? `  ครบกำหนด ${formatThaiDate(d.due_date)}` : ""}`)}
+        </Text>
+      )}
+      {!filled && (
+        <View style={{ marginTop: 8, fontSize: 14 }}>
+          <Text style={styles.bold}>{t("หมายเหตุ")}</Text>
+          {NOTES.map((x, i) => (
+            <View key={i}>
+              {wrapByWidth(x, 14, CONTENT_W - 6, CONTENT_W - 24, false, FAMILY).map((l, j) => (
+                <Text key={j} style={{ marginLeft: j > 0 ? 24 : 6 }}>
+                  {t(l)}
+                </Text>
+              ))}
+            </View>
+          ))}
         </View>
-        <Para
-          width={BOX_W}
-          text={`ได้รับใบสำคัญจาก ${d.borrower_name} ตำแหน่ง ${d.borrower_position || DOTS} ${d.school_name} สังกัด ${d.affiliation} เพื่อส่งใช้เงินยืมตามสัญญาการยืมเงินเลขที่ ${d.doc_no || "......../........"} ลงวันที่ ${formatThaiDate(d.request_date)} รวม ${lastVoucher?.voucher_count ?? "........"} ฉบับ เป็นเงิน ${vAmount != null ? formatBaht(vAmount) : "................"} บาท ${vAmount != null ? thaiBahtText(vAmount) : "(..................................................)"} ไว้เป็นการถูกต้องแล้ว`}
-          keep={[d.borrower_name, d.school_name, d.affiliation]}
-        />
-        <View style={{ marginLeft: CONTENT_W / 2 - 40, alignItems: "center", marginTop: 6 }}>
-          <Text>{t("ลงชื่อ..............................................ผู้รับใบสำคัญ")}</Text>
-          <Text>{t(d.checker_name ? `(${d.checker_name})` : `(${DOTS})`)}</Text>
-          <Text>{t(`ตำแหน่ง ${d.checker_position || "เจ้าหน้าที่การเงิน"}`)}</Text>
-        </View>
-      </View>
-
-      <View style={{ marginTop: 8, fontSize: 14 }}>
-        <Text style={styles.bold}>{t("หมายเหตุ")}</Text>
-        {[
-          "(1) ยื่นต่อ ผู้อำนวยการกองคลัง หัวหน้ากองคลัง หัวหน้าแผนกคลัง หรือตำแหน่งอื่นใดที่ปฏิบัติงานเช่นเดียวกันแล้วแต่กรณี",
-          "(2) ให้ระบุชื่อส่วนราชการที่จ่ายเงินยืม",
-          "(3) ระบุวัตถุประสงค์ที่จะนำเงินยืมไปใช้จ่าย",
-          "(4) เสนอต่อผู้มีอำนาจอนุมัติ",
-        ].map((x, i) => (
-          <View key={i}>
-            {wrapByWidth(x, 14, CONTENT_W - 6, CONTENT_W - 24, false, FAMILY).map((l, j) => (
-              <Text key={j} style={{ marginLeft: j > 0 ? 24 : 6 }}>
-                {t(l)}
-              </Text>
-            ))}
-          </View>
-        ))}
-      </View>
+      )}
     </Page>
   );
 }
 
-export function LoanContractDocument({ data }: { data: LoanContractData }) {
+/** view = "contract": ด้านหน้า + ด้านหลัง (ตารางเปล่า) สำหรับพิมพ์หน้า-หลังตอนยืม · "summary": สรุปรายการส่งใช้จากระบบ 1 หน้า */
+export function LoanContractDocument({ data, view = "contract" }: { data: LoanContractData; view?: "contract" | "summary" }) {
   return (
-    <Document title={`สัญญาการยืมเงิน ${data.doc_no ?? ""}`}>
-      <FrontPage d={data} />
-      <BackPage d={data} />
+    <Document title={`${view === "summary" ? "สรุปรายการส่งใช้เงินยืม" : "สัญญาการยืมเงิน"} ${data.doc_no ?? ""}`}>
+      {view === "contract" && <FrontPage d={data} />}
+      <BackPage d={data} filled={view === "summary"} />
+    </Document>
+  );
+}
+
+export type VoucherReceiptData = {
+  receipt_no: string | null;
+  repay_date: string;
+  school_name: string;
+  borrower_name: string;
+  borrower_position: string | null;
+  affiliation: string;
+  doc_no: string | null;
+  request_date: string;
+  voucher_count: number | null;
+  voucher_amount: number;
+  cash_amount: number;
+  receiver_name: string | null;
+  receiver_position: string | null;
+};
+
+function ReceiptCopy({ d, copy }: { d: VoucherReceiptData; copy: string }) {
+  const total = d.voucher_amount + d.cash_amount;
+  const cash = d.cash_amount > 0 ? ` และเงินสดเหลือจ่ายคืน ${formatBaht(d.cash_amount)} บาท` : "";
+  return (
+    <View style={[styles.frame, { paddingHorizontal: INNER, paddingVertical: 4 }]} wrap={false}>
+      <Text style={{ textAlign: "right", fontSize: 13 }}>{t(copy)}</Text>
+      <Text style={[styles.bold, styles.center, { fontSize: 18 }]}>{t("ใบรับใบสำคัญ")}</Text>
+      <View style={{ alignItems: "flex-end" }}>
+        <Text>{t(`เลขที่ ${d.receipt_no || "บค........./.........."}`)}</Text>
+        <Text>{t(d.school_name)}</Text>
+        <Text>{t(`วันที่ ${formatThaiDate(d.repay_date)}`)}</Text>
+      </View>
+      <Para
+        text={`ได้รับใบสำคัญจาก ${d.borrower_name} ตำแหน่ง ${d.borrower_position || DOTS} ${d.school_name} สังกัด ${d.affiliation} เพื่อส่งใช้เงินยืมตามสัญญาการยืมเงินเลขที่ ${d.doc_no || "......../........"} ลงวันที่ ${formatThaiDate(d.request_date)} รวม ${d.voucher_count ?? "........"} ฉบับ เป็นเงิน ${formatBaht(d.voucher_amount)} บาท ${thaiBahtText(d.voucher_amount)}${cash} รวมส่งใช้ครั้งนี้ ${formatBaht(total)} บาท ไว้เป็นการถูกต้องแล้ว`}
+        keep={[d.borrower_name, d.school_name, d.affiliation]}
+      />
+      <View style={{ marginLeft: CONTENT_W / 2 - 40, alignItems: "center", marginTop: 10 }}>
+        <Text>{t("ลงชื่อ..............................................ผู้รับใบสำคัญ")}</Text>
+        <Text>{t(d.receiver_name ? `(${d.receiver_name})` : `(${DOTS})`)}</Text>
+        <Text>{t(`ตำแหน่ง ${d.receiver_position || "เจ้าหน้าที่การเงิน"}`)}</Text>
+      </View>
+    </View>
+  );
+}
+
+/** ใบรับใบสำคัญ (ข้อ 66 — ออกให้ผู้ยืมไว้เป็นหลักฐาน) ต่อการส่งใช้ 1 ครั้ง — A4 แบ่งครึ่ง: ฉบับผู้ยืม / ฉบับโรงเรียน */
+export function VoucherReceiptDocument({ data }: { data: VoucherReceiptData }) {
+  return (
+    <Document title={`ใบรับใบสำคัญ ${data.receipt_no ?? ""}`}>
+      <Page size="A4" style={styles.page}>
+        <ReceiptCopy d={data} copy="ฉบับผู้ยืม" />
+        <Text style={[styles.center, { fontSize: 12, color: "#64748b", marginVertical: 18 }]}>{t("- - - - - - - - - - - - - - - - - - - - - - ตัดตามรอยนี้ - - - - - - - - - - - - - - - - - - - - - -")}</Text>
+        <ReceiptCopy d={data} copy="ฉบับโรงเรียน (เก็บกับสัญญา)" />
+      </Page>
     </Document>
   );
 }

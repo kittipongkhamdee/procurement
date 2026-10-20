@@ -279,6 +279,9 @@ function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; 
         </span>
       }
     >
+      <p className="mb-2 text-xs text-slate-500">
+        บันทึกที่นี่แล้วเขียนเติมในตารางด้านหลังของสัญญาตัวจริงด้วยมือ (ระเบียบฯ ข้อ 66) — พิมพ์ใบรับใบสำคัญให้ผู้ยืมได้ทีละครั้ง
+      </p>
       <p className="mb-3 text-sm text-slate-600">
         ยืม <b>{baht(loan.amount)}</b> บาท · คงค้าง <b className={outstanding > 0 ? "text-red-600" : "text-emerald-700"}>{baht(outstanding)}</b> บาท
         {loan.due_date && <> · ครบกำหนด {formatThaiDate(loan.due_date)}</>}
@@ -302,12 +305,18 @@ function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; 
               <td className="text-right tabular-nums">{baht(Number(r.voucher_amount))}</td>
               <td className="text-right tabular-nums">{baht(Number(r.cash_amount))}</td>
               <td>{r.receipt_no ?? "-"}</td>
-              <td className="text-right">
-                {canEdit && (
-                  <button type="button" onClick={() => remove(r)} title="ลบ" className="btn-danger btn-sm">
-                    <TrashIcon className="h-3.5 w-3.5" />
-                  </button>
-                )}
+              <td className="whitespace-nowrap text-right">
+                <div className="flex justify-end gap-1">
+                  <a href={`/finance/loans/${loan.id}/receipt/${r.id}`} target="_blank" rel="noreferrer" title="พิมพ์ใบรับใบสำคัญ" className="btn-secondary btn-sm">
+                    <PrinterIcon className="h-3.5 w-3.5" />
+                    ใบรับ
+                  </a>
+                  {canEdit && (
+                    <button type="button" onClick={() => remove(r)} title="ลบ" className="btn-danger btn-sm">
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -320,6 +329,12 @@ function RepayModal({ loan, canEdit, onSaved }: { loan: Loan; canEdit: boolean; 
           )}
         </tbody>
       </table>
+      {reps.length > 0 && (
+        <a href={`/finance/loans/${loan.id}/pdf?view=summary`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm mb-4">
+          <PrinterIcon className="h-3.5 w-3.5" />
+          พิมพ์สรุปรายการส่งใช้ (ตรวจทาน/แนบเรื่อง)
+        </a>
+      )}
       {canEdit && outstanding > 0 && (
         <form key={formKey} onSubmit={submit} className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
           <div>
@@ -421,7 +436,7 @@ export default function LoansPage() {
   function actions(r: Loan) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
-        <a href={`/finance/loans/${r.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์สัญญา" className="btn-secondary btn-sm">
+        <a href={`/finance/loans/${r.id}/pdf`} target="_blank" rel="noreferrer" title="พิมพ์สัญญา (หน้า-หลัง)" className="btn-secondary btn-sm">
           <PrinterIcon className="h-3.5 w-3.5" />
           <span className="btn-label">พิมพ์</span>
         </a>

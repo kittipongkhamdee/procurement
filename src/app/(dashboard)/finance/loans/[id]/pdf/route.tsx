@@ -1,56 +1,17 @@
 import { NextResponse } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { contentDisposition } from "@/lib/http";
-import { parseLoanType, type LoanItem } from "@/lib/loan";
-import { LoanContractDocument } from "@/lib/pdf/loan-contract-document";
+import { buildLoanContractPdf } from "@/lib/pdf/build-loan-pdf";
 
-// สัญญาการยืมเงิน — หน้า 1 สัญญา/อนุมัติ/ใบรับเงิน, หน้า 2 รายการส่งใช้
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+// สัญญาการยืมเงิน — ค่าเริ่มต้น: ด้านหน้า + ด้านหลัง (ตารางส่งใช้เปล่า) พิมพ์หน้า-หลังตอนยืม
+// ?view=summary: สรุปรายการส่งใช้ตามที่บันทึกในระบบ (ตรวจทาน/แนบเรื่อง)
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: r } = await supabase.from("proc_loan_contracts").select("*, proc_loan_repayments(*)").eq("id", id).maybeSingle();
-  if (!r) return NextResponse.json({ error: "ไม่พบสัญญา" }, { status: 404 });
-  const names = [r.checker_name, r.approver_name, r.borrower_name].filter((n): n is string => !!n);
-  const [{ data: settings }, { data: school }, { data: positions }] = await Promise.all([
-    supabase.from("proc_app_settings").select("key, value").in("key", ["approval_signer_director", "approval_signer_finance"]),
-    supabase.from("proc_school_settings").select("school_name, school_address, education_area").eq("id", true).maybeSingle(),
-    supabase.from("proc_teacher_positions").select("teacher_name, position").in("teacher_name", names),
-  ]);
-  const s = new Map((settings ?? []).map((x) => [x.key, x.value]));
-  const pos = new Map((positions ?? []).map((p) => [p.teacher_name, p.position]));
-  const schoolName = school?.school_name ?? "โรงเรียนตาเบาวิทยา";
-  const province = /จังหวัด\s*(\S+)/.exec(school?.school_address ?? "")?.[1] ?? "สุรินทร์";
-  const approver = r.approver_name ?? s.get("approval_signer_director") ?? null;
-  const repayments = [...(r.proc_loan_repayments ?? [])].sort((a, b) => a.repay_date.localeCompare(b.repay_date) || a.created_at.localeCompare(b.created_at));
-  const buffer = await renderToBuffer(
-    <LoanContractDocument
-      data={{
-        doc_no: r.doc_no,
-        request_date: r.request_date,
-        due_date: r.due_date,
-        school_name: schoolName,
-        submit_to: `ผู้อำนวยการ${schoolName}`,
-        borrower_name: r.borrower_name,
-        borrower_position: r.borrower_position ?? pos.get(r.borrower_name) ?? null,
-        affiliation: school?.education_area ?? "สำนักงานเขตพื้นที่การศึกษามัธยมศึกษาสุรินทร์",
-        province,
-        fund_source: r.fund_source,
-        purpose: r.purpose,
-        items: (r.items as unknown as LoanItem[]) ?? [],
-        amount: Number(r.amount),
-        loan_type: parseLoanType(r.loan_type),
-        due_days: r.due_days,
-        received_date: r.received_date,
-        checker_name: r.checker_name ?? s.get("approval_signer_finance") ?? null,
-        checker_position: (r.checker_name && pos.get(r.checker_name)) || "เจ้าหน้าที่การเงิน",
-        approver_name: approver,
-        approver_position: `ผู้อำนวยการ${schoolName}`,
-        repayments: repayments.map((x) => ({ ...x, cash_amount: Number(x.cash_amount), voucher_amount: Number(x.voucher_amount) })),
-      }}
-    />,
-  );
-  return new NextResponse(new Uint8Array(buffer), {
-    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", `สัญญายืมเงิน-${r.doc_no ?? ""}.pdf`) },
+  const view = new URL(request.url).searchParams.get("view") === "summary" ? "summary" : "contract";
+  const pdf = await buildLoanContractPdf(await createClient(), id, view);
+  if (!pdf) return NextResponse.json({ error: "ไม่พบสัญญา" }, { status: 404 });
+  const name = `${view === "summary" ? "สรุปส่งใช้เงินยืม" : "สัญญายืมเงิน"}-${pdf.docNo ?? ""}.pdf`;
+  return new NextResponse(new Uint8Array(pdf.buffer), {
+    headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", name) },
   });
 }
