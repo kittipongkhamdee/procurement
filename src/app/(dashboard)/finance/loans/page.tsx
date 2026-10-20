@@ -427,19 +427,23 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
           </div>
           <div>
             <label className="label">ใบรับใบสำคัญ เลขที่</label>
-            <input name="receipt_no" className="input w-full" />
+            <input name="receipt_no" placeholder="เช่น บค 12/2570" className="input w-full" />
+            <p className="mt-1 text-xs text-slate-500">เลขที่ใบรับที่การเงินออกให้ผู้ยืมเป็นหลักฐานว่าได้รับใบสำคัญแล้ว (พิมพ์ใบรับได้จากปุ่ม &quot;ใบรับ&quot; หลังบันทึก)</p>
           </div>
           <div>
             <label className="label">ใบสำคัญคู่จ่าย (บาท)</label>
             <input name="voucher_amount" type="number" min="0" step="0.01" defaultValue={outstanding} className="input w-full text-right" />
+            <p className="mt-1 text-xs text-slate-500">ยอดรวมใบเสร็จรับเงิน/ใบสำคัญรับเงิน/บิลเงินสด ที่ผู้ยืมนำมาส่งครั้งนี้</p>
           </div>
           <div>
             <label className="label">จำนวนใบสำคัญ (ฉบับ)</label>
             <input name="voucher_count" type="number" min="0" step="1" className="input w-full text-right" />
+            <p className="mt-1 text-xs text-slate-500">จำนวนแผ่นของใบเสร็จ/หลักฐานการจ่ายที่นำมาส่ง</p>
           </div>
           <div>
             <label className="label">เงินสดเหลือจ่ายคืน (บาท)</label>
             <input name="cash_amount" type="number" min="0" step="0.01" defaultValue="" className="input w-full text-right" />
+            <p className="mt-1 text-xs text-slate-500">เงินยืมที่ใช้ไม่หมด ผู้ยืมนำมาคืนเป็นเงินสด (ใบสำคัญ + เงินสดคืน = ยอดที่ตัดจากคงค้าง)</p>
           </div>
           <div>
             <label className="label">หมายเหตุ</label>
