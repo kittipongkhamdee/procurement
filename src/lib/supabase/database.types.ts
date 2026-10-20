@@ -3158,6 +3158,9 @@ export type Database = {
           due_date: string | null
           checker_name: string | null
           approver_name: string | null
+          director_approved_at: string | null
+          director_approved_by: string | null
+          director_approved_by_name: string | null
           note: string | null
           created_by: string | null
           created_at: string
@@ -3185,6 +3188,9 @@ export type Database = {
           due_date?: string | null
           checker_name?: string | null
           approver_name?: string | null
+          director_approved_at?: string | null
+          director_approved_by?: string | null
+          director_approved_by_name?: string | null
           note?: string | null
           created_by?: string | null
           created_at?: string
@@ -3212,6 +3218,9 @@ export type Database = {
           due_date?: string | null
           checker_name?: string | null
           approver_name?: string | null
+          director_approved_at?: string | null
+          director_approved_by?: string | null
+          director_approved_by_name?: string | null
           note?: string | null
           created_by?: string | null
           created_at?: string
@@ -3538,6 +3547,10 @@ export type Database = {
       proc_user_id_by_name: {
         Args: { full_name: string }
         Returns: string
+      }
+      proc_approve_loan: {
+        Args: { p_id: string; p_approve: boolean }
+        Returns: string | null
       }
       proc_loan_pending: {
         Args: { borrower: string }

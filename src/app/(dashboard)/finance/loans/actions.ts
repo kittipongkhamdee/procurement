@@ -87,7 +87,10 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
 
   if (id) {
     // ลำดับวันที่: ยื่น ≤ การเงินตรวจสอบ ≤ รับเงิน ≤ ส่งใช้ครั้งแรก
-    const { data: cur } = await supabase.from("proc_loan_contracts").select("checked_date, proc_loan_repayments(repay_date)").eq("id", id).maybeSingle();
+    const { data: cur } = await supabase.from("proc_loan_contracts").select("checked_date, amount, director_approved_at, proc_loan_repayments(repay_date)").eq("id", id).maybeSingle();
+    // ผู้อำนวยการอนุมัติแล้ว: ผู้ยืมแก้ไม่ได้ (RLS) / เจ้าหน้าที่แก้รายละเอียดได้ (เช่น วันกลับ) แต่เปลี่ยนยอดเงินไม่ได้ — แอดมินแก้ได้กรณีจำเป็น
+    if (cur?.director_approved_at && !admin && (!me.staff || Math.abs(Number(cur.amount) - amount) > 0.001))
+      return { error: "ผู้อำนวยการอนุมัติแล้ว แก้ไขยอดเงินไม่ได้ — ให้ผู้อำนวยการยกเลิกอนุมัติก่อน" };
     if (cur?.checked_date && requestDate > cur.checked_date) return { error: "วันที่ยื่นสัญญาต้องไม่หลังวันที่การเงินตรวจสอบ" };
     if (cur?.checked_date && receivedDate && receivedDate < cur.checked_date) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่การเงินตรวจสอบ" };
     const firstRepay = (cur?.proc_loan_repayments ?? []).reduce((m, x) => (!m || x.repay_date < m ? x.repay_date : m), "");
@@ -123,6 +126,8 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
 
 export async function deleteLoan(id: string): Promise<Result> {
   const supabase = await createClient();
+  const { data: cur } = await supabase.from("proc_loan_contracts").select("director_approved_at").eq("id", id).maybeSingle();
+  if (cur?.director_approved_at && !(await isAdminUser(supabase))) return { error: "ผู้อำนวยการอนุมัติแล้ว ลบไม่ได้" };
   const { data, error } = await supabase.from("proc_loan_contracts").delete().eq("id", id).select("id");
   if (error) return { error: rlsMessage(error.message) };
   if (!data?.length) return { error: "ลบไม่สำเร็จ (ไม่มีสิทธิ์ หรือไม่พบสัญญา)" };
@@ -242,9 +247,12 @@ export async function recordLoanPayment(id: string, receivedDate: string, travel
   const denied = await requireStaff(supabase);
   if (denied) return { error: denied };
   if (!receivedDate) return { error: "กรุณาระบุวันที่ได้รับเงินยืม" };
-  const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date, checked_date, loan_type, doc_no").eq("id", id).maybeSingle();
+  const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date, checked_date, loan_type, doc_no, director_approved_at").eq("id", id).maybeSingle();
   if (!cur) return { error: "ไม่พบสัญญา" };
   if (!cur.doc_no) return { error: "ยังไม่ได้ออกเลขที่สัญญา — กด \"ออกเลขที่\" ก่อน" };
+  if (!cur.director_approved_at) return { error: "ผู้อำนวยการยังไม่อนุมัติ — จ่ายเงินได้หลังอนุมัติแล้ว" };
+  const approvedDate = new Date(cur.director_approved_at).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  if (receivedDate < approvedDate) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ผู้อำนวยการอนุมัติ" };
   if (receivedDate < (cur.checked_date ?? cur.request_date)) return { error: cur.checked_date ? "วันที่ได้รับเงินต้องไม่ก่อนวันที่การเงินตรวจสอบ" : "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
   const loanType = parseLoanType(cur.loan_type);
   const ret = loanType === "travel" ? travelReturnDate || null : null;
@@ -256,5 +264,17 @@ export async function recordLoanPayment(id: string, receivedDate: string, travel
     .eq("id", id);
   if (error) return { error: rlsMessage(error.message) };
   revalidatePath(PATH);
+  return { id };
+}
+
+/** ผู้อำนวยการอนุมัติ (approve=true) / ยกเลิกอนุมัติ (false, ก่อนจ่ายเงิน) — บันทึกวันเวลา + ชื่อผู้อนุมัติ
+ * ผ่านฟังก์ชันฐานข้อมูล proc_approve_loan (ผอ.ไม่ใช่เจ้าหน้าที่ จึงแก้ตารางตรงไม่ได้) */
+export async function approveLoan(id: string, approve: boolean): Promise<Result> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("proc_approve_loan", { p_id: id, p_approve: approve });
+  if (error) return { error: error.message };
+  if (data) return { error: String(data) };
+  revalidatePath(PATH);
+  revalidatePath("/");
   return { id };
 }

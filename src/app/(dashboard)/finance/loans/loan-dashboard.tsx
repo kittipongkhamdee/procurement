@@ -11,6 +11,7 @@ export type DashLoan = {
   borrower_name: string;
   request_date: string;
   received_date: string | null;
+  director_approved_at: string | null;
   due_date: string | null;
   amount: number;
   repaid: number;
@@ -87,7 +88,8 @@ export function LoanDashboard({ loans, onFilter }: { loans: DashLoan[]; onFilter
   const soon = open.filter((l) => !l.overdue && l.due_date && daysBetween(today, l.due_date) <= SOON_DAYS);
   const notPaid = loans.filter((l) => !l.cleared && !l.received_date);
   const pendingCheck = notPaid.filter((l) => !l.doc_no);
-  const waitingPay = notPaid.filter((l) => l.doc_no);
+  const waitingApprove = notPaid.filter((l) => l.doc_no && !l.director_approved_at);
+  const waitingPay = notPaid.filter((l) => l.director_approved_at);
   const sum = (xs: DashLoan[], k: "outstanding" | "amount" | "repaid") => xs.reduce((s, l) => s + l[k], 0);
 
   // ยอดยืมของปีงบ = สัญญาที่จ่ายเงินแล้วในปีงบนี้ (นับตามวันรับเงิน)
@@ -126,10 +128,10 @@ export function LoanDashboard({ loans, onFilter }: { loans: DashLoan[]; onFilter
           accent={WARN}
         />
         <Tile
-          label="รอการเงินดำเนินการ"
+          label="รอดำเนินการก่อนจ่ายเงิน"
           value={notPaid.length.toLocaleString("th-TH")}
           suffix="สัญญา"
-          sub={`รอออกเลขที่ ${pendingCheck.length} · รอจ่ายเงิน ${waitingPay.length} (${baht(sum(notPaid, "amount"))} บาท)`}
+          sub={`รอออกเลขที่ ${pendingCheck.length} · รอ ผอ.อนุมัติ ${waitingApprove.length} · รอจ่ายเงิน ${waitingPay.length} (${baht(sum(notPaid, "amount"))} บาท)`}
           accent={BRAND}
         />
       </div>

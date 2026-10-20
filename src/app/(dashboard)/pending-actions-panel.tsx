@@ -27,7 +27,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isDriveRef, resolveEmbedUrl, resolveFileUrl } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
 import { toastError, toastSuccess, errorMessage, confirmWarning } from "@/lib/swal";
-import { BellIcon, BoxIcon, ChevronRightIcon, ClipboardCheckIcon, LightbulbIcon } from "@/components/icons";
+import { BellIcon, BoxIcon, ChevronRightIcon, ClipboardCheckIcon, CoinsIcon, LightbulbIcon } from "@/components/icons";
 import { ProposalDetailModal } from "./project-proposals/proposal-detail-modal";
 import {
   approveProposal,
@@ -38,6 +38,8 @@ import {
   resetProposalStatus,
 } from "./project-proposals/actions";
 import { ApprovalStatusCell, type Approval, type DecisionMode } from "./approvals/page";
+import { ApproveLoanModal } from "./finance/loans/loan-approve-modal";
+import { baht as formatLoanBaht, LOAN_SELECT, loanPurpose, type Loan } from "./finance/loans/loan-summary";
 import { resetApprovalStatus, resetDeputyDecision, updateApprovalStatus, updateDeputyDecision } from "./approvals/actions";
 
 function formatBaht(n: number) {
@@ -115,7 +117,7 @@ const ROW_TRIGGER_CLASS =
   "flex w-full items-center justify-between gap-3 border-l-4 border-amber-400 bg-amber-50/40 px-3 py-2.5 text-left transition-colors hover:bg-amber-50 active:bg-amber-100";
 
 // การ์ดหมวดที่ไม่มีงานค้างถูกซ่อน — ปรับจำนวนคอลัมน์ตามการ์ดที่เหลือให้เต็มแถวพอดี
-const LG_GRID_COLS: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3" };
+const LG_GRID_COLS: Record<number, string> = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3", 4: "lg:grid-cols-2" };
 
 function EmptyRow() {
   return (
@@ -247,6 +249,38 @@ function ProposalPendingGroup({
   );
 }
 
+/** สัญญายืมเงินรอผู้อำนวยการอนุมัติ (การเงินตรวจสอบ/ออกเลขที่แล้ว ยังไม่จ่ายเงิน) — กดแถวเปิดป็อปอัปพิจารณา */
+function LoanPendingGroup({ title, items, onChanged }: { title: string; items: Loan[]; onChanged: () => void }) {
+  return (
+    <div>
+      <GroupHeader title={title} count={items.length} />
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+          {items.map((l, i) => (
+            <li key={l.id}>
+              <ApproveLoanModal
+                loan={l}
+                onSaved={onChanged}
+                triggerClassName={ROW_TRIGGER_CLASS}
+                trigger={
+                  <RowContent
+                    index={i}
+                    primary={`${l.borrower_name} — สัญญาเลขที่ ${l.doc_no ?? "-"}`}
+                    secondary={loanPurpose(l) || `ยื่นเมื่อ ${formatThaiDate(l.request_date)}`}
+                    amount={`${formatLoanBaht(l.amount)} บาท`}
+                  />
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ApprovalPendingGroup({
   title,
   items,
@@ -317,6 +351,7 @@ export function PendingActionsPanel() {
   const [approvalsToDirector, setApprovalsToDirector] = useState<Approval[]>([]);
   const [roundsToAckDeputy, setRoundsToAckDeputy] = useState<AuditRoundItem[]>([]);
   const [roundsToAckDirector, setRoundsToAckDirector] = useState<AuditRoundItem[]>([]);
+  const [loansToApprove, setLoansToApprove] = useState<Loan[]>([]);
 
   // ป้าย "รองผู้อำนวยการ"/"ผู้อำนวยการ" — ใช้ร่วมกันทั้งหมวดเสนอโครงการและบันทึกขออนุมัติ (กลไกเดียวกัน)
   const [canActDeputy, setCanActDeputy] = useState(false);
@@ -356,7 +391,7 @@ export function PendingActionsPanel() {
     setCanAckDeputyAudit(ackDeputy);
     setCanAckDirectorAudit(ackDirector);
 
-    const [{ data: proposals }, { data: approvals }, { data: rounds }] = await Promise.all([
+    const [{ data: proposals }, { data: approvals }, { data: rounds }, { data: loans }] = await Promise.all([
       deputy || director
         ? supabase
             .from("plan_project_proposals")
@@ -386,7 +421,18 @@ export function PendingActionsPanel() {
             )
             .order("due_date", { ascending: true })
         : Promise.resolve({ data: [] }),
+      // สัญญายืมเงินรอผู้อำนวยการอนุมัติ (ตรงกับสิทธิ์ใน proc_approve_loan)
+      director
+        ? supabase
+            .from("proc_loan_contracts")
+            .select(LOAN_SELECT)
+            .not("doc_no", "is", null)
+            .is("director_approved_at", null)
+            .is("received_date", null)
+            .order("request_date", { ascending: true })
+        : Promise.resolve({ data: [] }),
     ]);
+    setLoansToApprove((loans ?? []) as unknown as Loan[]);
 
     const proposalRows = (proposals ?? []) as unknown as {
       id: string;
@@ -490,7 +536,8 @@ export function PendingActionsPanel() {
   const proposalTotal = proposalsToEndorse.length + proposalsToApprove.length;
   const approvalTotal = approvalsToDeputy.length + approvalsToDirector.length;
   const auditTotal = roundsToAckDeputy.length + roundsToAckDirector.length;
-  const grandTotal = proposalTotal + approvalTotal + auditTotal;
+  const loanTotal = loansToApprove.length;
+  const grandTotal = proposalTotal + approvalTotal + auditTotal + loanTotal;
 
   // เด้งครั้งแรกหลังเข้าสู่ระบบ (?welcome=1 จาก login action) และครั้งแรกของแต่ละ session เบราว์เซอร์
   // เผื่อผู้ใช้ค้างล็อกอินไว้นานโดยไม่ได้เข้าสู่ระบบใหม่
@@ -566,6 +613,7 @@ export function PendingActionsPanel() {
     (canActDeputy || canActDirector) && proposalTotal > 0,
     (canActDeputy || canActDirector) && approvalTotal > 0,
     (canAckDeputyAudit || canAckDirectorAudit) && auditTotal > 0,
+    canActDirector && loanTotal > 0,
   ].filter(Boolean).length;
 
   const popupLines = [
@@ -574,6 +622,7 @@ export function PendingActionsPanel() {
     { count: approvalsToDeputy.length, text: "บันทึกขออนุมัติ รอเสนอความเห็น" },
     { count: approvalsToDirector.length, text: "บันทึกขออนุมัติ รออนุมัติ" },
     { count: roundsToAckDeputy.length + roundsToAckDirector.length, text: "ตรวจสอบพัสดุประจำปี รอรับทราบ" },
+    { count: loanTotal, text: "สัญญายืมเงิน รออนุมัติ" },
   ].filter((l) => l.count > 0);
 
   return (
@@ -735,6 +784,12 @@ export function PendingActionsPanel() {
                 }))}
               />
             )}
+          </CategoryCard>
+        )}
+
+        {canActDirector && loanTotal > 0 && (
+          <CategoryCard icon={<CoinsIcon className="h-4 w-4" />} title="สัญญาการยืมเงิน" totalCount={loanTotal} menuHref="/finance/loans">
+            <LoanPendingGroup title="รออนุมัติ (ผู้อำนวยการ)" items={loansToApprove} onChanged={reload} />
           </CategoryCard>
         )}
       </div>

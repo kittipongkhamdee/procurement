@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
-import { isOverdue, LOAN_DUE_RULE, LOAN_TYPE_LABEL, loanBalance, parseLoanType, type LoanItem, type LoanRepayment, type LoanType } from "@/lib/loan";
+import { isOverdue, LOAN_DUE_RULE, LOAN_TYPE_LABEL, loanBalance, parseLoanType, type LoanRepayment, type LoanType } from "@/lib/loan";
 import { confirmChoice, confirmDelete, errorMessage, promptText, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -15,33 +15,9 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
 import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber, suggestReceiptNo, updateReceiptNo } from "./actions";
 import { LoanDashboard } from "./loan-dashboard";
+import { ApproveLoanModal, CancelLoanApprovalButton } from "./loan-approve-modal";
+import { baht, LOAN_SELECT, loanPurpose, LoanSummary, type Loan } from "./loan-summary";
 
-type Loan = {
-  id: string;
-  doc_no: string | null;
-  request_date: string;
-  borrower_name: string;
-  borrower_position: string | null;
-  fund_source: string | null;
-  purpose: string;
-  project_id: string | null;
-  activity_id: string | null;
-  plan_projects: { name: string } | null;
-  plan_activities: { name: string } | null;
-  loan_type: string;
-  travel_return_date: string | null;
-  items: LoanItem[];
-  amount: number;
-  due_days: number;
-  received_date: string | null;
-  due_date: string | null;
-  checked_date: string | null;
-  checker_name: string | null;
-  approver_name: string | null;
-  note: string | null;
-  created_by: string | null;
-  proc_loan_repayments: LoanRepayment[];
-};
 type Lookups = {
   teachers: string[];
   positions: Record<string, string>;
@@ -60,7 +36,6 @@ function todayLocal() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; onSaved: () => void }) {
   const ref = useRef<ModalHandle>(null);
@@ -504,52 +479,6 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
 }
 
 /** ข้อมูลสัญญาแบบอ่านอย่างเดียว — ใช้ทั้งหน้าต่าง "รายละเอียด" และหัวหน้าต่างออกเลขที่/บันทึกจ่ายเงิน */
-function LoanSummary({ loan }: { loan: Loan }) {
-  const rows: [string, React.ReactNode][] = [
-    ["เลขที่สัญญา", loan.doc_no ?? <span className="text-amber-700">ยังไม่ออกเลขที่</span>],
-    ["วันที่ยื่น", formatThaiDate(loan.request_date)],
-    ["ผู้ยืม", `${loan.borrower_name}${loan.borrower_position ? ` (${loan.borrower_position})` : ""}`],
-    ["ขอยืมเงินจาก", loan.fund_source ?? "-"],
-    ["เพื่อเป็นค่าใช้จ่ายในการ", loanPurpose(loan) || "-"],
-    ["ลักษณะการยืม", `${LOAN_TYPE_LABEL[parseLoanType(loan.loan_type)]} — ${LOAN_DUE_RULE[parseLoanType(loan.loan_type)]}`],
-    ["วันที่การเงินตรวจสอบ", loan.checked_date ? formatThaiDate(loan.checked_date) : "-"],
-    ["วันที่ได้รับเงิน", loan.received_date ? formatThaiDate(loan.received_date) : "-"],
-    ["วันครบกำหนดส่งใช้", loan.due_date ? formatThaiDate(loan.due_date) : "-"],
-  ];
-  return (
-    <div className="space-y-3 text-sm">
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[11rem_1fr]">
-        {rows.map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-slate-500">{k}</dt>
-            <dd className="mb-1 text-slate-900 sm:mb-0">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <table className="table-base w-full">
-        <thead>
-          <tr>
-            <th>รายละเอียด</th>
-            <th className="text-right">จำนวนเงิน (บาท)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loan.items.map((it, i) => (
-            <tr key={i}>
-              <td>{it.detail}</td>
-              <td className="text-right tabular-nums">{baht(Number(it.amount))}</td>
-            </tr>
-          ))}
-          <tr>
-            <td className="font-semibold">รวม</td>
-            <td className="text-right font-semibold tabular-nums">{baht(loan.amount)}</td>
-          </tr>
-        </tbody>
-      </table>
-      {loan.note && <p className="text-slate-600">หมายเหตุ: {loan.note}</p>}
-    </div>
-  );
-}
 
 function DetailModal({ loan }: { loan: Loan }) {
   return (
@@ -636,6 +565,9 @@ function RecordPaymentModal({ loan, onSaved }: { loan: Loan; onSaved: () => void
   const ref = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
   const travel = parseLoanType(loan.loan_type) === "travel";
+  // วันรับเงิน ≥ วันที่การเงินตรวจสอบ และ ≥ วันที่ผู้อำนวยการอนุมัติ
+  const approvedDate = loan.director_approved_at ? new Date(loan.director_approved_at).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" }) : "";
+  const paidMin = maxIso(loan.checked_date ?? loan.request_date, approvedDate);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -671,8 +603,8 @@ function RecordPaymentModal({ loan, onSaved }: { loan: Loan; onSaved: () => void
           </label>
           <ThaiDatePicker
             name="received_date"
-            defaultValue={maxIso(todayLocal(), loan.checked_date ?? loan.request_date)}
-            minDate={loan.checked_date ?? loan.request_date}
+            defaultValue={maxIso(todayLocal(), paidMin)}
+            minDate={paidMin}
             required
           />
         </div>
@@ -697,14 +629,14 @@ function RecordPaymentModal({ loan, onSaved }: { loan: Loan; onSaved: () => void
   );
 }
 
-function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activities">) {
-  return [r.purpose, r.plan_projects && `โครงการ${r.plan_projects.name.replace(/^โครงการ\s*/, "")}`, r.plan_activities?.name && `กิจกรรม${r.plan_activities.name.replace(/^กิจกรรม\s*/, "")}`].filter(Boolean).join(" ");
-}
 
 export default function LoansPage() {
   const { isProcStaff, user, role } = useAuth();
-  // ครูแก้/ลบได้เฉพาะสัญญาที่ตัวเองยื่นและการเงินยังไม่จ่ายเงิน (ตรงกับ RLS)
-  const canEditLoan = (r: Loan) => isProcStaff || (r.created_by === user?.userId && !r.received_date);
+  // ครูแก้/ลบได้เฉพาะสัญญาที่ตัวเองยื่น ก่อนผู้อำนวยการอนุมัติและก่อนจ่ายเงิน (ตรงกับ RLS)
+  const canEditLoan = (r: Loan) => isProcStaff || (r.created_by === user?.userId && !r.received_date && !r.director_approved_at);
+  const canDeleteLoan = (r: Loan) => role === "admin" || (canEditLoan(r) && !r.director_approved_at);
+  // ผู้อำนวยการ (หรือแอดมิน) อนุมัติ หลังการเงินออกเลขที่ ก่อนจ่ายเงิน
+  const canApprove = role === "director" || role === "admin";
   // พิมพ์: เจ้าหน้าที่/ผู้บริหารทุกสัญญา ครูเฉพาะของตัวเอง (ตรงกับ build-loan-pdf)
   const canPrint = (r: Loan) => isProcStaff || role === "director" || role === "deputy_director" || r.created_by === user?.userId;
   const [rows, setRows] = useState<Loan[] | null>(null);
@@ -719,7 +651,7 @@ export default function LoansPage() {
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
     const [{ data, error }, { data: teachers }, { data: positions }, { data: projects }] = await Promise.all([
-      supabase.from("proc_loan_contracts").select("*, proc_loan_repayments(*), plan_projects(name), plan_activities(name)").order("request_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("proc_loan_contracts").select(LOAN_SELECT).order("request_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
       supabase.from("proc_teacher_positions").select("teacher_name, position"),
       currentYear
@@ -772,16 +704,21 @@ export default function LoansPage() {
   function statusBadge(r: (typeof withStatus)[number]) {
     if (r.cleared) return <span className="badge-emerald !text-sm">ส่งใช้ครบแล้ว</span>;
     if (r.overdue) return <span className="badge-red !text-sm">เกินกำหนด</span>;
-    if (!r.received_date) return <span className="badge-slate !text-sm">{r.doc_no ? "รอรับเงิน" : "ยื่นแล้ว รอการเงินตรวจสอบ"}</span>;
+    if (!r.received_date) {
+      if (!r.doc_no) return <span className="badge-slate !text-sm">ยื่นแล้ว รอการเงินตรวจสอบ</span>;
+      if (!r.director_approved_at) return <span className="badge-amber !text-sm">รอผู้อำนวยการอนุมัติ</span>;
+      return <span className="badge-navy !text-sm">อนุมัติแล้ว รอรับเงิน</span>;
+    }
     return <span className="badge-amber !text-sm">ค้างส่งใช้</span>;
   }
 
   function actions(r: Loan) {
     return (
       <div className="flex flex-wrap items-center gap-2 [td_&]:flex-nowrap [td_&]:justify-end [td_&]:gap-1">
-        {/* ขั้นตอนการเงิน: ออกเลขที่ → บันทึกจ่ายเงิน → ส่งใช้ */}
+        {/* ขั้นตอน: การเงินออกเลขที่ → ผู้อำนวยการอนุมัติ → การเงินบันทึกจ่ายเงิน → ส่งใช้ */}
         {isProcStaff && !r.doc_no && <IssueNumberModal loan={r} onSaved={reload} />}
-        {isProcStaff && r.doc_no && !r.received_date && <RecordPaymentModal loan={r} onSaved={reload} />}
+        {canApprove && r.doc_no && !r.director_approved_at && !r.received_date && <ApproveLoanModal loan={r} onSaved={reload} />}
+        {isProcStaff && r.director_approved_at && !r.received_date && <RecordPaymentModal loan={r} onSaved={reload} />}
         <DetailModal loan={r} />
         {canPrint(r) && (
           <a
@@ -798,7 +735,8 @@ export default function LoansPage() {
         {/* ส่งใช้ได้หลังการเงินบันทึกจ่ายเงินแล้วเท่านั้น (ยังไม่จ่าย = ยังไม่มีหนี้ต้องส่งใช้) */}
         {r.received_date && <RepayModal loan={r} canEdit={isProcStaff} canPrint={canPrint(r)} onSaved={reload} />}
         {canEditLoan(r) && <LoanForm loan={r} lookups={lookups} onSaved={reload} />}
-        {canEditLoan(r) && (
+        {canApprove && r.director_approved_at && !r.received_date && <CancelLoanApprovalButton loan={r} onSaved={reload} />}
+        {canDeleteLoan(r) && (
           <button type="button" onClick={() => remove(r)} title="ลบ" className="btn-danger btn-sm">
             <TrashIcon className="h-3.5 w-3.5" />
             <span className="btn-label">ลบ</span>
@@ -816,7 +754,7 @@ export default function LoansPage() {
           <p className="page-subtitle">
             {isProcStaff
               ? "ทะเบียนคุมเงินยืมและการส่งใช้ ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกเงินจากคลังฯ พ.ศ. 2562 หมวด 5"
-              : "ดูสัญญาของทุกคนได้ ยื่น/แก้ไขได้เฉพาะสัญญาในชื่อของคุณที่ยังไม่ได้รับเงิน — เจ้าหน้าที่การเงินออกเลขที่ บันทึกวันรับเงิน และรับส่งใช้"}
+              : "ดูสัญญาของทุกคนได้ ยื่น/แก้ไขได้เฉพาะสัญญาในชื่อของคุณก่อนผู้อำนวยการอนุมัติ — ขั้นตอน: การเงินตรวจสอบ/ออกเลขที่ → ผู้อำนวยการอนุมัติ → การเงินจ่ายเงิน → ส่งใช้"}
           </p>
         </div>
         <LoanForm lookups={lookups} onSaved={reload} />
