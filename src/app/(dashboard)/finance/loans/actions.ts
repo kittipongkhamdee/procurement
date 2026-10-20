@@ -86,6 +86,12 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   if (admin && docNoInput && (await docNumberTaken(supabase, "loan", docNoInput, id ?? undefined))) return { error: `เลขที่ ${docNoInput} ถูกใช้แล้ว` };
 
   if (id) {
+    // ลำดับวันที่: ยื่น ≤ การเงินตรวจสอบ ≤ รับเงิน ≤ ส่งใช้ครั้งแรก
+    const { data: cur } = await supabase.from("proc_loan_contracts").select("checked_date, proc_loan_repayments(repay_date)").eq("id", id).maybeSingle();
+    if (cur?.checked_date && requestDate > cur.checked_date) return { error: "วันที่ยื่นสัญญาต้องไม่หลังวันที่การเงินตรวจสอบ" };
+    if (cur?.checked_date && receivedDate && receivedDate < cur.checked_date) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่การเงินตรวจสอบ" };
+    const firstRepay = (cur?.proc_loan_repayments ?? []).reduce((m, x) => (!m || x.repay_date < m ? x.repay_date : m), "");
+    if (firstRepay && receivedDate && receivedDate > firstRepay) return { error: "วันที่ได้รับเงินต้องไม่หลังวันที่ส่งใช้ครั้งแรก" };
     // แก้ไขไม่ออกเลขให้เอง — สัญญาที่ครูยื่น การเงินออกเลขที่ด้วยปุ่ม "ออกเลขที่" (issueLoanNumber) แอดมินแก้เลขได้ที่นี่
     const docNo = admin && docNoInput ? docNoInput : undefined;
     const { data, error } = await supabase
@@ -133,10 +139,13 @@ export async function addRepayment(loanId: string, formData: FormData): Promise<
   if (!repayDate) return { error: "กรุณาระบุวันที่ส่งใช้" };
   if (cash < 0 || voucher < 0 || cash + voucher <= 0) return { error: "กรุณาระบุจำนวนเงินสดหรือใบสำคัญที่ส่งใช้" };
   const supabase = await createClient();
-  const { data: loan } = await supabase.from("proc_loan_contracts").select("amount, request_date, received_date, proc_loan_repayments(cash_amount, voucher_amount)").eq("id", loanId).maybeSingle();
+  const { data: loan } = await supabase.from("proc_loan_contracts").select("amount, request_date, received_date, proc_loan_repayments(cash_amount, voucher_amount, repay_date)").eq("id", loanId).maybeSingle();
   if (!loan) return { error: "ไม่พบสัญญา" };
   if (!loan.received_date) return { error: "ยังไม่ได้บันทึกจ่ายเงินยืม — กด \"บันทึกจ่ายเงิน\" ก่อน" };
-  if (repayDate < loan.request_date) return { error: "วันที่ส่งใช้ต้องไม่ก่อนวันที่ยื่นสัญญา" };
+  // ลำดับวันที่: ยื่น ≤ การเงินตรวจสอบ ≤ รับเงิน ≤ ส่งใช้ (และไม่ก่อนการส่งใช้ครั้งก่อน)
+  if (repayDate < loan.received_date) return { error: "วันที่ส่งใช้ต้องไม่ก่อนวันที่ได้รับเงินยืม" };
+  const lastRepay = (loan.proc_loan_repayments ?? []).reduce((m, x) => (x.repay_date > m ? x.repay_date : m), "");
+  if (lastRepay && repayDate < lastRepay) return { error: "วันที่ส่งใช้ต้องไม่ก่อนการส่งใช้ครั้งก่อน" };
   const { outstanding } = loanBalance(Number(loan.amount), loan.proc_loan_repayments ?? []);
   if (cash + voucher > outstanding + 0.001) return { error: `ส่งใช้เกินยอดคงค้าง (คงค้าง ${outstanding.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท)` };
   const { error } = await supabase.from("proc_loan_repayments").insert({
@@ -197,10 +206,10 @@ export async function recordLoanPayment(id: string, receivedDate: string, travel
   const denied = await requireStaff(supabase);
   if (denied) return { error: denied };
   if (!receivedDate) return { error: "กรุณาระบุวันที่ได้รับเงินยืม" };
-  const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date, loan_type, doc_no").eq("id", id).maybeSingle();
+  const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date, checked_date, loan_type, doc_no").eq("id", id).maybeSingle();
   if (!cur) return { error: "ไม่พบสัญญา" };
   if (!cur.doc_no) return { error: "ยังไม่ได้ออกเลขที่สัญญา — กด \"ออกเลขที่\" ก่อน" };
-  if (receivedDate < cur.request_date) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
+  if (receivedDate < (cur.checked_date ?? cur.request_date)) return { error: cur.checked_date ? "วันที่ได้รับเงินต้องไม่ก่อนวันที่การเงินตรวจสอบ" : "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
   const loanType = parseLoanType(cur.loan_type);
   const ret = loanType === "travel" ? travelReturnDate || null : null;
   if (ret && ret < receivedDate) return { error: "วันที่กลับมาถึงต้องไม่ก่อนวันที่ได้รับเงิน" };

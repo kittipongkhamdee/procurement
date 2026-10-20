@@ -52,6 +52,10 @@ type Lookups = {
 
 const FUND_SOURCES = ["เงินอุดหนุนรายหัว", "เงินอุดหนุนกิจกรรมพัฒนาผู้เรียน", "เงินรายได้สถานศึกษา", "เงินงบประมาณ", "เงินนอกงบประมาณ"];
 /** วันนี้ตามเวลาเครื่อง (ISO) — ไม่ใช้ toISOString() ตรงๆ เพราะเป็นเวลา UTC (ก่อน 7 โมงเช้าจะได้วันก่อนหน้า) */
+function maxIso(a: string, b: string) {
+  return a > b ? a : b;
+}
+
 function todayLocal() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -277,7 +281,7 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
         {isProcStaff && (
           <div>
             <label className="label">วันที่ได้รับเงินยืม</label>
-            <ThaiDatePicker name="received_date" defaultValue={loan?.received_date ?? null} />
+            <ThaiDatePicker name="received_date" defaultValue={loan?.received_date ?? null} minDate={loan?.checked_date ?? loan?.request_date} />
             <p className="mt-1 text-xs text-slate-500">กรอกเมื่อจ่ายเงินแล้ว — ระบบคำนวณวันครบกำหนดให้ (ครูแก้สัญญาไม่ได้หลังจากนี้)</p>
           </div>
         )}
@@ -321,6 +325,8 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
   const [formKey, setFormKey] = useState(0);
   const { outstanding } = loanBalance(loan.amount, loan.proc_loan_repayments);
   const reps = [...loan.proc_loan_repayments].sort((a, b) => a.repay_date.localeCompare(b.repay_date));
+  // วันที่ส่งใช้ ≥ วันรับเงิน และ ≥ การส่งใช้ครั้งล่าสุด
+  const repayMin = maxIso(loan.received_date ?? loan.request_date, reps[reps.length - 1]?.repay_date ?? "");
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -417,7 +423,7 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
             <label className="label">
               วันที่ส่งใช้ <span className="text-red-600">*</span>
             </label>
-            <ThaiDatePicker name="repay_date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+            <ThaiDatePicker name="repay_date" defaultValue={maxIso(todayLocal(), repayMin)} minDate={repayMin} required />
           </div>
           <div>
             <label className="label">ใบรับใบสำคัญ เลขที่</label>
@@ -563,7 +569,7 @@ function IssueNumberModal({ loan, onSaved }: { loan: Loan; onSaved: () => void }
           <label className="label">
             วันที่การเงินตรวจสอบ <span className="text-red-600">*</span>
           </label>
-          <ThaiDatePicker name="checked_date" defaultValue={todayLocal()} required />
+          <ThaiDatePicker name="checked_date" defaultValue={maxIso(todayLocal(), loan.request_date)} minDate={loan.request_date} required />
         </div>
         <div className="flex justify-end gap-2 sm:col-span-2">
           <button type="button" onClick={() => ref.current?.close()} className="btn-secondary">
@@ -616,7 +622,12 @@ function RecordPaymentModal({ loan, onSaved }: { loan: Loan; onSaved: () => void
           <label className="label">
             วันที่ผู้ยืมได้รับเงิน <span className="text-red-600">*</span>
           </label>
-          <ThaiDatePicker name="received_date" defaultValue={todayLocal()} required />
+          <ThaiDatePicker
+            name="received_date"
+            defaultValue={maxIso(todayLocal(), loan.checked_date ?? loan.request_date)}
+            minDate={loan.checked_date ?? loan.request_date}
+            required
+          />
         </div>
         {travel && (
           <div>
