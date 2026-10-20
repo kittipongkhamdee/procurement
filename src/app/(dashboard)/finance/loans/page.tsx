@@ -8,12 +8,12 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { isOverdue, LOAN_DUE_RULE, LOAN_TYPE_LABEL, loanBalance, parseLoanType, type LoanItem, type LoanRepayment, type LoanType } from "@/lib/loan";
-import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmChoice, confirmDelete, errorMessage, promptText, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
-import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber } from "./actions";
+import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber, suggestReceiptNo, updateReceiptNo } from "./actions";
 import { LoanDashboard } from "./loan-dashboard";
 
 type Loan = {
@@ -320,6 +320,19 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   );
 }
 
+/** ช่องเลขที่ใบรับใบสำคัญ — เติมเลขถัดไปของปีงบให้ตอนเปิดฟอร์ม (ฟอร์มสร้างใหม่ทุกครั้งหลังบันทึก จึงได้เลขใหม่) */
+function ReceiptNoInput() {
+  const [value, setValue] = useState("");
+  useEffect(() => {
+    let alive = true;
+    suggestReceiptNo(todayLocal()).then((r) => alive && setValue((v) => v || r.receiptNo));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return <input name="receipt_no" value={value} onChange={(e) => setValue(e.target.value)} placeholder="เช่น บค 12/2570" className="input w-full" />;
+}
+
 function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit: boolean; canPrint: boolean; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
   const [formKey, setFormKey] = useState(0);
@@ -334,12 +347,35 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
     try {
       const res = await addRepayment(loan.id, new FormData(e.currentTarget));
       if (res.error) return void (await toastError(res.error));
-      await toastSuccess("บันทึกการส่งใช้แล้ว");
       setFormKey((k) => k + 1);
       onSaved();
+      // ถามต่อให้การเงินพิมพ์ใบรับใบสำคัญได้ทันที (เปิดแท็บใหม่ทันทีหลังกดยืนยัน — กันเบราว์เซอร์บล็อก pop-up)
+      if (canPrint && res.id) {
+        const print = await confirmChoice({
+          title: "บันทึกการส่งใช้แล้ว",
+          text: "ต้องการพิมพ์ใบรับใบสำคัญให้ผู้ยืมเลยหรือไม่",
+          icon: "info",
+          confirmButtonText: "พิมพ์ใบรับใบสำคัญ",
+          cancelButtonText: "ภายหลัง",
+        });
+        if (print) {
+          if (!window.open(`/finance/loans/${loan.id}/receipt/${res.id}`, "_blank"))
+            await toastError("เบราว์เซอร์บล็อกหน้าต่างใหม่ — กดปุ่ม \"ใบรับ\" ในตารางเพื่อพิมพ์");
+        }
+      } else {
+        await toastSuccess("บันทึกการส่งใช้แล้ว");
+      }
     } finally {
       setSaving(false);
     }
+  }
+  async function editReceiptNo(r: LoanRepayment) {
+    const no = await promptText({ title: "เลขที่ใบรับใบสำคัญ", value: r.receipt_no ?? "", placeholder: "เช่น บค 12/2570" });
+    if (no === null) return;
+    const res = await updateReceiptNo(r.id, no);
+    if (res.error) return void (await toastError(res.error));
+    await toastSuccess("บันทึกเลขที่แล้ว");
+    onSaved();
   }
   async function remove(r: LoanRepayment) {
     if (!(await confirmDelete({ title: "ลบรายการส่งใช้นี้?" }))) return;
@@ -384,7 +420,14 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
               <td className="whitespace-nowrap">{formatThaiDate(r.repay_date)}</td>
               <td className="text-right tabular-nums">{baht(Number(r.voucher_amount))}</td>
               <td className="text-right tabular-nums">{baht(Number(r.cash_amount))}</td>
-              <td>{r.receipt_no ?? "-"}</td>
+              <td className="whitespace-nowrap">
+                {r.receipt_no ?? <span className="text-slate-400">ยังไม่ระบุ</span>}
+                {canEdit && (
+                  <button type="button" onClick={() => editReceiptNo(r)} title="แก้เลขที่ใบรับ" className="btn-secondary btn-sm ml-2">
+                    <PencilIcon className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </td>
               <td className="whitespace-nowrap text-right">
                 <div className="flex justify-end gap-1">
                   {canPrint && (
@@ -427,8 +470,8 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
           </div>
           <div>
             <label className="label">ใบรับใบสำคัญ เลขที่</label>
-            <input name="receipt_no" placeholder="เช่น บค 12/2570" className="input w-full" />
-            <p className="mt-1 text-xs text-slate-500">เลขที่ใบรับที่การเงินออกให้ผู้ยืมเป็นหลักฐานว่าได้รับใบสำคัญแล้ว (พิมพ์ใบรับได้จากปุ่ม &quot;ใบรับ&quot; หลังบันทึก)</p>
+            <ReceiptNoInput />
+            <p className="mt-1 text-xs text-slate-500">เลขที่ใบรับที่การเงินออกให้ผู้ยืมเป็นหลักฐานว่าได้รับใบสำคัญแล้ว — ระบบเติมเลขถัดไปให้ (บค ลำดับ/ปีงบ) แก้ได้ · พิมพ์ใบรับได้ทันทีหลังบันทึก</p>
           </div>
           <div>
             <label className="label">ใบสำคัญคู่จ่าย (บาท)</label>

@@ -148,16 +148,52 @@ export async function addRepayment(loanId: string, formData: FormData): Promise<
   if (lastRepay && repayDate < lastRepay) return { error: "วันที่ส่งใช้ต้องไม่ก่อนการส่งใช้ครั้งก่อน" };
   const { outstanding } = loanBalance(Number(loan.amount), loan.proc_loan_repayments ?? []);
   if (cash + voucher > outstanding + 0.001) return { error: `ส่งใช้เกินยอดคงค้าง (คงค้าง ${outstanding.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท)` };
-  const { error } = await supabase.from("proc_loan_repayments").insert({
+  const receiptNo = str("receipt_no") || null;
+  if (receiptNo && (await receiptNoTaken(supabase, receiptNo))) return { error: `ใบรับใบสำคัญเลขที่ ${receiptNo} ถูกใช้แล้ว` };
+  const { data: row, error } = await supabase.from("proc_loan_repayments").insert({
     loan_id: loanId,
     repay_date: repayDate,
     cash_amount: cash,
     voucher_amount: voucher,
     voucher_count: Number(str("voucher_count")) || null,
-    receipt_no: str("receipt_no") || null,
+    receipt_no: receiptNo,
     note: str("note") || null,
-  });
+  }).select("id").single();
   if (error) return { error: rlsMessage(error.message) };
+  revalidatePath(PATH);
+  return { id: row.id };
+}
+
+async function receiptNoTaken(supabase: Awaited<ReturnType<typeof createClient>>, no: string, exceptId?: string) {
+  let q = supabase.from("proc_loan_repayments").select("id").eq("receipt_no", no).limit(1);
+  if (exceptId) q = q.neq("id", exceptId);
+  const { data } = await q;
+  return !!data?.length;
+}
+
+/** เลขที่ใบรับใบสำคัญถัดไป รูปแบบ "บค ลำดับ/ปีงบ พ.ศ." (นับต่อจากเลขสูงสุดของปีงบนั้น) — เติมให้ในฟอร์มส่งใช้ แก้ได้ */
+export async function suggestReceiptNo(repayDate: string): Promise<{ receiptNo: string }> {
+  const [y, m] = (repayDate || new Date().toISOString()).slice(0, 10).split("-").map(Number);
+  const fy = y + 543 + (m >= 10 ? 1 : 0);
+  const supabase = await createClient();
+  const { data } = await supabase.from("proc_loan_repayments").select("receipt_no").like("receipt_no", `%/${fy}`);
+  const max = (data ?? []).reduce((n, r) => {
+    const hit = /(\d+)\s*\/\s*\d{4}$/.exec(r.receipt_no ?? "");
+    return hit ? Math.max(n, Number(hit[1])) : n;
+  }, 0);
+  return { receiptNo: `บค ${max + 1}/${fy}` };
+}
+
+/** แก้เลขที่ใบรับใบสำคัญของการส่งใช้ที่บันทึกไปแล้ว (เช่น ลืมกรอก) */
+export async function updateReceiptNo(id: string, receiptNo: string): Promise<Result> {
+  const supabase = await createClient();
+  const denied = await requireStaff(supabase);
+  if (denied) return { error: denied };
+  const no = receiptNo.trim() || null;
+  if (no && (await receiptNoTaken(supabase, no, id))) return { error: `ใบรับใบสำคัญเลขที่ ${no} ถูกใช้แล้ว` };
+  const { data, error } = await supabase.from("proc_loan_repayments").update({ receipt_no: no }).eq("id", id).select("id");
+  if (error) return { error: rlsMessage(error.message) };
+  if (!data?.length) return { error: "บันทึกไม่สำเร็จ" };
   revalidatePath(PATH);
   return {};
 }

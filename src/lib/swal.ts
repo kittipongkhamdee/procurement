@@ -91,6 +91,23 @@ export async function promptReason(opts: { title: string; inputLabel?: string })
   return String(result.value ?? "").trim();
 }
 
+/** ถามข้อความบรรทัดเดียว (เช่น แก้เลขที่เอกสาร) — คืน null เมื่อยกเลิก */
+export async function promptText(opts: { title: string; inputLabel?: string; value?: string; placeholder?: string }) {
+  const swal = await loadSwal();
+  const result = await swal.fire({
+    title: opts.title,
+    input: "text",
+    inputLabel: opts.inputLabel,
+    inputValue: opts.value ?? "",
+    inputPlaceholder: opts.placeholder,
+    showCancelButton: true,
+    confirmButtonText: "บันทึก",
+    cancelButtonText: "ยกเลิก",
+  });
+  if (!result.isConfirmed) return null;
+  return String(result.value ?? "").trim();
+}
+
 export async function toastSuccess(title: string) {
   const swal = await loadSwal();
   await swal.fire({
