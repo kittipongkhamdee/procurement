@@ -4,14 +4,16 @@
 // เจ้าหน้าที่การเงิน (และแอดมิน) บันทึก/แก้ไข — ผอ. และครูดูอย่างเดียว (RLS fin_can_write)
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, CoinsIcon, FileTextIcon, FolderIcon, PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
+import { HubCardGrid, type HubCard } from "@/components/hub-cards";
 import {
   balancesByType,
   docLabel,
@@ -33,6 +35,7 @@ import {
 import { deleteTxn } from "./actions";
 import { TxnForm, type ProjectOption } from "./txn-form";
 
+// หน้ารวมเป็นการ์ด (แบบเดียวกับงานสัญญา) — กดการ์ดเปิดส่วนนั้นด้วย ?view= (ปีงบที่เลือกคงอยู่เพราะเป็นหน้าเดิม)
 type Tab = "txns" | "balance" | "projects" | "reports";
 const TABS: { key: Tab; label: string }[] = [
   { key: "txns", label: "รายการรับ-จ่าย" },
@@ -40,6 +43,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "projects", label: "งบโครงการ" },
   { key: "reports", label: "พิมพ์รายงาน" },
 ];
+const ICON = "h-6 w-6";
 
 const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function todayLocal() {
@@ -50,7 +54,17 @@ function todayLocal() {
 type ProjectRow = Omit<ProjectOption, "activities"> & { budget: number; activities: { id: string; name: string; budget: number }[] };
 
 export default function LedgerPage() {
+  return (
+    <Suspense fallback={<PageLoadingSkeleton />}>
+      <LedgerContent />
+    </Suspense>
+  );
+}
+
+function LedgerContent() {
   const { role } = useAuth();
+  const view = useSearchParams().get("view");
+  const tab = TABS.find((x) => x.key === view)?.key ?? null;
   const canWrite = role === "admin" || role === "finance_officer";
   const [fy, setFy] = useState<number>(fiscalYearOf(todayLocal()));
   const [years, setYears] = useState<number[]>([]);
@@ -58,7 +72,6 @@ export default function LedgerPage() {
   const [openings, setOpenings] = useState<Opening[]>([]);
   const [txns, setTxns] = useState<FinTxn[] | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
-  const [tab, setTab] = useState<Tab>("txns");
   const [month, setMonth] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [query, setQuery] = useState("");
@@ -108,7 +121,15 @@ export default function LedgerPage() {
   }, [txns, month, typeFilter, query]);
 
   const balances = useMemo(() => balancesByType(openings, txns ?? [], asOf ?? undefined), [openings, txns, asOf]);
-  const grand = useMemo(() => [...balances.values()].reduce((s, b) => addBal(s, b), zero()), [balances]);
+  // ยอดวันนี้สำหรับการ์ดหน้ารวม (แท็บยอดคงเหลือเลือกวันที่เองได้)
+  const grand = useMemo(() => [...balancesByType(openings, txns ?? [], todayLocal()).values()].reduce((s, b) => addBal(s, b), zero()), [openings, txns]);
+  const projectTotals = useMemo(() => {
+    const ids = new Set(projects.map((p) => p.id));
+    return {
+      budget: projects.reduce((s, p) => s + p.budget, 0),
+      paid: (txns ?? []).filter((t) => t.kind === "pay" && t.project_id && ids.has(t.project_id)).reduce((s, t) => s + t.amount, 0),
+    };
+  }, [projects, txns]);
   const yearTotals = useMemo(() => {
     const list = txns ?? [];
     return {
@@ -132,9 +153,15 @@ export default function LedgerPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">บัญชีรับ-จ่ายเงิน</h1>
+          {tab && (
+            <Link href="/finance/ledger" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+              <ChevronLeftIcon className="h-4 w-4" />
+              บัญชีรับ-จ่ายเงิน
+            </Link>
+          )}
+          <h1 className="page-title">{tab ? TABS.find((x) => x.key === tab)!.label : "บัญชีรับ-จ่ายเงิน"}</h1>
           <p className="page-subtitle">
-            บันทึกรับ-จ่ายแยกประเภทเงิน · รายงานเงินคงเหลือประจำวัน · ทะเบียนคุมเงิน · ทะเบียนคุมใบสำคัญคู่จ่าย
+            {tab ? `ปีงบประมาณ ${fy}` : "บันทึกรับ-จ่ายแยกประเภทเงิน · รายงานเงินคงเหลือประจำวัน · ทะเบียนคุมเงิน · ทะเบียนคุมใบสำคัญคู่จ่าย"}
             {canWrite ? "" : " — ดูได้อย่างเดียว (เจ้าหน้าที่การเงินเป็นผู้บันทึก)"}
           </p>
         </div>
@@ -166,48 +193,57 @@ export default function LedgerPage() {
         </p>
       )}
 
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="stat-card" style={{ "--accent": "#1b4177" } as React.CSSProperties}>
-          <div className="stat-label">คงเหลือทั้งสิ้น (วันนี้)</div>
-          <div className="stat-value">
-            {baht(total(grand))} <span className="stat-suffix">บาท</span>
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            เงินสด {baht(grand.cash)} · ธนาคาร {baht(grand.bank)} · ส่วนราชการ {baht(grand.gov)}
-          </p>
-        </div>
-        <div className="stat-card" style={{ "--accent": "#059669" } as React.CSSProperties}>
-          <div className="stat-label">รับทั้งปีงบ {fy}</div>
-          <div className="stat-value">
-            {baht(yearTotals.receive)} <span className="stat-suffix">บาท</span>
-          </div>
-        </div>
-        <div className="stat-card" style={{ "--accent": "#d97706" } as React.CSSProperties}>
-          <div className="stat-label">จ่ายทั้งปีงบ {fy}</div>
-          <div className="stat-value">
-            {baht(yearTotals.pay)} <span className="stat-suffix">บาท</span>
-          </div>
-        </div>
-        <div className="stat-card" style={{ "--accent": "#64748b" } as React.CSSProperties}>
-          <div className="stat-label">จำนวนรายการ</div>
-          <div className="stat-value">
-            {txns.length.toLocaleString("th-TH")} <span className="stat-suffix">รายการ</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 flex gap-1 overflow-x-auto border-b border-slate-200">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors ${tab === t.key ? "border-navy-800 text-navy-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {!tab && (
+        <HubCardGrid
+          cards={[
+            {
+              key: "txns",
+              title: "รายการรับ-จ่าย",
+              description: "บันทึก ค้นหา และแก้ไขรายการรับ-จ่ายแยกประเภทเงิน (บร. / บค. / บจ.)",
+              href: "/finance/ledger?view=txns",
+              icon: <FileTextIcon className={ICON} />,
+              value: txns.length.toLocaleString("th-TH"),
+              sub: `รายการ · รับ ${baht(yearTotals.receive)} · จ่าย ${baht(yearTotals.pay)} บาท`,
+            },
+            {
+              key: "balance",
+              title: "ยอดคงเหลือ",
+              description: "ยอดเงินแยกประเภทเงิน ณ วันที่เลือก — เงินสด / เงินฝากธนาคาร / เงินฝากส่วนราชการ",
+              href: "/finance/ledger?view=balance",
+              icon: <CoinsIcon className={ICON} />,
+              value: `${baht(total(grand))} บาท`,
+              sub: `วันนี้ · เงินสด ${baht(grand.cash)} · ธนาคาร ${baht(grand.bank)} · ส่วนราชการ ${baht(grand.gov)}`,
+            },
+            {
+              key: "projects",
+              title: "งบโครงการ",
+              description: "งบประมาณ / เบิกจ่ายแล้ว / คงเหลือ รายโครงการและกิจกรรม",
+              href: "/finance/ledger?view=projects",
+              icon: <FolderIcon className={ICON} />,
+              value: projects.length.toLocaleString("th-TH"),
+              sub: `โครงการ · เบิกจ่ายแล้ว ${baht(projectTotals.paid)} จาก ${baht(projectTotals.budget)} บาท`,
+            },
+            {
+              key: "reports",
+              title: "พิมพ์รายงาน",
+              description: "รายงานเงินคงเหลือประจำวัน · ทะเบียนคุมเงินรายเดือน · ทะเบียนคุมใบสำคัญคู่จ่าย (PDF)",
+              href: "/finance/ledger?view=reports",
+              icon: <PrinterIcon className={ICON} />,
+            },
+            ...(canWrite
+              ? [
+                  {
+                    key: "settings",
+                    title: "ตั้งค่า",
+                    description: "ประเภทเงิน · สมุดบัญชีเงินฝาก · ยอดยกมาต้นปีงบ · ผู้ลงนามรายงาน",
+                    href: "/finance/ledger/settings",
+                    icon: <SettingsIcon className={ICON} />,
+                  } satisfies HubCard,
+                ]
+              : []),
+          ]}
+        />
+      )}
 
       {tab === "txns" && (
         <>
