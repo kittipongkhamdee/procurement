@@ -451,6 +451,7 @@ export default function LoansPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "open" | "overdue" | "cleared">("open");
+  const [mineOnly, setMineOnly] = useState(false);
   const [lookups, setLookups] = useState<Lookups>({ teachers: [], positions: {}, projects: [], activities: [] });
 
   const reload = useCallback(async () => {
@@ -495,9 +496,10 @@ export default function LoansPage() {
     return withStatus.filter(
       (r) =>
         (filter === "all" || (filter === "open" && !r.cleared) || (filter === "overdue" && r.overdue) || (filter === "cleared" && r.cleared)) &&
+        (!mineOnly || r.created_by === user?.userId) &&
         (!q || [r.doc_no, r.borrower_name, r.purpose, r.plan_projects?.name].some((v) => v?.toLowerCase().includes(q))),
     );
-  }, [withStatus, query, filter]);
+  }, [withStatus, query, filter, mineOnly, user?.userId]);
   const totalOutstanding = withStatus.reduce((s, r) => s + r.outstanding, 0);
   const overdueCount = withStatus.filter((r) => r.overdue).length;
 
@@ -543,7 +545,7 @@ export default function LoansPage() {
           <p className="page-subtitle">
             {isProcStaff
               ? "ทะเบียนคุมเงินยืมและการส่งใช้ ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกเงินจากคลังฯ พ.ศ. 2562 หมวด 5"
-              : "ยื่นสัญญายืมเงินในชื่อของคุณ แล้วพิมพ์เสนอผู้อำนวยการ — เจ้าหน้าที่การเงินออกเลขที่ บันทึกวันรับเงิน และรับส่งใช้"}
+              : "ดูสัญญาของทุกคนได้ ยื่น/แก้ไขได้เฉพาะสัญญาในชื่อของคุณที่ยังไม่ได้รับเงิน — เจ้าหน้าที่การเงินออกเลขที่ บันทึกวันรับเงิน และรับส่งใช้"}
           </p>
         </div>
         <LoanForm lookups={lookups} onSaved={reload} />
@@ -563,6 +565,10 @@ export default function LoansPage() {
               <option value="cleared">ส่งใช้ครบแล้ว</option>
               <option value="all">ทั้งหมด</option>
             </select>
+            <label className="flex items-center gap-1.5 text-sm text-slate-700">
+              <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
+              เฉพาะที่ฉันยื่น
+            </label>
             <p className="text-sm text-slate-600">
               คงค้างรวม <b className="tabular-nums">{baht(totalOutstanding)}</b> บาท
               {overdueCount > 0 && <span className="ml-2 font-semibold text-red-600">· เกินกำหนด {overdueCount} สัญญา</span>}
