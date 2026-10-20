@@ -53,6 +53,7 @@ export function ThaiDatePicker({
   onChange,
   placeholder = "วัน/เดือน/ปี พ.ศ.",
   required,
+  minDate,
 }: {
   /** ใส่เมื่อใช้แบบ uncontrolled ในฟอร์ม — จะ render hidden input ชื่อนี้ด้วยค่า ISO ที่เลือก */
   name?: string;
@@ -62,6 +63,8 @@ export function ThaiDatePicker({
   onChange?: (iso: string | null) => void;
   placeholder?: string;
   required?: boolean;
+  /** วันแรกที่เลือกได้ (ISO) — วันก่อนหน้านี้กดไม่ได้ (รวมปุ่มลัด) */
+  minDate?: string;
 }) {
   const isControlled = value !== undefined && onChange !== undefined;
   const [internal, setInternal] = useState<string | null>(defaultValue);
@@ -121,6 +124,7 @@ export function ThaiDatePicker({
   }
 
   function pickDate(y: number, m: number, d: number) {
+    if (minDate && toIso(y, m, d) < minDate) return;
     setViewYear(y);
     setViewMonth(m);
     setSelected(toIso(y, m, d));
@@ -250,13 +254,17 @@ export function ThaiDatePicker({
                 const iso = toIso(c.y, c.m, c.d);
                 const isSelected = selected === iso;
                 const isToday = todayIso === iso;
+                const blocked = !!minDate && iso < minDate;
                 return (
                   <button
                     key={i}
                     type="button"
+                    disabled={blocked}
                     onClick={() => pickDate(c.y, c.m, c.d)}
                     className={`rounded-full py-1.5 text-sm ${
-                      isSelected
+                      blocked
+                        ? "cursor-not-allowed text-slate-200 line-through"
+                        : isSelected
                         ? "bg-navy-800 font-semibold text-white"
                         : c.inMonth
                           ? `text-slate-700 hover:bg-navy-50 ${isToday ? "font-semibold text-navy-800" : ""}`

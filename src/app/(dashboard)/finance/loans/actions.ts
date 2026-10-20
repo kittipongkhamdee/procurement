@@ -35,6 +35,11 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   const borrower = me.staff ? str("borrower_name") : me.fullName;
   const purpose = str("purpose");
   if (!requestDate) return { error: "กรุณาระบุวันที่ยื่นสัญญา" };
+  // ผู้ยืมลงวันที่ย้อนหลังไม่ได้ (แก้สัญญาเดิมที่ยื่นไว้แล้วคงวันที่เดิมได้)
+  if (!me.staff && requestDate < new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10)) {
+    const { data: cur } = id ? await supabase.from("proc_loan_contracts").select("request_date").eq("id", id).maybeSingle() : { data: null };
+    if (cur?.request_date !== requestDate) return { error: "วันที่ยื่นสัญญาต้องไม่ก่อนวันนี้" };
+  }
   if (!borrower) return { error: me.staff ? "กรุณาระบุชื่อผู้ยืม" : "ยังไม่ได้ตั้งชื่อ-สกุลในโปรไฟล์ — ตั้งที่เมนูโปรไฟล์ของฉันก่อน" };
   const projectId = str("project_id") || null;
   if (!purpose && !projectId) return { error: "กรุณาระบุว่ายืมเพื่อเป็นค่าใช้จ่ายในการใด หรือเลือกโครงการ" };

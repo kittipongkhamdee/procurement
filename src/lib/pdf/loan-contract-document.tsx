@@ -42,8 +42,9 @@ export type LoanContractData = {
   doc_no: string | null;
   request_date: string;
   due_date: string | null;
-  /** ผู้พิมพ์ — "borrower": ผู้ยืมพิมพ์เอง เว้นว่างเลขที่/วันที่ทุกช่องให้การเงินเขียนมือ
-   *  "finance": เจ้าหน้าที่การเงินพิมพ์ พิมพ์เลขที่ วันที่ผู้ยืม (=วันที่สัญญา) วันที่การเงิน — วันที่ผู้อำนวยการ/วันที่รับเงิน เขียนมือเสมอ */
+  /** ผู้พิมพ์ — "borrower": ผู้ยืมพิมพ์เอง เว้นว่างเลขที่/วันครบกำหนด/วันที่การเงิน ให้การเงินเขียนมือ
+   *  วันที่ผู้ยืม (= วันที่ยื่นที่ผู้ยืมกรอก) พิมพ์ทั้งสองแบบ
+   *  "finance": เจ้าหน้าที่การเงินพิมพ์ พิมพ์เลขที่ วันที่การเงิน เพิ่ม — วันที่ผู้อำนวยการ/วันที่รับเงิน เขียนมือเสมอ */
   printed_by: "borrower" | "finance";
   checked_date: string | null;
   school_name: string;
@@ -170,7 +171,7 @@ function FrontPage({ d }: { d: LoanContractData }) {
             indent={false}
             text="ถ้าข้าพเจ้าไม่ส่งตามกำหนด ข้าพเจ้ายินยอมให้หักเงินเดือน ค่าจ้าง เบี้ยหวัด บำเหน็จ บำนาญ หรือเงินอื่นใดที่ข้าพเจ้าพึงได้รับจากทางราชการ ชดใช้จำนวนเงินที่ยืมไปจนครบถ้วนได้ทันที"
           />
-          <SignRow label="ลายมือชื่อ" role="ผู้ยืม" name={d.borrower_name} date={fin ? d.request_date : null} />
+          <SignRow label="ลายมือชื่อ" role="ผู้ยืม" name={d.borrower_name} date={d.request_date} />
         </View>
 
         {/* เสนอ */}
@@ -229,7 +230,7 @@ function BackPage({ d, filled }: { d: LoanContractData; filled: boolean }) {
     <Page size="A4" style={styles.page}>
       <Text style={[styles.bold, styles.center, { fontSize: 18 }]}>{t(filled ? "สรุปรายการส่งใช้เงินยืม (ตามที่บันทึกในระบบ)" : "รายการส่งใช้เงินยืม")}</Text>
       <Text style={[styles.center, { marginBottom: 4 }]}>
-        {t(`สัญญาการยืมเงินเลขที่ ${(d.printed_by === "finance" && d.doc_no) || "......../........"} ลงวันที่ ${d.printed_by === "finance" ? formatThaiDate(d.request_date) : "............................"}  ผู้ยืม ${d.borrower_name}  จำนวนเงิน ${formatBaht(d.amount)} บาท`)}
+        {t(`สัญญาการยืมเงินเลขที่ ${(d.printed_by === "finance" && d.doc_no) || "......../........"} ลงวันที่ ${formatThaiDate(d.request_date)}  ผู้ยืม ${d.borrower_name}  จำนวนเงิน ${formatBaht(d.amount)} บาท`)}
       </Text>
       <View style={{ borderTopWidth: B, borderLeftWidth: B, fontSize: 15 }}>
         <View style={{ flexDirection: "row" }}>

@@ -49,6 +49,11 @@ type Lookups = {
 };
 
 const FUND_SOURCES = ["เงินอุดหนุนรายหัว", "เงินอุดหนุนกิจกรรมพัฒนาผู้เรียน", "เงินรายได้สถานศึกษา", "เงินงบประมาณ", "เงินนอกงบประมาณ"];
+/** วันนี้ตามเวลาเครื่อง (ISO) — ไม่ใช้ toISOString() ตรงๆ เพราะเป็นเวลา UTC (ก่อน 7 โมงเช้าจะได้วันก่อนหน้า) */
+function todayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; onSaved: () => void }) {
@@ -122,7 +127,13 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           <label className="label">
             วันที่ยื่นสัญญา <span className="text-red-600">*</span>
           </label>
-          <ThaiDatePicker name="request_date" defaultValue={loan?.request_date ?? new Date().toISOString().slice(0, 10)} required />
+          {/* ค่าเริ่มต้น = วันนี้; ผู้ยืม (ไม่ใช่เจ้าหน้าที่) เลือกย้อนหลังก่อนวันนี้ไม่ได้ — วันที่นี้พิมพ์เป็นวันที่ลงชื่อผู้ยืม */}
+          <ThaiDatePicker
+            name="request_date"
+            defaultValue={loan?.request_date ?? todayLocal()}
+            minDate={isProcStaff ? undefined : [todayLocal(), loan?.request_date ?? todayLocal()].sort()[0]}
+            required
+          />
         </div>
         <div>
           <label className="label">
