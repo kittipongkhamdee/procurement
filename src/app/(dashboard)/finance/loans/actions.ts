@@ -12,16 +12,30 @@ type Result = { error?: string; id?: string; docNo?: string | null };
 const PATH = "/finance/loans";
 
 function rlsMessage(msg: string) {
-  return msg.includes("row-level") ? "เฉพาะผู้ดูแลระบบ เจ้าหน้าที่พัสดุ หรือเจ้าหน้าที่การเงินเท่านั้น" : msg;
+  return msg.includes("row-level") ? "ไม่มีสิทธิ์ — ครูแก้ไขได้เฉพาะสัญญาของตัวเองที่ยังไม่ได้รับเงิน" : msg;
+}
+
+const STAFF_ROLES = ["admin", "supply_officer", "finance_officer"];
+
+/** ผู้ใช้ปัจจุบัน — เจ้าหน้าที่ (admin/พัสดุ/การเงิน) จัดการได้ทุกสัญญา; คนอื่น (ครู) ยื่นสัญญาในชื่อตัวเองเท่านั้น */
+async function currentUser(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase.from("proc_profiles").select("role, full_name").eq("user_id", user?.id ?? "").maybeSingle();
+  return { staff: STAFF_ROLES.includes(profile?.role ?? ""), fullName: profile?.full_name?.trim() ?? "" };
 }
 
 export async function saveLoan(id: string | null, formData: FormData): Promise<Result> {
   const str = (k: string) => String(formData.get(k) ?? "").trim();
   const requestDate = str("request_date");
-  const borrower = str("borrower_name");
+  const supabase = await createClient();
+  const me = await currentUser(supabase);
+  // ครูยื่นได้เฉพาะในชื่อตัวเอง (ชื่อจากโปรไฟล์) — ส่วนวันรับเงิน/ผู้ตรวจสอบ/ผู้อนุมัติ/เลขที่ เจ้าหน้าที่การเงินเป็นผู้กรอก
+  const borrower = me.staff ? str("borrower_name") : me.fullName;
   const purpose = str("purpose");
   if (!requestDate) return { error: "กรุณาระบุวันที่ยื่นสัญญา" };
-  if (!borrower) return { error: "กรุณาระบุชื่อผู้ยืม" };
+  if (!borrower) return { error: me.staff ? "กรุณาระบุชื่อผู้ยืม" : "ยังไม่ได้ตั้งชื่อ-สกุลในโปรไฟล์ — ตั้งที่เมนูโปรไฟล์ของฉันก่อน" };
   const projectId = str("project_id") || null;
   if (!purpose && !projectId) return { error: "กรุณาระบุว่ายืมเพื่อเป็นค่าใช้จ่ายในการใด หรือเลือกโครงการ" };
   let items: LoanItem[] = [];
@@ -38,7 +52,7 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
 
   const loanType = parseLoanType(str("loan_type"));
   const dueDays = Number(str("due_days")) || LOAN_DUE_DAYS[loanType];
-  const receivedDate = str("received_date") || null;
+  const receivedDate = me.staff ? str("received_date") || null : null;
   const travelReturnDate = loanType === "travel" ? str("travel_return_date") || null : null;
   if (receivedDate && receivedDate < requestDate) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
   const fields = {
@@ -56,36 +70,40 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
     due_days: dueDays,
     received_date: receivedDate,
     due_date: loanDueDate(loanType, dueDays, receivedDate, travelReturnDate),
-    checker_name: str("checker_name") || null,
-    approver_name: str("approver_name") || null,
+    ...(me.staff ? { checker_name: str("checker_name") || null, approver_name: str("approver_name") || null } : {}),
     note: str("note") || null,
     updated_at: new Date().toISOString(),
   };
 
-  const supabase = await createClient();
   const admin = await isAdminUser(supabase);
   const docNoInput = str("doc_no");
   if (admin && docNoInput && (await docNumberTaken(supabase, "loan", docNoInput, id ?? undefined))) return { error: `เลขที่ ${docNoInput} ถูกใช้แล้ว` };
 
   if (id) {
-    const { error } = await supabase
+    // สัญญาที่ครูยื่นยังไม่มีเลขที่ — เจ้าหน้าที่ออกเลขให้ตอนบันทึก/ตรวจสอบครั้งแรก
+    const { data: cur } = await supabase.from("proc_loan_contracts").select("doc_no").eq("id", id).maybeSingle();
+    const docNo = admin && docNoInput ? docNoInput : me.staff && !cur?.doc_no ? await assignDocNumber(supabase, "loan", requestDate) : undefined;
+    const { data, error } = await supabase
       .from("proc_loan_contracts")
-      .update({ ...fields, ...(admin && docNoInput ? { doc_no: docNoInput } : {}) })
-      .eq("id", id);
+      .update({ ...fields, ...(docNo ? { doc_no: docNo } : {}) })
+      .eq("id", id)
+      .select("id");
     if (error) return { error: rlsMessage(error.message) };
+    if (!data?.length) return { error: "บันทึกไม่สำเร็จ — สัญญาที่การเงินจ่ายเงินแล้ว แก้ไขได้เฉพาะเจ้าหน้าที่" };
     revalidatePath(PATH);
-    return { id };
+    return { id, docNo: docNo ?? null };
   }
 
   // ข้อ 59 ห้ามอนุมัติให้ยืมเงินรายใหม่ เมื่อผู้ยืมยังไม่ชำระคืนเงินยืมรายเก่าให้เสร็จสิ้น
-  const { data: old } = await supabase.from("proc_loan_contracts").select("doc_no, amount, proc_loan_repayments(cash_amount, voucher_amount)").eq("borrower_name", borrower);
-  const pending = (old ?? []).filter((o) => !loanBalance(Number(o.amount), o.proc_loan_repayments ?? []).cleared);
-  if (pending.length > 0)
+  // (นับผ่านฟังก์ชันฝั่งฐานข้อมูล — ครูมองไม่เห็นสัญญาที่เจ้าหน้าที่บันทึกแทน แต่ต้องนับด้วย)
+  const { data: pending } = await supabase.rpc("proc_loan_pending", { borrower });
+  if (pending && pending.length > 0)
     return {
-      error: `${borrower} ยังส่งใช้เงินยืมรายเก่าไม่ครบ (สัญญาเลขที่ ${pending.map((p) => p.doc_no ?? "-").join(", ")}) — ระเบียบฯ ข้อ 59 ห้ามอนุมัติให้ยืมรายใหม่จนกว่าจะชำระรายเก่าเสร็จสิ้น`,
+      error: `${borrower} ยังส่งใช้เงินยืมรายเก่าไม่ครบ (สัญญาเลขที่ ${pending.join(", ")}) — ระเบียบฯ ข้อ 59 ห้ามอนุมัติให้ยืมรายใหม่จนกว่าจะชำระรายเก่าเสร็จสิ้น`,
     };
 
-  const docNo = admin && docNoInput ? docNoInput : await assignDocNumber(supabase, "loan", requestDate);
+  // ครูยื่น = ยังไม่ออกเลข (นับเลขต้องเห็นทุกสัญญา) เจ้าหน้าที่การเงินออกเลขตอนตรวจสอบ
+  const docNo = admin && docNoInput ? docNoInput : me.staff ? await assignDocNumber(supabase, "loan", requestDate) : null;
   const { data, error } = await supabase.from("proc_loan_contracts").insert({ ...fields, doc_no: docNo }).select("id").single();
   if (error) return { error: rlsMessage(error.message) };
   revalidatePath(PATH);

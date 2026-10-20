@@ -37,6 +37,7 @@ type Loan = {
   checker_name: string | null;
   approver_name: string | null;
   note: string | null;
+  created_by: string | null;
   proc_loan_repayments: LoanRepayment[];
 };
 type Lookups = {
@@ -52,10 +53,10 @@ const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2
 
 function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; onSaved: () => void }) {
   const ref = useRef<ModalHandle>(null);
-  const { role } = useAuth();
+  const { role, isProcStaff, displayName } = useAuth();
   const [loanType, setLoanType] = useState<LoanType>(parseLoanType(loan?.loan_type));
   const [dueDays, setDueDays] = useState(String(loan?.due_days ?? LOAN_DUE_DAYS.other));
-  const [position, setPosition] = useState(loan?.borrower_position ?? "");
+  const [position, setPosition] = useState(loan?.borrower_position ?? (isProcStaff ? "" : lookups.positions[displayName.trim()] ?? ""));
   const [projectId, setProjectId] = useState(loan?.project_id ?? "");
   const [activityId, setActivityId] = useState(loan?.activity_id ?? "");
   const [fund, setFund] = useState(loan?.fund_source ?? "");
@@ -114,7 +115,7 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           {role === "admin" ? (
             <input name="doc_no" defaultValue={loan?.doc_no ?? ""} placeholder="ว่างไว้ = ออกเลขอัตโนมัติ" className="input w-full" />
           ) : (
-            <input value={loan?.doc_no ?? "ออกเลขอัตโนมัติตอนบันทึก"} disabled className="input w-full" />
+            <input value={loan?.doc_no ?? (isProcStaff ? "ออกเลขอัตโนมัติตอนบันทึก" : "เจ้าหน้าที่การเงินออกเลขให้ตอนตรวจสอบ")} disabled className="input w-full" />
           )}
         </div>
         <div>
@@ -127,17 +128,22 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           <label className="label">
             ชื่อผู้ยืม <span className="text-red-600">*</span>
           </label>
-          <input
-            name="borrower_name"
-            list="loan-teachers"
-            defaultValue={loan?.borrower_name ?? ""}
-            onChange={(e) => {
-              const p = lookups.positions[e.target.value.trim()];
-              if (p) setPosition(p);
-            }}
-            required
-            className="input w-full"
-          />
+          {isProcStaff ? (
+            <input
+              name="borrower_name"
+              list="loan-teachers"
+              defaultValue={loan?.borrower_name ?? ""}
+              onChange={(e) => {
+                const p = lookups.positions[e.target.value.trim()];
+                if (p) setPosition(p);
+              }}
+              required
+              className="input w-full"
+            />
+          ) : (
+            // ครูยื่นได้เฉพาะในชื่อตัวเอง (ฝั่ง server ใช้ชื่อจากโปรไฟล์)
+            <input value={loan?.borrower_name ?? displayName} disabled className="input w-full" />
+          )}
           <datalist id="loan-teachers">
             {lookups.teachers.map((n) => (
               <option key={n} value={n} />
@@ -259,25 +265,31 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           <label className="label">ส่งใช้ภายใน (วัน)</label>
           <input name="due_days" type="number" min="1" value={dueDays} onChange={(e) => setDueDays(e.target.value)} className="input w-full" />
         </div>
-        <div>
-          <label className="label">วันที่ได้รับเงินยืม</label>
-          <ThaiDatePicker name="received_date" defaultValue={loan?.received_date ?? null} />
-          <p className="mt-1 text-xs text-slate-500">กรอกเมื่อจ่ายเงินแล้ว — ระบบคำนวณวันครบกำหนดให้</p>
-        </div>
+        {isProcStaff && (
+          <div>
+            <label className="label">วันที่ได้รับเงินยืม</label>
+            <ThaiDatePicker name="received_date" defaultValue={loan?.received_date ?? null} />
+            <p className="mt-1 text-xs text-slate-500">กรอกเมื่อจ่ายเงินแล้ว — ระบบคำนวณวันครบกำหนดให้ (ครูแก้สัญญาไม่ได้หลังจากนี้)</p>
+          </div>
+        )}
         {loanType === "travel" && (
           <div>
             <label className="label">วันที่กลับมาถึง (เดินทางไปราชการ)</label>
             <ThaiDatePicker name="travel_return_date" defaultValue={loan?.travel_return_date ?? null} />
           </div>
         )}
-        <div>
-          <label className="label">ผู้ตรวจสอบ (เจ้าหน้าที่การเงิน)</label>
-          <input name="checker_name" list="loan-teachers" defaultValue={loan?.checker_name ?? ""} placeholder="ว่างไว้ = ตามค่าตั้งระบบ" className="input w-full" />
-        </div>
-        <div>
-          <label className="label">ผู้อนุมัติ</label>
-          <input name="approver_name" list="loan-teachers" defaultValue={loan?.approver_name ?? ""} placeholder="ว่างไว้ = ผู้อำนวยการ (ค่าตั้งระบบ)" className="input w-full" />
-        </div>
+        {isProcStaff && (
+          <>
+            <div>
+              <label className="label">ผู้ตรวจสอบ (เจ้าหน้าที่การเงิน)</label>
+              <input name="checker_name" list="loan-teachers" defaultValue={loan?.checker_name ?? ""} placeholder="ว่างไว้ = ตามค่าตั้งระบบ" className="input w-full" />
+            </div>
+            <div>
+              <label className="label">ผู้อนุมัติ</label>
+              <input name="approver_name" list="loan-teachers" defaultValue={loan?.approver_name ?? ""} placeholder="ว่างไว้ = ผู้อำนวยการ (ค่าตั้งระบบ)" className="input w-full" />
+            </div>
+          </>
+        )}
         <div className="sm:col-span-2">
           <label className="label">หมายเหตุ</label>
           <input name="note" defaultValue={loan?.note ?? ""} className="input w-full" />
@@ -432,7 +444,9 @@ function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activitie
 }
 
 export default function LoansPage() {
-  const { isProcStaff } = useAuth();
+  const { isProcStaff, user } = useAuth();
+  // ครูแก้/ลบได้เฉพาะสัญญาที่ตัวเองยื่นและการเงินยังไม่จ่ายเงิน (ตรงกับ RLS)
+  const canEditLoan = (r: Loan) => isProcStaff || (r.created_by === user?.userId && !r.received_date);
   const [rows, setRows] = useState<Loan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -498,7 +512,7 @@ export default function LoansPage() {
   function statusBadge(r: (typeof withStatus)[number]) {
     if (r.cleared) return <span className="badge-emerald !text-sm">ส่งใช้ครบแล้ว</span>;
     if (r.overdue) return <span className="badge-red !text-sm">เกินกำหนด</span>;
-    if (!r.received_date) return <span className="badge-slate !text-sm">รอรับเงิน</span>;
+    if (!r.received_date) return <span className="badge-slate !text-sm">{r.doc_no ? "รอรับเงิน" : "ยื่นแล้ว รอการเงินตรวจสอบ"}</span>;
     return <span className="badge-amber !text-sm">ค้างส่งใช้</span>;
   }
 
@@ -510,8 +524,8 @@ export default function LoansPage() {
           <span className="btn-label">พิมพ์</span>
         </a>
         <RepayModal loan={r} canEdit={isProcStaff} onSaved={reload} />
-        {isProcStaff && <LoanForm loan={r} lookups={lookups} onSaved={reload} />}
-        {isProcStaff && (
+        {canEditLoan(r) && <LoanForm loan={r} lookups={lookups} onSaved={reload} />}
+        {canEditLoan(r) && (
           <button type="button" onClick={() => remove(r)} title="ลบ" className="btn-danger btn-sm">
             <TrashIcon className="h-3.5 w-3.5" />
             <span className="btn-label">ลบ</span>
@@ -526,9 +540,13 @@ export default function LoansPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">สัญญาการยืมเงิน</h1>
-          <p className="page-subtitle">ทะเบียนคุมเงินยืมและการส่งใช้ ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกเงินจากคลังฯ พ.ศ. 2562 หมวด 5</p>
+          <p className="page-subtitle">
+            {isProcStaff
+              ? "ทะเบียนคุมเงินยืมและการส่งใช้ ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกเงินจากคลังฯ พ.ศ. 2562 หมวด 5"
+              : "ยื่นสัญญายืมเงินในชื่อของคุณ แล้วพิมพ์เสนอผู้อำนวยการ — เจ้าหน้าที่การเงินออกเลขที่ บันทึกวันรับเงิน และรับส่งใช้"}
+          </p>
         </div>
-        {isProcStaff && <LoanForm lookups={lookups} onSaved={reload} />}
+        <LoanForm lookups={lookups} onSaved={reload} />
       </div>
       {rows === null ? (
         <PageLoadingSkeleton />

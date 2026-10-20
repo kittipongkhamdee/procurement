@@ -3526,6 +3526,10 @@ export type Database = {
         Args: { new_role: string | null }
         Returns: undefined
       }
+      proc_loan_pending: {
+        Args: { borrower: string }
+        Returns: string[]
+      }
       proc_real_role: {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["proc_user_role"]
