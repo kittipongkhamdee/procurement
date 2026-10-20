@@ -14,6 +14,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { CoinsIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { addRepayment, deleteLoan, deleteRepayment, saveLoan } from "./actions";
+import { LoanDashboard } from "./loan-dashboard";
 
 type Loan = {
   id: string;
@@ -511,8 +512,6 @@ export default function LoansPage() {
         (!q || [r.doc_no, r.borrower_name, r.purpose, r.plan_projects?.name].some((v) => v?.toLowerCase().includes(q))),
     );
   }, [withStatus, query, filter, mineOnly, user?.userId]);
-  const totalOutstanding = withStatus.reduce((s, r) => s + r.outstanding, 0);
-  const overdueCount = withStatus.filter((r) => r.overdue).length;
 
   async function remove(r: Loan) {
     if (!(await confirmDelete({ title: `ลบสัญญาเลขที่ ${r.doc_no ?? ""}?`, text: "รายการส่งใช้ของสัญญานี้จะถูกลบด้วย" }))) return;
@@ -574,6 +573,7 @@ export default function LoansPage() {
         <PageLoadingSkeleton />
       ) : (
         <>
+          <LoanDashboard loans={withStatus} onFilter={setFilter} />
           <div className="mb-3 flex flex-wrap items-center gap-3">
             <div className="relative w-full sm:w-80">
               <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -589,10 +589,6 @@ export default function LoansPage() {
               <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
               เฉพาะที่ฉันยื่น
             </label>
-            <p className="text-sm text-slate-600">
-              คงค้างรวม <b className="tabular-nums">{baht(totalOutstanding)}</b> บาท
-              {overdueCount > 0 && <span className="ml-2 font-semibold text-red-600">· เกินกำหนด {overdueCount} สัญญา</span>}
-            </p>
           </div>
           <div className="table-shell @container">
             {error && <p className="p-4 text-sm text-red-600">โหลดข้อมูลไม่สำเร็จ: {error}</p>}
