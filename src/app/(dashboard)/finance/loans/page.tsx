@@ -737,7 +737,8 @@ export default function LoansPage() {
             <span className="btn-label">พิมพ์</span>
           </a>
         )}
-        <RepayModal loan={r} canEdit={isProcStaff} canPrint={canPrint(r)} onSaved={reload} />
+        {/* ส่งใช้ได้หลังการเงินบันทึกจ่ายเงินแล้วเท่านั้น (ยังไม่จ่าย = ยังไม่มีหนี้ต้องส่งใช้) */}
+        {r.received_date && <RepayModal loan={r} canEdit={isProcStaff} canPrint={canPrint(r)} onSaved={reload} />}
         {canEditLoan(r) && <LoanForm loan={r} lookups={lookups} onSaved={reload} />}
         {canEditLoan(r) && (
           <button type="button" onClick={() => remove(r)} title="ลบ" className="btn-danger btn-sm">
@@ -798,7 +799,7 @@ export default function LoansPage() {
                   </p>
                   <p className="text-xs text-slate-500">{loanPurpose(r)}</p>
                   <p className="text-xs text-slate-500">
-                    คงค้าง {baht(r.outstanding)} บาท{r.due_date ? ` · ครบกำหนด ${formatThaiDate(r.due_date)}` : ""}
+                    {r.received_date ? `คงค้าง ${baht(r.outstanding)} บาท${r.due_date ? ` · ครบกำหนด ${formatThaiDate(r.due_date)}` : ""}` : "ยังไม่จ่ายเงิน"}
                   </p>
                   <div className="mt-2">{actions(r)}</div>
                 </div>
@@ -827,7 +828,7 @@ export default function LoansPage() {
                     <td>{r.borrower_name}</td>
                     <td>{loanPurpose(r)}</td>
                     <td className="text-right tabular-nums">{baht(r.amount)}</td>
-                    <td className="text-right tabular-nums">{baht(r.outstanding)}</td>
+                    <td className="text-right tabular-nums">{r.received_date ? baht(r.outstanding) : <span className="text-slate-400">ยังไม่จ่าย</span>}</td>
                     <td className="whitespace-nowrap">{r.due_date ? formatThaiDate(r.due_date) : "-"}</td>
                     <td className="whitespace-nowrap">{statusBadge(r)}</td>
                     <td className="whitespace-nowrap text-right [&_.btn-label]:sr-only [&_.btn-sm]:px-2">{actions(r)}</td>

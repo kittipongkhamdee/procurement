@@ -133,8 +133,9 @@ export async function addRepayment(loanId: string, formData: FormData): Promise<
   if (!repayDate) return { error: "กรุณาระบุวันที่ส่งใช้" };
   if (cash < 0 || voucher < 0 || cash + voucher <= 0) return { error: "กรุณาระบุจำนวนเงินสดหรือใบสำคัญที่ส่งใช้" };
   const supabase = await createClient();
-  const { data: loan } = await supabase.from("proc_loan_contracts").select("amount, request_date, proc_loan_repayments(cash_amount, voucher_amount)").eq("id", loanId).maybeSingle();
+  const { data: loan } = await supabase.from("proc_loan_contracts").select("amount, request_date, received_date, proc_loan_repayments(cash_amount, voucher_amount)").eq("id", loanId).maybeSingle();
   if (!loan) return { error: "ไม่พบสัญญา" };
+  if (!loan.received_date) return { error: "ยังไม่ได้บันทึกจ่ายเงินยืม — กด \"บันทึกจ่ายเงิน\" ก่อน" };
   if (repayDate < loan.request_date) return { error: "วันที่ส่งใช้ต้องไม่ก่อนวันที่ยื่นสัญญา" };
   const { outstanding } = loanBalance(Number(loan.amount), loan.proc_loan_repayments ?? []);
   if (cash + voucher > outstanding + 0.001) return { error: `ส่งใช้เกินยอดคงค้าง (คงค้าง ${outstanding.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท)` };
