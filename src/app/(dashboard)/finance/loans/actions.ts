@@ -15,6 +15,11 @@ function rlsMessage(msg: string) {
   return msg.includes("row-level") ? "ไม่มีสิทธิ์ — ครูแก้ไขได้เฉพาะสัญญาของตัวเองที่ยังไม่ได้รับเงิน" : msg;
 }
 
+/** วันนี้ตามเวลาไทย (ISO) — วันที่ของขั้นตอนที่เกิดขึ้นแล้ว (ตรวจสอบ/รับเงิน/ส่งใช้) ลงล่วงหน้าไม่ได้ */
+function todayTh() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+}
+
 const STAFF_ROLES = ["admin", "supply_officer", "finance_officer"];
 
 /** ผู้ใช้ปัจจุบัน — เจ้าหน้าที่ (admin/พัสดุ/การเงิน) จัดการได้ทุกสัญญา; คนอื่น (ครู) ยื่นสัญญาในชื่อตัวเองเท่านั้น */
@@ -61,6 +66,7 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   const receivedDate = me.staff ? str("received_date") || null : null;
   const travelReturnDate = loanType === "travel" ? str("travel_return_date") || null : null;
   if (receivedDate && receivedDate < requestDate) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
+  if (receivedDate && receivedDate > todayTh()) return { error: "วันที่ได้รับเงินลงล่วงหน้าไม่ได้" };
   const fields = {
     request_date: requestDate,
     borrower_name: borrower,
@@ -150,6 +156,7 @@ export async function addRepayment(loanId: string, formData: FormData): Promise<
   const cash = Math.round((Number(str("cash_amount")) || 0) * 100) / 100;
   const voucher = Math.round((Number(str("voucher_amount")) || 0) * 100) / 100;
   if (!repayDate) return { error: "กรุณาระบุวันที่ส่งใช้" };
+  if (repayDate > todayTh()) return { error: "วันที่ส่งใช้ลงล่วงหน้าไม่ได้" };
   if (cash < 0 || voucher < 0 || cash + voucher <= 0) return { error: "กรุณาระบุจำนวนเงินสดหรือใบสำคัญที่ส่งใช้" };
   const supabase = await createClient();
   const { data: loan } = await supabase.from("proc_loan_contracts").select("amount, request_date, received_date, proc_loan_repayments(cash_amount, voucher_amount, repay_date)").eq("id", loanId).maybeSingle();
@@ -239,6 +246,7 @@ export async function issueLoanNumber(id: string, docNo: string, checkedDate: st
   const no = docNo.trim();
   if (!no) return { error: "กรุณาระบุเลขที่สัญญา" };
   if (!checkedDate) return { error: "กรุณาระบุวันที่ตรวจสอบ" };
+  if (checkedDate > todayTh()) return { error: "วันที่การเงินตรวจสอบลงล่วงหน้าไม่ได้" };
   if (await docNumberTaken(supabase, "loan", no, id)) return { error: `เลขที่ ${no} ถูกใช้แล้ว` };
   const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date").eq("id", id).maybeSingle();
   if (!cur) return { error: "ไม่พบสัญญา" };
@@ -255,6 +263,7 @@ export async function recordLoanPayment(id: string, receivedDate: string, travel
   const denied = await requireStaff(supabase);
   if (denied) return { error: denied };
   if (!receivedDate) return { error: "กรุณาระบุวันที่ได้รับเงินยืม" };
+  if (receivedDate > todayTh()) return { error: "วันที่ได้รับเงินลงล่วงหน้าไม่ได้" };
   const { data: cur } = await supabase.from("proc_loan_contracts").select("request_date, checked_date, loan_type, doc_no, director_approved_at").eq("id", id).maybeSingle();
   if (!cur) return { error: "ไม่พบสัญญา" };
   if (!cur.doc_no) return { error: "ยังไม่ได้ออกเลขที่สัญญา — กด \"ออกเลขที่\" ก่อน" };

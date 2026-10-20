@@ -54,6 +54,7 @@ export function ThaiDatePicker({
   placeholder = "วัน/เดือน/ปี พ.ศ.",
   required,
   minDate,
+  maxDate,
 }: {
   /** ใส่เมื่อใช้แบบ uncontrolled ในฟอร์ม — จะ render hidden input ชื่อนี้ด้วยค่า ISO ที่เลือก */
   name?: string;
@@ -65,6 +66,8 @@ export function ThaiDatePicker({
   required?: boolean;
   /** วันแรกที่เลือกได้ (ISO) — วันก่อนหน้านี้กดไม่ได้ (รวมปุ่มลัด) */
   minDate?: string;
+  /** วันสุดท้ายที่เลือกได้ (ISO) — วันหลังจากนี้กดไม่ได้ (เช่น วันที่ของขั้นตอนที่เกิดขึ้นแล้ว ห้ามลงวันที่ล่วงหน้า) */
+  maxDate?: string;
 }) {
   const isControlled = value !== undefined && onChange !== undefined;
   const [internal, setInternal] = useState<string | null>(defaultValue);
@@ -124,7 +127,7 @@ export function ThaiDatePicker({
   }
 
   function pickDate(y: number, m: number, d: number) {
-    if (minDate && toIso(y, m, d) < minDate) return;
+    if ((minDate && toIso(y, m, d) < minDate) || (maxDate && toIso(y, m, d) > maxDate)) return;
     setViewYear(y);
     setViewMonth(m);
     setSelected(toIso(y, m, d));
@@ -230,7 +233,7 @@ export function ThaiDatePicker({
             </div>
 
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {QUICK_OFFSETS.map((q) => (
+              {QUICK_OFFSETS.filter((q) => !maxDate || !q.days).map((q) => (
                 <button
                   key={q.label}
                   type="button"
@@ -254,7 +257,7 @@ export function ThaiDatePicker({
                 const iso = toIso(c.y, c.m, c.d);
                 const isSelected = selected === iso;
                 const isToday = todayIso === iso;
-                const blocked = !!minDate && iso < minDate;
+                const blocked = (!!minDate && iso < minDate) || (!!maxDate && iso > maxDate);
                 return (
                   <button
                     key={i}

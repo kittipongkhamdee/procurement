@@ -272,7 +272,7 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
         {isProcStaff && (
           <div>
             <label className="label">วันที่ได้รับเงินยืม</label>
-            <ThaiDatePicker name="received_date" defaultValue={loan?.received_date ?? null} minDate={loan?.checked_date ?? loan?.request_date} />
+            <ThaiDatePicker name="received_date" defaultValue={loan?.received_date ?? null} minDate={loan?.checked_date ?? loan?.request_date} maxDate={todayLocal()} />
             <p className="mt-1 text-xs text-slate-500">กรอกเมื่อจ่ายเงินแล้ว — ระบบคำนวณวันครบกำหนดให้ (ครูแก้สัญญาไม่ได้หลังจากนี้)</p>
           </div>
         )}
@@ -457,7 +457,7 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
             <label className="label">
               วันที่ส่งใช้ <span className="text-red-600">*</span>
             </label>
-            <ThaiDatePicker name="repay_date" defaultValue={maxIso(todayLocal(), repayMin)} minDate={repayMin} required />
+            <ThaiDatePicker name="repay_date" defaultValue={maxIso(todayLocal(), repayMin)} minDate={repayMin} maxDate={todayLocal()} required />
           </div>
           <div>
             <label className="label">ใบรับใบสำคัญ เลขที่</label>
@@ -561,7 +561,12 @@ function IssueNumberModal({ loan, onSaved }: { loan: Loan; onSaved: () => void }
           <label className="label">
             วันที่การเงินตรวจสอบ <span className="text-red-600">*</span>
           </label>
-          <ThaiDatePicker name="checked_date" defaultValue={maxIso(todayLocal(), loan.request_date)} minDate={loan.request_date} required />
+          <ThaiDatePicker name="checked_date" defaultValue={maxIso(todayLocal(), loan.request_date)} minDate={loan.request_date} maxDate={todayLocal()} required />
+          <p className="mt-1 text-xs text-slate-500">
+            {loan.request_date > todayLocal()
+              ? `สัญญาลงวันที่ยื่น ${formatThaiDate(loan.request_date)} (ล่วงหน้า) — ออกเลขที่ได้ตั้งแต่วันนั้น`
+              : "วันที่ตรวจสอบจริง (ลงล่วงหน้าไม่ได้) — ผู้อำนวยการอนุมัติได้หลังจากนี้"}
+          </p>
         </div>
         <div className="flex justify-end gap-2 sm:col-span-2">
           <button type="button" onClick={() => ref.current?.close()} className="btn-secondary">
@@ -621,6 +626,7 @@ function RecordPaymentModal({ loan, onSaved }: { loan: Loan; onSaved: () => void
             name="received_date"
             defaultValue={maxIso(todayLocal(), paidMin)}
             minDate={paidMin}
+            maxDate={todayLocal()}
             required
           />
         </div>

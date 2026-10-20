@@ -23,6 +23,9 @@ export function ApproveLoanModal({
 }) {
   const ref = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
+  // ลำดับวันที่: การเงินตรวจสอบ ≤ วันที่อนุมัติ (วันนี้) — กันกรณีวันที่ตรวจสอบลงล่วงหน้า (ข้อมูลเก่า)
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  const notYet = !!loan.checked_date && loan.checked_date > today;
   async function approve() {
     setSaving(true);
     try {
@@ -53,13 +56,14 @@ export function ApproveLoanModal({
     >
       <LoanSummary loan={loan} />
       <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-slate-600">
-        เมื่ออนุมัติ ระบบบันทึกวันที่และเวลาที่อนุมัติไว้ในรายละเอียดสัญญา แล้วการเงินจึงบันทึกจ่ายเงินได้
+        เมื่ออนุมัติ ระบบบันทึกวันที่และเวลาที่กดอนุมัติ (วันนี้) ไว้ในรายละเอียดสัญญา แล้วการเงินจึงบันทึกจ่ายเงินได้
       </p>
+      {notYet && <p className="mt-2 text-sm text-red-600">วันที่การเงินตรวจสอบยังไม่ถึง — อนุมัติได้ตั้งแต่วันที่การเงินตรวจสอบ</p>}
       <div className="mt-3 flex justify-end gap-2">
         <button type="button" onClick={() => ref.current?.close()} className="btn-secondary">
           ปิด
         </button>
-        <button type="button" onClick={approve} disabled={saving} className="btn-primary">
+        <button type="button" onClick={approve} disabled={saving || notYet} className="btn-primary">
           {saving ? "กำลังบันทึก..." : "อนุมัติให้ยืม"}
         </button>
       </div>
