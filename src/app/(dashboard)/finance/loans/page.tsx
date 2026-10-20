@@ -38,8 +38,6 @@ type Loan = {
   approver_name: string | null;
   note: string | null;
   created_by: string | null;
-  submitted_by_name: string | null;
-  borrower_user_id: string | null;
   proc_loan_repayments: LoanRepayment[];
 };
 type Lookups = {
@@ -62,7 +60,7 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   const ref = useRef<ModalHandle>(null);
   const { role, isProcStaff, displayName } = useAuth();
   const [loanType, setLoanType] = useState<LoanType>(parseLoanType(loan?.loan_type));
-  const [position, setPosition] = useState(loan?.borrower_position ?? lookups.positions[displayName.trim()] ?? "");
+  const [position, setPosition] = useState(loan?.borrower_position ?? (isProcStaff ? "" : lookups.positions[displayName.trim()] ?? ""));
   const [projectId, setProjectId] = useState(loan?.project_id ?? "");
   const [activityId, setActivityId] = useState(loan?.activity_id ?? "");
   const [fund, setFund] = useState(loan?.fund_source ?? "");
@@ -140,22 +138,21 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           <label className="label">
             ชื่อผู้ยืม <span className="text-red-600">*</span>
           </label>
-          {/* ค่าเริ่มต้น = ชื่อตัวเอง (ตามโปรไฟล์) — เลือกชื่อคนอื่นได้ = ยื่นแทน ระบบบันทึกชื่อผู้ยื่นไว้ (ไม่พิมพ์ลง PDF) */}
-          <input
-            name="borrower_name"
-            list="loan-teachers"
-            defaultValue={loan?.borrower_name ?? displayName}
-            onChange={(e) => {
-              const p = lookups.positions[e.target.value.trim()];
-              if (p) setPosition(p);
-            }}
-            required
-            className="input w-full"
-          />
-          {!loan && (
-            <p className="mt-1 text-xs text-slate-500">
-              กรอกแทนคนอื่นได้ — ผู้ยืมเป็นเจ้าของสัญญา (เห็น/แก้/พิมพ์ได้) ระบบบันทึกว่ากรอกในระบบแทนโดย {displayName || "คุณ"}
-            </p>
+          {isProcStaff ? (
+            <input
+              name="borrower_name"
+              list="loan-teachers"
+              defaultValue={loan?.borrower_name ?? ""}
+              onChange={(e) => {
+                const p = lookups.positions[e.target.value.trim()];
+                if (p) setPosition(p);
+              }}
+              required
+              className="input w-full"
+            />
+          ) : (
+            // ครูยื่นได้เฉพาะในชื่อตัวเอง (ฝั่ง server ใช้ชื่อจากโปรไฟล์)
+            <input value={loan?.borrower_name ?? displayName} disabled className="input w-full" />
           )}
           <datalist id="loan-teachers">
             {lookups.teachers.map((n) => (
@@ -451,12 +448,6 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
   );
 }
 
-/** กรอกแทน — คนบันทึกในระบบไม่ใช่ผู้ยืม (ผู้ยืมจริงยังเป็นเจ้าของสัญญา) แสดงในระบบเท่านั้น ไม่พิมพ์ลง PDF */
-function proxyNote(r: Pick<Loan, "borrower_name" | "submitted_by_name">) {
-  if (!r.submitted_by_name || r.submitted_by_name.trim() === r.borrower_name.trim()) return null;
-  return <p className="text-xs text-amber-700">กรอกในระบบแทนโดย {r.submitted_by_name}</p>;
-}
-
 function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activities">) {
   return [r.purpose, r.plan_projects && `โครงการ${r.plan_projects.name.replace(/^โครงการ\s*/, "")}`, r.plan_activities?.name && `กิจกรรม${r.plan_activities.name.replace(/^กิจกรรม\s*/, "")}`].filter(Boolean).join(" ");
 }
@@ -464,10 +455,9 @@ function loanPurpose(r: Pick<Loan, "purpose" | "plan_projects" | "plan_activitie
 export default function LoansPage() {
   const { isProcStaff, user, role } = useAuth();
   // ครูแก้/ลบได้เฉพาะสัญญาที่ตัวเองยื่นและการเงินยังไม่จ่ายเงิน (ตรงกับ RLS)
-  const isMine = (r: Loan) => !!user?.userId && (r.created_by === user.userId || r.borrower_user_id === user.userId);
-  const canEditLoan = (r: Loan) => isProcStaff || (isMine(r) && !r.received_date);
+  const canEditLoan = (r: Loan) => isProcStaff || (r.created_by === user?.userId && !r.received_date);
   // พิมพ์: เจ้าหน้าที่/ผู้บริหารทุกสัญญา ครูเฉพาะของตัวเอง (ตรงกับ build-loan-pdf)
-  const canPrint = (r: Loan) => isProcStaff || role === "director" || role === "deputy_director" || isMine(r);
+  const canPrint = (r: Loan) => isProcStaff || role === "director" || role === "deputy_director" || r.created_by === user?.userId;
   const [rows, setRows] = useState<Loan[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -512,16 +502,15 @@ export default function LoansPage() {
       }),
     [rows],
   );
-  const myId = user?.userId ?? null;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return withStatus.filter(
       (r) =>
         (filter === "all" || (filter === "open" && !r.cleared) || (filter === "overdue" && r.overdue) || (filter === "cleared" && r.cleared)) &&
-        (!mineOnly || (!!myId && (r.created_by === myId || r.borrower_user_id === myId))) &&
+        (!mineOnly || r.created_by === user?.userId) &&
         (!q || [r.doc_no, r.borrower_name, r.purpose, r.plan_projects?.name].some((v) => v?.toLowerCase().includes(q))),
     );
-  }, [withStatus, query, filter, mineOnly, myId]);
+  }, [withStatus, query, filter, mineOnly, user?.userId]);
   const totalOutstanding = withStatus.reduce((s, r) => s + r.outstanding, 0);
   const overdueCount = withStatus.filter((r) => r.overdue).length;
 
@@ -576,7 +565,7 @@ export default function LoansPage() {
           <p className="page-subtitle">
             {isProcStaff
               ? "ทะเบียนคุมเงินยืมและการส่งใช้ ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกเงินจากคลังฯ พ.ศ. 2562 หมวด 5"
-              : "ดูสัญญาของทุกคนได้ แก้ไข/พิมพ์ได้เฉพาะสัญญาของคุณ (เป็นผู้ยืม หรือกรอกแทนผู้อื่น) ที่ยังไม่ได้รับเงิน — เจ้าหน้าที่การเงินออกเลขที่ บันทึกวันรับเงิน และรับส่งใช้"}
+              : "ดูสัญญาของทุกคนได้ ยื่น/แก้ไขได้เฉพาะสัญญาในชื่อของคุณที่ยังไม่ได้รับเงิน — เจ้าหน้าที่การเงินออกเลขที่ บันทึกวันรับเงิน และรับส่งใช้"}
           </p>
         </div>
         <LoanForm lookups={lookups} onSaved={reload} />
@@ -598,7 +587,7 @@ export default function LoansPage() {
             </select>
             <label className="flex items-center gap-1.5 text-sm text-slate-700">
               <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
-              เฉพาะของฉัน
+              เฉพาะที่ฉันยื่น
             </label>
             <p className="text-sm text-slate-600">
               คงค้างรวม <b className="tabular-nums">{baht(totalOutstanding)}</b> บาท
@@ -619,7 +608,6 @@ export default function LoansPage() {
                     {r.borrower_name} · {baht(r.amount)} บาท
                   </p>
                   <p className="text-xs text-slate-500">{loanPurpose(r)}</p>
-                  {proxyNote(r)}
                   <p className="text-xs text-slate-500">
                     คงค้าง {baht(r.outstanding)} บาท{r.due_date ? ` · ครบกำหนด ${formatThaiDate(r.due_date)}` : ""}
                   </p>
@@ -647,10 +635,7 @@ export default function LoansPage() {
                   <tr key={r.id}>
                     <td className="whitespace-nowrap font-medium text-slate-900">{r.doc_no ?? "-"}</td>
                     <td className="whitespace-nowrap">{formatThaiDate(r.request_date)}</td>
-                    <td>
-                      {r.borrower_name}
-                      {proxyNote(r)}
-                    </td>
+                    <td>{r.borrower_name}</td>
                     <td>{loanPurpose(r)}</td>
                     <td className="text-right tabular-nums">{baht(r.amount)}</td>
                     <td className="text-right tabular-nums">{baht(r.outstanding)}</td>

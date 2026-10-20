@@ -31,9 +31,8 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   const requestDate = str("request_date");
   const supabase = await createClient();
   const me = await currentUser(supabase);
-  // ผู้ยืม: ค่าเริ่มต้นเป็นชื่อตัวเอง เลือกยื่นแทนคนอื่นได้ (ระบบเก็บชื่อผู้ยื่นไว้ใน submitted_by_name)
-  // ส่วนวันรับเงิน/ผู้ตรวจสอบ/ผู้อนุมัติ/เลขที่ เจ้าหน้าที่การเงินเป็นผู้กรอก
-  const borrower = str("borrower_name") || me.fullName;
+  // ครูยื่นได้เฉพาะในชื่อตัวเอง (ชื่อจากโปรไฟล์) — ส่วนวันรับเงิน/ผู้ตรวจสอบ/ผู้อนุมัติ/เลขที่ เจ้าหน้าที่การเงินเป็นผู้กรอก
+  const borrower = me.staff ? str("borrower_name") : me.fullName;
   const purpose = str("purpose");
   if (!requestDate) return { error: "กรุณาระบุวันที่ยื่นสัญญา" };
   // ผู้ยืมลงวันที่ย้อนหลังไม่ได้ (แก้สัญญาเดิมที่ยื่นไว้แล้วคงวันที่เดิมได้)
@@ -41,7 +40,7 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
     const { data: cur } = id ? await supabase.from("proc_loan_contracts").select("request_date").eq("id", id).maybeSingle() : { data: null };
     if (cur?.request_date !== requestDate) return { error: "วันที่ยื่นสัญญาต้องไม่ก่อนวันนี้" };
   }
-  if (!borrower) return { error: "กรุณาระบุชื่อผู้ยืม" };
+  if (!borrower) return { error: me.staff ? "กรุณาระบุชื่อผู้ยืม" : "ยังไม่ได้ตั้งชื่อ-สกุลในโปรไฟล์ — ตั้งที่เมนูโปรไฟล์ของฉันก่อน" };
   const projectId = str("project_id") || null;
   if (!purpose && !projectId) return { error: "กรุณาระบุว่ายืมเพื่อเป็นค่าใช้จ่ายในการใด หรือเลือกโครงการ" };
   let items: LoanItem[] = [];
@@ -83,9 +82,6 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   };
 
   const admin = await isAdminUser(supabase);
-  // ผู้ยืมจริงเป็นเจ้าของสัญญา — ผูกบัญชีจากชื่อ-สกุล ให้ผู้ยืมเห็น/แก้/พิมพ์ได้เหมือนยื่นเอง (ผู้กรอกแทนแค่บันทึกข้อมูลให้)
-  const { data: borrowerUserId } = await supabase.rpc("proc_user_id_by_name", { full_name: borrower });
-  Object.assign(fields, { borrower_user_id: borrowerUserId ?? null });
   const docNoInput = str("doc_no");
   if (admin && docNoInput && (await docNumberTaken(supabase, "loan", docNoInput, id ?? undefined))) return { error: `เลขที่ ${docNoInput} ถูกใช้แล้ว` };
 
@@ -114,7 +110,7 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
 
   // ครูยื่น = ยังไม่ออกเลข (นับเลขต้องเห็นทุกสัญญา) เจ้าหน้าที่การเงินออกเลขตอนตรวจสอบ
   const docNo = admin && docNoInput ? docNoInput : me.staff ? await assignDocNumber(supabase, "loan", requestDate) : null;
-  const { data, error } = await supabase.from("proc_loan_contracts").insert({ ...fields, doc_no: docNo, submitted_by_name: me.fullName || null }).select("id").single();
+  const { data, error } = await supabase.from("proc_loan_contracts").insert({ ...fields, doc_no: docNo }).select("id").single();
   if (error) return { error: rlsMessage(error.message) };
   revalidatePath(PATH);
   return { id: data.id, docNo };
