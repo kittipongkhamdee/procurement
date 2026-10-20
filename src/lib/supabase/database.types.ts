@@ -14,6 +14,215 @@ export type Database = {
   }
   public: {
     Tables: {
+      fin_accounts: {
+        Row: {
+          account_no: string | null
+          bank_name: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          account_no?: string | null
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          account_no?: string | null
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      fin_money_types: {
+        Row: {
+          account_id: string | null
+          category: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          account_id?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          account_id?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_money_types_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "fin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_opening_balances: {
+        Row: {
+          bank: number
+          cash: number
+          fiscal_year: number
+          gov: number
+          money_type_id: string
+          updated_at: string
+        }
+        Insert: {
+          bank?: number
+          cash?: number
+          fiscal_year: number
+          gov?: number
+          money_type_id: string
+          updated_at?: string
+        }
+        Update: {
+          bank?: number
+          cash?: number
+          fiscal_year?: number
+          gov?: number
+          money_type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_opening_balances_money_type_id_fkey"
+            columns: ["money_type_id"]
+            isOneToOne: false
+            referencedRelation: "fin_money_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fin_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
+      fin_transactions: {
+        Row: {
+          activity_id: string | null
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string
+          doc_kind: string | null
+          doc_no: string | null
+          doc_seq: number | null
+          fiscal_year: number
+          from_pocket: string | null
+          id: string
+          kind: string
+          money_type_id: string
+          note: string | null
+          payee: string | null
+          project_id: string | null
+          to_pocket: string | null
+          txn_date: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id?: string | null
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description: string
+          doc_kind?: string | null
+          doc_no?: string | null
+          doc_seq?: number | null
+          fiscal_year: number
+          from_pocket?: string | null
+          id?: string
+          kind: string
+          money_type_id: string
+          note?: string | null
+          payee?: string | null
+          project_id?: string | null
+          to_pocket?: string | null
+          txn_date: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string | null
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          doc_kind?: string | null
+          doc_no?: string | null
+          doc_seq?: number | null
+          fiscal_year?: number
+          from_pocket?: string | null
+          id?: string
+          kind?: string
+          money_type_id?: string
+          note?: string | null
+          payee?: string | null
+          project_id?: string | null
+          to_pocket?: string | null
+          txn_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_transactions_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "plan_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_money_type_id_fkey"
+            columns: ["money_type_id"]
+            isOneToOne: false
+            referencedRelation: "fin_money_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fin_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_acquisition_methods: {
         Row: {
           id: string
@@ -3547,6 +3756,10 @@ export type Database = {
       proc_user_id_by_name: {
         Args: { full_name: string }
         Returns: string
+      }
+      fin_can_write: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       proc_approve_loan: {
         Args: { p_id: string; p_approve: boolean }
