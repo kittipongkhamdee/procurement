@@ -49,7 +49,6 @@ const NAV_SECTIONS = [
       { href: "/supplies/procurement-register", label: "ทะเบียนคุมจัดซื้อจัดจ้าง", icon: <FileTextIcon className={ICON_CLASS} /> },
       { href: "/supplies/textbooks", label: "หนังสือเรียน (เรียนฟรี 15 ปี)", icon: <FileTextIcon className={ICON_CLASS} /> },
       { href: "/supplies/quarterly-announcements", label: "ประกาศผลรายไตรมาส", icon: <FileSignatureIcon className={ICON_CLASS} /> },
-      { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/contracts", label: "งานสัญญา", icon: <FileSignatureIcon className={ICON_CLASS} /> },
     ],
   },
@@ -63,7 +62,10 @@ const NAV_SECTIONS = [
   },
   {
     heading: "การเงินและบัญชี",
-    items: [{ href: "/finance/loans", label: "สัญญายืมเงิน", icon: <WalletIcon className={ICON_CLASS} /> }],
+    items: [
+      { href: "/finance/loans", label: "สัญญายืมเงิน", icon: <WalletIcon className={ICON_CLASS} /> },
+      { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },
+    ],
   },
   {
     heading: "ทรัพย์สิน",
