@@ -1,7 +1,7 @@
-import { Document, Page, Text, View } from "@react-pdf/renderer";
+import { Circle, Document, Line, Page, Path, Svg, Text, View } from "@react-pdf/renderer";
 import { formatThaiDate, thaiBahtText } from "@/lib/thai";
 import { t } from "./thai-pdf";
-import { B, CM, CONTENT_W, FAMILY, wrap } from "./procurement-set-document";
+import { B, CM, CONTENT_W, FAMILY, measureText, wrap } from "./procurement-set-document";
 
 // แบบ 8708 — ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ (ส่วนที่ 1) + หลักฐานการจ่ายเงินค่าใช้จ่ายในการเดินทางไปราชการ (ส่วนที่ 2)
 // ตามตัวอย่างในคู่มือการเบิกจ่ายค่าใช้จ่ายในการเดินทางไปราชการ ค่าใช้จ่ายในการฝึกอบรมและการจัดงาน (หน้า 24–27)
@@ -14,45 +14,82 @@ const DOTS = "..................................................................
 const dots = (n: number) => DOTS.slice(0, n);
 const v = (s: string | null | undefined, n: number) => (s && String(s).trim() ? ` ${String(s).trim()} ` : dots(n));
 const money = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const amt = (n: number, len = 20) => (n ? ` ${money(n)} ` : dots(len));
 const words = (n: number) => thaiBahtText(n).replace(/^\(|\)$/g, "");
-const dmy = (iso: string | null) => {
-  if (!iso) return { d: dots(6), m: dots(14), y: dots(8) };
-  const [d, m, y] = formatThaiDate(iso).split(" ");
-  return { d, m, y };
-};
-const full = (iso: string | null, n = 25) => (iso ? ` ${formatThaiDate(iso)} ` : dots(n));
 
 import { PLACE_LABEL, claimTotal, travelDuration, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
 export type { TravelClaim, TravelMember, TravelPlace } from "@/lib/travel-claim";
 
 const page = { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.35, paddingTop: 1.5 * CM, paddingBottom: 1.2 * CM, paddingLeft: 2.5 * CM, paddingRight: 2 * CM };
 const cell = { borderRightWidth: B, borderBottomWidth: B, paddingHorizontal: 3, paddingVertical: 1 };
+/** ระยะห่างระหว่างบรรทัดของส่วนที่ 1 — ตั้งให้เนื้อหาเต็มหน้า A4 เหมือนแบบในคู่มือ */
+const ROW_GAP = 5.2;
 
-/** ช่องเลือก: ที่เลือก = ✓ ทับวงกลม (ฟอนต์ TH Sarabun ไม่มีอักษรติ๊ก จึงใช้ "(/)") */
-const MARK = "(/)";
-const choiceText = (sel: TravelPlace | null) => (["home", "office", "thailand"] as TravelPlace[]).map((p) => `${sel === p ? MARK : "๐"} ${PLACE_LABEL[p]}`).join(" ");
-
-function Para({ text, indent = 0, width = CONTENT_W }: { text: string; indent?: number; width?: number }) {
+/** เส้นจุดไข่ปลาใต้ช่องกรอก (วาดด้วย Svg — borderStyle dotted ของ react-pdf ลากเป็นเส้นทึบ) */
+function DotLeader() {
   return (
-    <View>
-      {wrap(text, FS, width - indent - 10, width - 10).map((l, i) => (
-        <Text key={i} style={i === 0 ? { marginLeft: indent } : {}}>
-          {t(l)}
-        </Text>
-      ))}
+    <Svg width={1200} height={1.5} style={{ position: "absolute", left: 0, bottom: 1 }}>
+      <Line x1={0} y1={0.75} x2={1200} y2={0.75} stroke="#000" strokeWidth={0.7} strokeDasharray="0.7 2.1" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** ส่วนประกอบของบรรทัด: ข้อความป้าย (string) หรือช่องกรอกมีเส้นจุด { v, w } (w ไม่ระบุ = ยืดเต็มที่เหลือ) */
+type Seg = string | { v?: string | null; w?: number; align?: "left" | "center" | "right" } | { mark: boolean };
+function Row({ segs, indent = 0, gap = ROW_GAP }: { segs: Seg[]; indent?: number; gap?: number }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-end", marginBottom: gap, marginLeft: indent, lineHeight: 1.1 }}>
+      {segs.map((sg, i) =>
+        typeof sg === "string" ? (
+          <Text key={i}>{t(sg)}</Text>
+        ) : "mark" in sg ? (
+          <Mark key={i} on={sg.mark} />
+        ) : (
+          <View key={i} style={[{ position: "relative", overflow: "hidden", paddingHorizontal: 3 }, sg.w ? { width: sg.w } : { flex: 1 }]}>
+            <Text style={{ textAlign: sg.align ?? "center" }}>{t(sg.v?.toString().trim() || " ")}</Text>
+            <DotLeader />
+          </View>
+        ),
+      )}
     </View>
   );
 }
 
-function SignBox({ title, s, date, suffix = "" }: { title?: string; s: { name: string; position: string }; date?: string | null; suffix?: string }) {
+/** ช่องเลือก ๐ — วงกลมเล็ก ถ้าเลือกมีเครื่องหมายถูกทับ (ฟอนต์ไม่มีอักษรติ๊ก จึงวาดเอง) */
+function Mark({ on }: { on: boolean }) {
   return (
-    <View style={{ flex: 1, paddingHorizontal: 6, paddingVertical: 4 }}>
-      {title && <Para text={title} width={CONTENT_W / 2 - 12} />}
-      <Text style={{ marginTop: title ? 14 : 4 }}>{t(`ลงชื่อ${dots(38)}${suffix}`)}</Text>
-      <Text style={{ marginLeft: 24 }}>{t(`(${s.name.trim() || dots(38)})`)}</Text>
-      <Text>{t(`ตำแหน่ง${v(s.position, 38)}`)}</Text>
-      <Text>{t(`วันที่${date ? ` ${formatThaiDate(date)} ` : dots(40)}`)}</Text>
+    <Svg width={13} height={12} style={{ marginHorizontal: 3, marginBottom: 3 }}>
+      <Circle cx={5} cy={7} r={3.6} stroke="#000" strokeWidth={0.8} fill="none" />
+      {on && <Path d="M1.5 6.5 L5 10 L12 1" stroke="#000" strokeWidth={1.3} fill="none" />}
+    </Svg>
+  );
+}
+
+const W = CONTENT_W;
+const tw = (s: string) => measureText(s, FS) + 2;
+/** ตัดข้อความยาว (เรื่อง/ผู้ร่วมเดินทาง) ให้พอดีช่องแรก ที่เหลือขึ้นบรรทัดถัดไป */
+function split(text: string, first: number, rest: number): string[] {
+  const s = text.trim();
+  if (!s) return [""];
+  return wrap(s, FS, first - 8, rest - 8);
+}
+const thDateSegs = (iso: string | null, wd = 34, wm = 80, wy = 44): Seg[] => {
+  const x = iso ? formatThaiDate(iso).split(" ") : ["", "", ""];
+  return ["วันที่", { v: x[0], w: wd }, "เดือน", { v: x[1], w: wm }, "พ.ศ.", { v: x[2], w: wy }];
+};
+const places = (sel: TravelPlace | null): Seg[] => (["home", "office", "thailand"] as TravelPlace[]).flatMap((p) => [{ mark: sel === p }, PLACE_LABEL[p] + " "] as Seg[]);
+const sum = (n: number) => (n ? money(n) : "");
+
+function SignBox({ title, s: who, suffix = "" }: { title?: string[]; s: { name: string; position: string }; suffix?: string }) {
+  return (
+    <View style={{ flex: 1, paddingHorizontal: 6, paddingVertical: 6 }}>
+      {title?.map((l, i) => (
+        <Text key={i}>{t(l)}</Text>
+      ))}
+      <View style={{ height: title ? 22 : 6 }} />
+      <Row segs={["ลงชื่อ", { w: 150 }, suffix]} gap={6} />
+      <Row segs={["(", { v: who.name, w: 150 }, ")"]} indent={18} gap={6} />
+      <Row segs={["ตำแหน่ง", { v: who.position }]} gap={6} />
+      <Row segs={["วันที่", { w: undefined }]} gap={2} />
     </View>
   );
 }
@@ -60,75 +97,76 @@ function SignBox({ title, s, date, suffix = "" }: { title?: string; s: { name: s
 export function TravelClaimDocument({ data: d }: { data: TravelClaim }) {
   const total = claimTotal(d);
   const dur = travelDuration(d);
-  const date = dmy(d.date);
-  const dep = dmy(d.depart_date);
-  const ret = dmy(d.return_date);
   const members = d.members.filter((m) => m.name.trim() || m.allowance || m.lodging || m.transport || m.other);
   const showPart2 = d.print_part2 || d.claim_for === "group";
+  // พร้อมด้วย: ช่องท้ายบรรทัด "สังกัด" + บรรทัดเต็มถัดไป
+  const compFirst = 175;
+  const comp = split(d.companions, compFirst, W);
+  // เดินทางไปปฏิบัติราชการ: บรรทัดแรกต่อจากป้าย, บรรทัดที่สองจบด้วย "โดยออกเดินทางจาก"
+  const p1 = W - tw("เดินทางไปปฏิบัติราชการ");
+  const pur = split(d.purpose, p1, W);
+  const purLines = [pur[0] ?? "", pur.slice(1).join(" ")];
   return (
     <Document title="ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ">
       <Page size="A4" style={page}>
-        <Text style={{ textAlign: "right" }}>{t("ส่วนที่ 1 แบบ 8708")}</Text>
-        <Text>{t(`สัญญาเงินยืมเลขที่${v(d.loan_no, 40)}วันที่${full(d.loan_date, 30)}`)}</Text>
-        <Text>{t(`ชื่อผู้ยืม${v(d.borrower, 45)}จำนวนเงิน${amt(d.loan_amount, 25)}บาท`)}</Text>
-        <Text style={{ textAlign: "center", fontWeight: "bold", fontSize: 18, marginTop: 4 }}>{t("ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ")}</Text>
-        <Text style={{ marginLeft: CONTENT_W * 0.5 }}>{t(`ที่ทำการ${v(d.office, 40)}`)}</Text>
-        <Text style={{ marginLeft: CONTENT_W * 0.45 }}>{t(`วันที่ ${date.d} เดือน ${date.m} พ.ศ. ${date.y}`)}</Text>
-        <Text>{t("เรื่อง   ขออนุมัติเบิกค่าใช้จ่ายในการเดินทางไปราชการ")}</Text>
-        <Text style={{ marginBottom: 4 }}>{t(`เรียน   ${d.to.trim() || dots(50)}`)}</Text>
-        <Para
-          indent={1.5 * CM}
-          text={`ตามคำสั่ง/บันทึก ที่${v(d.order_no, 30)}ลงวันที่${full(d.order_date)}ได้อนุมัติให้ข้าพเจ้า${v(d.name, 40)}ตำแหน่ง${v(d.position, 35)}สังกัด${v(d.affiliation, 40)}พร้อมด้วย${v(d.companions, 60)}เดินทางไปปฏิบัติราชการ${v(d.purpose, 80)}โดยออกเดินทางจาก ${choiceText(d.depart_from)} ตั้งแต่วันที่ ${dep.d} เดือน ${dep.m} พ.ศ. ${dep.y} เวลา${v(d.depart_time, 10)}น. และกลับถึง ${choiceText(d.return_to)} วันที่ ${ret.d} เดือน ${ret.m} พ.ศ. ${ret.y} เวลา${v(d.return_time, 10)}น. รวมเวลาไปราชการครั้งนี้${dur ? ` ${dur.days} ` : dots(12)}วัน${dur ? ` ${dur.hours} ` : dots(12)}ชั่วโมง`}
-        />
-        <Para
-          indent={1.5 * CM}
-          text={`ข้าพเจ้าขอเบิกค่าใช้จ่ายในการเดินทางไปราชการสำหรับ ${d.claim_for === "self" ? MARK : "๐"} ข้าพเจ้า ${d.claim_for === "group" ? MARK : "๐"} คณะเดินทาง ดังนี้`}
-        />
-        <Text>{t(`ค่าเบี้ยเลี้ยงเดินทางประเภท${v(d.allowance_type, 30)}จำนวน${v(d.allowance_days, 10)}วัน รวม${amt(d.allowance)}บาท`)}</Text>
-        <Text>{t(`ค่าเช่าที่พักประเภท${v(d.lodging_type, 36)}จำนวน${v(d.lodging_days, 10)}วัน รวม${amt(d.lodging)}บาท`)}</Text>
-        <Text>{t(`ค่าพาหนะ${v(d.transport_desc, 60)}รวม${amt(d.transport)}บาท`)}</Text>
-        <Text>{t(`ค่าใช้จ่ายอื่น${v(d.other_desc, 56)}รวม${amt(d.other)}บาท`)}</Text>
-        <Text style={{ textAlign: "right" }}>{t(`รวมเงินทั้งสิ้น${amt(total)}บาท`)}</Text>
-        <Text>{t(`จำนวนเงิน (ตัวอักษร)${total ? ` ${words(total)} ` : dots(70)}`)}</Text>
-        <Para
-          indent={1.5 * CM}
-          text={`ข้าพเจ้าขอรับรองว่ารายการที่กล่าวมาข้างต้นเป็นความจริง และหลักฐานการจ่ายที่ส่งมาด้วย จำนวน${v(d.evidence_count, 12)}ฉบับ รวมทั้งจำนวนเงินที่ขอเบิกถูกต้องตามกฎหมายทุกประการ`}
-        />
-        <View style={{ marginLeft: CONTENT_W * 0.35, marginTop: 8, alignItems: "center", alignSelf: "flex-start" }} wrap={false}>
-          <Text>{t(`ลงชื่อ${dots(45)}ผู้ขอรับเงิน`)}</Text>
-          <Text>{t(`(${d.name.trim() || dots(45)})`)}</Text>
-          <Text>{t(`ตำแหน่ง${v(d.position, 40)}`)}</Text>
+        <Text style={{ textAlign: "right", marginBottom: 10 }}>{t("ส่วนที่ 1 แบบ 8708")}</Text>
+        <Row segs={["สัญญาเงินยืมเลขที่", { v: d.loan_no }, "วันที่", { v: d.loan_date ? formatThaiDate(d.loan_date) : "", w: 150 }]} />
+        <Row segs={["ชื่อผู้ยืม", { v: d.borrower }, "จำนวนเงิน", { v: sum(d.loan_amount), w: 110 }, "บาท"]} />
+        <Text style={{ textAlign: "center", fontWeight: "bold", fontSize: 18, marginBottom: ROW_GAP }}>{t("ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ")}</Text>
+        <Row segs={["ที่ทำการ", { v: d.office }]} indent={W * 0.48} />
+        <Row segs={thDateSegs(d.date, 34, 90, 50)} indent={W * 0.43} />
+        <Row segs={["เรื่อง      ขออนุมัติเบิกค่าใช้จ่ายในการเดินทางไปราชการ"]} />
+        <Row segs={["เรียน      ", { v: d.to, w: 260, align: "left" }]} gap={ROW_GAP + 6} />
+        <Row segs={["ตามคำสั่ง/บันทึก ที่", { v: d.order_no }, "ลงวันที่", { v: d.order_date ? formatThaiDate(d.order_date) : "", w: 130 }, "ได้อนุมัติให้"]} indent={1.5 * CM} />
+        <Row segs={["ข้าพเจ้า", { v: d.name }, "ตำแหน่ง", { v: d.position, w: 170 }]} />
+        <Row segs={["สังกัด", { v: d.affiliation }, "พร้อมด้วย", { v: comp[0], w: compFirst, align: "left" }]} />
+        <Row segs={[{ v: comp.slice(1).join(" "), align: "left" }]} />
+        <Row segs={["เดินทางไปปฏิบัติราชการ", { v: purLines[0], align: "left" }]} />
+        <Row segs={[{ v: purLines[1], align: "left" }, "โดยออกเดินทางจาก"]} />
+        <Row segs={[...places(d.depart_from), "ตั้งแต่", ...thDateSegs(d.depart_date, 26, 66, 36), "เวลา", { v: d.depart_time, w: 40 }, "น."]} />
+        <Row segs={["และกลับถึง", ...places(d.return_to), ...thDateSegs(d.return_date, 26, 66, 36)]} />
+        <Row segs={["เวลา", { v: d.return_time, w: 50 }, "น. รวมเวลาไปราชการครั้งนี้", { v: dur ? String(dur.days) : "", w: 70 }, "วัน", { v: dur ? String(dur.hours) : "", w: 70 }, "ชั่วโมง"]} />
+        <Row segs={["ข้าพเจ้าขอเบิกค่าใช้จ่ายในการเดินทางไปราชการสำหรับ", { mark: d.claim_for === "self" }, "ข้าพเจ้า", { mark: d.claim_for === "group" }, "คณะเดินทาง ดังนี้"]} indent={1.5 * CM} />
+        <Row segs={["ค่าเบี้ยเลี้ยงเดินทางประเภท", { v: d.allowance_type }, "จำนวน", { v: d.allowance_days, w: 50 }, "วัน รวม", { v: sum(d.allowance), w: 95, align: "right" }, "บาท"]} />
+        <Row segs={["ค่าเช่าที่พักประเภท", { v: d.lodging_type }, "จำนวน", { v: d.lodging_days, w: 50 }, "วัน รวม", { v: sum(d.lodging), w: 95, align: "right" }, "บาท"]} />
+        <Row segs={["ค่าพาหนะ", { v: d.transport_desc, align: "left" }, "รวม", { v: sum(d.transport), w: 95, align: "right" }, "บาท"]} />
+        <Row segs={["ค่าใช้จ่ายอื่น", { v: d.other_desc, align: "left" }, "รวม", { v: sum(d.other), w: 95, align: "right" }, "บาท"]} />
+        <Row segs={["รวมเงินทั้งสิ้น", { v: sum(total), w: 95, align: "right" }, "บาท"]} indent={W - 95 - tw("รวมเงินทั้งสิ้น") - tw("บาท") - 6} />
+        <Row segs={["จำนวนเงิน (ตัวอักษร)", { v: total ? words(total) : "", align: "left" }]} />
+        <Row segs={["ข้าพเจ้าขอรับรองว่ารายการที่กล่าวมาข้างต้นเป็นความจริง และหลักฐานการจ่ายที่ส่งมาด้วย"]} indent={1.5 * CM} />
+        <Row segs={["จำนวน", { v: d.evidence_count, w: 90 }, "ฉบับ รวมทั้งจำนวนเงินที่ขอเบิกถูกต้องตามกฎหมายทุกประการ"]} />
+        <View style={{ marginLeft: W * 0.3, marginTop: 8 }}>
+          <Row segs={["ลงชื่อ", { w: 190 }, "ผู้ขอรับเงิน"]} />
+          <Row segs={["(", { v: d.name, w: 190 }, ")"]} indent={22} />
+          <Row segs={["ตำแหน่ง", { v: d.position, w: 190 }]} />
         </View>
       </Page>
 
       <Page size="A4" style={page}>
-        <View style={{ flexDirection: "row", borderTopWidth: B, borderBottomWidth: B }} wrap={false}>
+        <View style={{ flexDirection: "row", borderTopWidth: B, borderBottomWidth: B, marginTop: 10 }} wrap={false}>
           <View style={{ flex: 1, borderRightWidth: B }}>
-            <SignBox title="ได้ตรวจสอบหลักฐานการเบิกจ่ายเงินที่แนบถูกต้องแล้ว เห็นควรอนุมัติให้เบิกจ่ายได้" s={d.checker} />
+            <SignBox title={["ได้ตรวจสอบหลักฐานการเบิกจ่ายเงินที่แนบ", "ถูกต้องแล้ว เห็นควรอนุมัติให้เบิกจ่ายได้"]} s={d.checker} />
           </View>
-          <SignBox title="อนุมัติให้จ่ายได้" s={d.approver} />
+          <SignBox title={["อนุมัติให้จ่ายได้", " "]} s={d.approver} />
         </View>
-        <View style={{ marginTop: 10 }}>
-          <Para indent={1.5 * CM} text={`ได้รับเงินค่าใช้จ่ายในการเดินทางไปราชการ จำนวน${amt(total, 30)}บาท (${total ? words(total) : dots(60)}) ไว้เป็นการถูกต้องแล้ว`} />
+        <View style={{ marginTop: 16 }}>
+          <Row segs={["ได้รับเงินค่าใช้จ่ายในการเดินทางไปราชการ จำนวน", { v: sum(total) }, "บาท"]} indent={1.5 * CM} />
+          <Row segs={["(", { v: total ? words(total) : "" }, ") ไว้เป็นการถูกต้องแล้ว"]} />
         </View>
-        <View style={{ flexDirection: "row", marginTop: 4 }} wrap={false}>
+        <View style={{ flexDirection: "row", marginTop: 8 }} wrap={false}>
           <SignBox s={{ name: d.claim_for === "self" ? d.name : "", position: d.claim_for === "self" ? d.position : "" }} suffix="ผู้รับเงิน" />
           <SignBox s={d.payer} suffix="ผู้จ่ายเงิน" />
         </View>
-        <View style={{ borderBottomWidth: B, paddingBottom: 6, marginTop: 6 }}>
-          <Text>{t(`จากเงินยืมตามสัญญาเลขที่${v(d.loan_no, 40)}วันที่${full(d.loan_date, 30)}`)}</Text>
+        <View style={{ borderBottomWidth: B, paddingBottom: 8, marginTop: 14 }}>
+          <Row segs={["จากเงินยืมตามสัญญาเลขที่", { v: d.loan_no }, "วันที่", { v: d.loan_date ? formatThaiDate(d.loan_date) : "", w: 160 }]} gap={0} />
         </View>
-        <View style={{ marginTop: 6, borderBottomWidth: B, paddingBottom: 6 }}>
-          {d.note.trim() ? (
-            <Para text={`หมายเหตุ ${d.note.trim()}`} />
-          ) : (
-            <>
-              <Text>{t(`หมายเหตุ${dots(110)}`)}</Text>
-              {Array.from({ length: 6 }, (_, i) => (
-                <Text key={i}>{t(dots(120))}</Text>
-              ))}
-            </>
-          )}
+        <View style={{ marginTop: 14, borderBottomWidth: B, paddingBottom: 10 }}>
+          {(() => {
+            const first = W - tw("หมายเหตุ");
+            const lines = d.note.trim() ? split(d.note, first, W) : [];
+            const rows = Math.max(9, lines.length);
+            return Array.from({ length: rows }, (_, i) => (i === 0 ? <Row key={i} segs={["หมายเหตุ", { v: lines[0] ?? "", align: "left" }]} /> : <Row key={i} segs={[{ v: lines[i] ?? "", align: "left" }]} />));
+          })()}
         </View>
       </Page>
 
@@ -146,7 +184,6 @@ function Part2({ d, members }: { d: TravelClaim; members: TravelMember[] }) {
   const sum = (k: "allowance" | "lodging" | "transport" | "other") => members.reduce((s, m) => s + m[k], 0);
   const grand = sum("allowance") + sum("lodging") + sum("transport") + sum("other");
   const rows = [...members, ...Array.from({ length: Math.max(0, MIN_ROWS - members.length) }, () => null)];
-  const date = dmy(d.date);
   const head = (w: number, label: string) => (
     <View style={[cell, { width: w, justifyContent: "center" }]}>
       {label.split("\n").map((l, i) => (
@@ -162,10 +199,8 @@ function Part2({ d, members }: { d: TravelClaim; members: TravelMember[] }) {
       <View fixed>
         <Text style={{ textAlign: "right" }}>{t("ส่วนที่ 2 แบบ 8708")}</Text>
         <Text style={{ textAlign: "center", fontWeight: "bold", fontSize: 18 }}>{t("หลักฐานการจ่ายเงินค่าใช้จ่ายในการเดินทางไปราชการ")}</Text>
-        <Text style={{ textAlign: "center" }}>{t(`ชื่อส่วนราชการ${v(d.office, 50)}จังหวัด${v(d.province, 30)}`)}</Text>
-        <Text style={{ textAlign: "center", marginBottom: 4 }}>
-          {t(`ประกอบใบเบิกค่าใช้จ่ายในการเดินทางของ${v(d.name, 45)}ลงวันที่ ${date.d} เดือน ${date.m} พ.ศ. ${date.y}`)}
-        </Text>
+        <Row segs={["ชื่อส่วนราชการ", { v: d.office, w: 260 }, "จังหวัด", { v: d.province, w: 160 }]} indent={110} gap={4} />
+        <Row segs={["ประกอบใบเบิกค่าใช้จ่ายในการเดินทางของ", { v: d.name, w: 230 }, "ลง", ...thDateSegs(d.date, 30, 80, 44)]} gap={6} />
         <View style={{ flexDirection: "row", borderTopWidth: B, borderLeftWidth: B, fontSize: FS_TABLE }}>
           {head(C.no, "ลำดับที่")}
           {head(C.name, "ชื่อ")}
@@ -229,10 +264,10 @@ function Part2({ d, members }: { d: TravelClaim; members: TravelMember[] }) {
           <Text style={{ fontSize: 13 }}>{t("3. ผู้จ่ายเงิน หมายถึง ผู้ที่ขอยืมเงินจากทางราชการ และจ่ายเงินยืมนั้นให้แก่ผู้เดินทางแต่ละคน เป็นผู้ลงลายมือชื่อผู้จ่ายเงิน")}</Text>
         </View>
         <View style={{ width: 230, alignItems: "center" }}>
-          <Text>{t(`ลงชื่อ${dots(36)}ผู้จ่ายเงิน`)}</Text>
-          <Text>{t(`(${d.payer.name.trim() || dots(36)})`)}</Text>
-          <Text>{t(`ตำแหน่ง${v(d.payer.position, 32)}`)}</Text>
-          <Text>{t(`วันที่${dots(36)}`)}</Text>
+          <Row segs={["ลงชื่อ", { w: 140 }, "ผู้จ่ายเงิน"]} gap={4} />
+          <Row segs={["(", { v: d.payer.name, w: 140 }, ")"]} gap={4} />
+          <Row segs={["ตำแหน่ง", { v: d.payer.position, w: 140 }]} gap={4} />
+          <Row segs={["วันที่", { w: 150 }]} gap={0} />
         </View>
       </View>
     </Page>

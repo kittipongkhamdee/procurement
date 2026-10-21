@@ -15,7 +15,7 @@ import type { SpeakerReceipt, StudentReceipt } from "@/lib/pdf/receipt-forms-doc
 import type { TravelClaim } from "@/lib/travel-claim";
 import { TravelForm } from "../travel-form";
 import { SpeakerForm, StudentForm, type FormDefaults } from "../receipt-forms";
-import { deleteReceiptForm } from "../actions";
+import { deleteReceiptForm } from "../form-store";
 
 const TITLES = {
   speaker: "ใบสำคัญรับเงินสำหรับวิทยากร",

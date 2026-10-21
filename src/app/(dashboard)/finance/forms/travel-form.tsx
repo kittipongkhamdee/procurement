@@ -8,7 +8,7 @@ import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
 import { claimTotal, travelDuration, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
-import { saveReceiptForm } from "./actions";
+import { saveReceiptForm } from "./form-store";
 import type { FormDefaults } from "./receipt-forms";
 
 const money = (x: number) => x.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

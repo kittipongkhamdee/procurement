@@ -9,7 +9,7 @@ import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
 import type { SpeakerReceipt, StudentReceipt } from "@/lib/pdf/receipt-forms-document";
-import { saveReceiptForm } from "./actions";
+import { saveReceiptForm } from "./form-store";
 
 export type FormDefaults = { school: string; area: string; officer: string; director: string };
 
