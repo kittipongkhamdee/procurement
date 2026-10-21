@@ -5,7 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { fiscalYearOf, FIN_SIGNER_KEYS, POCKETS, SOURCE_LABEL, type DocKind, type Pocket, type SourceKind, type TxnKind } from "@/lib/finance-ledger";
+import { fiscalYearOf, FIN_SIGNER_KEYS, POCKETS, SOURCE_DATE_FIELDS, SOURCE_LABEL, sourceDoneDate, type DocKind, type Pocket, type SourceKind, type TxnKind } from "@/lib/finance-ledger";
 
 type Result = { error?: string; id?: string; docSeq?: number | null };
 const PATH = "/finance/ledger";
@@ -100,6 +100,15 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
   // ผูกงานต้นทาง (ระยะที่ 2) — เฉพาะตอนสร้างรายการใหม่จาก "รอบันทึกจากงานอื่น"
   const sourceKind = str("source_kind") as SourceKind;
   const source = sourceKind in SOURCE_LABEL && str("source_id") ? { source_kind: sourceKind, source_id: str("source_id") } : {};
+  if ("source_id" in source) {
+    // วันที่จ่าย/รับจริงต้องอยู่หลังงานต้นทางเสร็จสิ้น และไม่ลงล่วงหน้า
+    const { table, fields } = SOURCE_DATE_FIELDS[sourceKind];
+    const { data: row } = await supabase.from(table).select(fields.join(", ")).eq("id", str("source_id")).maybeSingle();
+    if (!row) return { error: "ไม่พบงานต้นทาง" };
+    const done = sourceDoneDate(sourceKind, row as unknown as Record<string, unknown>);
+    if (done && date < done) return { error: `วันที่ต้องไม่ก่อนวันที่${SOURCE_LABEL[sourceKind]}เสร็จสิ้น (${done.split("-").reverse().join("/")})` };
+    if (date > new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })) return { error: "วันที่จ่าย/รับจริงลงล่วงหน้าไม่ได้" };
+  }
   const { data, error } = await supabase.from("fin_transactions").insert({ ...fields, ...source }).select("id").single();
   if (error)
     return {

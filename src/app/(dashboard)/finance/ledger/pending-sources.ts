@@ -9,7 +9,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { fiscalRange, type DocKind, type MoneyType, type SourceKind, type TxnKind } from "@/lib/finance-ledger";
+import { fiscalRange, sourceDoneDate, type DocKind, type MoneyType, type SourceKind, type TxnKind } from "@/lib/finance-ledger";
 
 export type PendingItem = {
   kind: SourceKind;
@@ -28,6 +28,8 @@ export type PendingItem = {
   note: string;
   href: string;
   skipped: boolean;
+  /** วันที่งานต้นทางเสร็จสิ้น — วันที่จ่าย/รับจริงต้องไม่ก่อนวันนี้ (ฟอร์มไม่เติมวันที่ให้ ผู้บันทึกเลือกวันจ่ายจริงเอง) */
+  doneDate: string;
   /** คำเตือนสั้นๆ เช่น "ยังไม่ตรวจรับ" */
   warn?: string;
 };
@@ -55,12 +57,12 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     supabase.from("fin_source_skips").select("source_kind, source_id"),
     supabase
       .from("proc_purchase_requests")
-      .select("id, doc_no, doc_type, method, item_name, amount, inspected_date, record_date, funding, receipt_type, receipt_no, project_id, activity_id, proc_vendors(name)")
+      .select("id, doc_no, doc_type, method, item_name, amount, inspected_date, record_date, order_date, delivered_date, report_date, funding, receipt_type, receipt_no, project_id, activity_id, proc_vendors(name)")
       .gte("record_date", from)
       .lte("record_date", to),
-    supabase.from("proc_w119_reports").select("id, doc_no, record_date, purpose, amount, fund_source, project_id, activity_id, proc_w119_items(vendor, seq)").gte("record_date", from).lte("record_date", to),
-    supabase.from("proc_urgent_reports").select("id, doc_no, doc_type, record_date, subject, amount, payee, receipt_type, receipt_no, project_id, activity_id").gte("record_date", from).lte("record_date", to),
-    supabase.from("proc_expense_claims").select("id, doc_no, record_date, event_name, amount, fund_source, responsible_name, project_id, activity_id").gte("record_date", from).lte("record_date", to),
+    supabase.from("proc_w119_reports").select("id, doc_no, record_date, purchase_date, purpose, amount, fund_source, project_id, activity_id, proc_w119_items(vendor, seq)").gte("record_date", from).lte("record_date", to),
+    supabase.from("proc_urgent_reports").select("id, doc_no, doc_type, record_date, purchase_date, receipt_date, subject, amount, payee, receipt_type, receipt_no, project_id, activity_id").gte("record_date", from).lte("record_date", to),
+    supabase.from("proc_expense_claims").select("id, doc_no, record_date, event_date, event_end_date, event_name, amount, fund_source, responsible_name, project_id, activity_id").gte("record_date", from).lte("record_date", to),
     supabase.from("proc_loan_contracts").select("id, doc_no, borrower_name, purpose, amount, received_date, fund_source, project_id, activity_id").not("received_date", "is", null).gte("received_date", from).lte("received_date", to),
     supabase.from("proc_loan_repayments").select("id, loan_id, repay_date, cash_amount, receipt_no, proc_loan_contracts(doc_no, borrower_name, fund_source, project_id, activity_id)").gt("cash_amount", 0).gte("repay_date", from).lte("repay_date", to),
   ]);
@@ -80,6 +82,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "purchase",
       id: r.id,
+      doneDate: sourceDoneDate("purchase", r as unknown as Record<string, unknown>),
       date: r.inspected_date ?? r.record_date,
       warn: r.inspected_date ? undefined : "ยังไม่ตรวจรับ",
       ref: `รายงานขอ${label} ${r.doc_no ?? ""}`.trim(),
@@ -101,6 +104,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "w119",
       id: r.id,
+      doneDate: sourceDoneDate("w119", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `ว 119 ${r.doc_no ?? ""}`.trim(),
       description: `จ่ายเงินค่า${r.purpose ?? ""}`.trim(),
@@ -120,6 +124,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "urgent",
       id: r.id,
+      doneDate: sourceDoneDate("urgent", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `เร่งด่วน ${r.doc_no ?? ""}`.trim(),
       description: `จ่ายเงินค่า${r.subject ?? ""}`.trim(),
@@ -139,6 +144,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "claim",
       id: r.id,
+      doneDate: sourceDoneDate("claim", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `เบิกค่าใช้จ่าย ${r.doc_no ?? ""}`.trim(),
       description: `จ่ายค่าใช้จ่ายในการจัด${r.event_name ?? "กิจกรรม"}`,
@@ -158,6 +164,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "loan",
       id: r.id,
+      doneDate: sourceDoneDate("loan", r as unknown as Record<string, unknown>),
       date: r.received_date!,
       ref: `สัญญายืมเงิน ${r.doc_no ?? ""}`.trim(),
       description: `จ่ายเงินยืมตามสัญญาการยืมเงินเลขที่ ${r.doc_no ?? "-"}${r.purpose ? ` — ${r.purpose}` : ""}`,
@@ -178,6 +185,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "loan_repay",
       id: r.id,
+      doneDate: sourceDoneDate("loan_repay", r as unknown as Record<string, unknown>),
       date: r.repay_date,
       ref: `ส่งใช้เงินยืม ${loan?.doc_no ?? ""}`.trim(),
       description: `รับคืนเงินยืม (เงินสด) ตามสัญญาการยืมเงินเลขที่ ${loan?.doc_no ?? "-"}`,

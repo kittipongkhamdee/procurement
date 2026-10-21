@@ -81,6 +81,26 @@ export function thaiMonthLabel(ym: string) {
   return `${TH_MONTHS[m - 1]} ${y + 543}`;
 }
 
+/** วันที่งานต้นทางเสร็จสิ้น = วันที่ล่าสุดของขั้นตอนในงานนั้น — วันที่จ่าย/รับจริงในบัญชีต้องไม่ก่อนวันนี้
+ *  (ซื้อ/จ้าง: บันทึก → สั่ง → ส่งมอบ → ตรวจรับ → รายงาน · ว 119/เร่งด่วน: ซื้อ → รายงาน · เบิกค่าใช้จ่าย: จัดกิจกรรมเสร็จ → รายงาน
+ *  · สัญญายืม: วันรับเงิน · ส่งใช้: วันส่งใช้) — ใช้ทั้งรายการรอบันทึก (client) และตรวจซ้ำฝั่ง server */
+export const SOURCE_DATE_FIELDS: Record<SourceKind, { table: "proc_purchase_requests" | "proc_w119_reports" | "proc_urgent_reports" | "proc_expense_claims" | "proc_loan_contracts" | "proc_loan_repayments"; fields: string[] }> = {
+  purchase: { table: "proc_purchase_requests", fields: ["record_date", "order_date", "delivered_date", "inspected_date", "report_date"] },
+  w119: { table: "proc_w119_reports", fields: ["purchase_date", "record_date"] },
+  urgent: { table: "proc_urgent_reports", fields: ["purchase_date", "record_date", "receipt_date"] },
+  claim: { table: "proc_expense_claims", fields: ["event_date", "event_end_date", "record_date"] },
+  loan: { table: "proc_loan_contracts", fields: ["received_date"] },
+  loan_repay: { table: "proc_loan_repayments", fields: ["repay_date"] },
+};
+export function sourceDoneDate(kind: SourceKind, row: Record<string, unknown>): string {
+  return SOURCE_DATE_FIELDS[kind].fields
+    .map((f) => row[f])
+    .filter((v): v is string => typeof v === "string" && v.length >= 10)
+    .map((v) => v.slice(0, 10))
+    .sort()
+    .at(-1) ?? "";
+}
+
 /** ผลของรายการต่อยอด 3 ช่อง */
 export function effect(t: Pick<FinTxn, "kind" | "from_pocket" | "to_pocket" | "amount">): Balance {
   const d = zero();

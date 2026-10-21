@@ -722,7 +722,7 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
               <table className="table-base w-full">
                 <thead>
                   <tr>
-                    <th>วันที่</th>
+                    <th title="วันที่ขั้นตอนล่าสุดของงานต้นทาง — บันทึกจ่าย/รับได้ตั้งแต่วันนี้">งานเสร็จเมื่อ</th>
                     <th>อ้างอิง</th>
                     <th>รายการ</th>
                     <th className="text-right">จำนวนเงิน</th>
@@ -732,7 +732,7 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
                 <tbody>
                   {g.rows.map((it) => (
                     <tr key={it.id} className={it.skipped ? "opacity-60" : ""}>
-                      <td className="whitespace-nowrap">{formatThaiDate(it.date)}</td>
+                      <td className="whitespace-nowrap">{formatThaiDate(it.doneDate || it.date)}</td>
                       <td className="whitespace-nowrap">
                         <Link href={it.href} className="text-navy-800 hover:underline">
                           {it.ref}
@@ -758,9 +758,8 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
                           ) : (
                             <>
                               <TxnForm
-                                source={{ kind: it.kind, id: it.id, ref: it.ref }}
+                                source={{ kind: it.kind, id: it.id, ref: it.ref, minDate: it.doneDate }}
                                 copyFrom={{
-                                  txn_date: it.date,
                                   kind: it.txnKind,
                                   from_pocket: "bank",
                                   to_pocket: it.kind === "loan_repay" ? "cash" : "bank",

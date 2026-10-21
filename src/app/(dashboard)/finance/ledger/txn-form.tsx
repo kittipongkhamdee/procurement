@@ -46,7 +46,8 @@ export function TxnForm({
 }: {
   txn?: FinTxn;
   copyFrom?: Partial<FinTxn>;
-  source?: { kind: SourceKind; id: string; ref: string };
+  /** minDate = วันที่งานต้นทางเสร็จสิ้น — วันที่จ่ายจริงต้องไม่ก่อนวันนี้ */
+  source?: { kind: SourceKind; id: string; ref: string; minDate: string };
   types: MoneyType[];
   projects: ProjectOption[];
   suggest: TxnSuggest;
@@ -54,7 +55,8 @@ export function TxnForm({
 }) {
   const ref = useRef<ModalHandle>(null);
   const tpl = txn ?? copyFrom;
-  const [date, setDate] = useState<string | null>(txn?.txn_date ?? (source ? copyFrom?.txn_date : undefined) ?? todayLocal());
+  // บันทึกจากงานต้นทาง: ไม่ดึงวันที่ของงานนั้นมา (เป็นวันที่จัดซื้อ/จัดจ้าง ไม่ใช่วันจ่ายจริง) — เสนอวันนี้ถ้าไม่ก่อนวันที่งานเสร็จ
+  const [date, setDate] = useState<string | null>(txn?.txn_date ?? (source ? (todayLocal() >= source.minDate ? todayLocal() : null) : todayLocal()));
   const [kind, setKind] = useState<TxnKind>(tpl?.kind ?? "pay");
   const [docKind, setDocKind] = useState<DocKind | "">(tpl?.doc_kind ?? (tpl ? "" : "บจ"));
   const [docSeq, setDocSeq] = useState<string>(txn?.doc_seq ? String(txn.doc_seq) : "");
@@ -190,6 +192,8 @@ export function TxnForm({
           </label>
           <ThaiDatePicker
             name="txn_date"
+            minDate={source?.minDate || undefined}
+            maxDate={source ? todayLocal() : undefined}
             value={date}
             onChange={(d) => {
               setDate(d);
@@ -198,6 +202,13 @@ export function TxnForm({
             required
           />
           {date && <p className="mt-1 text-xs text-slate-500">ปีงบประมาณ {fiscalYearOf(date)}</p>}
+          {source && (
+            <p className={`mt-1 text-xs ${source.minDate > todayLocal() ? "text-red-600" : "text-slate-500"}`}>
+              {source.minDate > todayLocal()
+                ? `งานต้นทางยังไม่เสร็จ (ขั้นตอนล่าสุดลงวันที่ ${source.minDate.split("-").reverse().map((v, i) => (i === 2 ? String(Number(v) + 543) : v)).join("/")}) — บันทึกได้ตั้งแต่วันนั้น`
+                : `วันที่จ่าย/รับจริง — ต้องไม่ก่อนวันที่งานต้นทางเสร็จสิ้น (${source.minDate.split("-").reverse().map((v, i) => (i === 2 ? String(Number(v) + 543) : v)).join("/")}) และไม่เกินวันนี้`}
+            </p>
+          )}
         </div>
         <div>
           <label className="label">
