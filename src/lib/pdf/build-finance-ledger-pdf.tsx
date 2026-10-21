@@ -120,7 +120,7 @@ export async function buildFundLoanMemoPdf(supabase: Supabase, id: string) {
   if (!loan) return null;
   const [{ data: types }, { data: school }] = await Promise.all([
     supabase.from("fin_money_types").select("id, name"),
-    supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle(),
+    supabase.from("proc_school_settings").select("school_name, education_area").eq("id", true).maybeSingle(),
   ]);
   const name = new Map((types ?? []).map((x) => [x.id, x.name as string]));
   const schoolName = school?.school_name ?? "โรงเรียนตาเบาวิทยา";
@@ -130,6 +130,7 @@ export async function buildFundLoanMemoPdf(supabase: Supabase, id: string) {
     <FundLoanMemoDocument
       data={{
         school_name: schoolName,
+        education_area: school?.education_area ?? null,
         memo_no: loan.memo_no,
         memo_date: loan.memo_date,
         loan_date: loan.loan_date,

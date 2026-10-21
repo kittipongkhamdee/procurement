@@ -11,6 +11,7 @@ import { Tick } from "./w119-document";
 
 export type FundLoanMemoData = {
   school_name: string;
+  education_area: string | null;
   memo_no: string | null;
   memo_date: string | null;
   loan_date: string;
@@ -35,7 +36,7 @@ export function FundLoanMemoDocument({ data: d }: { data: FundLoanMemoData }) {
     <Document title="บันทึกขออนุมัติยืมเงิน">
       <Page size="A4" style={[styles.page, { paddingTop: 2.5 * CM }]}>
         <View style={{ marginTop: -CM }}>
-          <MemoHeader unit={d.school_name} docNumber={d.memo_no} isoDate={d.memo_date ?? d.loan_date} subject={`ขออนุมัติยืมเงิน${d.lender} เพื่อจ่าย${borrowers}${term}`} />
+          <MemoHeader unit={`${d.school_name}${d.education_area ? `  ${d.education_area}` : ""}`} docNumber={d.memo_no} isoDate={d.memo_date ?? d.loan_date} subject={`ขออนุมัติยืมเงิน${d.lender} เพื่อจ่าย${borrowers}${term}`} />
         </View>
         <Text style={[styles.gap, { marginTop: 4 }]}>{t(`เรียน   ผู้อำนวยการ${d.school_name}`)}</Text>
         <Para keep={keep} text={`ด้วย${d.school_name} มีความจำเป็นต้องดำเนินการจ่าย${borrowers}${term} แต่${reason}`} />
