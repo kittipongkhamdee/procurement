@@ -205,7 +205,8 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
             <Cell w={RW.rcv} text={moneyOrBlank(receive)} align="right" />
             <Cell w={RW.pay} text={moneyOrBlank(pay)} align="right" />
             {balCells(balance)}
-            <Cell w={RW.note} text={txn.note ?? ""} wrap />
+            {/* หมายเหตุในระบบไม่พิมพ์ลง PDF — เว้นช่องไว้ให้เขียนเอง */}
+            <Cell w={RW.note} text="" />
           </View>
         ))}
         {reg.rows.length === 0 && (

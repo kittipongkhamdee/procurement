@@ -160,7 +160,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
       id: r.id,
       date: r.received_date!,
       ref: `สัญญายืมเงิน ${r.doc_no ?? ""}`.trim(),
-      description: `จ่ายเงินยืมตามสัญญาการยืมเงินเลขที่ ${r.doc_no ?? "-"}${r.purpose ? ` (${r.purpose})` : ""}`,
+      description: `จ่ายเงินยืมตามสัญญาการยืมเงินเลขที่ ${r.doc_no ?? "-"}${r.purpose ? ` — ${r.purpose}` : ""}`,
       payee: r.borrower_name,
       amount: Number(r.amount ?? 0),
       txnKind: "pay",
