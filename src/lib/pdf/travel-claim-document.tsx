@@ -1,4 +1,4 @@
-import { Circle, Document, Line, Page, Path, Svg, Text, View } from "@react-pdf/renderer";
+import { Rect, Document, Line, Page, Path, Svg, Text, View } from "@react-pdf/renderer";
 import { formatThaiDate, thaiBahtText } from "@/lib/thai";
 import { t } from "./thai-pdf";
 import { B, CM, CONTENT_W, FAMILY, measureText, wrap } from "./procurement-set-document";
@@ -54,11 +54,11 @@ function Row({ segs, indent = 0, gap = ROW_GAP }: { segs: Seg[]; indent?: number
   );
 }
 
-/** ช่องเลือก ๐ — วงกลมเล็ก ถ้าเลือกมีเครื่องหมายถูกทับ (ฟอนต์ไม่มีอักษรติ๊ก จึงวาดเอง) */
+/** ช่องเลือก — กล่องสี่เหลี่ยม ถ้าเลือกมีเครื่องหมายถูกทับ (ฟอนต์ไม่มีอักษรติ๊ก จึงวาดเอง) */
 function Mark({ on }: { on: boolean }) {
   return (
     <Svg width={13} height={12} style={{ marginHorizontal: 3, marginBottom: 3 }}>
-      <Circle cx={5} cy={7} r={3.6} stroke="#000" strokeWidth={0.8} fill="none" />
+      <Rect x={1} y={3} width={8} height={8} stroke="#000" strokeWidth={0.8} fill="none" />
       {on && <Path d="M1.5 6.5 L5 10 L12 1" stroke="#000" strokeWidth={1.3} fill="none" />}
     </Svg>
   );

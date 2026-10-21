@@ -3,11 +3,14 @@
 // ฟอร์มกรอกรายงานการเดินทางไปราชการ (แบบ 8708 ส่วนที่ 1 ใบเบิกค่าใช้จ่าย + ส่วนที่ 2 หลักฐานการจ่ายเงิน)
 // บันทึกเก็บไว้แก้/พิมพ์ซ้ำได้ (fin_travel_forms) — ช่องที่เว้นว่างพิมพ์เป็นจุดไข่ปลาให้เขียนเอง
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/AuthContext";
+import { formatThaiDate } from "@/lib/thai";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
-import { claimTotal, travelDuration, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
+import { allowanceDays, claimTotal, lodgingNights, rateFor, travelDuration, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
 import { saveReceiptForm } from "./form-store";
 import type { FormDefaults } from "./receipt-forms";
 
@@ -93,9 +96,78 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
   const [signers, setSigners] = useState({
     checker: initial?.checker ?? { name: defaults.officer, position: "เจ้าหน้าที่การเงิน" },
     approver: initial?.approver ?? { name: defaults.director, position: defaults.school ? `ผู้อำนวยการ${defaults.school}` : "" },
-    payer: initial?.payer ?? { name: "", position: "" },
+    payer: initial?.payer ?? { name: defaults.officer, position: "เจ้าหน้าที่การเงิน" },
   });
   const [saving, setSaving] = useState(false);
+  const [km, setKm] = useState("");
+  const [overnight, setOvernight] = useState(true);
+  // ช่วยกรอก: รายชื่อบุคลากร (ชื่อ → ตำแหน่ง) และสัญญายืมเงินของผู้ใช้
+  const { user } = useAuth();
+  const [people, setPeople] = useState<{ name: string; position: string }[]>([]);
+  const [loans, setLoans] = useState<{ id: string; doc_no: string | null; borrower_name: string; amount: number; received_date: string | null; request_date: string; purpose: string | null; travel_return_date: string | null }[]>([]);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("proc_profiles")
+      .select("user_id, full_name, position")
+      .not("full_name", "is", null)
+      .order("full_name")
+      .then(({ data }) => {
+        const list = (data ?? []).map((p) => ({ name: (p.full_name ?? "").trim(), position: (p.position ?? "").trim() })).filter((p) => p.name);
+        setPeople(list);
+        // ฉบับใหม่: ผู้เดินทางเริ่มต้นเป็นผู้ใช้เอง
+        const me = (data ?? []).find((p) => p.user_id === user?.userId);
+        if (!initial && me?.full_name) setF((cur) => (cur.name ? cur : { ...cur, name: me.full_name ?? "", position: me.position ?? cur.position, borrower: cur.borrower || "" }));
+      });
+    if (user?.userId)
+      supabase
+        .from("proc_loan_contracts")
+        .select("id, doc_no, borrower_name, amount, received_date, request_date, purpose, travel_return_date")
+        .or(`borrower_user_id.eq.${user.userId},created_by.eq.${user.userId}`)
+        .not("doc_no", "is", null)
+        .order("request_date", { ascending: false })
+        .limit(30)
+        .then(({ data }) => setLoans(((data ?? []) as typeof loans).map((l) => ({ ...l, amount: Number(l.amount) }))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.userId]);
+  const positionOf = (name: string) => people.find((p) => p.name === name.trim())?.position;
+
+  function pickLoan(id: string) {
+    const l = loans.find((x) => x.id === id);
+    if (!l) return;
+    setF({ ...f, loan_no: l.doc_no ?? "", borrower: l.borrower_name, purpose: f.purpose || l.purpose || "" });
+    setDates({ ...dates, loan_date: l.received_date ?? l.request_date, return_date: dates.return_date ?? l.travel_return_date });
+    setMoney4({ ...money4, loan_amount: s(l.amount) });
+  }
+
+  /** คำนวณตามอัตรากระทรวงการคลัง (คู่มือ สพฐ. หน้า 5–7, 33): เบี้ยเลี้ยง 240/270 บาท/วัน, ที่พักเหมาจ่าย 800/1,200 บาท/คืน, รถยนต์ส่วนตัว 4 บาท/กม. */
+  function calcRates() {
+    const dur = travelDuration(data);
+    if (!dur) return void toastError("กรอกวันเวลาออกเดินทางและกลับถึงก่อน");
+    const days = allowanceDays(dur, overnight);
+    const nights = overnight ? lodgingNights(dates.depart_date!, dates.return_date!) : 0;
+    const r = rateFor(f.position);
+    const nextMoney = { ...money4, allowance: s(days * r.allowance), lodging: s(nights * r.lodging) };
+    if (n(km) > 0) nextMoney.transport = s(n(km) * 4);
+    setMoney4(nextMoney);
+    setF({
+      ...f,
+      allowance_type: f.allowance_type || "เหมาจ่าย",
+      allowance_days: String(days),
+      lodging_type: nights ? f.lodging_type || "เหมาจ่าย" : f.lodging_type,
+      lodging_days: nights ? String(nights) : f.lodging_days,
+      transport_desc: n(km) > 0 ? `รถยนต์ส่วนบุคคล ระยะทาง ${n(km)} กม. x 4 บาท` : f.transport_desc,
+    });
+    if (claimFor === "group")
+      setMembers(
+        members.map((m) => {
+          if (!m.name.trim()) return m;
+          const mr = rateFor(m.position);
+          return { ...m, allowance: s(days * mr.allowance), lodging: s(nights * mr.lodging), note: `เบี้ยเลี้ยง ${mr.allowance} x ${days} วัน${nights ? ` ที่พัก ${mr.lodging} x ${nights} คืน` : ""}` };
+        }),
+      );
+    if (!dates.date) setDates({ ...dates, date: dates.return_date });
+  }
   const printRef = useRef<HTMLFormElement>(null);
   const set = (k: keyof Text) => (v: string) => setF({ ...f, [k]: v });
   const setD = (k: keyof typeof dates) => (v: string | null) => setDates({ ...dates, [k]: v });
@@ -144,7 +216,7 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
     <div className="flex flex-wrap gap-2">
       {opts.map((o) => (
         <label key={o.v} className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm ${cur === o.v ? "border-navy-800 bg-navy-800/[0.06] font-semibold" : "border-slate-200"}`}>
-          <input type="radio" name={name} checked={cur === o.v} onChange={() => on(o.v)} />
+          <input type="checkbox" name={name} checked={cur === o.v} onChange={() => on(o.v)} className="h-4 w-4 rounded-sm" />
           {o.l}
         </label>
       ))}
@@ -155,6 +227,19 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
     <div className="card space-y-5">
       <section>
         <h3 className="mb-2 font-semibold text-slate-800">สัญญาเงินยืม (ถ้ามี)</h3>
+        {loans.length > 0 && (
+          <div className="mb-3">
+            <label className="label">ดึงจากสัญญายืมเงินของฉัน</label>
+            <select defaultValue="" onChange={(e) => pickLoan(e.target.value)} className="input w-full">
+              <option value="">— เลือกสัญญายืมเงิน —</option>
+              {loans.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {`${l.doc_no} · ${money(l.amount)} บาท · ${formatThaiDate(l.received_date ?? l.request_date)}${l.purpose ? ` · ${l.purpose.slice(0, 40)}` : ""}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <F label="สัญญาเงินยืมเลขที่" value={f.loan_no} onChange={set("loan_no")} />
           <D label="วันที่" value={dates.loan_date} onChange={setD("loan_date")} />
@@ -172,7 +257,10 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
           <F label="จังหวัด (ส่วนที่ 2)" value={f.province} onChange={set("province")} />
           <F label="ตามคำสั่ง/บันทึก ที่" value={f.order_no} onChange={set("order_no")} />
           <D label="ลงวันที่" value={dates.order_date} onChange={setD("order_date")} />
-          <F label="ข้าพเจ้า (ชื่อผู้เดินทาง/หัวหน้าคณะ)" value={f.name} onChange={set("name")} />
+          <div>
+            <label className="label">ข้าพเจ้า (ชื่อผู้เดินทาง/หัวหน้าคณะ)</label>
+            <input list="travel-people" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value, position: positionOf(e.target.value) ?? f.position })} className="input w-full" />
+          </div>
           <F label="ตำแหน่ง" value={f.position} onChange={set("position")} />
           <F label="สังกัด" value={f.affiliation} onChange={set("affiliation")} />
           <F label="พร้อมด้วย (ผู้ร่วมเดินทาง)" value={f.companions} onChange={set("companions")} placeholder="ชื่อ-สกุลผู้ร่วมเดินทาง (ถ้ามี)" />
@@ -205,6 +293,25 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
       <section>
         <h3 className="mb-2 font-semibold text-slate-800">ขอเบิกค่าใช้จ่ายสำหรับ</h3>
         {radio("for", claimFor, [{ v: "self", l: "ข้าพเจ้า" }, { v: "group", l: "คณะเดินทาง" }], (v) => setClaimFor(v as "self" | "group"))}
+        <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+          <p className="mb-2">
+            ช่วยคำนวณตามอัตรากระทรวงการคลัง: เบี้ยเลี้ยง 240 บาท/วัน (ชำนาญการพิเศษลงมา) หรือ 270 บาท/วัน (เชี่ยวชาญขึ้นไป) · ค่าเช่าที่พักเหมาจ่าย 800 / 1,200 บาท/คืน · รถยนต์ส่วนบุคคล 4 บาท/กม.
+            (นับ 24 ชม. = 1 วัน เศษเกิน 12 ชม. = 1 วัน · ไม่พักแรม เกิน 6 ชม. = ครึ่งวัน)
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.target.checked)} />
+              พักแรม
+            </label>
+            <div>
+              <label className="label">ระยะทางรถยนต์ส่วนบุคคล (กม. ไป-กลับ)</label>
+              <input type="number" min="0" value={km} onChange={(e) => setKm(e.target.value)} className="input w-40" />
+            </div>
+            <button type="button" onClick={calcRates} className="btn-secondary btn-sm">
+              คำนวณให้{claimFor === "group" ? " (ทุกคนในส่วนที่ 2)" : ""}
+            </button>
+          </div>
+        </div>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
           <F label="ค่าเบี้ยเลี้ยงเดินทางประเภท" value={f.allowance_type} onChange={set("allowance_type")} placeholder="เช่น ก / ข" />
           <F label="จำนวน (วัน)" value={f.allowance_days} onChange={set("allowance_days")} />
@@ -253,7 +360,7 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
                 <tr key={i}>
                   <td>{i + 1}</td>
                   <td>
-                    <input value={m.name} onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} className="input w-40" aria-label="ชื่อ" />
+                    <input list="travel-people" value={m.name} onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, name: e.target.value, position: positionOf(e.target.value) ?? x.position } : x)))} className="input w-40" aria-label="ชื่อ" />
                   </td>
                   <td>
                     <input value={m.position} onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, position: e.target.value } : x)))} className="input w-28" aria-label="ตำแหน่ง" />
@@ -303,6 +410,13 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
         </div>
       </section>
 
+      <datalist id="travel-people">
+        {people.map((p) => (
+          <option key={p.name} value={p.name}>
+            {p.position}
+          </option>
+        ))}
+      </datalist>
       <div className="flex flex-wrap justify-end gap-2">
         <button type="button" onClick={save} disabled={saving} className="btn-secondary">
           {saving ? "กำลังบันทึก…" : "บันทึก"}

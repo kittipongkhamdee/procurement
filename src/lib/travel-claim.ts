@@ -58,3 +58,19 @@ export function travelDuration(d: Pick<TravelClaim, "depart_date" | "depart_time
 }
 
 export const claimTotal = (d: Pick<TravelClaim, "allowance" | "lodging" | "transport" | "other">) => d.allowance + d.lodging + d.transport + d.other;
+
+/** จำนวนวันเบี้ยเลี้ยง: 24 ชม. = 1 วัน เศษเกิน 12 ชม. = 1 วัน · ไม่พักแรม: รวมไม่ถึง 1 วันแต่เกิน 6 ชม. = ครึ่งวัน (คู่มือ สพฐ. หน้า 4–5) */
+export function allowanceDays(dur: { days: number; hours: number }, overnight: boolean): number {
+  let days = dur.days + (dur.hours > 12 ? 1 : 0);
+  if (!overnight && dur.days === 0 && dur.hours > 6 && dur.hours <= 12) days = 0.5;
+  return days;
+}
+/** จำนวนคืนที่พัก = จำนวนวันระหว่างวันออกเดินทางกับวันกลับ */
+export function lodgingNights(depart: string, ret: string): number {
+  const d = (Date.parse(ret) - Date.parse(depart)) / 86400000;
+  return d > 0 ? Math.round(d) : 0;
+}
+/** อัตราตามตำแหน่ง — เชี่ยวชาญ/ทรงคุณวุฒิ/ผู้อำนวยการระดับสูงขึ้นไป ใช้อัตราสูง (270 / 1,200) นอกนั้น 240 / 800 */
+export function rateFor(position: string): { allowance: number; lodging: number } {
+  return /เชี่ยวชาญ|ทรงคุณวุฒิ|ทักษะพิเศษ|ระดับสูง/.test(position) ? { allowance: 270, lodging: 1200 } : { allowance: 240, lodging: 800 };
+}
