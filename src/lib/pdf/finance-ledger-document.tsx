@@ -166,7 +166,7 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
       ))}
     </View>
   );
-  const typeLabel = type.category && type.category !== type.name ? `${type.name} (${type.category.replace(/^เงินอุดหนุน/, "")})` : type.name;
+  const typeLabel = type.name;
   return (
     <Page size="A4" orientation="landscape" style={styles.page}>
       <Text style={styles.title}>{t("ทะเบียนคุมเงินนอกงบประมาณ")}</Text>
