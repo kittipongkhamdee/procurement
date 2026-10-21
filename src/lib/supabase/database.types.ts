@@ -168,6 +168,36 @@ export type Database = {
           { foreignKeyName: "fin_fund_loan_repays_line_id_fkey"; columns: ["line_id"]; isOneToOne: false; referencedRelation: "fin_fund_loan_lines"; referencedColumns: ["id"] },
         ]
       }
+      fin_receipt_forms: {
+        Row: {
+          id: string
+          kind: string
+          title: string
+          data: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          kind: string
+          title?: string
+          data?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          kind?: string
+          title?: string
+          data?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fin_money_types: {
         Row: {
           account_id: string | null

@@ -1,14 +1,40 @@
 "use client";
 
-// แบบใบสำคัญรับเงิน (กิจกรรมเสริมสร้างความรู้ให้กับนักเรียน — หนังสือ สพฐ. ว 2983/2555, แนวทางฯ ปีงบ 2569 หน้า 98–99)
+// ฟอร์มกรอกแบบใบสำคัญรับเงิน (กิจกรรมเสริมสร้างความรู้ให้กับนักเรียน — หนังสือ สพฐ. ว 2983/2555, แนวทางฯ ปีงบ 2569 หน้า 98–99)
 //   ๑ ใบสำคัญรับเงินสำหรับวิทยากร · ๒ แบบใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน
-// กรอกบนหน้านี้แล้วพิมพ์ PDF (ไม่บันทึกลงฐานข้อมูล) — ช่องที่เว้นว่างพิมพ์เป็นจุดไข่ปลาให้เขียนเอง
+// บันทึกเก็บไว้แก้/พิมพ์ซ้ำได้ (fin_receipt_forms) — ช่องที่เว้นว่างพิมพ์เป็นจุดไข่ปลาให้เขียนเอง
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useRef, useState } from "react";
+import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { ChevronLeftIcon, PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
+import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
+import type { SpeakerReceipt, StudentReceipt } from "@/lib/pdf/receipt-forms-document";
+import { saveReceiptForm } from "./actions";
+
+export type FormDefaults = { school: string; area: string; officer: string };
+
+/** ปุ่มบันทึก (สร้างใหม่/แก้ไข) */
+function SaveButton({ id, kind, title, data, onSaved }: { id: string | null; kind: "speaker" | "student"; title: string; data: unknown; onSaved: (id: string) => void }) {
+  const [saving, setSaving] = useState(false);
+  async function save() {
+    setSaving(true);
+    try {
+      const res = await saveReceiptForm(id, kind, title, data);
+      if (res.error) return void (await toastError(res.error));
+      await toastSuccess("บันทึกแล้ว");
+      onSaved(res.id!);
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <button type="button" onClick={save} disabled={saving} className="btn-secondary">
+      {saving ? "กำลังบันทึก…" : "บันทึก"}
+    </button>
+  );
+}
 
 type Item = { description: string; amount: string };
 type Row = { name: string; address: string; food: string; lodging: string; transport: string; paid_date: string | null };
@@ -16,56 +42,11 @@ const emptyRow = (): Row => ({ name: "", address: "", food: "", lodging: "", tra
 const n = (s: string) => Math.round((Number(s) || 0) * 100) / 100;
 const money = (x: number) => x.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function ReceiptFormsPage() {
-  const [tab, setTab] = useState<"speaker" | "student">("speaker");
-  const [defaults, setDefaults] = useState({ school: "", area: "", officer: "" });
-
-  useEffect(() => {
-    const supabase = createClient();
-    Promise.all([
-      supabase.from("proc_school_settings").select("school_name, education_area").eq("id", true).maybeSingle(),
-      supabase.from("fin_settings").select("key, value").eq("key", "fin_officer_name"),
-      supabase.from("proc_app_settings").select("key, value").eq("key", "approval_signer_finance"),
-    ]).then(([s, f, a]) =>
-      setDefaults({
-        school: s.data?.school_name ?? "",
-        area: s.data?.education_area ?? "",
-        officer: f.data?.[0]?.value || a.data?.[0]?.value || "",
-      }),
-    );
-  }, []);
-
-  return (
-    <div>
-      <div className="page-header">
-        <div>
-          <Link href="/finance/ledger" className="back-link mb-2">
-            <ChevronLeftIcon className="h-4 w-4" />
-            บัญชีรับ-จ่ายเงิน
-          </Link>
-          <h1 className="page-title">แบบใบสำคัญรับเงิน</h1>
-          <p className="page-subtitle">ค่าใช้จ่ายในการจัดกิจกรรมเพื่อเสริมสร้างความรู้ให้กับนักเรียน — กรอกแล้วพิมพ์ PDF (ช่องที่เว้นว่างพิมพ์เป็นจุดไข่ปลาให้เขียนเอง)</p>
-        </div>
-      </div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button type="button" onClick={() => setTab("speaker")} className={tab === "speaker" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}>
-          ๑ ใบสำคัญรับเงินสำหรับวิทยากร
-        </button>
-        <button type="button" onClick={() => setTab("student")} className={tab === "student" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}>
-          ๒ ใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน
-        </button>
-      </div>
-      {/* key: เติมค่าเริ่มต้นใหม่เมื่อโหลดค่าตั้งเสร็จ */}
-      {tab === "speaker" ? <SpeakerForm key={`s${defaults.school}`} defaults={defaults} /> : <StudentForm key={`t${defaults.school}`} defaults={defaults} />}
-    </div>
-  );
-}
-
 /** ส่งข้อมูลไปสร้าง PDF ในแท็บใหม่ (POST — รายชื่อนักเรียนยาวเกิน URL) */
 function PrintForm({ kind, data, label }: { kind: string; data: unknown; label: string }) {
   const ref = useRef<HTMLFormElement>(null);
   return (
-    <form ref={ref} method="post" action="/finance/ledger/receipt-forms/pdf" target="_blank">
+    <form ref={ref} method="post" action="/finance/forms/pdf" target="_blank">
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="data" value={JSON.stringify(data)} />
       <button type="submit" className="btn-primary inline-flex items-center gap-2">
@@ -85,10 +66,14 @@ function Field({ label, value, onChange, placeholder, className = "" }: { label:
   );
 }
 
-function SpeakerForm({ defaults }: { defaults: { school: string; officer: string } }) {
-  const [f, setF] = useState({ org: defaults.school, project: "", name: "", house_no: "", subdistrict: "", district: "", province: "", received_from: defaults.school, payer: defaults.officer });
-  const [date, setDate] = useState<string | null>(null);
-  const [items, setItems] = useState<Item[]>([{ description: "", amount: "" }]);
+export function SpeakerForm({ id, initial, defaults, onSaved }: { id: string | null; initial: SpeakerReceipt | null; defaults: FormDefaults; onSaved: (id: string) => void }) {
+  const [f, setF] = useState(() =>
+    initial
+      ? { org: initial.org, project: initial.project, name: initial.name, house_no: initial.house_no, subdistrict: initial.subdistrict, district: initial.district, province: initial.province, received_from: initial.received_from, payer: initial.payer }
+      : { org: defaults.school, project: "", name: "", house_no: "", subdistrict: "", district: "", province: "", received_from: defaults.school, payer: defaults.officer },
+  );
+  const [date, setDate] = useState<string | null>(initial?.date ?? null);
+  const [items, setItems] = useState<Item[]>(() => (initial?.items.length ? initial.items.map((i) => ({ description: i.description, amount: i.amount ? String(i.amount) : "" })) : [{ description: "", amount: "" }]));
   const set = (k: keyof typeof f) => (v: string) => setF({ ...f, [k]: v });
   const total = items.reduce((s, i) => s + n(i.amount), 0);
   const data = { ...f, date, items: items.map((i) => ({ description: i.description, amount: n(i.amount) })) };
@@ -151,18 +136,27 @@ function SpeakerForm({ defaults }: { defaults: { school: string; officer: string
           </span>
         </div>
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <SaveButton id={id} kind="speaker" title={[f.name, f.project].filter(Boolean).join(" — ")} data={data} onSaved={onSaved} />
         <PrintForm kind="speaker" data={data} label="พิมพ์ใบสำคัญรับเงิน (PDF)" />
       </div>
     </div>
   );
 }
 
-function StudentForm({ defaults }: { defaults: { school: string; area: string; officer: string } }) {
-  const [f, setF] = useState({ org: defaults.school, project: "", area: defaults.area, payer: defaults.officer, payer_position: "เจ้าหน้าที่การเงิน" });
-  const [from, setFrom] = useState<string | null>(null);
-  const [to, setTo] = useState<string | null>(null);
-  const [rows, setRows] = useState<Row[]>([emptyRow()]);
+const str = (x: number) => (x ? String(x) : "");
+
+export function StudentForm({ id, initial, defaults, onSaved }: { id: string | null; initial: StudentReceipt | null; defaults: FormDefaults; onSaved: (id: string) => void }) {
+  const [f, setF] = useState(() =>
+    initial
+      ? { org: initial.org, project: initial.project, area: initial.area, payer: initial.payer, payer_position: initial.payer_position }
+      : { org: defaults.school, project: "", area: defaults.area, payer: defaults.officer, payer_position: "เจ้าหน้าที่การเงิน" },
+  );
+  const [from, setFrom] = useState<string | null>(initial?.date_from ?? null);
+  const [to, setTo] = useState<string | null>(initial?.date_to ?? null);
+  const [rows, setRows] = useState<Row[]>(() =>
+    initial?.rows.length ? initial.rows.map((r) => ({ name: r.name, address: r.address, food: str(r.food), lodging: str(r.lodging), transport: str(r.transport), paid_date: r.paid_date })) : [emptyRow()],
+  );
   const [per, setPer] = useState({ food: "", lodging: "", transport: "" });
   const [paste, setPaste] = useState("");
   const set = (k: keyof typeof f) => (v: string) => setF({ ...f, [k]: v });
@@ -271,7 +265,8 @@ function StudentForm({ defaults }: { defaults: { school: string; area: string; o
           รวมทั้งสิ้น <b className="tabular-nums">{money(grand)}</b> บาท
         </span>
       </div>
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        <SaveButton id={id} kind="student" title={f.project} data={data} onSaved={onSaved} />
         <PrintForm kind="student" data={data} label="พิมพ์แบบใบสำคัญรับเงิน (PDF)" />
       </div>
     </div>

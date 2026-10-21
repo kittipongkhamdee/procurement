@@ -312,13 +312,6 @@ function LedgerContent() {
               sub: `ยอดค้างส่งใช้ · ${fundOwed.length.toLocaleString("th-TH")} คู่ประเภทเงิน`,
             },
             {
-              key: "receipt-forms",
-              title: "แบบใบสำคัญรับเงิน",
-              description: "ใบสำคัญรับเงินสำหรับวิทยากร · ค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน (เอกสารแนบ ๑–๒) — กรอกแล้วพิมพ์ PDF",
-              href: "/finance/ledger/receipt-forms",
-              icon: <PrinterIcon className={ICON} />,
-            },
-            {
               key: "projects",
               title: "งบโครงการ",
               description: "งบประมาณ / อนุมัติแล้ว / จ่ายจริง / คงเหลือ รายโครงการและกิจกรรม",
