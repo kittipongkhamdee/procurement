@@ -172,9 +172,9 @@ export function StudentReceiptDocument({ data: d }: { data: StudentReceipt }) {
             {head(SIGN_W, "ลายมือชื่อ\nผู้รับเงิน")}
           </View>
         </View>
-        <View style={{ borderLeftWidth: B, fontSize: FS_TABLE }}>
+        <View style={{ fontSize: FS_TABLE }}>
           {padded.map((r, i) => (
-            <View key={i} style={{ flexDirection: "row" }} wrap={false}>
+            <View key={i} style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
               <Text style={[cell, { width: SC.no, textAlign: "center" }]}>{r ? String(i + 1) : " "}</Text>
               <View style={[cell, { width: SC.name }]}>
                 {(r ? wrap(r.name, FS_TABLE, SC.name - 12, SC.name - 12) : [" "]).map((l, j) => (

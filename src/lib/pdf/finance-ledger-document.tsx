@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "bold", textAlign: "center" },
   center: { textAlign: "center" },
   bold: { fontWeight: "bold" },
-  table: { borderTopWidth: B, borderLeftWidth: B, fontSize: FS, marginTop: 6 },
+  table: { fontSize: FS, marginTop: 6 }, // เส้นบน/ซ้ายอยู่ที่แต่ละแถว (หัวตาราง fixed ซ้ำทุกหน้า) — ถ้าใส่ที่กรอบนอก เส้นหายบนหน้าต่อ/ลากเกินแถวสุดท้าย
   cell: { borderRightWidth: B, borderBottomWidth: B, paddingHorizontal: 3, paddingVertical: 1 },
   head: { fontWeight: "bold", textAlign: "center", backgroundColor: "#f1f5f9" },
 });
@@ -68,7 +68,7 @@ export function DailyBalanceDocument({ schoolName, date, types, balances, signer
   const groups = groupByCategory(types.filter((x) => x.is_active || total(balances.get(x.id) ?? zero()) !== 0));
   const grand = types.reduce((s, x) => addBal(s, balances.get(x.id) ?? zero()), zero());
   const row = (key: string, label: string, b: Balance, opts: { bold?: boolean; indent?: boolean } = {}) => (
-    <View key={key} style={{ flexDirection: "row" }} wrap={false}>
+    <View key={key} style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
       <View style={[styles.cell, { width: W.name, paddingLeft: opts.indent ? 16 : 3 }]}>
         {lines(label, W.name - (opts.indent ? 13 : 0), opts.bold).map((l, i) => (
           <Text key={i} style={opts.bold ? styles.bold : {}}>
@@ -89,7 +89,7 @@ export function DailyBalanceDocument({ schoolName, date, types, balances, signer
         <Text style={styles.center}>{t(schoolName)}</Text>
         <Text style={styles.center}>{t(`ประจำวันที่ ${formatThaiDate(date)}`)}</Text>
         <View style={styles.table}>
-          <View style={{ flexDirection: "row" }}>
+          <View style={{ flexDirection: "row", borderLeftWidth: B, borderTopWidth: B }}>
             <Cell w={W.name} text="ประเภท" align="center" bold />
             <Cell w={W.cash} text="เงินสด" align="center" bold />
             <Cell w={W.bank} text="เงินฝากธนาคาร" align="center" bold />
@@ -150,7 +150,7 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
     </>
   );
   const sumRow = (label: string, v: { receive: number; debtor: number; voucher: number } | null, b: Balance | null) => (
-    <View style={{ flexDirection: "row" }} wrap={false}>
+    <View style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
       <Cell w={RW.date + RW.doc + RW.desc} text={label} align="right" bold />
       <Cell w={RW.rcv} text={v ? money(v.receive) : ""} align="right" bold />
       <Cell w={RW.debtor} text={v ? signed(v.debtor) || "-" : ""} align="right" bold />
@@ -177,7 +177,7 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
         <Text style={[styles.center, styles.bold]}>{t(`${schoolName}   ประจำเดือน ${thaiMonthLabel(page.month)}`)}</Text>
       </View>
       <View style={styles.table}>
-        <View style={{ flexDirection: "row" }} fixed>
+        <View style={{ flexDirection: "row", borderLeftWidth: B, borderTopWidth: B }} fixed>
           {head(RW.date, "วัน เดือน ปี")}
           {head(RW.doc, "ที่เอกสาร")}
           {head(RW.desc, "รายการ")}
@@ -200,7 +200,7 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
           </View>
           {head(RW.note, "หมายเหตุ")}
         </View>
-        <View style={{ flexDirection: "row" }} wrap={false}>
+        <View style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
           <Cell w={RW.date} text={isOctober ? shortThaiDate(`${page.month}-01`) : ""} align="center" />
           <Cell w={RW.doc} text="" />
           <Cell w={RW.desc} text={isOctober ? `ยอดยกมาจากปีงบประมาณ ${fy - 1}` : "ยอดยกมา"} bold />
@@ -211,7 +211,7 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
           <Cell w={RW.note} text="" />
         </View>
         {reg.rows.map((r) => (
-          <View key={r.id} style={{ flexDirection: "row" }} wrap={false}>
+          <View key={r.id} style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
             <Cell w={RW.date} text={shortThaiDate(r.date)} align="center" />
             <Cell w={RW.doc} text={r.doc} align="center" wrap />
             <Cell w={RW.desc} text={r.transfer ? `${r.description} (โอน)` : r.description} wrap />
@@ -224,7 +224,7 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
           </View>
         ))}
         {reg.rows.length === 0 && (
-          <View style={{ flexDirection: "row" }}>
+          <View style={{ flexDirection: "row", borderLeftWidth: B }}>
             <Text style={[styles.cell, { flex: 1, textAlign: "center" }]}>{t("ไม่มีรายการรับ-จ่ายในเดือนนี้")}</Text>
           </View>
         )}
@@ -257,7 +257,7 @@ export function VoucherRegisterDocument({ txns, schoolName, fy, typeName, projec
         <Text style={styles.title}>{t("ทะเบียนคุมใบสำคัญคู่จ่าย")}</Text>
         <Text style={styles.center}>{t(`${schoolName}   ปีงบประมาณ ${fy}`)}</Text>
         <View style={styles.table}>
-          <View style={{ flexDirection: "row" }} fixed>
+          <View style={{ flexDirection: "row", borderLeftWidth: B, borderTopWidth: B }} fixed>
             <Cell w={W.no} text="ที่" align="center" bold />
             <Cell w={W.date} text="วัน เดือน ปี" align="center" bold />
             <Cell w={W.bk} text="บค." align="center" bold />
@@ -268,7 +268,7 @@ export function VoucherRegisterDocument({ txns, schoolName, fy, typeName, projec
             <Cell w={W.type} text="ประเภทเงิน" align="center" bold />
           </View>
           {txns.map((x, i) => (
-            <View key={x.id} style={{ flexDirection: "row" }} wrap={false}>
+            <View key={x.id} style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
               <Cell w={W.no} text={String(i + 1)} align="center" />
               <Cell w={W.date} text={shortThaiDate(x.txn_date)} align="center" />
               <Cell w={W.bk} text={x.doc_kind === "บค" ? `${x.doc_seq}/${x.fiscal_year}` : ""} align="center" />
@@ -280,11 +280,11 @@ export function VoucherRegisterDocument({ txns, schoolName, fy, typeName, projec
             </View>
           ))}
           {txns.length === 0 && (
-            <View style={{ flexDirection: "row" }}>
+            <View style={{ flexDirection: "row", borderLeftWidth: B }}>
               <Text style={[styles.cell, { flex: 1, textAlign: "center" }]}>{t("ยังไม่มีใบสำคัญคู่จ่าย")}</Text>
             </View>
           )}
-          <View style={{ flexDirection: "row" }} wrap={false}>
+          <View style={{ flexDirection: "row", borderLeftWidth: B }} wrap={false}>
             <Cell w={W.no + W.date + W.bk + W.bj + W.desc} text="รวม" align="center" bold />
             <Cell w={W.amt} text={money(sum)} align="right" bold />
             <Cell w={W.proj + W.type} text="" />
