@@ -27,7 +27,7 @@ import { createClient } from "@/lib/supabase/client";
 import { isDriveRef, resolveEmbedUrl, resolveFileUrl } from "@/lib/storage/ref";
 import { formatThaiDate } from "@/lib/thai";
 import { toastError, toastSuccess, errorMessage, confirmWarning } from "@/lib/swal";
-import { BellIcon, BoxIcon, ChevronRightIcon, ClipboardCheckIcon, CoinsIcon, LightbulbIcon } from "@/components/icons";
+import { BellIcon, BoxIcon, ChevronRightIcon, ClipboardCheckIcon, CoinsIcon, LightbulbIcon, WalletIcon } from "@/components/icons";
 import { ProposalDetailModal } from "./project-proposals/proposal-detail-modal";
 import {
   approveProposal,
@@ -38,6 +38,9 @@ import {
   resetProposalStatus,
 } from "./project-proposals/actions";
 import { ApprovalStatusCell, type Approval, type DecisionMode } from "./approvals/page";
+import { Modal, type ModalHandle } from "@/components/modal";
+import { DOC_FORMAT_KEYS, docFormatsFrom, fundDoc } from "@/lib/finance-ledger";
+import { approveFundLoan } from "./finance/ledger/fund-loans/actions";
 import { ApproveLoanModal } from "./finance/loans/loan-approve-modal";
 import { baht as formatLoanBaht, LOAN_SELECT, loanPurpose, type Loan } from "./finance/loans/loan-summary";
 import { resetApprovalStatus, resetDeputyDecision, updateApprovalStatus, updateDeputyDecision } from "./approvals/actions";
@@ -281,6 +284,86 @@ function LoanPendingGroup({ title, items, onChanged }: { title: string; items: L
   );
 }
 
+type FundLoanItem = { id: string; doc: string; lender: string; date: string; total: number; lines: { borrower: string; amount: number }[]; term: string };
+
+/** ยืมเงินระหว่างประเภทเงินรอผู้อำนวยการอนุมัติ — กดแถวเปิดป็อปอัปดูรายละเอียด/บันทึกข้อความ แล้วอนุมัติ */
+function FundLoanPendingGroup({ title, items, onChanged }: { title: string; items: FundLoanItem[]; onChanged: () => void }) {
+  return (
+    <div>
+      <GroupHeader title={title} count={items.length} />
+      {items.length === 0 ? (
+        <EmptyRow />
+      ) : (
+        <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">
+          {items.map((l, i) => (
+            <li key={l.id}>
+              <FundLoanApproveModal item={l} onSaved={onChanged} index={i} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function FundLoanApproveModal({ item: l, index, onSaved }: { item: FundLoanItem; index: number; onSaved: () => void }) {
+  const ref = useRef<ModalHandle>(null);
+  const [saving, setSaving] = useState(false);
+  async function approve() {
+    setSaving(true);
+    try {
+      const res = await approveFundLoan(l.id, true);
+      if (res.error) return void (await toastError(res.error));
+      await toastSuccess("อนุมัติแล้ว");
+      ref.current?.close();
+      onSaved();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Modal
+      ref={ref}
+      title={`ยืมเงินระหว่างประเภทเงิน ${l.doc}`}
+      lazy
+      triggerClassName={ROW_TRIGGER_CLASS}
+      trigger={<RowContent index={index} primary={`${l.doc} — ยืมจาก${l.lender}`} secondary={l.lines.map((x) => x.borrower).join(", ")} amount={`${formatBaht(l.total)} บาท`} />}
+    >
+      <div className="space-y-3 text-sm">
+        <p>
+          วันที่ยืม {formatThaiDate(l.date)}
+          {l.term}
+        </p>
+        <p>
+          ยืมจาก <b>{l.lender}</b>
+        </p>
+        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+          {l.lines.map((x, i) => (
+            <li key={i} className="flex justify-between gap-2 px-3 py-2">
+              <span>{x.borrower}</span>
+              <span className="tabular-nums">{formatBaht(x.amount)} บาท</span>
+            </li>
+          ))}
+          <li className="flex justify-between gap-2 px-3 py-2 font-semibold">
+            <span>รวม</span>
+            <span className="tabular-nums">{formatBaht(l.total)} บาท</span>
+          </li>
+        </ul>
+        <div className="flex flex-wrap justify-end gap-2">
+          <a href={`/finance/ledger/fund-loans/${l.id}/pdf`} target="_blank" rel="noreferrer" className="btn-secondary">
+            ดูบันทึกขออนุมัติ (PDF)
+          </a>
+          <button type="button" onClick={approve} disabled={saving} className="btn-primary">
+            {saving ? "กำลังบันทึก…" : "อนุมัติ"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function ApprovalPendingGroup({
   title,
   items,
@@ -352,6 +435,7 @@ export function PendingActionsPanel() {
   const [roundsToAckDeputy, setRoundsToAckDeputy] = useState<AuditRoundItem[]>([]);
   const [roundsToAckDirector, setRoundsToAckDirector] = useState<AuditRoundItem[]>([]);
   const [loansToApprove, setLoansToApprove] = useState<Loan[]>([]);
+  const [fundLoansToApprove, setFundLoansToApprove] = useState<FundLoanItem[]>([]);
 
   // ป้าย "รองผู้อำนวยการ"/"ผู้อำนวยการ" — ใช้ร่วมกันทั้งหมวดเสนอโครงการและบันทึกขออนุมัติ (กลไกเดียวกัน)
   const [canActDeputy, setCanActDeputy] = useState(false);
@@ -391,7 +475,7 @@ export function PendingActionsPanel() {
     setCanAckDeputyAudit(ackDeputy);
     setCanAckDirectorAudit(ackDirector);
 
-    const [{ data: proposals }, { data: approvals }, { data: rounds }, { data: loans }] = await Promise.all([
+    const [{ data: proposals }, { data: approvals }, { data: rounds }, { data: loans }, { data: fundLoans }, { data: moneyTypes }, { data: fmtRows }] = await Promise.all([
       deputy || director
         ? supabase
             .from("plan_project_proposals")
@@ -431,7 +515,36 @@ export function PendingActionsPanel() {
             .is("received_date", null)
             .order("request_date", { ascending: true })
         : Promise.resolve({ data: [] }),
+      // ยืมเงินระหว่างประเภทเงินรอผู้อำนวยการอนุมัติ (ตรงกับสิทธิ์ใน proc_approve_fund_loan)
+      director
+        ? supabase
+            .from("fin_fund_loans")
+            .select("id, doc_seq, fiscal_year, loan_date, lender_type_id, semester, academic_year, fin_fund_loan_lines(borrower_type_id, amount, sort_order)")
+            .is("director_approved_at", null)
+            .order("loan_date", { ascending: true })
+        : Promise.resolve({ data: [] }),
+      director ? supabase.from("fin_money_types").select("id, name") : Promise.resolve({ data: [] }),
+      director ? supabase.from("proc_app_settings").select("key, value").in("key", DOC_FORMAT_KEYS) : Promise.resolve({ data: [] }),
     ]);
+    {
+      const tn = new Map(((moneyTypes ?? []) as { id: string; name: string }[]).map((x) => [x.id, x.name]));
+      const fmt = docFormatsFrom(Object.fromEntries(((fmtRows ?? []) as { key: string; value: string | null }[]).map((r) => [r.key, r.value ?? ""])));
+      type Raw = { id: string; doc_seq: number; fiscal_year: number; loan_date: string; lender_type_id: string; semester: string | null; academic_year: string | null; fin_fund_loan_lines: { borrower_type_id: string; amount: number; sort_order: number }[] };
+      setFundLoansToApprove(
+        ((fundLoans ?? []) as unknown as Raw[]).map((l) => {
+          const lines = [...(l.fin_fund_loan_lines ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((x) => ({ borrower: tn.get(x.borrower_type_id) ?? "", amount: Number(x.amount) }));
+          return {
+            id: l.id,
+            doc: fundDoc(l.doc_seq, l.fiscal_year, fmt),
+            lender: tn.get(l.lender_type_id) ?? "",
+            date: l.loan_date,
+            total: lines.reduce((s, x) => s + x.amount, 0),
+            lines,
+            term: l.semester || l.academic_year ? ` · ภาคเรียนที่ ${l.semester ?? "-"}/${l.academic_year ?? "-"}` : "",
+          };
+        }),
+      );
+    }
     setLoansToApprove((loans ?? []) as unknown as Loan[]);
 
     const proposalRows = (proposals ?? []) as unknown as {
@@ -537,7 +650,8 @@ export function PendingActionsPanel() {
   const approvalTotal = approvalsToDeputy.length + approvalsToDirector.length;
   const auditTotal = roundsToAckDeputy.length + roundsToAckDirector.length;
   const loanTotal = loansToApprove.length;
-  const grandTotal = proposalTotal + approvalTotal + auditTotal + loanTotal;
+  const fundLoanTotal = fundLoansToApprove.length;
+  const grandTotal = proposalTotal + approvalTotal + auditTotal + loanTotal + fundLoanTotal;
 
   // เด้งครั้งแรกหลังเข้าสู่ระบบ (?welcome=1 จาก login action) และครั้งแรกของแต่ละ session เบราว์เซอร์
   // เผื่อผู้ใช้ค้างล็อกอินไว้นานโดยไม่ได้เข้าสู่ระบบใหม่
@@ -614,6 +728,7 @@ export function PendingActionsPanel() {
     (canActDeputy || canActDirector) && approvalTotal > 0,
     (canAckDeputyAudit || canAckDirectorAudit) && auditTotal > 0,
     canActDirector && loanTotal > 0,
+    canActDirector && fundLoanTotal > 0,
   ].filter(Boolean).length;
 
   const popupLines = [
@@ -623,6 +738,7 @@ export function PendingActionsPanel() {
     { count: approvalsToDirector.length, text: "บันทึกขออนุมัติ รออนุมัติ" },
     { count: roundsToAckDeputy.length + roundsToAckDirector.length, text: "ตรวจสอบพัสดุประจำปี รอรับทราบ" },
     { count: loanTotal, text: "สัญญายืมเงิน รออนุมัติ" },
+    { count: fundLoanTotal, text: "ยืมเงินระหว่างประเภทเงิน รออนุมัติ" },
   ].filter((l) => l.count > 0);
 
   return (
@@ -790,6 +906,12 @@ export function PendingActionsPanel() {
         {canActDirector && loanTotal > 0 && (
           <CategoryCard icon={<CoinsIcon className="h-4 w-4" />} title="สัญญาการยืมเงิน" totalCount={loanTotal} menuHref="/finance/loans">
             <LoanPendingGroup title="รออนุมัติ (ผู้อำนวยการ)" items={loansToApprove} onChanged={reload} />
+          </CategoryCard>
+        )}
+
+        {canActDirector && fundLoanTotal > 0 && (
+          <CategoryCard icon={<WalletIcon className="h-4 w-4" />} title="ยืมเงินระหว่างประเภทเงิน" totalCount={fundLoanTotal} menuHref="/finance/ledger/fund-loans">
+            <FundLoanPendingGroup title="รออนุมัติ (ผู้อำนวยการ)" items={fundLoansToApprove} onChanged={reload} />
           </CategoryCard>
         )}
       </div>
