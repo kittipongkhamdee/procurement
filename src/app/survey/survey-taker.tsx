@@ -166,7 +166,7 @@ export function SurveyTaker({ token, onBack }: { token: string; onBack?: () => v
   return (
     <div className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
       {onBack && (
-        <button type="button" onClick={onBack} className="mb-3 text-sm text-slate-500 hover:text-navy-800">
+        <button type="button" onClick={onBack} className="back-link mb-3">
           ← เลือกโครงการอื่น
         </button>
       )}

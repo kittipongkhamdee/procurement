@@ -59,7 +59,7 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
   if (deliveryResult && "existingDocNumber" in deliveryResult) {
     return (
       <div>
-        <Link href="/contracts/delivery" className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+        <Link href="/contracts/delivery" className="back-link mb-3">
           <ChevronLeftIcon className="h-4 w-4" />
           กลับไปส่งมอบตามสัญญา
         </Link>
@@ -120,7 +120,7 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
     <div>
       <Link
         href="/approvals"
-        className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800"
+        className="back-link mb-3"
       >
         <ChevronLeftIcon className="h-4 w-4" />
         กลับไปการบันทึกขออนุมัติ

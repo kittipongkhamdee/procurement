@@ -109,7 +109,7 @@ export default function NewProjectReportPage() {
     <div>
       <Link
         href="/project-reports"
-        className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800"
+        className="back-link mb-3"
       >
         <ChevronLeftIcon className="h-4 w-4" />
         กลับไปรายการรายงานโครงการ

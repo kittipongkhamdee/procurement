@@ -167,7 +167,7 @@ export default function EvaluationResultsPage() {
     <div>
       <Link
         href="/evaluations"
-        className="mb-3 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800 print:hidden"
+        className="back-link mb-3 print:hidden"
       >
         <ChevronLeftIcon className="h-4 w-4" />
         กลับไปรายการแบบประเมิน

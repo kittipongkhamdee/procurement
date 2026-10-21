@@ -99,7 +99,7 @@ export default function EvaluationsPage() {
     <div>
       <div className="page-header">
         <div>
-          <Link href="/reports" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+          <Link href="/reports" className="back-link mb-2">
             <ChevronLeftIcon className="h-4 w-4" />
             รายงานโครงการ
           </Link>

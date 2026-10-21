@@ -188,7 +188,7 @@ export function TxnForm({
           </label>
           <div className="flex flex-wrap gap-2">
             {(["receive", "pay", "transfer"] as TxnKind[]).map((k) => (
-              <label key={k} className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm ${kind === k ? "border-navy-800 bg-navy-50 font-semibold text-navy-900" : "border-slate-200"}`}>
+              <label key={k} className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm ${kind === k ? "border-navy-800 bg-navy-800/[0.06] font-semibold text-navy-900" : "border-slate-200"}`}>
                 <input
                   type="radio"
                   name="kind"

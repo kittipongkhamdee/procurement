@@ -186,6 +186,11 @@ body {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-navy-700 hover:bg-navy-950/[0.03] hover:text-navy-800 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  /* ลิงก์ย้อนกลับเหนือชื่อหน้า (‹ หน้ารวม) — เป็นปุ่มขอบชัด สีกรมท่า แตะง่ายบนมือถือ (เดิมเป็นตัวหนังสือเทาเล็ก มองไม่เห็น) */
+  .back-link {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-navy-800/25 bg-white px-3 py-1.5 text-sm font-semibold text-navy-800 shadow-sm transition hover:border-navy-800 hover:bg-navy-800/[0.06] active:bg-navy-800/[0.12];
+  }
+
   .btn-danger {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50;
   }

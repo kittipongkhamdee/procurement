@@ -189,7 +189,7 @@ function LedgerContent() {
       <div className="page-header">
         <div>
           {tab && (
-            <Link href="/finance/ledger" className="mb-1 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-navy-800">
+            <Link href="/finance/ledger" className="back-link mb-2">
               <ChevronLeftIcon className="h-4 w-4" />
               บัญชีรับ-จ่ายเงิน
             </Link>
