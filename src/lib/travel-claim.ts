@@ -6,6 +6,8 @@ export const PLACE_LABEL: Record<TravelPlace, string> = { home: "บ้านพ
 export type TravelMember = { name: string; position: string; allowance: number; lodging: number; transport: number; other: number; note: string };
 
 export type TravelClaim = {
+  /** สัญญายืมเงินที่ผูกไว้ — ตอนพิมพ์ดึงเลขที่/วันที่ล่าสุดจากสัญญา (กรณีออกเลขภายหลัง) */
+  loan_id?: string | null;
   loan_no: string;
   loan_date: string | null;
   borrower: string;
@@ -73,4 +75,36 @@ export function lodgingNights(depart: string, ret: string): number {
 /** อัตราตามตำแหน่ง — เชี่ยวชาญ/ทรงคุณวุฒิ/ผู้อำนวยการระดับสูงขึ้นไป ใช้อัตราสูง (270 / 1,200) นอกนั้น 240 / 800 */
 export function rateFor(position: string): { allowance: number; lodging: number } {
   return /เชี่ยวชาญ|ทรงคุณวุฒิ|ทักษะพิเศษ|ระดับสูง/.test(position) ? { allowance: 270, lodging: 1200 } : { allowance: 240, lodging: 800 };
+}
+
+/** รายละเอียดการเดินทางที่กรอกในสัญญายืมเงิน (ลักษณะ "เดินทางไปราชการ") — proc_loan_contracts.travel
+ *  ใช้ประมาณการรายการยืม และส่งต่อไปเติมแบบ 8708 (วันกลับใช้คอลัมน์ travel_return_date ของสัญญา) */
+export type LoanTravel = {
+  destination: string;
+  companions: string;
+  depart_from: TravelPlace;
+  depart_date: string | null;
+  depart_time: string;
+  return_to: TravelPlace;
+  return_time: string;
+  overnight: boolean;
+  km: number;
+  people: number;
+};
+export const emptyLoanTravel = (): LoanTravel => ({ destination: "", companions: "", depart_from: "office", depart_date: null, depart_time: "", return_to: "office", return_time: "", overnight: true, km: 0, people: 1 });
+
+/** ประมาณการรายการยืมเงินเดินทางไปราชการ (เบี้ยเลี้ยง / ค่าเช่าที่พักเหมาจ่าย / ค่าพาหนะรถยนต์ส่วนบุคคล) ตามอัตรากระทรวงการคลัง */
+export function travelLoanItems(t: LoanTravel, returnDate: string | null, position: string): { detail: string; amount: number }[] | null {
+  const dur = travelDuration({ depart_date: t.depart_date, depart_time: t.depart_time, return_date: returnDate, return_time: t.return_time });
+  if (!dur) return null;
+  const r = rateFor(position);
+  const n = Math.max(1, t.people || 1);
+  const days = allowanceDays(dur, t.overnight);
+  const nights = t.overnight && t.depart_date && returnDate ? lodgingNights(t.depart_date, returnDate) : 0;
+  const per = n > 1 ? ` x ${n} คน` : "";
+  const items: { detail: string; amount: number }[] = [];
+  if (days) items.push({ detail: `ค่าเบี้ยเลี้ยงเดินทาง ${r.allowance} บาท x ${days} วัน${per}`, amount: r.allowance * days * n });
+  if (nights) items.push({ detail: `ค่าเช่าที่พักเหมาจ่าย ${r.lodging} บาท x ${nights} คืน${per}`, amount: r.lodging * nights * n });
+  if (t.km > 0) items.push({ detail: `ค่าพาหนะรถยนต์ส่วนบุคคล ${t.km} กม. x 4 บาท`, amount: t.km * 4 });
+  return items;
 }

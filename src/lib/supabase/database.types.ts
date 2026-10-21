@@ -202,6 +202,7 @@ export type Database = {
         Row: {
           id: string
           title: string
+          loan_id: string | null
           data: Json
           created_by: string | null
           created_at: string
@@ -210,6 +211,7 @@ export type Database = {
         Insert: {
           id?: string
           title?: string
+          loan_id?: string | null
           data?: Json
           created_by?: string | null
           created_at?: string
@@ -218,6 +220,7 @@ export type Database = {
         Update: {
           id?: string
           title?: string
+          loan_id?: string | null
           data?: Json
           created_by?: string | null
           created_at?: string
@@ -3580,6 +3583,7 @@ export type Database = {
           purpose: string
           loan_type: string
           travel_return_date: string | null
+          travel: Json | null
           items: Json
           amount: number
           due_days: number
@@ -3610,6 +3614,7 @@ export type Database = {
           purpose: string
           loan_type?: string
           travel_return_date?: string | null
+          travel?: Json | null
           items?: Json
           amount?: number
           due_days?: number
@@ -3640,6 +3645,7 @@ export type Database = {
           purpose?: string
           loan_type?: string
           travel_return_date?: string | null
+          travel?: Json | null
           items?: Json
           amount?: number
           due_days?: number

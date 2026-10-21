@@ -10,9 +10,23 @@ import { formatThaiDate } from "@/lib/thai";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
-import { allowanceDays, claimTotal, lodgingNights, rateFor, travelDuration, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
+import { allowanceDays, claimTotal, lodgingNights, rateFor, travelDuration, type LoanTravel, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
 import { saveReceiptForm } from "./form-store";
 import type { FormDefaults } from "./receipt-forms";
+
+const LOAN_COLS = "id, doc_no, borrower_name, borrower_position, amount, received_date, request_date, purpose, travel_return_date, travel";
+type LoanRow = {
+  id: string;
+  doc_no: string | null;
+  borrower_name: string;
+  borrower_position: string | null;
+  amount: number;
+  received_date: string | null;
+  request_date: string;
+  purpose: string | null;
+  travel_return_date: string | null;
+  travel: LoanTravel | null;
+};
 
 const money = (x: number) => x.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const n = (s: string) => Math.round((Number(s) || 0) * 100) / 100;
@@ -70,7 +84,8 @@ function D({ label, value, onChange, min }: { label: string; value: string | nul
   );
 }
 
-export function TravelForm({ id, initial, defaults, onSaved }: { id: string | null; initial: TravelClaim | null; defaults: FormDefaults; onSaved: (id: string) => void }) {
+export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { id: string | null; initial: TravelClaim | null; loanId?: string | null; defaults: FormDefaults; onSaved: (id: string) => void }) {
+  const [linkedLoan, setLinkedLoan] = useState<string | null>(loanId ?? initial?.loan_id ?? null);
   const [f, setF] = useState<Text>(() => initialText(initial, defaults));
   const [dates, setDates] = useState({
     loan_date: initial?.loan_date ?? null,
@@ -104,7 +119,37 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
   // ช่วยกรอก: รายชื่อบุคลากร (ชื่อ → ตำแหน่ง) และสัญญายืมเงินของผู้ใช้
   const { user } = useAuth();
   const [people, setPeople] = useState<{ name: string; position: string }[]>([]);
-  const [loans, setLoans] = useState<{ id: string; doc_no: string | null; borrower_name: string; amount: number; received_date: string | null; request_date: string; purpose: string | null; travel_return_date: string | null }[]>([]);
+  const [loans, setLoans] = useState<LoanRow[]>([]);
+  const positionOf = (name: string) => people.find((p) => p.name === name.trim())?.position;
+
+  function pickLoan(id: string) {
+    const l = loans.find((x) => x.id === id);
+    if (l) applyLoan(l);
+  }
+  /** เติมจากสัญญายืมเงิน: เลขที่/วันที่/ผู้ยืม/จำนวนเงิน + รายละเอียดการเดินทางที่กรอกไว้ในสัญญา (ถ้ามี) — ผูกสัญญาไว้ ตอนพิมพ์ดึงเลขที่ล่าสุดเอง */
+  function applyLoan(l: LoanRow) {
+    const tr = l.travel;
+    setLinkedLoan(l.id);
+    setF((cur) => ({
+      ...cur,
+      loan_no: l.doc_no ?? "",
+      borrower: l.borrower_name,
+      name: cur.name || l.borrower_name,
+      position: cur.position || l.borrower_position || "",
+      purpose: tr?.destination || cur.purpose || l.purpose || "",
+      companions: tr?.companions || cur.companions,
+      depart_time: tr?.depart_time || cur.depart_time,
+      return_time: tr?.return_time || cur.return_time,
+    }));
+    setDates((d) => ({ ...d, loan_date: l.received_date ?? d.loan_date, depart_date: tr?.depart_date ?? d.depart_date, return_date: l.travel_return_date ?? d.return_date }));
+    if (tr?.depart_from) setFrom(tr.depart_from);
+    if (tr?.return_to) setBack(tr.return_to);
+    if (tr) {
+      setOvernight(tr.overnight);
+      if (tr.km) setKm(String(tr.km));
+    }
+    setMoney4((m) => ({ ...m, loan_amount: s(l.amount) }));
+  }
   useEffect(() => {
     const supabase = createClient();
     supabase
@@ -122,23 +167,21 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
     if (user?.userId)
       supabase
         .from("proc_loan_contracts")
-        .select("id, doc_no, borrower_name, amount, received_date, request_date, purpose, travel_return_date")
+        .select(LOAN_COLS)
         .or(`borrower_user_id.eq.${user.userId},created_by.eq.${user.userId}`)
-        .not("doc_no", "is", null)
         .order("request_date", { ascending: false })
         .limit(30)
-        .then(({ data }) => setLoans(((data ?? []) as typeof loans).map((l) => ({ ...l, amount: Number(l.amount) }))));
+        .then(({ data }) => setLoans(((data ?? []) as unknown as LoanRow[]).map((l) => ({ ...l, amount: Number(l.amount) }))));
+    // เปิดจากสัญญายืมเงิน (ฉบับใหม่): เติมข้อมูลจากสัญญานั้น (รวมสัญญาที่ยังไม่ออกเลขที่ / ที่เจ้าหน้าที่บันทึกแทน)
+    if (loanId && !initial)
+      supabase
+        .from("proc_loan_contracts")
+        .select(LOAN_COLS)
+        .eq("id", loanId)
+        .maybeSingle()
+        .then(({ data }) => data && applyLoan({ ...(data as unknown as LoanRow), amount: Number((data as unknown as LoanRow).amount) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId]);
-  const positionOf = (name: string) => people.find((p) => p.name === name.trim())?.position;
-
-  function pickLoan(id: string) {
-    const l = loans.find((x) => x.id === id);
-    if (!l) return;
-    setF({ ...f, loan_no: l.doc_no ?? "", borrower: l.borrower_name, purpose: f.purpose || l.purpose || "" });
-    setDates({ ...dates, loan_date: l.received_date ?? l.request_date, return_date: dates.return_date ?? l.travel_return_date });
-    setMoney4({ ...money4, loan_amount: s(l.amount) });
-  }
 
   /** คำนวณตามอัตรากระทรวงการคลัง (คู่มือ สพฐ. หน้า 5–7, 33): เบี้ยเลี้ยง 240/270 บาท/วัน, ที่พักเหมาจ่าย 800/1,200 บาท/คืน, รถยนต์ส่วนตัว 4 บาท/กม. */
   function calcRates() {
@@ -176,6 +219,7 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
 
   const memberData: TravelMember[] = members.map((m) => ({ name: m.name, position: m.position, allowance: n(m.allowance), lodging: n(m.lodging), transport: n(m.transport), other: n(m.other), note: m.note }));
   const data: TravelClaim = {
+    loan_id: linkedLoan,
     ...f,
     ...dates,
     depart_from: from,
@@ -201,7 +245,7 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
     setSaving(true);
     try {
       const title = [f.name, f.purpose].filter(Boolean).join(" — ");
-      const res = await saveReceiptForm(id, "travel", title, data);
+      const res = await saveReceiptForm(id, "travel", title, data, { loan_id: linkedLoan });
       if (res.error) return void (await toastError(res.error));
       await toastSuccess("บันทึกแล้ว");
       onSaved(res.id!);
@@ -230,11 +274,11 @@ export function TravelForm({ id, initial, defaults, onSaved }: { id: string | nu
         {loans.length > 0 && (
           <div className="mb-3">
             <label className="label">ดึงจากสัญญายืมเงินของฉัน</label>
-            <select defaultValue="" onChange={(e) => pickLoan(e.target.value)} className="input w-full">
+            <select value={linkedLoan ?? ""} onChange={(e) => (e.target.value ? pickLoan(e.target.value) : setLinkedLoan(null))} className="input w-full">
               <option value="">— เลือกสัญญายืมเงิน —</option>
               {loans.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {`${l.doc_no} · ${money(l.amount)} บาท · ${formatThaiDate(l.received_date ?? l.request_date)}${l.purpose ? ` · ${l.purpose.slice(0, 40)}` : ""}`}
+                  {`${l.doc_no ?? "รอการเงินออกเลขที่"} · ${money(l.amount)} บาท · ${formatThaiDate(l.request_date)}${l.purpose ? ` · ${l.purpose.slice(0, 40)}` : ""}`}
                 </option>
               ))}
             </select>

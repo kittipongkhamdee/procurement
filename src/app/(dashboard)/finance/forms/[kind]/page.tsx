@@ -24,7 +24,7 @@ const TITLES = {
 } as const;
 const SUBTITLE = { speaker: "เอกสารแนบ ๑", student: "เอกสารแนบ ๒", travel: "ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ (ส่วนที่ 1) + หลักฐานการจ่ายเงิน (ส่วนที่ 2)" } as const;
 type Kind = keyof typeof TITLES;
-type Saved = { id: string; title: string; data: SpeakerReceipt | StudentReceipt | TravelClaim; created_by: string | null; updated_at: string };
+type Saved = { id: string; title: string; data: SpeakerReceipt | StudentReceipt | TravelClaim; created_by: string | null; updated_at: string; loan_id?: string | null };
 
 export default function ReceiptKindPage() {
   const kind = useParams<{ kind: string }>().kind as Kind;
@@ -36,13 +36,16 @@ export default function ReceiptKindPage() {
   // null = ไม่เปิดฟอร์ม, "new" = สร้างใหม่, อื่นๆ = id ที่แก้
   const [editing, setEditing] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
+  // เปิดจากสัญญายืมเงิน (?loan=<id>): มีแบบ 8708 ที่ผูกสัญญานี้แล้ว → เปิดแก้ฉบับนั้น, ยังไม่มี → สร้างใหม่ผูกสัญญา
+  const [linkLoan, setLinkLoan] = useState<string | null>(null);
+  const [loanHandled, setLoanHandled] = useState(false);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
     // รายงานการเดินทางไปราชการเก็บแยกตาราง fin_travel_forms (สิทธิ์แบบเดียวกัน)
     const { data } =
       kind === "travel"
-        ? await supabase.from("fin_travel_forms").select("id, title, data, created_by, updated_at").order("updated_at", { ascending: false })
+        ? await supabase.from("fin_travel_forms").select("id, title, data, created_by, updated_at, loan_id").order("updated_at", { ascending: false })
         : await supabase.from("fin_receipt_forms").select("id, title, data, created_by, updated_at").eq("kind", kind).order("updated_at", { ascending: false });
     const rows = (data ?? []) as unknown as Saved[];
     setList(rows);
@@ -67,12 +70,25 @@ export default function ReceiptKindPage() {
     });
   }, [reload]);
 
+  useEffect(() => {
+    if (list === null || loanHandled || kind !== "travel") return;
+    const loan = new URLSearchParams(window.location.search).get("loan");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoanHandled(true);
+    if (!loan) return;
+    const hit = list.find((r) => r.loan_id === loan);
+    setLinkLoan(hit ? null : loan);
+    setEditing(hit ? hit.id : "new");
+    setFormKey((k) => k + 1);
+  }, [list, loanHandled, kind]);
+
   if (!(kind in TITLES)) notFound();
   if (list === null) return <PageLoadingSkeleton />;
   const current = editing && editing !== "new" ? list.find((x) => x.id === editing) ?? null : null;
   const canEdit = (r: Saved) => canAll || (!!user && r.created_by === user.userId);
 
   function open(id: string) {
+    setLinkLoan(null);
     setEditing(id);
     setFormKey((k) => k + 1);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -124,7 +140,7 @@ export default function ReceiptKindPage() {
           </div>
           {current && !canEdit(current) && <p className="mb-2 text-sm text-amber-700">ฉบับนี้เป็นของผู้อื่น — พิมพ์ได้ แต่บันทึกการแก้ไขไม่ได้</p>}
           {kind === "travel" ? (
-            <TravelForm key={`${formKey}-${defaults.school}`} initial={(current?.data as TravelClaim) ?? null} {...formProps} />
+            <TravelForm key={`${formKey}-${defaults.school}`} initial={(current?.data as TravelClaim) ?? null} loanId={current ? current.loan_id ?? null : linkLoan} {...formProps} />
           ) : kind === "speaker" ? (
             <SpeakerForm key={`${formKey}-${defaults.school}`} initial={(current?.data as SpeakerReceipt) ?? null} {...formProps} />
           ) : (

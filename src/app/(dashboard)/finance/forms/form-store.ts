@@ -9,22 +9,26 @@ export type FormKind = "speaker" | "student" | "travel";
 type Result = { error?: string; id?: string };
 const NO_RIGHT = "ไม่มีสิทธิ์ — แก้ไข/ลบได้เฉพาะผู้สร้าง หรือเจ้าหน้าที่การเงิน";
 
-export async function saveReceiptForm(id: string | null, kind: FormKind, title: string, data: unknown): Promise<Result> {
+export async function saveReceiptForm(id: string | null, kind: FormKind, title: string, data: unknown, extra: { loan_id?: string | null } = {}): Promise<Result> {
   const supabase = createClient();
-  const fields = { title: title.trim().slice(0, 300), data: data as Json, updated_at: new Date().toISOString() };
-  if (id) {
-    const q = kind === "travel" ? supabase.from("fin_travel_forms").update(fields) : supabase.from("fin_receipt_forms").update(fields);
-    const { data: rows, error } = await q.eq("id", id).select("id");
-    if (error) return { error: error.message };
-    if (!rows?.length) return { error: NO_RIGHT };
-    return { id };
+  const base = { title: title.trim().slice(0, 300), data: data as Json, updated_at: new Date().toISOString() };
+  if (kind === "travel") {
+    const fields = { ...base, loan_id: extra.loan_id ?? null };
+    const { data: rows, error } = id
+      ? await supabase.from("fin_travel_forms").update(fields).eq("id", id).select("id")
+      : await supabase.from("fin_travel_forms").insert(fields).select("id");
+    return result(id, rows, error);
   }
-  const { data: row, error } =
-    kind === "travel"
-      ? await supabase.from("fin_travel_forms").insert(fields).select("id").single()
-      : await supabase.from("fin_receipt_forms").insert({ ...fields, kind }).select("id").single();
-  if (error) return { error: error.message.includes("row-level") ? "บันทึกไม่ได้ — กรุณาเข้าสู่ระบบใหม่" : error.message };
-  return { id: row.id };
+  const { data: rows, error } = id
+    ? await supabase.from("fin_receipt_forms").update(base).eq("id", id).select("id")
+    : await supabase.from("fin_receipt_forms").insert({ ...base, kind }).select("id");
+  return result(id, rows, error);
+}
+
+function result(id: string | null, rows: { id: string }[] | null, error: { message: string } | null): Result {
+  if (error) return { error: error.message.includes("row-level") ? (id ? NO_RIGHT : "บันทึกไม่ได้ — กรุณาเข้าสู่ระบบใหม่") : error.message };
+  if (!rows?.length) return { error: NO_RIGHT };
+  return { id: rows[0].id };
 }
 
 export async function deleteReceiptForm(id: string, kind: FormKind): Promise<Result> {

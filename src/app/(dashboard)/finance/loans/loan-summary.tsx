@@ -1,4 +1,5 @@
 "use client";
+import type { LoanTravel } from "@/lib/travel-claim";
 
 // ข้อมูลสัญญายืมเงินที่ใช้ร่วมกัน: หน้า /finance/loans และแผงรอพิจารณาของผู้อำนวยการในหน้าแดชบอร์ด
 
@@ -19,6 +20,7 @@ export type Loan = {
   plan_activities: { name: string } | null;
   loan_type: string;
   travel_return_date: string | null;
+  travel?: LoanTravel | null;
   items: LoanItem[];
   amount: number;
   due_days: number;

@@ -3,6 +3,7 @@
 // สัญญาการยืมเงิน — ทะเบียนคุมสัญญายืมเงิน + บันทึกการส่งใช้ ตามระเบียบกระทรวงการคลังฯ พ.ศ. 2562 หมวด 5
 // (กำหนดส่งใช้/ข้อห้ามยืมรายใหม่ อยู่ใน src/lib/loan.ts) — งานซื้อ/จ้างที่ชำระด้วยเงินยืมอ้างเลขที่สัญญาจากที่นี่
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
@@ -15,6 +16,8 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
 import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber, suggestReceiptNo, updateReceiptNo } from "./actions";
 import { TEACHER_POSITIONS } from "@/lib/teacher-positions";
+import { useRouter } from "next/navigation";
+import { claimTotal, emptyLoanTravel, PLACE_LABEL, type TravelClaim, travelDuration, travelLoanItems, type LoanTravel, type TravelPlace } from "@/lib/travel-claim";
 import { LoanDashboard } from "./loan-dashboard";
 import { ApproveLoanModal, CancelLoanApprovalButton } from "./loan-approve-modal";
 import { baht, LOAN_SELECT, loanPurpose, LoanSummary, type Loan } from "./loan-summary";
@@ -58,18 +61,43 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
   );
   const [saving, setSaving] = useState(false);
   const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+  // เดินทางไปราชการ: รายละเอียดการเดินทาง → ประมาณการรายการยืม และส่งต่อไปแบบ 8708
+  const router = useRouter();
+  const [travel, setTravel] = useState<LoanTravel>(() => ({ ...emptyLoanTravel(), ...(loan?.travel ?? {}) }));
+  const [returnDate, setReturnDate] = useState<string | null>(loan?.travel_return_date ?? null);
+  const setT = <K extends keyof LoanTravel>(k: K, v: LoanTravel[K]) => setTravel((t) => ({ ...t, [k]: v }));
+  const travelDur = travelDuration({ depart_date: travel.depart_date, depart_time: travel.depart_time, return_date: returnDate, return_time: travel.return_time });
+  function calcTravelItems() {
+    const list = travelLoanItems(travel, returnDate, position);
+    if (!list) return void toastError("กรอกวันเวลาออกเดินทางและวันเวลากลับถึงก่อน");
+    if (!list.length) return void toastError("ระยะเวลาไม่ถึงเกณฑ์เบิกเบี้ยเลี้ยง และไม่มีค่าที่พัก/ค่าพาหนะ");
+    setItems(list.map((i) => ({ detail: i.detail, amount: String(i.amount) })));
+  }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     fd.set("items_json", JSON.stringify(items));
+    if (loanType === "travel") fd.set("travel_json", JSON.stringify(travel));
     setSaving(true);
     try {
       const res = await saveLoan(loan?.id ?? null, fd);
       if (res.error) return void (await toastError(res.error));
-      await toastSuccess(loan ? "บันทึกแล้ว" : `บันทึกสัญญาแล้ว${res.docNo ? ` เลขที่ ${res.docNo}` : ""}`);
       ref.current?.close();
       onSaved();
+      if (loanType === "travel" && res.id) {
+        // ถามต่อ: ทำรายงานการเดินทางไปราชการ (แบบ 8708) จากสัญญานี้เลยหรือไม่ — กรอกรายละเอียดไว้แล้ว
+        const go = await confirmChoice({
+          title: loan ? "บันทึกแล้ว" : `บันทึกสัญญาแล้ว${res.docNo ? ` เลขที่ ${res.docNo}` : ""}`,
+          text: "สร้าง/เปิดรายงานการเดินทางไปราชการ (แบบ 8708) จากสัญญานี้เลยหรือไม่ — ระบบเติมข้อมูลการเดินทางให้ บันทึกเป็นฉบับร่าง แล้วแก้ตามจริงหลังกลับได้",
+          icon: "question",
+          confirmButtonText: "ทำแบบ 8708",
+          cancelButtonText: "ไว้ทีหลัง",
+        });
+        if (go) router.push(`/finance/forms/travel?loan=${res.id}`);
+        return;
+      }
+      await toastSuccess(loan ? "บันทึกแล้ว" : `บันทึกสัญญาแล้ว${res.docNo ? ` เลขที่ ${res.docNo}` : ""}`);
     } catch (err) {
       await toastError(errorMessage(err));
     } finally {
@@ -277,10 +305,74 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           </div>
         )}
         {loanType === "travel" && (
-          <div>
-            <label className="label">วันที่กลับมาถึง (เดินทางไปราชการ)</label>
-            <ThaiDatePicker name="travel_return_date" defaultValue={loan?.travel_return_date ?? null} />
-          </div>
+          <fieldset className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 sm:col-span-2">
+            <legend className="px-1 text-sm font-semibold text-navy-800">รายละเอียดการเดินทาง (ใช้ประมาณการรายการยืม และส่งต่อไปแบบ 8708)</legend>
+            <input type="hidden" name="travel_return_date" value={returnDate ?? ""} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="label">เดินทางไปปฏิบัติราชการ (เรื่อง/สถานที่)</label>
+                <input value={travel.destination} onChange={(e) => setT("destination", e.target.value)} placeholder="เช่น เข้ารับการอบรม... ณ โรงแรม... จังหวัด..." className="input w-full" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label">ผู้ร่วมเดินทาง (ถ้ามี)</label>
+                <input value={travel.companions} onChange={(e) => setT("companions", e.target.value)} className="input w-full" />
+              </div>
+              {(["depart", "return"] as const).map((k) => (
+                <div key={k} className="space-y-2">
+                  <label className="label">{k === "depart" ? "ออกเดินทางจาก" : "กลับถึง"}</label>
+                  <select
+                    value={k === "depart" ? travel.depart_from : travel.return_to}
+                    onChange={(e) => setT(k === "depart" ? "depart_from" : "return_to", e.target.value as TravelPlace)}
+                    className="input w-full"
+                  >
+                    {(Object.keys(PLACE_LABEL) as TravelPlace[]).map((p) => (
+                      <option key={p} value={p}>
+                        {PLACE_LABEL[p]}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    {k === "depart" ? (
+                      <ThaiDatePicker value={travel.depart_date} onChange={(d) => setT("depart_date", d)} />
+                    ) : (
+                      <ThaiDatePicker value={returnDate} onChange={setReturnDate} minDate={travel.depart_date ?? undefined} />
+                    )}
+                    <input
+                      value={k === "depart" ? travel.depart_time : travel.return_time}
+                      onChange={(e) => setT(k === "depart" ? "depart_time" : "return_time", e.target.value)}
+                      placeholder="เวลา เช่น 06.00"
+                      className="input w-full"
+                    />
+                  </div>
+                </div>
+              ))}
+              <div>
+                <label className="label">จำนวนผู้เดินทาง (คน)</label>
+                <input type="number" min="1" value={travel.people} onChange={(e) => setT("people", Math.max(1, Number(e.target.value) || 1))} className="input w-full" />
+              </div>
+              <div>
+                <label className="label">ระยะทางรถยนต์ส่วนบุคคล (กม. ไป-กลับ)</label>
+                <input type="number" min="0" value={travel.km || ""} onChange={(e) => setT("km", Number(e.target.value) || 0)} className="input w-full" />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={travel.overnight} onChange={(e) => setT("overnight", e.target.checked)} />
+                พักแรม (เบิกค่าเช่าที่พักเหมาจ่าย)
+              </label>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {travelDur && (
+                  <span className="text-sm text-slate-600">
+                    รวม {travelDur.days} วัน {travelDur.hours} ชม.
+                  </span>
+                )}
+                <button type="button" onClick={calcTravelItems} className="btn-secondary btn-sm">
+                  คำนวณรายการยืม
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 sm:col-span-2">
+                อัตรากระทรวงการคลัง: เบี้ยเลี้ยง 240/270 บาท/วัน · ค่าเช่าที่พักเหมาจ่าย 800/1,200 บาท/คืน (ตามระดับตำแหน่ง) · รถยนต์ส่วนบุคคล 4 บาท/กม. — คำนวณแล้วแทนที่ช่อง &quot;รายละเอียด&quot; ด้านบน แก้ได้
+              </p>
+            </div>
+          </fieldset>
         )}
         {isProcStaff && (
           <>
@@ -331,6 +423,22 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
   const reps = [...loan.proc_loan_repayments].sort((a, b) => a.repay_date.localeCompare(b.repay_date));
   // วันที่ส่งใช้ ≥ วันรับเงิน และ ≥ การส่งใช้ครั้งล่าสุด
   const repayMin = maxIso(loan.received_date ?? loan.request_date, reps[reps.length - 1]?.repay_date ?? "");
+  // เดินทางไปราชการ: ยอดเบิกจริงตามแบบ 8708 ที่ผูกสัญญานี้ — ใช้เทียบ/เติมยอดใบสำคัญ ส่วนที่เหลือคืนเป็นเงินสด
+  const [claim, setClaim] = useState<{ id: string; total: number } | null>(null);
+  useEffect(() => {
+    if (parseLoanType(loan.loan_type) !== "travel") return;
+    createClient()
+      .from("fin_travel_forms")
+      .select("id, data, updated_at")
+      .eq("loan_id", loan.id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        const row = data?.[0];
+        if (row) setClaim({ id: row.id, total: claimTotal(row.data as unknown as TravelClaim) });
+      });
+  }, [loan.id, loan.loan_type]);
+  const claimVoucher = claim ? Math.min(claim.total, outstanding) : null;
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -451,6 +559,16 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
           พิมพ์สรุปรายการส่งใช้ (ตรวจทาน/แนบเรื่อง)
         </a>
       )}
+      {claim && (
+        <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          ตามแบบ 8708 เบิกจริง <b>{baht(claim.total)}</b> บาท / ยืม <b>{baht(loan.amount)}</b> บาท
+          {claim.total < loan.amount ? <> → คืนเงินสด <b>{baht(loan.amount - claim.total)}</b> บาท</> : claim.total > loan.amount ? <> → เบิกเพิ่ม <b>{baht(claim.total - loan.amount)}</b> บาท (ส่งใช้ด้วยใบสำคัญเต็มยอดที่ยืม)</> : null}
+          {" · "}
+          <Link href={`/finance/forms/travel?loan=${loan.id}`} className="font-semibold underline">
+            เปิดแบบ 8708
+          </Link>
+        </div>
+      )}
       {canEdit && outstanding > 0 && (
         <form key={formKey} onSubmit={submit} className="grid grid-cols-1 gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2">
           <div>
@@ -466,7 +584,7 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
           </div>
           <div>
             <label className="label">ใบสำคัญคู่จ่าย (บาท)</label>
-            <input name="voucher_amount" type="number" min="0" step="0.01" defaultValue={outstanding} className="input w-full text-right" />
+            <input name="voucher_amount" type="number" min="0" step="0.01" defaultValue={claimVoucher ?? outstanding} key={`v${claimVoucher}`} className="input w-full text-right" />
             <p className="mt-1 text-xs text-slate-500">ยอดรวมใบเสร็จรับเงิน/ใบสำคัญรับเงิน/บิลเงินสด ที่ผู้ยืมนำมาส่งครั้งนี้</p>
           </div>
           <div>
@@ -476,7 +594,7 @@ function RepayModal({ loan, canEdit, canPrint, onSaved }: { loan: Loan; canEdit:
           </div>
           <div>
             <label className="label">เงินสดเหลือจ่ายคืน (บาท)</label>
-            <input name="cash_amount" type="number" min="0" step="0.01" defaultValue="" className="input w-full text-right" />
+            <input name="cash_amount" type="number" min="0" step="0.01" defaultValue={claimVoucher !== null && outstanding - claimVoucher > 0 ? Math.round((outstanding - claimVoucher) * 100) / 100 : ""} key={`c${claimVoucher}`} className="input w-full text-right" />
             <p className="mt-1 text-xs text-slate-500">เงินยืมที่ใช้ไม่หมด ผู้ยืมนำมาคืนเป็นเงินสด (ใบสำคัญ + เงินสดคืน = ยอดที่ตัดจากคงค้าง)</p>
           </div>
           <div>
@@ -757,6 +875,12 @@ export default function LoansPage() {
         )}
         {/* ส่งใช้ได้หลังการเงินบันทึกจ่ายเงินแล้วเท่านั้น (ยังไม่จ่าย = ยังไม่มีหนี้ต้องส่งใช้) */}
         {r.received_date && <RepayModal loan={r} canEdit={isProcStaff} canPrint={canPrint(r)} onSaved={reload} />}
+        {parseLoanType(r.loan_type) === "travel" && canPrint(r) && (
+          <Link href={`/finance/forms/travel?loan=${r.id}`} title="รายงานการเดินทางไปราชการ (แบบ 8708)" className="btn-secondary btn-sm">
+            <FileTextIcon className="h-3.5 w-3.5" />
+            <span className="btn-label">แบบ 8708</span>
+          </Link>
+        )}
         {canEditLoan(r) && <LoanForm loan={r} lookups={lookups} onSaved={reload} />}
         {canApprove && r.director_approved_at && !r.received_date && <CancelLoanApprovalButton loan={r} onSaved={reload} />}
         {canDeleteLoan(r) && (

@@ -3,6 +3,7 @@
 // สัญญาการยืมเงิน (/finance/loans) — บันทึกสัญญา/การส่งใช้ ตามระเบียบกระทรวงการคลังฯ พ.ศ. 2562 หมวด 5 (ดู src/lib/loan.ts)
 // คืน { error } แทนการ throw — production ของ Next ซ่อนข้อความ error ที่ throw จาก server action
 
+import type { Json } from "@/lib/supabase/database.types";
 import { docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -66,6 +67,14 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
   const dueDays = LOAN_DUE_DAYS[loanType];
   const receivedDate = me.staff ? str("received_date") || null : null;
   const travelReturnDate = loanType === "travel" ? str("travel_return_date") || null : null;
+  let travel: Json | null = null;
+  if (loanType === "travel" && str("travel_json")) {
+    try {
+      travel = JSON.parse(str("travel_json")) as Json;
+    } catch {
+      return { error: "รายละเอียดการเดินทางไม่ถูกต้อง" };
+    }
+  }
   if (receivedDate && receivedDate < requestDate) return { error: "วันที่ได้รับเงินต้องไม่ก่อนวันที่ยื่นสัญญา" };
   if (receivedDate && receivedDate > todayTh()) return { error: "วันที่ได้รับเงินลงล่วงหน้าไม่ได้" };
   const fields = {
@@ -78,6 +87,7 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
     activity_id: projectId ? str("activity_id") || null : null,
     loan_type: loanType,
     travel_return_date: travelReturnDate,
+    ...(loanType === "travel" ? { travel } : { travel: null }),
     items,
     amount,
     due_days: dueDays,
