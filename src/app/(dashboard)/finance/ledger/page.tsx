@@ -327,6 +327,7 @@ function LedgerContent() {
                     </div>
                     {canWrite && (
                       <div className="mt-2 flex justify-end gap-1">
+                        <TxnForm copyFrom={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
                         <TxnForm txn={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
                         <button type="button" onClick={() => remove(t)} title="ลบ" className="btn-danger btn-sm">
                           <TrashIcon className="h-3.5 w-3.5" />
@@ -376,6 +377,7 @@ function LedgerContent() {
                         {canWrite && (
                           <td className="whitespace-nowrap text-right">
                             <div className="flex justify-end gap-1">
+                              <TxnForm copyFrom={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
                               <TxnForm txn={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
                               <button type="button" onClick={() => remove(t)} title="ลบ" className="btn-danger btn-sm">
                                 <TrashIcon className="h-3.5 w-3.5" />

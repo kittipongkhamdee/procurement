@@ -125,6 +125,13 @@ export const ChevronRightIcon = base(<path strokeLinecap="round" strokeLinejoin=
 
 export const PlusIcon = base(<path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />);
 
+export const CopyIcon = base(
+  <>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15V6a2 2 0 0 1 2-2h9" />
+  </>,
+);
+
 export const CheckIcon = base(<path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />);
 
 export const LightbulbIcon = base(
