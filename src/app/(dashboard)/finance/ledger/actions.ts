@@ -105,6 +105,10 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
     const { table, fields } = SOURCE_DATE_FIELDS[sourceKind];
     const { data: row } = await supabase.from(table).select(fields.join(", ")).eq("id", str("source_id")).maybeSingle();
     if (!row) return { error: "ไม่พบงานต้นทาง" };
+    if (sourceKind === "purchase") {
+      const { data: pr } = await supabase.from("proc_purchase_requests").select("inspected_date").eq("id", str("source_id")).maybeSingle();
+      if (!pr?.inspected_date) return { error: "งานซื้อ/จ้างนี้ยังไม่ได้ตรวจรับ — จ่ายเงินได้หลังตรวจรับพัสดุแล้ว (บันทึกวันที่ตรวจรับที่เมนูงานซื้อ/งานจ้างก่อน)" };
+    }
     const done = sourceDoneDate(sourceKind, row as unknown as Record<string, unknown>);
     if (done && date < done) return { error: `วันที่ต้องไม่ก่อนวันที่${SOURCE_LABEL[sourceKind]}เสร็จสิ้น (${done.split("-").reverse().join("/")})` };
     if (date > new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" })) return { error: "วันที่จ่าย/รับจริงลงล่วงหน้าไม่ได้" };

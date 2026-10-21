@@ -12,7 +12,7 @@ import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, confirmWarning, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { ChevronLeftIcon, ClipboardCheckIcon, CoinsIcon, FileTextIcon, FolderIcon, PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, ClipboardCheckIcon, CoinsIcon, PlusIcon, FileTextIcon, FolderIcon, PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
 import { HubCardGrid, type HubCard } from "@/components/hub-cards";
 import {
   balancesByType,
@@ -701,7 +701,10 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-slate-500">งานที่เสร็จแล้วในระบบแต่ยังไม่ได้ลงบัญชีรับ-จ่าย — กด &quot;บันทึก&quot; ระบบเติมรายการ ยอดเงิน ผู้รับ โครงการ และชนิดเอกสารให้ ตรวจแล้วกดบันทึก (บันทึกแล้วจะหายจากรายการนี้)</p>
+        <p className="text-sm text-slate-500">
+          งานที่เสร็จแล้วในระบบแต่ยังไม่ได้ลงบัญชีรับ-จ่าย — กด &quot;บันทึก&quot; ระบบเติมรายการ ยอดเงิน ผู้รับ โครงการ และชนิดเอกสารให้ ตรวจแล้วกดบันทึก (บันทึกแล้วจะหายจากรายการนี้) · งานซื้อ/จ้างที่
+          &quot;ยังไม่ตรวจรับ&quot; บันทึกไม่ได้จนกว่าจะบันทึกวันที่ตรวจรับที่เมนูงานซื้อ/งานจ้าง
+        </p>
         {skippedCount > 0 && (
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={showSkipped} onChange={(e) => setShowSkipped(e.target.checked)} />
@@ -757,6 +760,12 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
                             </button>
                           ) : (
                             <>
+                              {it.warn ? (
+                                <span title={`${it.warn} — บันทึกได้หลังตรวจรับพัสดุแล้ว`} className="btn-primary btn-sm cursor-not-allowed opacity-40">
+                                  <PlusIcon className="h-3.5 w-3.5" />
+                                  บันทึก
+                                </span>
+                              ) : (
                               <TxnForm
                                 source={{ kind: it.kind, id: it.id, ref: it.ref, minDate: it.doneDate }}
                                 copyFrom={{
@@ -778,6 +787,7 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
                                 suggest={suggest}
                                 onSaved={onChanged}
                               />
+                              )}
                               <button type="button" onClick={() => skip(it)} title="ไม่ต้องบันทึก" className="btn-secondary btn-sm">
                                 ไม่ต้องบันทึก
                               </button>
