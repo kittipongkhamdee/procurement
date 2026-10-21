@@ -169,10 +169,13 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
   const typeLabel = type.name;
   return (
     <Page size="A4" orientation="landscape" style={styles.page}>
-      <Text style={styles.title}>{t("ทะเบียนคุมเงินนอกงบประมาณ")}</Text>
-      <Text style={[styles.center, styles.bold]}>{t(`ประจำปีงบประมาณ ${fy}`)}</Text>
-      <Text style={[styles.center, styles.bold]}>{t(`ประเภท ${typeLabel}`)}</Text>
-      <Text style={[styles.center, styles.bold]}>{t(`${schoolName}   ประจำเดือน ${thaiMonthLabel(page.month)}`)}</Text>
+      {/* หัวกระดาษซ้ำทุกหน้า (ผู้ใช้ขอ ต.ค. 2569) */}
+      <View fixed>
+        <Text style={styles.title}>{t("ทะเบียนคุมเงินนอกงบประมาณ")}</Text>
+        <Text style={[styles.center, styles.bold]}>{t(`ประจำปีงบประมาณ ${fy}`)}</Text>
+        <Text style={[styles.center, styles.bold]}>{t(`ประเภท ${typeLabel}`)}</Text>
+        <Text style={[styles.center, styles.bold]}>{t(`${schoolName}   ประจำเดือน ${thaiMonthLabel(page.month)}`)}</Text>
+      </View>
       <View style={styles.table}>
         <View style={{ flexDirection: "row" }} fixed>
           {head(RW.date, "วัน เดือน ปี")}
