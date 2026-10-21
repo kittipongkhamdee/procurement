@@ -105,6 +105,12 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
     const { table, fields } = SOURCE_DATE_FIELDS[sourceKind];
     const { data: row } = await supabase.from(table).select(fields.join(", ")).eq("id", str("source_id")).maybeSingle();
     if (!row) return { error: "ไม่พบงานต้นทาง" };
+    if (sourceKind === "purchase" || sourceKind === "w119" || sourceKind === "urgent" || sourceKind === "claim") {
+      const t = SOURCE_DATE_FIELDS[sourceKind].table as "proc_purchase_requests" | "proc_w119_reports" | "proc_urgent_reports" | "proc_expense_claims";
+      const { data: ap } = await supabase.from(t).select("approval_id, proc_approvals(status)").eq("id", str("source_id")).maybeSingle();
+      const st = (ap?.proc_approvals as unknown as { status: string } | null)?.status;
+      if (ap?.approval_id && st !== "อนุมัติ") return { error: "บันทึกขออนุมัติที่งานนี้อ้างอิงยังไม่ได้รับอนุมัติ — จ่ายเงินได้หลัง ผอ. อนุมัติ" };
+    }
     if (sourceKind === "purchase") {
       const { data: pr } = await supabase.from("proc_purchase_requests").select("inspected_date").eq("id", str("source_id")).maybeSingle();
       if (!pr?.inspected_date) return { error: "งานซื้อ/จ้างนี้ยังไม่ได้ตรวจรับ — จ่ายเงินได้หลังตรวจรับพัสดุแล้ว (บันทึกวันที่ตรวจรับที่เมนูงานซื้อ/งานจ้างก่อน)" };

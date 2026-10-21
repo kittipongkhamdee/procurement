@@ -703,7 +703,7 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-slate-500">
           งานที่เสร็จแล้วในระบบแต่ยังไม่ได้ลงบัญชีรับ-จ่าย — กด &quot;บันทึก&quot; ระบบเติมรายการ ยอดเงิน ผู้รับ โครงการ และชนิดเอกสารให้ ตรวจแล้วกดบันทึก (บันทึกแล้วจะหายจากรายการนี้) · งานซื้อ/จ้างที่
-          &quot;ยังไม่ตรวจรับ&quot; บันทึกไม่ได้จนกว่าจะบันทึกวันที่ตรวจรับที่เมนูงานซื้อ/งานจ้าง
+          รายการที่มีป้ายสีส้มยังบันทึกไม่ได้: ยังไม่ตรวจรับ · บันทึกขออนุมัติยังไม่อนุมัติ · ยังไม่ถึงวันที่งานเสร็จ · ยอดเงินเป็น 0
         </p>
         {skippedCount > 0 && (
           <label className="flex items-center gap-2 text-sm text-slate-600">
@@ -741,19 +741,17 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
                           {it.ref}
                         </Link>
                       </td>
-                      <td>
-                        <div className="text-slate-900">
-                          {it.description}
-                          {it.warn && <span className="badge-amber ml-2 !text-sm">{it.warn}</span>}
-                        </div>
+                      <td className="min-w-[14rem] whitespace-normal">
+                        <div className="text-slate-900">{it.description}</div>
                         {it.payee && <div className="text-slate-500">{it.payee}</div>}
+                        {it.warn && <span className="badge-amber mt-1 inline-block !text-sm">{it.warn}</span>}
                       </td>
                       <td className={`whitespace-nowrap text-right tabular-nums ${it.txnKind === "receive" ? "text-emerald-700" : "text-red-600"}`}>
                         {it.txnKind === "receive" ? "+" : "-"}
                         {baht(it.amount)}
                       </td>
-                      <td className="whitespace-nowrap text-right">
-                        <div className="flex justify-end gap-1">
+                      <td className="text-right">
+                        <div className="flex flex-wrap justify-end gap-1">
                           {it.skipped ? (
                             <button type="button" onClick={() => restore(it)} className="btn-secondary btn-sm">
                               กู้คืน
@@ -761,7 +759,7 @@ function PendingTab({ items, types, projects, suggest, onChanged }: { items: Pen
                           ) : (
                             <>
                               {it.warn ? (
-                                <span title={`${it.warn} — บันทึกได้หลังตรวจรับพัสดุแล้ว`} className="btn-primary btn-sm cursor-not-allowed opacity-40">
+                                <span title={`ยังบันทึกไม่ได้ — ${it.warn}`} className="btn-primary btn-sm cursor-not-allowed opacity-40">
                                   <PlusIcon className="h-3.5 w-3.5" />
                                   บันทึก
                                 </span>

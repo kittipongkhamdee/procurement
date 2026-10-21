@@ -32,6 +32,8 @@ export type PendingItem = {
   doneDate: string;
   /** คำเตือนสั้นๆ เช่น "ยังไม่ตรวจรับ" — มีค่านี้ = ยังบันทึกไม่ได้ */
   warn?: string;
+  /** สถานะบันทึกขออนุมัติที่งานนี้อ้างอิง (ไม่ได้ผูก = undefined) */
+  approvalStatus?: string;
 };
 
 /** เดาประเภทเงินจากชื่อแหล่งเงินของงานต้นทาง — ตรง/อยู่ในชื่อกันได้ประเภทเดียวเท่านั้นจึงเลือกให้ */
@@ -57,12 +59,12 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     supabase.from("fin_source_skips").select("source_kind, source_id"),
     supabase
       .from("proc_purchase_requests")
-      .select("id, doc_no, doc_type, method, item_name, amount, inspected_date, record_date, order_date, delivered_date, report_date, funding, receipt_type, receipt_no, project_id, activity_id, proc_vendors(name)")
+      .select("id, doc_no, doc_type, method, item_name, amount, inspected_date, record_date, order_date, delivered_date, report_date, funding, receipt_type, receipt_no, project_id, activity_id, approval_id, proc_approvals(status), proc_vendors(name)")
       .gte("record_date", from)
       .lte("record_date", to),
-    supabase.from("proc_w119_reports").select("id, doc_no, record_date, purchase_date, purpose, amount, fund_source, project_id, activity_id, proc_w119_items(vendor, seq)").gte("record_date", from).lte("record_date", to),
-    supabase.from("proc_urgent_reports").select("id, doc_no, doc_type, record_date, purchase_date, receipt_date, subject, amount, payee, receipt_type, receipt_no, project_id, activity_id").gte("record_date", from).lte("record_date", to),
-    supabase.from("proc_expense_claims").select("id, doc_no, record_date, event_date, event_end_date, event_name, amount, fund_source, responsible_name, project_id, activity_id").gte("record_date", from).lte("record_date", to),
+    supabase.from("proc_w119_reports").select("id, doc_no, record_date, purchase_date, purpose, amount, fund_source, project_id, activity_id, approval_id, proc_approvals(status), proc_w119_items(vendor, seq)").gte("record_date", from).lte("record_date", to),
+    supabase.from("proc_urgent_reports").select("id, doc_no, doc_type, record_date, purchase_date, receipt_date, subject, amount, payee, receipt_type, receipt_no, project_id, activity_id, approval_id, proc_approvals(status)").gte("record_date", from).lte("record_date", to),
+    supabase.from("proc_expense_claims").select("id, doc_no, record_date, event_date, event_end_date, event_name, amount, fund_source, responsible_name, project_id, activity_id, approval_id, proc_approvals(status)").gte("record_date", from).lte("record_date", to),
     supabase.from("proc_loan_contracts").select("id, doc_no, borrower_name, purpose, amount, received_date, fund_source, project_id, activity_id").not("received_date", "is", null).gte("received_date", from).lte("received_date", to),
     supabase.from("proc_loan_repayments").select("id, loan_id, repay_date, cash_amount, receipt_no, proc_loan_contracts(doc_no, borrower_name, fund_source, project_id, activity_id)").gt("cash_amount", 0).gte("repay_date", from).lte("repay_date", to),
   ]);
@@ -82,6 +84,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "purchase",
       id: r.id,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
       doneDate: sourceDoneDate("purchase", r as unknown as Record<string, unknown>),
       date: r.inspected_date ?? r.record_date,
       warn: r.inspected_date ? undefined : "ยังไม่ตรวจรับ",
@@ -104,6 +107,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "w119",
       id: r.id,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
       doneDate: sourceDoneDate("w119", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `ว 119 ${r.doc_no ?? ""}`.trim(),
@@ -124,6 +128,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "urgent",
       id: r.id,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
       doneDate: sourceDoneDate("urgent", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `เร่งด่วน ${r.doc_no ?? ""}`.trim(),
@@ -144,6 +149,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "claim",
       id: r.id,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
       doneDate: sourceDoneDate("claim", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `เบิกค่าใช้จ่าย ${r.doc_no ?? ""}`.trim(),
@@ -200,6 +206,14 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
       note: "",
       href: "/finance/loans",
     });
+  }
+  // เงื่อนไขที่ยังบันทึกไม่ได้ (ตรวจซ้ำฝั่ง server ใน saveTxn) — ใส่ warn ให้ปุ่มบันทึกกดไม่ได้
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+  for (const it of out) {
+    if (it.warn) continue;
+    if (!(it.amount > 0)) it.warn = "ยอดเงินเป็น 0";
+    else if (it.approvalStatus && it.approvalStatus !== "อนุมัติ") it.warn = "บันทึกขออนุมัติยังไม่อนุมัติ";
+    else if (it.doneDate > today) it.warn = "ยังไม่ถึงวันที่งานเสร็จ";
   }
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
