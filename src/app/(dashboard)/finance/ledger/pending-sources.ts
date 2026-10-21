@@ -32,7 +32,7 @@ export type PendingItem = {
   doneDate: string;
   /** คำเตือนสั้นๆ เช่น "ยังไม่ตรวจรับ" — มีค่านี้ = ยังบันทึกไม่ได้ */
   warn?: string;
-  /** สถานะบันทึกขออนุมัติที่งานนี้อ้างอิง (ไม่ได้ผูก = undefined) */
+  /** สถานะบันทึกขออนุมัติที่งานนี้อ้างอิง ("" = ไม่ได้ผูก · ไม่มีค่า = งานประเภทที่ไม่ต้องมีบันทึกขออนุมัติ เช่น เงินยืม) */
   approvalStatus?: string;
 };
 
@@ -84,7 +84,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "purchase",
       id: r.id,
-      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : "",
       doneDate: sourceDoneDate("purchase", r as unknown as Record<string, unknown>),
       date: r.inspected_date ?? r.record_date,
       warn: r.inspected_date ? undefined : "ยังไม่ตรวจรับ",
@@ -107,7 +107,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "w119",
       id: r.id,
-      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : "",
       doneDate: sourceDoneDate("w119", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `ว 119 ${r.doc_no ?? ""}`.trim(),
@@ -128,7 +128,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "urgent",
       id: r.id,
-      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : "",
       doneDate: sourceDoneDate("urgent", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `เร่งด่วน ${r.doc_no ?? ""}`.trim(),
@@ -149,7 +149,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
     push({
       kind: "claim",
       id: r.id,
-      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : undefined,
+      approvalStatus: r.approval_id ? ((r.proc_approvals as unknown as { status: string } | null)?.status ?? "") : "",
       doneDate: sourceDoneDate("claim", r as unknown as Record<string, unknown>),
       date: r.record_date,
       ref: `เบิกค่าใช้จ่าย ${r.doc_no ?? ""}`.trim(),
@@ -212,6 +212,7 @@ export async function loadPendingSources(supabase: SupabaseClient<Database>, fy:
   for (const it of out) {
     if (it.warn) continue;
     if (!(it.amount > 0)) it.warn = "ยอดเงินเป็น 0";
+    else if (it.approvalStatus === "") it.warn = "ไม่ได้ผูกบันทึกขออนุมัติ";
     else if (it.approvalStatus && it.approvalStatus !== "อนุมัติ") it.warn = "บันทึกขออนุมัติยังไม่อนุมัติ";
     else if (it.doneDate > today) it.warn = "ยังไม่ถึงวันที่งานเสร็จ";
   }

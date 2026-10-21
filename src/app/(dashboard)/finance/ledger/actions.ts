@@ -109,7 +109,8 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
       const t = SOURCE_DATE_FIELDS[sourceKind].table as "proc_purchase_requests" | "proc_w119_reports" | "proc_urgent_reports" | "proc_expense_claims";
       const { data: ap } = await supabase.from(t).select("approval_id, proc_approvals(status)").eq("id", str("source_id")).maybeSingle();
       const st = (ap?.proc_approvals as unknown as { status: string } | null)?.status;
-      if (ap?.approval_id && st !== "อนุมัติ") return { error: "บันทึกขออนุมัติที่งานนี้อ้างอิงยังไม่ได้รับอนุมัติ — จ่ายเงินได้หลัง ผอ. อนุมัติ" };
+      if (!ap?.approval_id) return { error: "งานนี้ไม่ได้ผูกบันทึกขออนุมัติ — ผูกบันทึกขออนุมัติที่ ผอ. อนุมัติแล้วที่เมนูของงานนั้นก่อน จึงจ่ายเงินได้" };
+      if (st !== "อนุมัติ") return { error: "บันทึกขออนุมัติที่งานนี้อ้างอิงยังไม่ได้รับอนุมัติ — จ่ายเงินได้หลัง ผอ. อนุมัติ" };
     }
     if (sourceKind === "purchase") {
       const { data: pr } = await supabase.from("proc_purchase_requests").select("inspected_date").eq("id", str("source_id")).maybeSingle();
