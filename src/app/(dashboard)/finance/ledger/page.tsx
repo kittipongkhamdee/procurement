@@ -533,7 +533,18 @@ function BalanceTab({
               <tr key={a.id} className={a.is_active ? "" : "opacity-60"}>
                 <td className="font-medium text-slate-900">{a.name}</td>
                 <td className="text-slate-600">{[a.bank_name, a.account_no].filter(Boolean).join(" · ") || "-"}</td>
-                <td className="text-slate-600">{ts.length ? ts.map((t) => t.name).join(", ") : "-"}</td>
+                <td className="max-w-md whitespace-normal">
+                  {ts.length ? (
+                    <>
+                      <span className="text-slate-700">{ts.length} ประเภท</span>
+                      <span className="line-clamp-2 text-xs text-slate-500" title={ts.map((t) => t.name).join(", ")}>
+                        {ts.map((t) => t.name).join(" · ")}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-400">-</span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap text-right font-semibold tabular-nums">{baht(bank)}</td>
               </tr>
             ))}
@@ -541,7 +552,10 @@ function BalanceTab({
               <tr>
                 <td className="font-medium text-amber-700">ยังไม่ระบุสมุดบัญชี</td>
                 <td className="text-slate-600">-</td>
-                <td className="text-slate-600">{unassigned.map((t) => t.name).join(", ")}</td>
+                <td className="max-w-md whitespace-normal">
+                  <span className="text-slate-700">{unassigned.length} ประเภท</span>
+                  <span className="line-clamp-2 text-xs text-slate-500">{unassigned.map((t) => t.name).join(" · ")}</span>
+                </td>
                 <td className="whitespace-nowrap text-right font-semibold tabular-nums text-amber-700">{baht(unassignedBank)}</td>
               </tr>
             )}
