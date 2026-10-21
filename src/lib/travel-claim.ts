@@ -1,7 +1,7 @@
 // รายงานการเดินทางไปราชการ (แบบ 8708) — ชนิดข้อมูลและการคำนวณที่ใช้ทั้งฟอร์ม (client) และ PDF (server)
 
 export type TravelPlace = "home" | "office" | "thailand";
-export const PLACE_LABEL: Record<TravelPlace, string> = { home: "บ้านพัก", office: "สำนักงาน", thailand: "ประเทศไทย" };
+export const PLACE_LABEL: Record<TravelPlace, string> = { home: "บ้านพัก", office: "โรงเรียน", thailand: "ประเทศไทย" };
 
 export type TravelMember = { name: string; position: string; allowance: number; lodging: number; transport: number; other: number; note: string };
 

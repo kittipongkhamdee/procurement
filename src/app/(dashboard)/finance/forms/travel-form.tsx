@@ -36,7 +36,7 @@ type MemberRow = { name: string; position: string; allowance: string; lodging: s
 const emptyMember = (): MemberRow => ({ name: "", position: "", allowance: "", lodging: "", transport: "", other: "", note: "" });
 const PLACES: { v: TravelPlace; l: string }[] = [
   { v: "home", l: "บ้านพัก" },
-  { v: "office", l: "สำนักงาน" },
+  { v: "office", l: "โรงเรียน" },
   { v: "thailand", l: "ประเทศไทย" },
 ];
 
@@ -298,7 +298,7 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
         <h3 className="mb-2 font-semibold text-slate-800">ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <F label="ที่ทำการ" value={f.office} onChange={set("office")} />
-          <D label="วันที่ (วันทำการที่กลับถึงสำนักงาน)" value={dates.date} onChange={setD("date")} />
+          <D label="วันที่ (วันทำการที่กลับถึงโรงเรียน)" value={dates.date} onChange={setD("date")} />
           <F label="เรียน" value={f.to} onChange={set("to")} />
           <F label="จังหวัด (ส่วนที่ 2)" value={f.province} onChange={set("province")} />
           <F label="ตามคำสั่ง/บันทึก ที่" value={f.order_no} onChange={set("order_no")} />
