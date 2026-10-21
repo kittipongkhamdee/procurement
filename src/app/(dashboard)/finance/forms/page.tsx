@@ -1,6 +1,6 @@
 "use client";
 
-// แบบฟอร์มการเงิน — หน้ารวมเป็นการ์ด (ใบสำคัญรับเงินวิทยากร / นักเรียน) + เอกสารหมวด "การเงิน" จากคลังเอกสารดาวน์โหลด
+// แบบฟอร์มการเงิน — หน้ารวมเป็นการ์ด (ใบสำคัญรับเงินวิทยากร / นักเรียน / รายงานการเดินทางไปราชการ) + เอกสารหมวด "การเงิน" จากคลังเอกสารดาวน์โหลด
 // ครูทุกคนเข้าได้ — สร้าง/แก้ไขใบสำคัญรับเงินของตัวเองได้ และดาวน์โหลดแบบฟอร์มการเงินได้จากหน้านี้
 
 import Link from "next/link";
@@ -9,14 +9,14 @@ import { createClient } from "@/lib/supabase/client";
 import { driveFileId, driveViewUrl, isDriveRef, isExternalLink } from "@/lib/storage/ref";
 import { fileTypeBadge } from "@/lib/file-type";
 import { HubCardGrid } from "@/components/hub-cards";
-import { FileTextIcon, UsersIcon } from "@/components/icons";
+import { FileTextIcon, TruckIcon, UsersIcon } from "@/components/icons";
 
 const BUCKET = "procurement-files";
 const FINANCE_CATEGORY = "การเงิน";
 type Doc = { id: string; file_name: string; file_url: string; file_type: string | null; category: string | null };
 
 export default function FinanceFormsPage() {
-  const [counts, setCounts] = useState({ speaker: 0, student: 0 });
+  const [counts, setCounts] = useState({ speaker: 0, student: 0, travel: 0 });
   const [docs, setDocs] = useState<Doc[] | null>(null);
   const [urls, setUrls] = useState<Map<string, string>>(new Map());
 
@@ -24,15 +24,16 @@ export default function FinanceFormsPage() {
     const supabase = createClient();
     Promise.all([
       supabase.from("fin_receipt_forms").select("kind"),
+      supabase.from("fin_travel_forms").select("id", { count: "exact", head: true }),
       supabase
         .from("proc_documents")
         .select("id, file_name, file_url, file_type, category")
         .ilike("category", `%${FINANCE_CATEGORY}%`)
         .order("sort_order", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false }),
-    ]).then(async ([f, d]) => {
+    ]).then(async ([f, tr, d]) => {
       const rows = f.data ?? [];
-      setCounts({ speaker: rows.filter((r) => r.kind === "speaker").length, student: rows.filter((r) => r.kind === "student").length });
+      setCounts({ speaker: rows.filter((r) => r.kind === "speaker").length, student: rows.filter((r) => r.kind === "student").length, travel: tr.count ?? 0 });
       const list = (d.data ?? []) as Doc[];
       setDocs(list);
       // ลิงก์ดาวน์โหลด: ลิงก์ภายนอกใช้ตรง, Google Drive เปิดหน้าดู, Supabase ใช้ signed URL (1 ชม.)
@@ -77,6 +78,15 @@ export default function FinanceFormsPage() {
             href: "/finance/forms/student",
             icon: <UsersIcon className="h-6 w-6" />,
             value: counts.student.toLocaleString("th-TH"),
+            sub: "ฉบับที่บันทึกไว้",
+          },
+          {
+            key: "travel",
+            title: "รายงานการเดินทางไปราชการ (แบบ 8708)",
+            description: "ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ ส่วนที่ 1 + หลักฐานการจ่ายเงิน ส่วนที่ 2 (เบิกรายบุคคล/เป็นคณะ)",
+            href: "/finance/forms/travel",
+            icon: <TruckIcon className="h-6 w-6" />,
+            value: counts.travel.toLocaleString("th-TH"),
             sub: "ฉบับที่บันทึกไว้",
           },
         ]}

@@ -198,6 +198,33 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_travel_forms: {
+        Row: {
+          id: string
+          title: string
+          data: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title?: string
+          data?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          data?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fin_money_types: {
         Row: {
           account_id: string | null

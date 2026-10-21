@@ -12,12 +12,19 @@ import { confirmDelete, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import type { SpeakerReceipt, StudentReceipt } from "@/lib/pdf/receipt-forms-document";
+import type { TravelClaim } from "@/lib/travel-claim";
+import { TravelForm } from "../travel-form";
 import { SpeakerForm, StudentForm, type FormDefaults } from "../receipt-forms";
 import { deleteReceiptForm } from "../actions";
 
-const TITLES = { speaker: "ใบสำคัญรับเงินสำหรับวิทยากร", student: "ใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน" } as const;
+const TITLES = {
+  speaker: "ใบสำคัญรับเงินสำหรับวิทยากร",
+  student: "ใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน",
+  travel: "รายงานการเดินทางไปราชการ (แบบ 8708)",
+} as const;
+const SUBTITLE = { speaker: "เอกสารแนบ ๑", student: "เอกสารแนบ ๒", travel: "ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ (ส่วนที่ 1) + หลักฐานการจ่ายเงิน (ส่วนที่ 2)" } as const;
 type Kind = keyof typeof TITLES;
-type Saved = { id: string; title: string; data: SpeakerReceipt | StudentReceipt; created_by: string | null; updated_at: string };
+type Saved = { id: string; title: string; data: SpeakerReceipt | StudentReceipt | TravelClaim; created_by: string | null; updated_at: string };
 
 export default function ReceiptKindPage() {
   const kind = useParams<{ kind: string }>().kind as Kind;
@@ -25,14 +32,18 @@ export default function ReceiptKindPage() {
   const canAll = role === "admin" || role === "finance_officer";
   const [list, setList] = useState<Saved[] | null>(null);
   const [names, setNames] = useState<Map<string, string>>(new Map());
-  const [defaults, setDefaults] = useState<FormDefaults>({ school: "", area: "", officer: "" });
+  const [defaults, setDefaults] = useState<FormDefaults>({ school: "", area: "", officer: "", director: "" });
   // null = ไม่เปิดฟอร์ม, "new" = สร้างใหม่, อื่นๆ = id ที่แก้
   const [editing, setEditing] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase.from("fin_receipt_forms").select("id, title, data, created_by, updated_at").eq("kind", kind).order("updated_at", { ascending: false });
+    // รายงานการเดินทางไปราชการเก็บแยกตาราง fin_travel_forms (สิทธิ์แบบเดียวกัน)
+    const { data } =
+      kind === "travel"
+        ? await supabase.from("fin_travel_forms").select("id, title, data, created_by, updated_at").order("updated_at", { ascending: false })
+        : await supabase.from("fin_receipt_forms").select("id, title, data, created_by, updated_at").eq("kind", kind).order("updated_at", { ascending: false });
     const rows = (data ?? []) as unknown as Saved[];
     setList(rows);
     const ids = Array.from(new Set(rows.map((r) => r.created_by).filter((x): x is string => !!x)));
@@ -49,8 +60,11 @@ export default function ReceiptKindPage() {
     Promise.all([
       supabase.from("proc_school_settings").select("school_name, education_area").eq("id", true).maybeSingle(),
       supabase.from("fin_settings").select("key, value").eq("key", "fin_officer_name"),
-      supabase.from("proc_app_settings").select("key, value").eq("key", "approval_signer_finance"),
-    ]).then(([s, f, a]) => setDefaults({ school: s.data?.school_name ?? "", area: s.data?.education_area ?? "", officer: f.data?.[0]?.value || a.data?.[0]?.value || "" }));
+      supabase.from("proc_app_settings").select("key, value").in("key", ["approval_signer_finance", "approval_signer_director"]),
+    ]).then(([s, f, a]) => {
+      const app = new Map((a.data ?? []).map((r) => [r.key, r.value ?? ""]));
+      setDefaults({ school: s.data?.school_name ?? "", area: s.data?.education_area ?? "", officer: f.data?.[0]?.value || app.get("approval_signer_finance") || "", director: app.get("approval_signer_director") || "" });
+    });
   }, [reload]);
 
   if (!(kind in TITLES)) notFound();
@@ -65,7 +79,7 @@ export default function ReceiptKindPage() {
   }
   async function remove(r: Saved) {
     if (!(await confirmDelete({ title: "ลบใบสำคัญรับเงินนี้?", text: r.title || "(ไม่มีชื่อ)" }))) return;
-    const res = await deleteReceiptForm(r.id);
+    const res = await deleteReceiptForm(r.id, kind);
     if (res.error) return void (await toastError(res.error));
     await toastSuccess("ลบแล้ว");
     if (editing === r.id) setEditing(null);
@@ -90,7 +104,7 @@ export default function ReceiptKindPage() {
             แบบฟอร์มการเงิน
           </Link>
           <h1 className="page-title">{TITLES[kind]}</h1>
-          <p className="page-subtitle">{kind === "speaker" ? "เอกสารแนบ ๑" : "เอกสารแนบ ๒"} — บันทึกไว้แก้ไข/พิมพ์ซ้ำได้ · ช่องที่เว้นว่างพิมพ์เป็นจุดไข่ปลาให้เขียนเอง</p>
+          <p className="page-subtitle">{SUBTITLE[kind]} — บันทึกไว้แก้ไข/พิมพ์ซ้ำได้ · ช่องที่เว้นว่างพิมพ์เป็นจุดไข่ปลาให้เขียนเอง</p>
         </div>
         {editing === null && (
           <button type="button" onClick={() => open("new")} className="btn-primary inline-flex items-center gap-2">
@@ -109,7 +123,9 @@ export default function ReceiptKindPage() {
             </button>
           </div>
           {current && !canEdit(current) && <p className="mb-2 text-sm text-amber-700">ฉบับนี้เป็นของผู้อื่น — พิมพ์ได้ แต่บันทึกการแก้ไขไม่ได้</p>}
-          {kind === "speaker" ? (
+          {kind === "travel" ? (
+            <TravelForm key={`${formKey}-${defaults.school}`} initial={(current?.data as TravelClaim) ?? null} {...formProps} />
+          ) : kind === "speaker" ? (
             <SpeakerForm key={`${formKey}-${defaults.school}`} initial={(current?.data as SpeakerReceipt) ?? null} {...formProps} />
           ) : (
             <StudentForm key={`${formKey}-${defaults.school}`} initial={(current?.data as StudentReceipt) ?? null} {...formProps} />

@@ -11,7 +11,7 @@ import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
 import type { SpeakerReceipt, StudentReceipt } from "@/lib/pdf/receipt-forms-document";
 import { saveReceiptForm } from "./actions";
 
-export type FormDefaults = { school: string; area: string; officer: string };
+export type FormDefaults = { school: string; area: string; officer: string; director: string };
 
 /** ปุ่มบันทึก (สร้างใหม่/แก้ไข) */
 function SaveButton({ id, kind, title, data, onSaved }: { id: string | null; kind: "speaker" | "student"; title: string; data: unknown; onSaved: (id: string) => void }) {
