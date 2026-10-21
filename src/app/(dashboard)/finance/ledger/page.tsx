@@ -17,6 +17,10 @@ import { HubCardGrid, type HubCard } from "@/components/hub-cards";
 import {
   balancesByType,
   docLabel,
+  DEFAULT_DOC_FORMATS,
+  DOC_FORMAT_KEYS,
+  docFormatsFrom,
+  type DocFormats,
   fiscalMonths,
   fiscalYearOf,
   groupByCategory,
@@ -89,6 +93,7 @@ function LedgerContent() {
   const [query, setQuery] = useState("");
   const [asOf, setAsOf] = useState<string | null>(todayLocal());
   const [fundOwed, setFundOwed] = useState<FundOwed[]>([]);
+  const [fmt, setFmt] = useState<DocFormats>(DEFAULT_DOC_FORMATS);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -104,6 +109,11 @@ function LedgerContent() {
         : Promise.resolve({ data: [] }),
       supabase.from("fin_accounts").select("id, name, bank_name, account_no, sort_order, is_active").order("sort_order"),
     ]);
+    supabase
+      .from("proc_app_settings")
+      .select("key, value")
+      .in("key", DOC_FORMAT_KEYS)
+      .then(({ data }) => setFmt(docFormatsFrom(Object.fromEntries((data ?? []).map((r) => [r.key, r.value ?? ""])))));
     // ยืมเงินระหว่างประเภทเงินที่ยังค้างส่งใช้ (ทุกปีงบ)
     supabase
       .from("fin_fund_loan_lines")
@@ -167,8 +177,9 @@ function LedgerContent() {
       payees: Array.from(new Set([...people.pastPayees, ...people.vendors, ...people.teachers].map((x) => x.trim()).filter(Boolean))),
       descriptions: Array.from(new Set(sortTxns(txns ?? []).reverse().map((t) => t.description.trim()))).slice(0, 300),
       balances: balancesByType(openings, txns ?? []),
+      fmt,
     }),
-    [people, txns, openings],
+    [people, txns, openings, fmt],
   );
 
   const typeName = useMemo(() => new Map(types.map((t) => [t.id, t.name])), [types]);
@@ -179,9 +190,9 @@ function LedgerContent() {
     const q = query.trim().toLowerCase();
     return sortTxns(txns ?? [])
       .filter((t) => (!month || t.txn_date.startsWith(month)) && (!typeFilter || t.money_type_id === typeFilter))
-      .filter((t) => !q || [t.description, t.payee, docLabel(t), t.note].some((v) => v?.toLowerCase().includes(q)))
+      .filter((t) => !q || [t.description, t.payee, docLabel(t, fmt), t.note].some((v) => v?.toLowerCase().includes(q)))
       .reverse();
-  }, [txns, month, typeFilter, query]);
+  }, [txns, month, typeFilter, query, fmt]);
 
   const balances = useMemo(() => balancesByType(openings, txns ?? [], asOf ?? undefined), [openings, txns, asOf]);
   // ยอดวันนี้สำหรับการ์ดหน้ารวม (แท็บยอดคงเหลือเลือกวันที่เองได้)
@@ -203,7 +214,7 @@ function LedgerContent() {
   }, [txns]);
 
   async function remove(t: FinTxn) {
-    if (!(await confirmDelete({ title: "ลบรายการนี้?", text: `${docLabel(t)} ${t.description}` }))) return;
+    if (!(await confirmDelete({ title: "ลบรายการนี้?", text: `${docLabel(t, fmt)} ${t.description}` }))) return;
     const res = await deleteTxn(t.id);
     if (res.error) return void (await toastError(res.error));
     await toastSuccess("ลบแล้ว");
@@ -368,7 +379,7 @@ function LedgerContent() {
                       <div className="min-w-0">
                         <p className="font-medium text-slate-900">{t.description}</p>
                         <p className="text-xs text-slate-500">
-                          {formatThaiDate(t.txn_date)} · {docLabel(t) || "-"} · {typeName.get(t.money_type_id)}
+                          {formatThaiDate(t.txn_date)} · {docLabel(t, fmt) || "-"} · {typeName.get(t.money_type_id)}
                         </p>
                       </div>
                       <span className={`shrink-0 font-semibold tabular-nums ${t.kind === "receive" ? "text-emerald-700" : t.kind === "pay" ? "text-red-600" : "text-slate-600"}`}>
@@ -407,7 +418,7 @@ function LedgerContent() {
                     {filtered.map((t) => (
                       <tr key={t.id}>
                         <td className="whitespace-nowrap">{formatThaiDate(t.txn_date)}</td>
-                        <td className="whitespace-nowrap">{docLabel(t) || "-"}</td>
+                        <td className="whitespace-nowrap">{docLabel(t, fmt) || "-"}</td>
                         <td>
                           <div className="text-slate-900">
                             {t.description}

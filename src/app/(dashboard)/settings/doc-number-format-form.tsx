@@ -52,7 +52,8 @@ export function DocNumberFormatForm({
               name={k.key}
               value={draft[k.key]}
               onChange={(e) => setDraft((d) => ({ ...d, [k.key]: e.target.value }))}
-              placeholder="เว้นว่าง = ไม่เสนอเลขอัตโนมัติ"
+              placeholder={"required" in k ? k.fallback : "เว้นว่าง = ไม่เสนอเลขอัตโนมัติ"}
+              required={"required" in k}
               autoComplete="off"
               className="input w-full font-mono"
             />

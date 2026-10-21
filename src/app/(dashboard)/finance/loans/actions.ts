@@ -3,6 +3,7 @@
 // สัญญาการยืมเงิน (/finance/loans) — บันทึกสัญญา/การส่งใช้ ตามระเบียบกระทรวงการคลังฯ พ.ศ. 2562 หมวด 5 (ดู src/lib/loan.ts)
 // คืน { error } แทนการ throw — production ของ Next ซ่อนข้อความ error ที่ throw จาก server action
 
+import { docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
@@ -191,17 +192,17 @@ async function receiptNoTaken(supabase: Awaited<ReturnType<typeof createClient>>
   return !!data?.length;
 }
 
-/** เลขที่ใบรับใบสำคัญถัดไป รูปแบบ "บค ลำดับ/ปีงบ พ.ศ." (นับต่อจากเลขสูงสุดของปีงบนั้น) — เติมให้ในฟอร์มส่งใช้ แก้ได้ */
+/** เลขที่ใบรับใบสำคัญถัดไปตามรูปแบบที่ตั้งไว้ (ค่าเริ่มต้น "บค {n}/{yyyy}" — ตั้งค่า → รูปแบบเลขที่) — เติมให้ในฟอร์มส่งใช้ แก้ได้ */
 export async function suggestReceiptNo(repayDate: string): Promise<{ receiptNo: string }> {
   const [y, m] = (repayDate || new Date().toISOString()).slice(0, 10).split("-").map(Number);
   const fy = y + 543 + (m >= 10 ? 1 : 0);
   const supabase = await createClient();
-  const { data } = await supabase.from("proc_loan_repayments").select("receipt_no").like("receipt_no", `%/${fy}`);
-  const max = (data ?? []).reduce((n, r) => {
-    const hit = /(\d+)\s*\/\s*\d{4}$/.exec(r.receipt_no ?? "");
-    return hit ? Math.max(n, Number(hit[1])) : n;
-  }, 0);
-  return { receiptNo: `บค ${max + 1}/${fy}` };
+  const [{ data }, { data: fmt }] = await Promise.all([
+    supabase.from("proc_loan_repayments").select("receipt_no").not("receipt_no", "is", null),
+    supabase.from("proc_app_settings").select("key, value").eq("key", "doc_number_format_loan_receipt"),
+  ]);
+  const template = docNumberTemplate("loan_receipt", Object.fromEntries((fmt ?? []).map((r) => [r.key, r.value ?? ""])));
+  return { receiptNo: nextDocNumber(template, fy, (data ?? []).map((r) => r.receipt_no ?? "")) };
 }
 
 /** แก้เลขที่ใบรับใบสำคัญของการส่งใช้ที่บันทึกไปแล้ว (เช่น ลืมกรอก) */

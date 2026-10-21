@@ -7,7 +7,7 @@ import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/sw
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { CopyIcon, PencilIcon, PlusIcon } from "@/components/icons";
-import { DOC_KINDS, effect, fiscalYearOf, SOURCE_LABEL, type Balance, type SourceKind, KIND_LABEL, POCKET_LABEL, POCKETS, type DocKind, type FinTxn, type MoneyType, type Pocket, type TxnKind } from "@/lib/finance-ledger";
+import { DOC_KINDS, docLabel, effect, type DocFormats, fiscalYearOf, SOURCE_LABEL, type Balance, type SourceKind, KIND_LABEL, POCKET_LABEL, POCKETS, type DocKind, type FinTxn, type MoneyType, type Pocket, type TxnKind } from "@/lib/finance-ledger";
 import { saveTxn, suggestDocSeq } from "./actions";
 
 /** budget/approved (ถ้ามี) ใช้แสดงงบคงเหลือ = งบ − อนุมัติแล้ว ใต้ช่องโครงการ/กิจกรรม */
@@ -31,7 +31,7 @@ function todayLocal() {
 }
 
 /** balances = ยอดคงเหลือล่าสุดของปีงบแยกประเภทเงิน — ใช้เตือนเมื่อจ่าย/โอนออกเกินยอดคงเหลือ */
-export type TxnSuggest = { payees: string[]; descriptions: string[]; balances: Map<string, Balance> };
+export type TxnSuggest = { payees: string[]; descriptions: string[]; balances: Map<string, Balance>; fmt?: DocFormats };
 
 /** txn = แก้ไขรายการเดิม · copyFrom = รายการใหม่ที่คัดลอกค่าจากรายการเดิม (วันที่ = วันนี้, เลขที่ บค/บจ = เลขถัดไป)
  *  source = บันทึกจากงานต้นทาง (ระยะที่ 2) — copyFrom เป็นค่าที่เติมจากงานนั้น (รวมวันที่) และผูก source_kind/source_id ไว้ */
@@ -112,7 +112,7 @@ export function TxnForm({
     try {
       const res = await saveTxn(txn?.id ?? null, fd);
       if (res.error) return void (await toastError(res.error));
-      await toastSuccess(`บันทึกแล้ว${res.docSeq && date ? ` — เลขที่ ${docKind} ${res.docSeq}/${fiscalYearOf(date)}` : ""}`);
+      await toastSuccess(`บันทึกแล้ว${res.docSeq && date ? ` — เลขที่ ${docLabel({ doc_kind: docKind as DocKind, doc_seq: res.docSeq, doc_no: null, fiscal_year: fiscalYearOf(date) }, suggest?.fmt)}` : ""}`);
       onSaved();
       if (addNext) {
         setFormKey((k) => k + 1);
@@ -294,7 +294,12 @@ export function TxnForm({
           ) : (
             <input name="doc_no" defaultValue={(txn ?? (source ? copyFrom : undefined))?.doc_no ?? ""} placeholder={docKind === "บร" ? "เช่น 27ก 26785/1 (เล่มที่/เลขที่)" : "เลขที่เอกสาร (ถ้ามี)"} className="input w-full" />
           )}
-          {seqKind && <p className="mt-1 text-xs text-slate-500">ระบบเสนอเลขถัดไปของปีงบให้ แก้ได้ (ห้ามซ้ำ)</p>}
+          {seqKind && (
+            <p className="mt-1 text-xs text-slate-500">
+              ระบบเสนอเลขถัดไปของปีงบให้ แก้ได้ (ห้ามซ้ำ)
+              {Number(docSeq) > 0 && date ? ` — แสดงเป็น "${docLabel({ doc_kind: docKind as DocKind, doc_seq: Number(docSeq), doc_no: null, fiscal_year: fiscalYearOf(date) }, suggest.fmt)}"` : ""}
+            </p>
+          )}
         </div>
 
         <div className="sm:col-span-2">

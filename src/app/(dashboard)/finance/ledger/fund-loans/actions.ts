@@ -6,7 +6,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { effect, fiscalYearOf, fundDoc, POCKETS, round2, POCKET_LABEL, type FinTxn, type Pocket } from "@/lib/finance-ledger";
+import { isAdminUser } from "@/lib/doc-number-server";
+import { DOC_FORMAT_KEYS, docFormatsFrom, effect, fiscalYearOf, fundDoc, POCKETS, round2, POCKET_LABEL, type FinTxn, type Pocket } from "@/lib/finance-ledger";
 
 type Result = { error?: string; id?: string };
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -44,6 +45,11 @@ async function nextSeq(supabase: Supabase, fy: number) {
     supabase.from("fin_fund_loan_repays").select("doc_seq").eq("fiscal_year", fy).order("doc_seq", { ascending: false }).limit(1),
   ]);
   return Math.max(a?.[0]?.doc_seq ?? 0, b?.[0]?.doc_seq ?? 0) + 1;
+}
+
+async function docFormats(supabase: Supabase) {
+  const { data } = await supabase.from("proc_app_settings").select("key, value").in("key", DOC_FORMAT_KEYS);
+  return docFormatsFrom(Object.fromEntries((data ?? []).map((r) => [r.key, r.value ?? ""])));
 }
 
 async function typeNames(supabase: Supabase, ids: string[]) {
@@ -102,7 +108,7 @@ export async function saveFundLoan(fd: FormData): Promise<Result> {
     .insert(lines.map((l, i) => ({ loan_id: loan.id, borrower_type_id: l.borrower_type_id, amount: l.amount, sort_order: i })))
     .select("id, borrower_type_id, amount");
   const names = await typeNames(supabase, [lender, ...lines.map((l) => l.borrower_type_id)]);
-  const doc = fundDoc(seq, fy);
+  const doc = fundDoc(seq, fy, await docFormats(supabase));
   const base = { fiscal_year: fy, txn_date: date, doc_no: doc };
   const rows = (saved ?? []).flatMap((l) => [
     { ...base, kind: "pay", from_pocket: pocket, description: `ให้ยืมเงินแก่รายการ${names.get(l.borrower_type_id) ?? ""}`, amount: l.amount, money_type_id: lender, fund_role: "loan_out", fund_line_id: l.id },
@@ -138,6 +144,8 @@ export async function deleteFundLoan(id: string): Promise<Result> {
   if (!(await canWrite(supabase))) return { error: NO_RIGHT };
   const { data: lines } = await supabase.from("fin_fund_loan_lines").select("id, fin_fund_loan_repays(id)").eq("loan_id", id);
   if ((lines ?? []).some((l) => ((l.fin_fund_loan_repays as unknown as unknown[]) ?? []).length > 0)) return { error: "มีการส่งใช้คืนแล้ว — ลบการส่งใช้คืนทั้งหมดก่อน จึงลบการยืมได้" };
+  const { data: cur } = await supabase.from("fin_fund_loans").select("director_approved_at").eq("id", id).maybeSingle();
+  if (cur?.director_approved_at && !(await isAdminUser(supabase))) return { error: "ผู้อำนวยการอนุมัติแล้ว — ให้ผู้อำนวยการยกเลิกอนุมัติก่อน จึงลบได้" };
   const { data, error } = await supabase.from("fin_fund_loans").delete().eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: NO_RIGHT };
@@ -154,11 +162,12 @@ export async function saveFundRepay(lineId: string, fd: FormData): Promise<Resul
   const pocket = asPocket(str("pocket"));
   const { data: line } = await supabase
     .from("fin_fund_loan_lines")
-    .select("id, amount, borrower_type_id, fin_fund_loans(loan_date, lender_type_id, doc_seq, fiscal_year), fin_fund_loan_repays(amount)")
+    .select("id, amount, borrower_type_id, fin_fund_loans(loan_date, lender_type_id, doc_seq, fiscal_year, director_approved_at), fin_fund_loan_repays(amount)")
     .eq("id", lineId)
     .maybeSingle();
   if (!line) return { error: "ไม่พบรายการยืม" };
-  const loan = line.fin_fund_loans as unknown as { loan_date: string; lender_type_id: string; doc_seq: number; fiscal_year: number };
+  const loan = line.fin_fund_loans as unknown as { loan_date: string; lender_type_id: string; doc_seq: number; fiscal_year: number; director_approved_at: string | null };
+  if (!loan.director_approved_at) return { error: "ผู้อำนวยการยังไม่อนุมัติการยืมนี้ — ส่งใช้คืนได้หลังอนุมัติแล้ว" };
   const repaid = ((line.fin_fund_loan_repays as unknown as { amount: number }[]) ?? []).reduce((s, r) => s + Number(r.amount), 0);
   const outstanding = round2(Number(line.amount) - repaid);
   if (!date) return { error: "กรุณาระบุวันที่ส่งใช้คืน" };
@@ -178,8 +187,8 @@ export async function saveFundRepay(lineId: string, fd: FormData): Promise<Resul
     .single();
   if (error) return { error: error.message.includes("row-level") ? NO_RIGHT : error.message };
   const names = await typeNames(supabase, [loan.lender_type_id, line.borrower_type_id]);
-  const ref = fundDoc(loan.doc_seq, loan.fiscal_year);
-  const base = { fiscal_year: fy, txn_date: date, doc_no: fundDoc(seq, fy), amount, fund_line_id: lineId, fund_repay_id: rep.id };
+  const ref = fundDoc(loan.doc_seq, loan.fiscal_year, await docFormats(supabase));
+  const base = { fiscal_year: fy, txn_date: date, doc_no: fundDoc(seq, fy, await docFormats(supabase)), amount, fund_line_id: lineId, fund_repay_id: rep.id };
   const { error: e2 } = await supabase.from("fin_transactions").insert([
     { ...base, kind: "pay", from_pocket: pocket, description: `ส่งใช้เงินยืมคืน${names.get(loan.lender_type_id) ?? ""} (ตาม ${ref})`, money_type_id: line.borrower_type_id, fund_role: "repay_out" },
     { ...base, kind: "receive", to_pocket: pocket, description: `รับคืนเงินยืมจากรายการ${names.get(line.borrower_type_id) ?? ""} (ตาม ${ref})`, money_type_id: loan.lender_type_id, fund_role: "repay_in" },
@@ -200,4 +209,14 @@ export async function deleteFundRepay(id: string): Promise<Result> {
   if (!data?.length) return { error: NO_RIGHT };
   revalidate();
   return {};
+}
+
+/** ผู้อำนวยการอนุมัติ / ยกเลิกอนุมัติ (ก่อนมีการส่งใช้คืน) — ผ่านฟังก์ชันฐานข้อมูล (ผอ. ไม่มีสิทธิ์แก้ตารางการเงินตรง) */
+export async function approveFundLoan(id: string, approve: boolean): Promise<Result> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("proc_approve_fund_loan", { p_id: id, p_approve: approve });
+  if (error) return { error: error.message };
+  if (data) return { error: data };
+  revalidate();
+  return { id };
 }

@@ -57,6 +57,9 @@ export type Database = {
           memo_no: string | null
           memo_date: string | null
           reason: string | null
+          director_approved_at: string | null
+          director_approved_by: string | null
+          director_approved_by_name: string | null
           created_by: string | null
           created_at: string
         }
@@ -72,6 +75,9 @@ export type Database = {
           memo_no?: string | null
           memo_date?: string | null
           reason?: string | null
+          director_approved_at?: string | null
+          director_approved_by?: string | null
+          director_approved_by_name?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -87,6 +93,9 @@ export type Database = {
           memo_no?: string | null
           memo_date?: string | null
           reason?: string | null
+          director_approved_at?: string | null
+          director_approved_by?: string | null
+          director_approved_by_name?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -3914,6 +3923,10 @@ export type Database = {
       fin_can_write: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      proc_approve_fund_loan: {
+        Args: { p_id: string; p_approve: boolean }
+        Returns: string | null
       }
       proc_approve_loan: {
         Args: { p_id: string; p_approve: boolean }

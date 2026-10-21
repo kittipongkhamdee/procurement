@@ -4,6 +4,8 @@
 // เลขที่เอกสาร: บร = ใบเสร็จรับเงิน (เล่มที่/เลขที่ตามเล่ม กรอกเอง), บค = ใบสำคัญรับเงิน (ผู้รับไม่มีใบเสร็จ),
 // บจ = ใบเสร็จรับเงินจากผู้ขาย/บริษัท — บค/บจ รันเลขตามปีงบประมาณ (บค 1/2570)
 
+import { docNumberTemplate, formatDocNumber } from "./doc-numbers";
+
 export type Pocket = "cash" | "bank" | "gov";
 export type TxnKind = "receive" | "pay" | "transfer";
 export type DocKind = "บร" | "บค" | "บจ";
@@ -66,7 +68,15 @@ export const FUND_ROLE_LABEL: Record<FundRole, string> = {
   repay_out: "ส่งใช้เงินยืมระหว่างประเภทเงิน",
   repay_in: "รับคืนเงินยืมระหว่างประเภทเงิน",
 };
-export const fundDoc = (seq: number, fy: number) => `บง ${seq}/${fy}`;
+
+/** รูปแบบเลขที่ของบัญชีรับ-จ่าย (ตั้งค่า → รูปแบบเลขที่) — เลขที่เก็บเป็นลำดับ แสดงผลตามรูปแบบ */
+export type DocFormats = { bk: string; bj: string; bg: string };
+export const DOC_FORMAT_KEYS = ["doc_number_format_fin_bk", "doc_number_format_fin_bj", "doc_number_format_fund_loan"];
+export function docFormatsFrom(settings: Map<string, string> | Record<string, string>): DocFormats {
+  return { bk: docNumberTemplate("fin_bk", settings), bj: docNumberTemplate("fin_bj", settings), bg: docNumberTemplate("fund_loan", settings) };
+}
+export const DEFAULT_DOC_FORMATS: DocFormats = docFormatsFrom({});
+export const fundDoc = (seq: number, fy: number, fmt: DocFormats = DEFAULT_DOC_FORMATS) => formatDocNumber(fmt.bg, seq, fy);
 
 export type Balance = Record<Pocket, number>;
 export const zero = (): Balance => ({ cash: 0, bank: 0, gov: 0 });
@@ -148,8 +158,8 @@ export const receiveOf = (t: FinTxn) => (t.kind === "receive" ? Number(t.amount)
 export const payOf = (t: FinTxn) => (t.kind === "pay" ? Number(t.amount) : 0);
 
 /** เลขที่เอกสารที่แสดง: บค/บจ = "บค 3/2570", บร = ตามที่กรอก */
-export function docLabel(t: Pick<FinTxn, "doc_kind" | "doc_seq" | "doc_no" | "fiscal_year">): string {
-  if ((t.doc_kind === "บค" || t.doc_kind === "บจ") && t.doc_seq) return `${t.doc_kind} ${t.doc_seq}/${t.fiscal_year}`;
+export function docLabel(t: Pick<FinTxn, "doc_kind" | "doc_seq" | "doc_no" | "fiscal_year">, fmt: DocFormats = DEFAULT_DOC_FORMATS): string {
+  if ((t.doc_kind === "บค" || t.doc_kind === "บจ") && t.doc_seq) return formatDocNumber(t.doc_kind === "บค" ? fmt.bk : fmt.bj, t.doc_seq, t.fiscal_year);
   if (t.doc_kind === "บร") return t.doc_no ? `บร ${t.doc_no}` : "บร";
   return t.doc_no ?? "";
 }
@@ -168,7 +178,7 @@ export type RegisterRow = { id: string; date: string; doc: string; description: 
 
 type Entry = Omit<RegisterRow, "balance"> & { effect: Balance; sortKey: string };
 
-function entriesOf(txns: FinTxn[], clears: VoucherClear[]): Entry[] {
+function entriesOf(txns: FinTxn[], clears: VoucherClear[], fmt: DocFormats): Entry[] {
   const out: Entry[] = txns.map((t) => {
     const amt = Number(t.amount);
     const isLoan = t.kind === "pay" && (t.source_kind === "loan" || t.fund_role === "loan_out");
@@ -176,7 +186,7 @@ function entriesOf(txns: FinTxn[], clears: VoucherClear[]): Entry[] {
     return {
       id: t.id,
       date: t.txn_date,
-      doc: docLabel(t),
+      doc: docLabel(t, fmt),
       description: t.description,
       receive: t.kind === "receive" ? amt : 0,
       debtor: isLoan ? amt : isRefund ? -amt : 0,
@@ -193,8 +203,8 @@ function entriesOf(txns: FinTxn[], clears: VoucherClear[]): Entry[] {
 }
 
 /** ทะเบียนคุมเงินประเภทหนึ่งของเดือนหนึ่ง — ยอดยกมา (ยกมาต้นปี + รายการก่อนเดือนนี้), แถวรายการพร้อมยอดคงเหลือสะสม, รวมเดือน/ต้นปี */
-export function registerForMonth(opening: Balance, txns: FinTxn[], ym: string, clears: VoucherClear[] = []) {
-  const entries = entriesOf(txns, clears);
+export function registerForMonth(opening: Balance, txns: FinTxn[], ym: string, clears: VoucherClear[] = [], fmt: DocFormats = DEFAULT_DOC_FORMATS) {
+  const entries = entriesOf(txns, clears, fmt);
   let bal = { ...opening };
   const sum = { receive: 0, debtor: 0, voucher: 0 };
   const add = (acc: typeof sum, e: Entry) => {

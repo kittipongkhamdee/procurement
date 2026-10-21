@@ -9,13 +9,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
-import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
-import { balancesByType, fiscalYearOf, fundDoc, POCKET_LABEL, POCKETS, round2, type FinTxn, type MoneyType, type Opening, type Pocket } from "@/lib/finance-ledger";
-import { deleteFundLoan, deleteFundRepay, saveFundLoan, saveFundRepay, updateFundLoanMemo } from "./actions";
+import { DEFAULT_DOC_FORMATS, DOC_FORMAT_KEYS, docFormatsFrom, type DocFormats, balancesByType, fiscalYearOf, fundDoc, POCKET_LABEL, POCKETS, round2, type FinTxn, type MoneyType, type Opening, type Pocket } from "@/lib/finance-ledger";
+import { approveFundLoan, deleteFundLoan, deleteFundRepay, saveFundLoan, saveFundRepay, updateFundLoanMemo } from "./actions";
 
 type Repay = { id: string; repay_date: string; amount: number; pocket: Pocket; doc_seq: number; fiscal_year: number; note: string | null };
 type Line = { id: string; borrower_type_id: string; amount: number; sort_order: number; repays: Repay[] };
@@ -31,6 +31,8 @@ type Loan = {
   memo_no: string | null;
   memo_date: string | null;
   reason: string | null;
+  director_approved_at: string | null;
+  director_approved_by_name: string | null;
   lines: Line[];
 };
 
@@ -45,14 +47,16 @@ const outstandingOf = (l: Line) => round2(l.amount - repaidOf(l));
 export default function FundLoansPage() {
   const { role } = useAuth();
   const canWrite = role === "admin" || role === "finance_officer";
+  const canApprove = role === "director" || role === "admin";
   const [types, setTypes] = useState<MoneyType[]>([]);
   const [loans, setLoans] = useState<Loan[] | null>(null);
   const [show, setShow] = useState<"open" | "all">("open");
+  const [fmt, setFmt] = useState<DocFormats>(DEFAULT_DOC_FORMATS);
   const [ledger, setLedger] = useState<{ openings: Opening[]; txns: FinTxn[] }>({ openings: [], txns: [] });
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: mt }, { data: ln }, { data: op }, { data: tx }] = await Promise.all([
+    const [{ data: mt }, { data: ln }, { data: op }, { data: tx }, { data: fm }] = await Promise.all([
       supabase.from("fin_money_types").select("id, name, category, account_id, sort_order, is_active").order("sort_order"),
       supabase
         .from("fin_fund_loans")
@@ -61,7 +65,9 @@ export default function FundLoansPage() {
         .order("created_at", { ascending: false }),
       supabase.from("fin_opening_balances").select("fiscal_year, money_type_id, cash, bank, gov"),
       supabase.from("fin_transactions").select("fiscal_year, txn_date, kind, from_pocket, to_pocket, amount, money_type_id"),
+      supabase.from("proc_app_settings").select("key, value").in("key", DOC_FORMAT_KEYS),
     ]);
+    setFmt(docFormatsFrom(Object.fromEntries((fm ?? []).map((r) => [r.key, r.value ?? ""]))));
     // ยอดคงเหลือของผู้ให้ยืม (แสดงในฟอร์ม) — คำนวณตามปีงบของวันที่ยืม
     setLedger({
       openings: ((op ?? []) as Opening[]).map((o) => ({ ...o, cash: Number(o.cash), bank: Number(o.bank), gov: Number(o.gov) })),
@@ -108,14 +114,25 @@ export default function FundLoansPage() {
   const list = show === "open" ? loans.filter((l) => l.lines.some((x) => outstandingOf(x) > 0)) : loans;
 
   async function removeLoan(l: Loan) {
-    if (!(await confirmDelete({ title: `ลบการยืม ${fundDoc(l.doc_seq, l.fiscal_year)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
+    if (!(await confirmDelete({ title: `ลบการยืม ${fundDoc(l.doc_seq, l.fiscal_year, fmt)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
     const res = await deleteFundLoan(l.id);
     if (res.error) return void (await toastError(res.error));
     await toastSuccess("ลบแล้ว");
     reload();
   }
+  async function approve(l: Loan, ok: boolean) {
+    const doc = fundDoc(l.doc_seq, l.fiscal_year, fmt);
+    const yes = ok
+      ? await confirmWarning({ title: `อนุมัติการยืม ${doc}?`, text: `ยืมจาก${typeName.get(l.lender_type_id)} รวม ${baht(l.lines.reduce((s, x) => s + x.amount, 0))} บาท`, confirmButtonText: "อนุมัติ" })
+      : await confirmWarning({ title: `ยกเลิกการอนุมัติ ${doc}?`, confirmButtonText: "ยกเลิกอนุมัติ" });
+    if (!yes) return;
+    const res = await approveFundLoan(l.id, ok);
+    if (res.error) return void (await toastError(res.error));
+    await toastSuccess(ok ? "อนุมัติแล้ว" : "ยกเลิกอนุมัติแล้ว");
+    reload();
+  }
   async function removeRepay(r: Repay) {
-    if (!(await confirmDelete({ title: `ลบการส่งใช้คืน ${fundDoc(r.doc_seq, r.fiscal_year)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
+    if (!(await confirmDelete({ title: `ลบการส่งใช้คืน ${fundDoc(r.doc_seq, r.fiscal_year, fmt)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
     const res = await deleteFundRepay(r.id);
     if (res.error) return void (await toastError(res.error));
     await toastSuccess("ลบแล้ว");
@@ -172,16 +189,27 @@ export default function FundLoansPage() {
           {list.map((l) => {
             const sum = round2(l.lines.reduce((s, x) => s + x.amount, 0));
             const hasRepay = l.lines.some((x) => x.repays.length > 0);
+            const approved = !!l.director_approved_at;
             return (
               <div key={l.id} className="card">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-900">
-                      {fundDoc(l.doc_seq, l.fiscal_year)} · ยืมจาก{typeName.get(l.lender_type_id)}
+                      {fundDoc(l.doc_seq, l.fiscal_year, fmt)} · ยืมจาก{typeName.get(l.lender_type_id)}
                     </p>
                     <p className="text-sm text-slate-500">
                       {formatThaiDate(l.loan_date)} · {POCKET_LABEL[l.pocket]} · รวม {baht(sum)} บาท
                       {l.semester || l.academic_year ? ` · ภาคเรียนที่ ${l.semester ?? "-"}/${l.academic_year ?? "-"}` : ""}
+                    </p>
+                    <p className="mt-1 text-sm">
+                      {approved ? (
+                        <span className="badge-emerald !text-sm">
+                          ผู้อำนวยการอนุมัติแล้ว {new Date(l.director_approved_at!).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" })}
+                          {l.director_approved_by_name ? ` · ${l.director_approved_by_name}` : ""}
+                        </span>
+                      ) : (
+                        <span className="badge-amber !text-sm">รอผู้อำนวยการอนุมัติ</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -189,8 +217,18 @@ export default function FundLoansPage() {
                       <PrinterIcon className="h-3.5 w-3.5" />
                       บันทึกขออนุมัติ
                     </a>
-                    {canWrite && <MemoForm loan={l} onSaved={reload} />}
-                    {canWrite && !hasRepay && (
+                    {canApprove && !approved && (
+                      <button type="button" onClick={() => approve(l, true)} className="btn-primary btn-sm">
+                        อนุมัติ
+                      </button>
+                    )}
+                    {canApprove && approved && !hasRepay && (
+                      <button type="button" onClick={() => approve(l, false)} className="btn-secondary btn-sm">
+                        ยกเลิกอนุมัติ
+                      </button>
+                    )}
+                    {canWrite && <MemoForm loan={l} fmt={fmt} onSaved={reload} />}
+                    {canWrite && !hasRepay && (!approved || role === "admin") && (
                       <button type="button" onClick={() => removeLoan(l)} title="ลบ" className="btn-danger btn-sm">
                         <TrashIcon className="h-3.5 w-3.5" />
                       </button>
@@ -218,7 +256,7 @@ export default function FundLoansPage() {
                               {x.repays.map((r) => (
                                 <div key={r.id} className="flex flex-wrap items-center gap-2 text-slate-500">
                                   <span>
-                                    ส่งใช้ {formatThaiDate(r.repay_date)} · {fundDoc(r.doc_seq, r.fiscal_year)} · {baht(r.amount)} บาท
+                                    ส่งใช้ {formatThaiDate(r.repay_date)} · {fundDoc(r.doc_seq, r.fiscal_year, fmt)} · {baht(r.amount)} บาท
                                   </span>
                                   {canWrite && (
                                     <button type="button" onClick={() => removeRepay(r)} className="text-red-600 hover:underline">
@@ -233,7 +271,8 @@ export default function FundLoansPage() {
                             <td className={`whitespace-nowrap text-right font-semibold tabular-nums ${o > 0 ? "text-amber-700" : "text-slate-400"}`}>{o > 0 ? baht(o) : "ครบแล้ว"}</td>
                             {canWrite && (
                               <td className="whitespace-nowrap text-right">
-                                {o > 0 && <RepayForm loan={l} line={x} outstanding={o} typeName={typeName} onSaved={reload} />}
+                                {o > 0 && !approved && <span className="text-sm text-slate-400">รอ ผอ. อนุมัติ</span>}
+                                {o > 0 && approved && <RepayForm fmt={fmt} loan={l} line={x} outstanding={o} typeName={typeName} onSaved={reload} />}
                               </td>
                             )}
                           </tr>
@@ -438,7 +477,7 @@ function LoanForm({ types, ledger, onSaved }: { types: MoneyType[]; ledger: { op
   );
 }
 
-function MemoForm({ loan, onSaved }: { loan: Loan; onSaved: () => void }) {
+function MemoForm({ loan, fmt, onSaved }: { loan: Loan; fmt: DocFormats; onSaved: () => void }) {
   const ref = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -459,7 +498,7 @@ function MemoForm({ loan, onSaved }: { loan: Loan; onSaved: () => void }) {
   return (
     <Modal
       ref={ref}
-      title={`ข้อมูลบันทึกข้อความ ${fundDoc(loan.doc_seq, loan.fiscal_year)}`}
+      title={`ข้อมูลบันทึกข้อความ ${fundDoc(loan.doc_seq, loan.fiscal_year, fmt)}`}
       lazy
       trigger={
         <span title="แก้ข้อมูลบันทึกข้อความ" className="btn-secondary btn-sm">
@@ -480,7 +519,7 @@ function MemoForm({ loan, onSaved }: { loan: Loan; onSaved: () => void }) {
   );
 }
 
-function RepayForm({ loan, line, outstanding, typeName, onSaved }: { loan: Loan; line: Line; outstanding: number; typeName: Map<string, string>; onSaved: () => void }) {
+function RepayForm({ loan, line, outstanding, typeName, fmt, onSaved }: { loan: Loan; line: Line; fmt: DocFormats; outstanding: number; typeName: Map<string, string>; onSaved: () => void }) {
   const ref = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
   async function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -508,7 +547,7 @@ function RepayForm({ loan, line, outstanding, typeName, onSaved }: { loan: Loan;
     >
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 sm:col-span-2">
-          {typeName.get(line.borrower_type_id)} ส่งใช้คืน {typeName.get(loan.lender_type_id)} ตาม {fundDoc(loan.doc_seq, loan.fiscal_year)} — ยอดค้าง <b>{baht(outstanding)}</b> บาท
+          {typeName.get(line.borrower_type_id)} ส่งใช้คืน {typeName.get(loan.lender_type_id)} ตาม {fundDoc(loan.doc_seq, loan.fiscal_year, fmt)} — ยอดค้าง <b>{baht(outstanding)}</b> บาท
         </p>
         <div>
           <label className="label">

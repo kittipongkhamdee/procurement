@@ -10,7 +10,12 @@ export const DOC_NUMBER_KINDS = [
   { kind: "requisition", key: "doc_number_format_requisition", label: "ใบเบิกวัสดุ", fallback: "จ {n}/{yyyy}" },
   { kind: "loan", key: "doc_number_format_loan", label: "สัญญาการยืมเงิน", fallback: "{n}/{yyyy}" },
   { kind: "claim", key: "doc_number_format_claim", label: "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)", fallback: "" },
-] as const;
+  // งานการเงิน — ต้องมีเลขเสมอ (เว้นว่าง = ใช้ค่าเริ่มต้น)
+  { kind: "loan_receipt", key: "doc_number_format_loan_receipt", label: "ใบรับใบสำคัญ (ส่งใช้เงินยืม)", fallback: "บค {n}/{yyyy}", required: true },
+  { kind: "fin_bk", key: "doc_number_format_fin_bk", label: "บัญชีรับ-จ่าย: ใบสำคัญรับเงิน (บค.)", fallback: "บค {n}/{yyyy}", required: true },
+  { kind: "fin_bj", key: "doc_number_format_fin_bj", label: "บัญชีรับ-จ่าย: ใบเสร็จรับเงินผู้ขาย (บจ.)", fallback: "บจ {n}/{yyyy}", required: true },
+  { kind: "fund_loan", key: "doc_number_format_fund_loan", label: "ยืมเงินระหว่างประเภทเงิน / ส่งใช้คืน", fallback: "บง {n}/{yyyy}", required: true },
+] as const satisfies readonly { kind: string; key: string; label: string; fallback: string; required?: boolean }[];
 export type DocNumberKind = (typeof DOC_NUMBER_KINDS)[number]["kind"];
 
 export function docNumberKind(docType: string): DocNumberKind {
@@ -21,8 +26,13 @@ export function docNumberKind(docType: string): DocNumberKind {
 export function docNumberTemplate(kind: DocNumberKind, settings: Map<string, string> | Record<string, string>) {
   const def = DOC_NUMBER_KINDS.find((k) => k.kind === kind)!;
   const v = settings instanceof Map ? settings.get(def.key) : settings[def.key];
-  if (v === undefined) return def.fallback;
+  if (v === undefined || (v === "-" && "required" in def)) return def.fallback;
   return v === "-" ? "" : v;
+}
+
+/** เลขที่ตามรูปแบบจากลำดับที่ — ใช้กับเลขที่เก็บเป็นลำดับ (บค./บจ. ในบัญชีรับ-จ่าย, บง.) */
+export function formatDocNumber(template: string, n: number, fy: number) {
+  return render(template, n, fy);
 }
 
 function render(template: string, n: number, fy: number) {

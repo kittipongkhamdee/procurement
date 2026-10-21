@@ -360,8 +360,10 @@ export async function setApprovalDocNumberFormat(formData: FormData): Promise<{ 
 export async function setDocNumberFormats(formData: FormData): Promise<{ error?: string }> {
   const supabase = await requireAdmin();
   const now = new Date().toISOString();
-  for (const { key } of DOC_NUMBER_KINDS) {
+  for (const k of DOC_NUMBER_KINDS) {
+    const { key } = k;
     const raw = String(formData.get(key) ?? "").trim();
+    if (!raw && "required" in k) return { error: `${k.label} ต้องกำหนดรูปแบบ (ต้องมีเลขที่เสมอ)` };
     if (raw && !raw.includes("{n}")) return { error: `รูปแบบ "${raw}" ต้องมี {n} (ลำดับที่)` };
     const { error } = await supabase.from("proc_app_settings").upsert({ key, value: raw || "-", updated_at: now });
     if (error) return { error: error.message };

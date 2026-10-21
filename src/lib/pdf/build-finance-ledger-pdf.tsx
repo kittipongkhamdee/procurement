@@ -1,6 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { createClient } from "@/lib/supabase/server";
-import { balancesByType, fiscalMonths, fiscalRange, fiscalYearOf, registerForMonth, sortTxns, zero, type FinTxn, type MoneyType, type Opening, type VoucherClear } from "@/lib/finance-ledger";
+import { DOC_FORMAT_KEYS, docFormatsFrom, balancesByType, fiscalMonths, fiscalRange, fiscalYearOf, registerForMonth, sortTxns, zero, type FinTxn, type MoneyType, type Opening, type VoucherClear } from "@/lib/finance-ledger";
 import { FundLoanMemoDocument } from "./fund-loan-document";
 import { DailyBalanceDocument, MoneyRegisterDocument, VoucherRegisterDocument, type FinSigners, type RegisterPage } from "./finance-ledger-document";
 
@@ -79,6 +79,8 @@ export async function buildMoneyRegisterPdf(supabase: Supabase, fy: number, mont
       clearsByType.set(typeId, list);
     }
   }
+  const { data: fmtRows } = await supabase.from("proc_app_settings").select("key, value").in("key", DOC_FORMAT_KEYS);
+  const fmt = docFormatsFrom(Object.fromEntries((fmtRows ?? []).map((r) => [r.key, r.value ?? ""])));
   const pages: RegisterPage[] = [];
   const list = typeId ? types.filter((x) => x.id === typeId) : types;
   for (const type of list) {
@@ -86,7 +88,7 @@ export async function buildMoneyRegisterPdf(supabase: Supabase, fy: number, mont
     const op = openings.find((o) => o.money_type_id === type.id);
     const opening = op ? { cash: op.cash, bank: op.bank, gov: op.gov } : zero();
     if (!typeId && tx.length === 0 && opening.cash + opening.bank + opening.gov === 0) continue;
-    for (const m of selected) pages.push({ type, month: m, reg: registerForMonth(opening, tx, m, clearsByType.get(type.id) ?? []) });
+    for (const m of selected) pages.push({ type, month: m, reg: registerForMonth(opening, tx, m, clearsByType.get(type.id) ?? [], fmt) });
   }
   if (pages.length === 0) return null;
   return renderToBuffer(<MoneyRegisterDocument pages={pages} schoolName={schoolName} fy={fy} />);
