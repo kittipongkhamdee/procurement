@@ -13,6 +13,7 @@ import { confirmChoice, confirmDelete, errorMessage, promptText, toastError, toa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { TimeSelect } from "@/components/time-select";
 import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
 import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber, suggestReceiptNo, updateReceiptNo } from "./actions";
 import { TEACHER_POSITIONS } from "@/lib/teacher-positions";
@@ -234,12 +235,103 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           </datalist>
         </div>
         <div className="sm:col-span-2">
+          <label className="label">ลักษณะการยืม (กำหนดส่งใช้ ตามระเบียบฯ ข้อ 65)</label>
+          <select
+            name="loan_type"
+            value={loanType}
+            onChange={(e) => {
+              const v = parseLoanType(e.target.value);
+              setLoanType(v);
+            }}
+            className="input w-full"
+          >
+            {(Object.keys(LOAN_TYPE_LABEL) as LoanType[]).map((k) => (
+              <option key={k} value={k}>
+                {LOAN_TYPE_LABEL[k]}
+              </option>
+            ))}
+          </select>
+          {/* จำนวนวันส่งใช้กำหนดตายตัวตามระเบียบ — ไม่ให้กรอกเอง */}
+          <p className="mt-1 text-sm text-slate-600">{LOAN_DUE_RULE[loanType]}</p>
+        </div>
+        {loanType === "travel" && (
+          <fieldset className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 sm:col-span-2">
+            <legend className="px-1 text-sm font-semibold text-navy-800">รายละเอียดการเดินทาง (ใช้ประมาณการรายการยืม และส่งต่อไปแบบ 8708)</legend>
+            <input type="hidden" name="travel_return_date" value={returnDate ?? ""} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="label">
+                  เดินทางไปปฏิบัติราชการ (เรื่อง/สถานที่) <span className="text-red-600">*</span>
+                </label>
+                <input value={travel.destination} onChange={(e) => setT("destination", e.target.value)} required placeholder="เช่น เข้ารับการอบรม... ณ โรงแรม... จังหวัด..." className="input w-full" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="label">ผู้ร่วมเดินทาง (ถ้ามี)</label>
+                <input value={travel.companions} onChange={(e) => setT("companions", e.target.value)} className="input w-full" />
+              </div>
+              {(["depart", "return"] as const).map((k) => (
+                <div key={k} className="space-y-2">
+                  <label className="label">{k === "depart" ? "ออกเดินทางจาก" : "กลับถึง"}</label>
+                  <select
+                    value={k === "depart" ? travel.depart_from : travel.return_to}
+                    onChange={(e) => setT(k === "depart" ? "depart_from" : "return_to", e.target.value as TravelPlace)}
+                    className="input w-full"
+                  >
+                    {(Object.keys(PLACE_LABEL) as TravelPlace[]).map((p) => (
+                      <option key={p} value={p}>
+                        {PLACE_LABEL[p]}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {k === "depart" ? (
+                      <ThaiDatePicker value={travel.depart_date} onChange={(d) => setT("depart_date", d)} />
+                    ) : (
+                      <ThaiDatePicker value={returnDate} onChange={setReturnDate} minDate={travel.depart_date ?? undefined} />
+                    )}
+                    <TimeSelect value={k === "depart" ? travel.depart_time : travel.return_time} onChange={(v) => setT(k === "depart" ? "depart_time" : "return_time", v)} />
+                  </div>
+                </div>
+              ))}
+              <div>
+                <label className="label">จำนวนผู้เดินทาง (คน)</label>
+                <input type="number" min="1" value={travel.people} onChange={(e) => setT("people", Math.max(1, Number(e.target.value) || 1))} className="input w-full" />
+              </div>
+              <div>
+                <label className="label">ระยะทางรถยนต์ส่วนบุคคล (กม. ไป-กลับ)</label>
+                <input type="number" min="0" value={travel.km || ""} onChange={(e) => setT("km", Number(e.target.value) || 0)} className="input w-full" />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={travel.overnight} onChange={(e) => setT("overnight", e.target.checked)} />
+                พักแรม (เบิกค่าเช่าที่พักเหมาจ่าย)
+              </label>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {travelDur && (
+                  <span className="text-sm text-slate-600">
+                    รวม {travelDur.days} วัน {travelDur.hours} ชม.
+                  </span>
+                )}
+                <button type="button" onClick={calcTravelItems} className="btn-secondary btn-sm">
+                  คำนวณรายการยืม
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 sm:col-span-2">
+                อัตรากระทรวงการคลัง: เบี้ยเลี้ยง 240/270 บาท/วัน · ค่าเช่าที่พักเหมาจ่าย 800/1,200 บาท/คืน (ตามระดับตำแหน่ง) · รถยนต์ส่วนบุคคล 4 บาท/กม. — คำนวณแล้วแทนที่ช่อง &quot;รายละเอียด&quot; ด้านบน แก้ได้
+              </p>
+            </div>
+          </fieldset>
+        )}
+        {loanType === "travel" ? (
+          // เดินทางไปราชการ: "เพื่อเป็นค่าใช้จ่ายในการ" สร้างจากเรื่อง/สถานที่ในรายละเอียดการเดินทาง (ไม่ถามซ้ำ)
+          <input type="hidden" name="purpose" value={travel.destination.trim() ? `เดินทางไปราชการ ${travel.destination.trim()}` : loan?.purpose || "เดินทางไปราชการ"} />
+        ) : (
+        <div className="sm:col-span-2">
           <label className="label">
             เพื่อเป็นค่าใช้จ่ายในการ {!projectId && <span className="text-red-600">*</span>}
           </label>
           <input name="purpose" defaultValue={loan?.purpose ?? ""} required={!projectId} placeholder="เช่น จัดซื้อวัสดุ (ระบบต่อท้ายด้วยชื่อโครงการ/กิจกรรมที่เลือกให้)" className="input w-full" />
         </div>
-
+        )}
         <fieldset className="sm:col-span-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">รายละเอียด</legend>
           <div className="space-y-2">
@@ -277,102 +369,12 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
           </div>
         </fieldset>
 
-        <div className="sm:col-span-2">
-          <label className="label">ลักษณะการยืม (กำหนดส่งใช้ ตามระเบียบฯ ข้อ 65)</label>
-          <select
-            name="loan_type"
-            value={loanType}
-            onChange={(e) => {
-              const v = parseLoanType(e.target.value);
-              setLoanType(v);
-            }}
-            className="input w-full"
-          >
-            {(Object.keys(LOAN_TYPE_LABEL) as LoanType[]).map((k) => (
-              <option key={k} value={k}>
-                {LOAN_TYPE_LABEL[k]}
-              </option>
-            ))}
-          </select>
-          {/* จำนวนวันส่งใช้กำหนดตายตัวตามระเบียบ — ไม่ให้กรอกเอง */}
-          <p className="mt-1 text-sm text-slate-600">{LOAN_DUE_RULE[loanType]}</p>
-        </div>
         {isProcStaff && (
           <div>
             <label className="label">วันที่ได้รับเงินยืม</label>
             <ThaiDatePicker name="received_date" defaultValue={loan?.received_date ?? null} minDate={loan?.checked_date ?? loan?.request_date} maxDate={todayLocal()} />
             <p className="mt-1 text-xs text-slate-500">กรอกเมื่อจ่ายเงินแล้ว — ระบบคำนวณวันครบกำหนดให้ (ครูแก้สัญญาไม่ได้หลังจากนี้)</p>
           </div>
-        )}
-        {loanType === "travel" && (
-          <fieldset className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 sm:col-span-2">
-            <legend className="px-1 text-sm font-semibold text-navy-800">รายละเอียดการเดินทาง (ใช้ประมาณการรายการยืม และส่งต่อไปแบบ 8708)</legend>
-            <input type="hidden" name="travel_return_date" value={returnDate ?? ""} />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="label">เดินทางไปปฏิบัติราชการ (เรื่อง/สถานที่)</label>
-                <input value={travel.destination} onChange={(e) => setT("destination", e.target.value)} placeholder="เช่น เข้ารับการอบรม... ณ โรงแรม... จังหวัด..." className="input w-full" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="label">ผู้ร่วมเดินทาง (ถ้ามี)</label>
-                <input value={travel.companions} onChange={(e) => setT("companions", e.target.value)} className="input w-full" />
-              </div>
-              {(["depart", "return"] as const).map((k) => (
-                <div key={k} className="space-y-2">
-                  <label className="label">{k === "depart" ? "ออกเดินทางจาก" : "กลับถึง"}</label>
-                  <select
-                    value={k === "depart" ? travel.depart_from : travel.return_to}
-                    onChange={(e) => setT(k === "depart" ? "depart_from" : "return_to", e.target.value as TravelPlace)}
-                    className="input w-full"
-                  >
-                    {(Object.keys(PLACE_LABEL) as TravelPlace[]).map((p) => (
-                      <option key={p} value={p}>
-                        {PLACE_LABEL[p]}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="grid grid-cols-2 gap-2">
-                    {k === "depart" ? (
-                      <ThaiDatePicker value={travel.depart_date} onChange={(d) => setT("depart_date", d)} />
-                    ) : (
-                      <ThaiDatePicker value={returnDate} onChange={setReturnDate} minDate={travel.depart_date ?? undefined} />
-                    )}
-                    <input
-                      value={k === "depart" ? travel.depart_time : travel.return_time}
-                      onChange={(e) => setT(k === "depart" ? "depart_time" : "return_time", e.target.value)}
-                      placeholder="เวลา เช่น 06.00"
-                      className="input w-full"
-                    />
-                  </div>
-                </div>
-              ))}
-              <div>
-                <label className="label">จำนวนผู้เดินทาง (คน)</label>
-                <input type="number" min="1" value={travel.people} onChange={(e) => setT("people", Math.max(1, Number(e.target.value) || 1))} className="input w-full" />
-              </div>
-              <div>
-                <label className="label">ระยะทางรถยนต์ส่วนบุคคล (กม. ไป-กลับ)</label>
-                <input type="number" min="0" value={travel.km || ""} onChange={(e) => setT("km", Number(e.target.value) || 0)} className="input w-full" />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={travel.overnight} onChange={(e) => setT("overnight", e.target.checked)} />
-                พักแรม (เบิกค่าเช่าที่พักเหมาจ่าย)
-              </label>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {travelDur && (
-                  <span className="text-sm text-slate-600">
-                    รวม {travelDur.days} วัน {travelDur.hours} ชม.
-                  </span>
-                )}
-                <button type="button" onClick={calcTravelItems} className="btn-secondary btn-sm">
-                  คำนวณรายการยืม
-                </button>
-              </div>
-              <p className="text-xs text-slate-500 sm:col-span-2">
-                อัตรากระทรวงการคลัง: เบี้ยเลี้ยง 240/270 บาท/วัน · ค่าเช่าที่พักเหมาจ่าย 800/1,200 บาท/คืน (ตามระดับตำแหน่ง) · รถยนต์ส่วนบุคคล 4 บาท/กม. — คำนวณแล้วแทนที่ช่อง &quot;รายละเอียด&quot; ด้านบน แก้ได้
-              </p>
-            </div>
-          </fieldset>
         )}
         {isProcStaff && (
           <>
