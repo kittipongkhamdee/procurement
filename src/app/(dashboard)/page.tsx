@@ -17,6 +17,7 @@ import { useSchoolSettings } from "@/lib/school-settings";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { PrinterIcon } from "@/components/icons";
 import { PendingActionsPanel } from "./pending-actions-panel";
+import { loadProjectSpending } from "@/lib/project-spending";
 import { EXPENSE_CATEGORIES, expenseCategoryIndex } from "@/lib/expense-categories";
 
 // หมวดตามหลักการจำแนกประเภทรายจ่าย 6 หมวด (src/lib/expense-categories.ts) — บันทึกเก่าที่ใช้หมวดเดิมแปลงเข้าหมวดใหม่ด้วย expenseCategoryIndex
@@ -264,6 +265,8 @@ export default function DashboardPage() {
   const [adminGroups, setAdminGroups] = useState<GroupItem[]>([]);
   const [budgetSources, setBudgetSources] = useState<GroupItem[]>([]);
   const [approvedByProject, setApprovedByProject] = useState<Map<string, number>>(new Map());
+  // จ่ายจริง = รายการจ่ายในบัญชีรับ-จ่ายเงินที่ผูกโครงการ (นิยามเดียวกับเมนูโครงการ — src/lib/project-spending.ts)
+  const [paidTotal, setPaidTotal] = useState(0);
   const [expenseTotals, setExpenseTotals] = useState<number[]>(EXPENSE_CATEGORIES.map(() => 0));
   const [completedProjectIds, setCompletedProjectIds] = useState<Set<string>>(new Set());
   const [notImplementedProjectIds, setNotImplementedProjectIds] = useState<Set<string>>(new Set());
@@ -319,6 +322,8 @@ export default function DashboardPage() {
     setProjects(rows);
 
     const projectIds = new Set(rows.map((r) => r.id));
+    const { byProject: spending } = await loadProjectSpending(supabase, [...projectIds]);
+    setPaidTotal([...spending.values()].reduce((s, v) => s + v.paid, 0));
 
     const nextApprovedByProject = new Map<string, number>();
     const nextExpenseTotals = EXPENSE_CATEGORIES.map(() => 0);
@@ -473,7 +478,9 @@ export default function DashboardPage() {
             <div className="stat-card" style={{ "--accent": GOOD } as React.CSSProperties}>
               <div className="stat-label">อนุมัติจ่ายแล้ว</div>
               <div className="stat-value text-lg text-emerald-600">{formatBaht(totalSpent)}</div>
-              <p className="mt-1 text-xs text-slate-400">{pct(totalSpent, totalBudget).toFixed(1)}% ของงบทั้งหมด</p>
+              <p className="mt-1 text-xs text-slate-400">
+                {pct(totalSpent, totalBudget).toFixed(1)}% ของงบทั้งหมด · จ่ายจริง {formatBaht(paidTotal)}
+              </p>
             </div>
             <div className="stat-card" style={{ "--accent": WARN } as React.CSSProperties}>
               <div className="stat-label">งบคงเหลือ</div>

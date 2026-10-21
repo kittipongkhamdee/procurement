@@ -32,6 +32,7 @@ import {
   type MoneyType,
   type Opening,
 } from "@/lib/finance-ledger";
+import { loadProjectSpending, projectBudget } from "@/lib/project-spending";
 import { deleteTxn } from "./actions";
 import { TxnForm, type ProjectOption } from "./txn-form";
 
@@ -51,7 +52,9 @@ function todayLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-type ProjectRow = Omit<ProjectOption, "activities"> & { budget: number; activities: { id: string; name: string; budget: number }[] };
+// งบ/อนุมัติแล้ว/จ่ายจริง ตามนิยามเดียวกับเมนูโครงการและแดชบอร์ด (src/lib/project-spending.ts) — คงเหลือ = งบ − อนุมัติแล้ว
+type Spend = { budget: number; approved: number; paid: number };
+type ProjectRow = Omit<ProjectOption, "activities"> & Spend & { activities: ({ id: string; name: string } & Spend)[] };
 
 export default function LedgerPage() {
   return (
@@ -93,12 +96,18 @@ function LedgerContent() {
     setTypes((mt ?? []) as MoneyType[]);
     setOpenings(((op ?? []) as Opening[]).map((o) => ({ ...o, cash: Number(o.cash), bank: Number(o.bank), gov: Number(o.gov) })));
     setTxns(((tx ?? []) as unknown as FinTxn[]).map((t) => ({ ...t, amount: Number(t.amount) })));
+    const pjRows = (pj ?? []) as unknown as { id: string; name: string; budget: number | null; plan_activities: { id: string; name: string; budget: number | null; sort_order: number }[] }[];
+    const spend = await loadProjectSpending(supabase, pjRows.map((p) => p.id));
     setProjects(
-      ((pj ?? []) as unknown as { id: string; name: string; budget: number | null; plan_activities: { id: string; name: string; budget: number | null; sort_order: number }[] }[]).map((p) => ({
+      pjRows.map((p) => ({
         id: p.id,
         name: p.name,
-        budget: Number(p.budget ?? 0),
-        activities: [...(p.plan_activities ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((a) => ({ id: a.id, name: a.name, budget: Number(a.budget ?? 0) })),
+        budget: projectBudget(p.budget, p.plan_activities),
+        approved: spend.byProject.get(p.id)?.approved ?? 0,
+        paid: spend.byProject.get(p.id)?.paid ?? 0,
+        activities: [...(p.plan_activities ?? [])]
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((a) => ({ id: a.id, name: a.name, budget: Number(a.budget ?? 0), approved: spend.approvedForActivity(p.id, a.name), paid: spend.paidByActivity.get(a.id) ?? 0 })),
       })),
     );
   }, [fy]);
@@ -123,13 +132,14 @@ function LedgerContent() {
   const balances = useMemo(() => balancesByType(openings, txns ?? [], asOf ?? undefined), [openings, txns, asOf]);
   // ยอดวันนี้สำหรับการ์ดหน้ารวม (แท็บยอดคงเหลือเลือกวันที่เองได้)
   const grand = useMemo(() => [...balancesByType(openings, txns ?? [], todayLocal()).values()].reduce((s, b) => addBal(s, b), zero()), [openings, txns]);
-  const projectTotals = useMemo(() => {
-    const ids = new Set(projects.map((p) => p.id));
-    return {
+  const projectTotals = useMemo(
+    () => ({
       budget: projects.reduce((s, p) => s + p.budget, 0),
-      paid: (txns ?? []).filter((t) => t.kind === "pay" && t.project_id && ids.has(t.project_id)).reduce((s, t) => s + t.amount, 0),
-    };
-  }, [projects, txns]);
+      approved: projects.reduce((s, p) => s + p.approved, 0),
+      paid: projects.reduce((s, p) => s + p.paid, 0),
+    }),
+    [projects],
+  );
   const yearTotals = useMemo(() => {
     const list = txns ?? [];
     return {
@@ -217,11 +227,11 @@ function LedgerContent() {
             {
               key: "projects",
               title: "งบโครงการ",
-              description: "งบประมาณ / เบิกจ่ายแล้ว / คงเหลือ รายโครงการและกิจกรรม",
+              description: "งบประมาณ / อนุมัติแล้ว / จ่ายจริง / คงเหลือ รายโครงการและกิจกรรม",
               href: "/finance/ledger?view=projects",
               icon: <FolderIcon className={ICON} />,
               value: projects.length.toLocaleString("th-TH"),
-              sub: `โครงการ · เบิกจ่ายแล้ว ${baht(projectTotals.paid)} จาก ${baht(projectTotals.budget)} บาท`,
+              sub: `โครงการ · งบ ${baht(projectTotals.budget)} · อนุมัติแล้ว ${baht(projectTotals.approved)} · จ่ายจริง ${baht(projectTotals.paid)} บาท`,
             },
             {
               key: "reports",
@@ -359,7 +369,7 @@ function LedgerContent() {
       )}
 
       {tab === "balance" && <BalanceTab types={types} balances={balances} asOf={asOf} setAsOf={setAsOf} />}
-      {tab === "projects" && <ProjectsTab projects={projects} txns={txns} />}
+      {tab === "projects" && <ProjectsTab projects={projects} />}
       {tab === "reports" && <ReportsTab fy={fy} types={types} />}
 
       <p className="mt-4 text-xs text-slate-400">ประเภทรายการ: {Object.values(KIND_LABEL).join(" / ")} — โอน/ถอน/ฝาก ย้ายเงินระหว่างเงินสด ธนาคาร และส่วนราชการ ไม่นับเป็นรับ/จ่าย</p>
@@ -432,53 +442,54 @@ function BalanceTab({ types, balances, asOf, setAsOf }: { types: MoneyType[]; ba
   );
 }
 
-function ProjectsTab({ projects, txns }: { projects: ProjectRow[]; txns: FinTxn[] }) {
-  const paid = new Map<string, number>();
-  const paidAct = new Map<string, number>();
-  for (const t of txns) {
-    if (t.kind !== "pay" || !t.project_id) continue;
-    paid.set(t.project_id, (paid.get(t.project_id) ?? 0) + t.amount);
-    if (t.activity_id) paidAct.set(t.activity_id, (paidAct.get(t.activity_id) ?? 0) + t.amount);
-  }
+function ProjectsTab({ projects }: { projects: ProjectRow[] }) {
   if (projects.length === 0) return <div className="card table-empty">ยังไม่มีโครงการของปีงบประมาณนี้ (เมนูโครงการ)</div>;
   const pct = (used: number, budget: number) => (budget > 0 ? `${((used / budget) * 100).toFixed(1)}%` : "-");
+  const cells = (x: Spend, muted: boolean) => {
+    const tone = muted ? "text-slate-600" : "";
+    const left = x.budget - x.approved;
+    return (
+      <>
+        <td className={`text-right tabular-nums ${tone}`}>{baht(x.budget)}</td>
+        <td className={`text-right tabular-nums ${muted ? "text-slate-600" : "text-emerald-700"}`}>{baht(x.approved)}</td>
+        <td className={`text-right tabular-nums ${muted ? "text-slate-600" : "text-sky-700"}`}>{baht(x.paid)}</td>
+        <td className={`text-right tabular-nums ${left < 0 ? "text-red-600" : muted ? "text-slate-600" : "font-semibold text-amber-700"}`}>{baht(left)}</td>
+        <td className={`text-right tabular-nums ${tone}`}>{pct(x.approved, x.budget)}</td>
+      </>
+    );
+  };
+  const sum = projects.reduce((s, p) => ({ budget: s.budget + p.budget, approved: s.approved + p.approved, paid: s.paid + p.paid }), { budget: 0, approved: 0, paid: 0 });
   return (
     <div className="card overflow-x-auto p-0">
+      <p className="px-4 pt-3 text-xs text-slate-500">อนุมัติแล้ว = บันทึกขออนุมัติที่ ผอ. อนุมัติ · จ่ายจริง = รายการจ่ายในบัญชีรับ-จ่ายเงิน · คงเหลือ = งบประมาณ − อนุมัติแล้ว (ตัวเลขเดียวกับเมนูโครงการ)</p>
       <table className="table-base w-full">
         <thead>
           <tr>
             <th>โครงการ / กิจกรรม</th>
             <th className="text-right">งบประมาณ</th>
-            <th className="text-right">เบิกจ่ายแล้ว</th>
+            <th className="text-right">อนุมัติแล้ว</th>
+            <th className="text-right">จ่ายจริง</th>
             <th className="text-right">คงเหลือ</th>
-            <th className="text-right">เบิกจ่าย</th>
+            <th className="text-right">ใช้ไป</th>
           </tr>
         </thead>
         <tbody>
-          {projects.map((p) => {
-            const used = paid.get(p.id) ?? 0;
-            return [
-              <tr key={p.id}>
-                <td className="font-semibold text-slate-900">{p.name}</td>
-                <td className="text-right tabular-nums">{baht(p.budget)}</td>
-                <td className="text-right tabular-nums">{baht(used)}</td>
-                <td className={`text-right tabular-nums ${p.budget - used < 0 ? "text-red-600" : ""}`}>{baht(p.budget - used)}</td>
-                <td className="text-right tabular-nums">{pct(used, p.budget)}</td>
-              </tr>,
-              ...p.activities.map((a) => {
-                const u = paidAct.get(a.id) ?? 0;
-                return (
-                  <tr key={a.id}>
-                    <td className="pl-8 text-slate-600">{a.name}</td>
-                    <td className="text-right tabular-nums text-slate-600">{baht(a.budget)}</td>
-                    <td className="text-right tabular-nums text-slate-600">{baht(u)}</td>
-                    <td className={`text-right tabular-nums ${a.budget - u < 0 ? "text-red-600" : "text-slate-600"}`}>{baht(a.budget - u)}</td>
-                    <td className="text-right tabular-nums text-slate-600">{pct(u, a.budget)}</td>
-                  </tr>
-                );
-              }),
-            ];
-          })}
+          {projects.map((p) => [
+            <tr key={p.id}>
+              <td className="font-semibold text-slate-900">{p.name}</td>
+              {cells(p, false)}
+            </tr>,
+            ...p.activities.map((a) => (
+              <tr key={a.id}>
+                <td className="pl-8 text-slate-600">{a.name}</td>
+                {cells(a, true)}
+              </tr>
+            )),
+          ])}
+          <tr>
+            <td className="font-bold">รวมทั้งสิ้น</td>
+            {cells(sum, false)}
+          </tr>
         </tbody>
       </table>
     </div>

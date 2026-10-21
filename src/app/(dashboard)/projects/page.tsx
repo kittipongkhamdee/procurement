@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { loadProjectSpending, projectBudget } from "@/lib/project-spending";
 import { Modal } from "@/components/modal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { CreateProjectForm } from "./create-project-form";
@@ -39,7 +40,10 @@ type ProjectRow = {
   budgetSource: string;
   activities: Activity[];
   budget: number;
+  /** อนุมัติแล้ว (บันทึกขออนุมัติ) */
   spent: number;
+  /** จ่ายจริง (บัญชีรับ-จ่ายเงิน) */
+  paid: number;
   remaining: number;
 };
 
@@ -81,30 +85,15 @@ export default function ProjectsPage() {
     if (error) setError(error.message);
 
     const projectIds = (projects ?? []).map((p) => p.id);
-    const { data: disbursements } =
-      projectIds.length > 0
-        ? await supabase
-            .from("proc_project_disbursements")
-            .select("project_id, amount")
-            .eq("status", "paid")
-            .in("project_id", projectIds)
-        : { data: [] };
-
-    const spentByProject = new Map<string, number>();
-    for (const d of disbursements ?? []) {
-      if (!d.project_id) continue;
-      spentByProject.set(d.project_id, (spentByProject.get(d.project_id) ?? 0) + Number(d.amount ?? 0));
-    }
+    // อนุมัติแล้ว/จ่ายจริง — นิยามเดียวกับบัญชีรับ-จ่ายเงินและแดชบอร์ด (src/lib/project-spending.ts)
+    const { byProject: spending } = await loadProjectSpending(supabase, projectIds);
 
     // เรียงตามลำดับกลุ่มบริหาร (sort_order ของกลุ่ม) คงลำดับโครงการเดิมภายในกลุ่ม (Array.sort เสถียร)
     setRows(
       (projects ?? []).map((p) => {
         const activities = p.plan_activities as unknown as Activity[];
-        const budget =
-          activities.length > 0
-            ? activities.reduce((sum, a) => sum + Number(a.budget ?? 0), 0)
-            : Number(p.budget ?? 0);
-        const spent = spentByProject.get(p.id) ?? 0;
+        const budget = projectBudget(p.budget, activities);
+        const spent = spending.get(p.id)?.approved ?? 0;
         return {
           id: p.id,
           name: p.name,
@@ -119,6 +108,7 @@ export default function ProjectsPage() {
           activities,
           budget,
           spent,
+          paid: spending.get(p.id)?.paid ?? 0,
           remaining: budget - spent,
         };
       }).sort((a, b) => a.adminGroupOrder - b.adminGroupOrder),
