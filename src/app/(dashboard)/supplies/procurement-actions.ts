@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkApprovalBudget } from "@/lib/approval-budget";
 import { parseItemClass } from "@/lib/item-class";
-import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { assignDocNumber, insertWithDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
 import { docNumberKind } from "@/lib/doc-numbers";
 import { deleteFromStorage } from "@/lib/storage";
 import { computeTotals, parseVatType } from "@/lib/vat";
@@ -155,17 +155,20 @@ export async function createProcurement(formData: FormData): Promise<Result> {
   // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
   const admin = await isAdminUser(supabase);
   if (admin && parsed.docNoInput && (await docNumberTaken(supabase, docNumberKind(parsed.fields.doc_type), parsed.docNoInput))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
-  const docNo = admin && parsed.docNoInput ? parsed.docNoInput : await assignDocNumber(supabase, docNumberKind(parsed.fields.doc_type), parsed.fields.record_date);
-  if (!docNo) return { error: "ยังไม่ได้ตั้งรูปแบบเลขที่เอกสารของเมนูนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าตั้งค่า (รูปแบบเลขที่เอกสารงานพัสดุ)" };
+  const kind = docNumberKind(parsed.fields.doc_type);
+  const manual = admin && parsed.docNoInput ? parsed.docNoInput : null;
+  if (!manual && !(await assignDocNumber(supabase, kind, parsed.fields.record_date))) return { error: "ยังไม่ได้ตั้งรูปแบบเลขที่เอกสารของเมนูนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าตั้งค่า (รูปแบบเลขที่เอกสารงานพัสดุ)" };
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data, error } = await supabase
+  const { data, error, docNo } = await insertWithDocNumber<{ id: string }>(supabase, kind, parsed.fields.record_date, manual, (no) =>
+    supabase
     .from("proc_purchase_requests")
-    .insert({ ...parsed.fields, doc_no: docNo, created_by: user?.id ?? null })
+    .insert({ ...parsed.fields, doc_no: no ?? "", created_by: user?.id ?? null })
     .select("id")
-    .single();
-  if (error) return { error: error.message };
+    .single(),
+  );
+  if (error || !data) return { error: error?.message ?? "บันทึกไม่สำเร็จ" };
   const itemError = await replaceItems(supabase, data.id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
   await rememberPosition(supabase, parsed.fields.inspector_name, parsed.fields.inspector_position);

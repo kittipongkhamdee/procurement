@@ -64,3 +64,9 @@ export function thaiBahtText(amount: number | null | undefined): string {
 export function formatBaht(n: number | null | undefined): string {
   return (n ?? 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+/** วันนี้ตามเวลาประเทศไทย (ISO "YYYY-MM-DD") — ห้ามใช้ new Date().toISOString().slice(0, 10) ซึ่งเป็นเวลา UTC
+ *  (ช่วงเที่ยงคืนถึง 07:00 น. จะได้วันก่อนหน้า) */
+export function todayTh(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+}

@@ -4,6 +4,7 @@
 // บันทึกการยืม 1 ครั้ง = ผู้ให้ยืม 1 ประเภท → ผู้ยืมได้หลายประเภท (เช่น ค่าเครื่องแบบ + ค่าอุปกรณ์การเรียน)
 // ระบบสร้างรายการรับ-จ่ายคู่กันให้เอง (fin_transactions.fund_role) — ลบการยืม/การส่งใช้ = ลบรายการที่สร้างไว้ด้วย (cascade)
 
+import { dbFail } from "@/lib/action-log";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminUser } from "@/lib/doc-number-server";
@@ -102,7 +103,8 @@ export async function saveFundLoan(fd: FormData): Promise<Result> {
     })
     .select("id")
     .single();
-  if (error) return { error: error.message.includes("row-level") ? NO_RIGHT : error.message };
+  if (error?.code === "23505") return { error: "เลขที่ บง ชนกับรายการที่บันทึกพร้อมกัน — กรุณากดบันทึกอีกครั้ง" };
+  if (error) return dbFail("saveFundLoan", error.message.includes("row-level") ? NO_RIGHT : error.message);
   const { data: saved, error: e2 } = await supabase
     .from("fin_fund_loan_lines")
     .insert(lines.map((l, i) => ({ loan_id: loan.id, borrower_type_id: l.borrower_type_id, amount: l.amount, sort_order: i })))
@@ -133,7 +135,7 @@ export async function updateFundLoanMemo(id: string, fd: FormData): Promise<Resu
     .update({ semester: str("semester") || null, academic_year: str("academic_year") || null, memo_no: str("memo_no") || null, memo_date: str("memo_date") || null, reason: str("reason") || null })
     .eq("id", id)
     .select("id");
-  if (error) return { error: error.message };
+  if (error) return dbFail("updateFundLoanMemo", error.message);
   if (!data?.length) return { error: NO_RIGHT };
   revalidate();
   return { id };
@@ -147,7 +149,7 @@ export async function deleteFundLoan(id: string): Promise<Result> {
   const { data: cur } = await supabase.from("fin_fund_loans").select("director_approved_at").eq("id", id).maybeSingle();
   if (cur?.director_approved_at && !(await isAdminUser(supabase))) return { error: "ผู้อำนวยการอนุมัติแล้ว — ให้ผู้อำนวยการยกเลิกอนุมัติก่อน จึงลบได้" };
   const { data, error } = await supabase.from("fin_fund_loans").delete().eq("id", id).select("id");
-  if (error) return { error: error.message };
+  if (error) return dbFail("deleteFundLoan", error.message);
   if (!data?.length) return { error: NO_RIGHT };
   revalidate();
   return {};
@@ -185,7 +187,8 @@ export async function saveFundRepay(lineId: string, fd: FormData): Promise<Resul
     .insert({ line_id: lineId, fiscal_year: fy, doc_seq: seq, repay_date: date, amount, pocket, note: str("note") || null })
     .select("id")
     .single();
-  if (error) return { error: error.message.includes("row-level") ? NO_RIGHT : error.message };
+  if (error?.code === "23505") return { error: "เลขที่ บง ชนกับรายการที่บันทึกพร้อมกัน — กรุณากดบันทึกอีกครั้ง" };
+  if (error) return dbFail("saveFundRepay", error.message.includes("row-level") ? NO_RIGHT : error.message);
   const names = await typeNames(supabase, [loan.lender_type_id, line.borrower_type_id]);
   const ref = fundDoc(loan.doc_seq, loan.fiscal_year, await docFormats(supabase));
   const base = { fiscal_year: fy, txn_date: date, doc_no: fundDoc(seq, fy, await docFormats(supabase)), amount, fund_line_id: lineId, fund_repay_id: rep.id };
@@ -205,7 +208,7 @@ export async function deleteFundRepay(id: string): Promise<Result> {
   const supabase = await createClient();
   if (!(await canWrite(supabase))) return { error: NO_RIGHT };
   const { data, error } = await supabase.from("fin_fund_loan_repays").delete().eq("id", id).select("id");
-  if (error) return { error: error.message };
+  if (error) return dbFail("deleteFundRepay", error.message);
   if (!data?.length) return { error: NO_RIGHT };
   revalidate();
   return {};
@@ -215,7 +218,7 @@ export async function deleteFundRepay(id: string): Promise<Result> {
 export async function approveFundLoan(id: string, approve: boolean): Promise<Result> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("proc_approve_fund_loan", { p_id: id, p_approve: approve });
-  if (error) return { error: error.message };
+  if (error) return dbFail("approveFundLoan", error.message);
   if (data) return { error: data };
   revalidate();
   return { id };

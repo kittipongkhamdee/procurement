@@ -1,3 +1,4 @@
+import { todayTh } from "@/lib/thai";
 // สัญญาการยืมเงิน — กำหนดส่งใช้ตามระเบียบกระทรวงการคลังว่าด้วยการเบิกเงินจากคลัง การรับเงิน การจ่ายเงิน
 // การเก็บรักษาเงิน และการนำเงินส่งคลัง พ.ศ. 2562 ข้อ 65:
 //  (2) เดินทางไปราชการ → ส่งใช้ภายใน 15 วันนับแต่วันกลับมาถึง
@@ -41,6 +42,6 @@ export function loanBalance(amount: number, repayments: Pick<LoanRepayment, "cas
   return { repaid, outstanding: Math.max(outstanding, 0), cleared: outstanding <= 0 };
 }
 
-export function isOverdue(dueDate: string | null, cleared: boolean, today = new Date().toISOString().slice(0, 10)) {
+export function isOverdue(dueDate: string | null, cleared: boolean, today = todayTh()) {
   return !cleared && !!dueDate && dueDate < today;
 }

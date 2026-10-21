@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatThaiDate } from "@/lib/thai";
+import { formatThaiDate, todayTh } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ChevronLeftIcon, ExcelFileIcon, PrinterIcon, SearchIcon } from "@/components/icons";
 
@@ -32,7 +32,7 @@ function fiscalYear(iso: string): number {
 
 function status(endDate: string | null): { key: string; label: string; cls: string } {
   if (!endDate) return { key: "none", label: "ไม่ระบุวันสิ้นสุด", cls: "badge-slate" };
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayTh();
   const days = Math.round((Date.parse(endDate) - Date.parse(today)) / 86_400_000);
   if (days < 0) return { key: "overdue", label: `เลยกำหนด ${-days} วัน`, cls: "badge-red" };
   if (days <= 7) return { key: "due", label: `เหลือ ${days} วัน`, cls: "badge-amber" };

@@ -44,11 +44,12 @@ function fiscalYearStartIso(fiscalYearBE: number): string {
 
 // +30 วันทำการ (เว้นเสาร์-อาทิตย์ ไม่หักวันหยุดราชการ — ผู้ใช้ปรับแก้เองได้ในฟอร์ม)
 function addBusinessDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00`);
+  // คิดเป็น UTC ทั้งหมด — เดิมสร้างวันที่ตามเวลาเครื่องแล้วแปลง toISOString (UTC) ทำให้ในไทยได้วันก่อนหน้า 1 วัน
+  const d = new Date(`${iso}T00:00:00Z`);
   let added = 0;
   while (added < days) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
+    d.setUTCDate(d.getUTCDate() + 1);
+    const dow = d.getUTCDay();
     if (dow !== 0 && dow !== 6) added++;
   }
   return d.toISOString().slice(0, 10);

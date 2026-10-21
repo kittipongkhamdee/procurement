@@ -3,6 +3,7 @@
 // บัญชีรับ-จ่ายเงิน (/finance/ledger) — บันทึกได้เฉพาะเจ้าหน้าที่การเงิน/แอดมิน (RLS fin_can_write) ทุกคนดูได้
 // คืน { error } แทนการ throw — production ของ Next ซ่อนข้อความ error ที่ throw จาก server action
 
+import { dbFail } from "@/lib/action-log";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { fiscalYearOf, FIN_SIGNER_KEYS, POCKETS, SOURCE_DATE_FIELDS, SOURCE_LABEL, sourceDoneDate, type DocKind, type Pocket, type SourceKind, type TxnKind } from "@/lib/finance-ledger";
@@ -93,7 +94,7 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
   if (id) {
     if (await isFundTxn(supabase, id)) return { error: FUND_LOCKED };
     const { data, error } = await supabase.from("fin_transactions").update(fields).eq("id", id).select("id");
-    if (error) return { error: rls(error.message) };
+    if (error) return dbFail("saveTxn", rls(error.message));
     if (!data?.length) return { error: NO_RIGHT };
     revalidatePath(PATH);
     return { id, docSeq };
@@ -144,7 +145,7 @@ export async function deleteTxn(id: string): Promise<Result> {
   const supabase = await createClient();
   if (await isFundTxn(supabase, id)) return { error: FUND_LOCKED };
   const { data, error } = await supabase.from("fin_transactions").delete().eq("id", id).select("id");
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("deleteTxn", rls(error.message));
   if (!data?.length) return { error: NO_RIGHT };
   revalidatePath(PATH);
   return {};
@@ -166,7 +167,7 @@ export async function saveMoneyType(id: string | null, fd: FormData): Promise<Re
     is_active: str("is_active") !== "false",
   };
   const { error } = id ? await supabase.from("fin_money_types").update(fields).eq("id", id) : await supabase.from("fin_money_types").insert(fields);
-  if (error) return { error: error.message.includes("duplicate") ? `มีประเภทเงิน "${name}" แล้ว` : rls(error.message) };
+  if (error) return dbFail("saveMoneyType", error.message.includes("duplicate") ? `มีประเภทเงิน "${name}" แล้ว` : rls(error.message));
   revalidatePath(PATH);
   return {};
 }
@@ -178,7 +179,7 @@ export async function deleteMoneyType(id: string): Promise<Result> {
   const { count } = await supabase.from("fin_transactions").select("id", { count: "exact", head: true }).eq("money_type_id", id);
   if (count) return { error: `มีรายการรับ-จ่ายของประเภทนี้แล้ว ${count} รายการ — ลบไม่ได้ ให้ปิดใช้งานแทน` };
   const { error } = await supabase.from("fin_money_types").delete().eq("id", id);
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("deleteMoneyType", rls(error.message));
   revalidatePath(PATH);
   return {};
 }
@@ -191,7 +192,7 @@ export async function saveAccount(id: string | null, fd: FormData): Promise<Resu
   if (!name) return { error: "กรุณาระบุชื่อบัญชี" };
   const fields = { name, bank_name: str("bank_name") || null, account_no: str("account_no") || null, sort_order: Number(str("sort_order")) || 0, is_active: str("is_active") !== "false" };
   const { error } = id ? await supabase.from("fin_accounts").update(fields).eq("id", id) : await supabase.from("fin_accounts").insert(fields);
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("saveAccount", rls(error.message));
   revalidatePath(PATH);
   return {};
 }
@@ -200,7 +201,7 @@ export async function deleteAccount(id: string): Promise<Result> {
   const supabase = await createClient();
   if (!(await canWrite(supabase))) return { error: NO_RIGHT };
   const { error } = await supabase.from("fin_accounts").delete().eq("id", id);
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("deleteAccount", rls(error.message));
   revalidatePath(PATH);
   return {};
 }
@@ -213,7 +214,7 @@ export async function saveOpenings(fy: number, rows: { money_type_id: string; ca
   const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
   const payload = rows.map((r) => ({ fiscal_year: fy, money_type_id: r.money_type_id, cash: r2(r.cash), bank: r2(r.bank), gov: r2(r.gov), updated_at: new Date().toISOString() }));
   const { error } = await supabase.from("fin_opening_balances").upsert(payload);
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("saveOpenings", rls(error.message));
   revalidatePath(PATH);
   return {};
 }
@@ -227,7 +228,7 @@ export async function saveSigners(fd: FormData): Promise<Result> {
     { key: `${key}_position`, value: String(fd.get(`${key}_position`) ?? "").trim() || null, updated_at: now },
   ]);
   const { error } = await supabase.from("fin_settings").upsert(payload);
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("saveSigners", rls(error.message));
   revalidatePath(PATH);
   return {};
 }
@@ -238,7 +239,7 @@ export async function skipSource(kind: SourceKind, id: string, reason: string): 
   if (!(await canWrite(supabase))) return { error: NO_RIGHT };
   if (!(kind in SOURCE_LABEL)) return { error: "ประเภทต้นทางไม่ถูกต้อง" };
   const { error } = await supabase.from("fin_source_skips").upsert({ source_kind: kind, source_id: id, reason: reason.trim() || null });
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("skipSource", rls(error.message));
   revalidatePath(PATH);
   return {};
 }
@@ -247,7 +248,7 @@ export async function unskipSource(kind: SourceKind, id: string): Promise<Result
   const supabase = await createClient();
   if (!(await canWrite(supabase))) return { error: NO_RIGHT };
   const { error } = await supabase.from("fin_source_skips").delete().eq("source_kind", kind).eq("source_id", id);
-  if (error) return { error: rls(error.message) };
+  if (error) return dbFail("unskipSource", rls(error.message));
   revalidatePath(PATH);
   return {};
 }

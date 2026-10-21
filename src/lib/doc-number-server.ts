@@ -59,3 +59,24 @@ export async function docNumberTaken(supabase: Supabase, kind: DocNumberKind, do
         : await supabase.from("proc_expense_claims").select("id").eq("doc_no", docNo).neq("id", excludeId ?? "00000000-0000-0000-0000-000000000000").limit(1);
   return (data?.length ?? 0) > 0;
 }
+
+type DbError = { code?: string; message: string } | null;
+
+/** บันทึกพร้อมออกเลขที่อัตโนมัติ — ถ้าเลขชนกับรายการอื่น (ฐานข้อมูลกันเลขซ้ำด้วย unique index; เช่น 2 คนกดบันทึกพร้อมกัน)
+ *  ออกเลขใหม่แล้วลองอีก สูงสุด 3 ครั้ง · เลขที่แอดมินพิมพ์เอง (manual) ไม่ลองใหม่ — แจ้งว่าเลขซ้ำ */
+export async function insertWithDocNumber<T>(
+  supabase: Supabase,
+  kind: DocNumberKind,
+  recordDate: string,
+  manual: string | null,
+  run: (docNo: string | null) => PromiseLike<{ data: T | null; error: DbError }>,
+): Promise<{ data: T | null; error: DbError; docNo: string | null }> {
+  let docNo = manual || (await assignDocNumber(supabase, kind, recordDate));
+  for (let attempt = 0; ; attempt++) {
+    const res = await run(docNo);
+    if (!res.error || res.error.code !== "23505") return { ...res, docNo };
+    if (manual) return { data: null, error: { code: "23505", message: `เลขที่ ${manual} ถูกใช้แล้ว` }, docNo };
+    if (attempt >= 2) return { data: null, error: { code: "23505", message: "ออกเลขที่ไม่สำเร็จ (มีผู้บันทึกพร้อมกัน) — กรุณากดบันทึกอีกครั้ง" }, docNo };
+    docNo = await assignDocNumber(supabase, kind, recordDate);
+  }
+}

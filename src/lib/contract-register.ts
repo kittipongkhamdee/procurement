@@ -1,3 +1,4 @@
+import { todayTh } from "@/lib/thai";
 import type { createClient } from "@/lib/supabase/server";
 
 // ข้อมูลทะเบียนสัญญาสำหรับพิมพ์ PDF / ส่งออก Excel — ตัวกรองชุดเดียวกับหน้า /contracts/register
@@ -25,7 +26,7 @@ export function fiscalYear(iso: string): number {
 /** สถานะจากวันสิ้นสุดสัญญา: active / due (≤7 วัน) / overdue / none */
 export function contractStatusKey(endDate: string | null): { key: string; label: string } {
   if (!endDate) return { key: "none", label: "ไม่ระบุวันสิ้นสุด" };
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayTh();
   const days = Math.round((Date.parse(endDate) - Date.parse(today)) / 86_400_000);
   if (days < 0) return { key: "overdue", label: `เลยกำหนด ${-days} วัน` };
   if (days <= 7) return { key: "due", label: `เหลือ ${days} วัน` };

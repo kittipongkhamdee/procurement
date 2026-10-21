@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ArchiveIcon, FileSignatureIcon, ShoppingCartIcon, StoreIcon, TruckIcon } from "@/components/icons";
+import { todayTh } from "@/lib/thai";
 
 type Row = { contract_type: string; amount: number; end_date: string | null };
 type Stat = { count: number; total: number; dueSoon: number; overdue: number };
@@ -26,7 +27,7 @@ function formatBaht(n: number) {
 }
 
 function summarize(rows: Row[]): Stat {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayTh();
   const stat: Stat = { count: rows.length, total: 0, dueSoon: 0, overdue: 0 };
   for (const r of rows) {
     stat.total += Number(r.amount);

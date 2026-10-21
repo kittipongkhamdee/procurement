@@ -6,7 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkApprovalBudget } from "@/lib/approval-budget";
-import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { docNumberTaken, insertWithDocNumber, isAdminUser } from "@/lib/doc-number-server";
 import { deleteFromStorage } from "@/lib/storage";
 import { CLAIM_KINDS, claimAmount, type ClaimKind } from "@/lib/expense-claims";
 
@@ -140,16 +140,18 @@ export async function createExpenseClaim(formData: FormData): Promise<Result> {
   // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
   const admin = await isAdminUser(supabase);
   if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "claim", parsed.docNoInput))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
-  const docNo = admin && parsed.docNoInput ? parsed.docNoInput : await assignDocNumber(supabase, "claim", parsed.fields.record_date);
+  const manual = admin && parsed.docNoInput ? parsed.docNoInput : null;
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data, error } = await supabase
-    .from("proc_expense_claims")
-    .insert({ ...parsed.fields, doc_no: docNo, created_by: user?.id ?? null })
-    .select("id")
-    .single();
-  if (error) return { error: error.message };
+  const { data, error, docNo } = await insertWithDocNumber<{ id: string }>(supabase, "claim", parsed.fields.record_date, manual, (no) =>
+    supabase
+      .from("proc_expense_claims")
+      .insert({ ...parsed.fields, doc_no: no, created_by: user?.id ?? null })
+      .select("id")
+      .single(),
+  );
+  if (error || !data) return { error: error?.message ?? "บันทึกไม่สำเร็จ" };
   const itemError = await replaceItems(supabase, data.id, parsed.rows);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
   return { ...done(data.id), docNo };

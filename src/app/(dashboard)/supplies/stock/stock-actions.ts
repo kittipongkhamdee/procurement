@@ -7,7 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { assignDocNumber, docNumberTaken, insertWithDocNumber, isAdminUser } from "@/lib/doc-number-server";
 import { loadProcurementSource, PROCUREMENT_SOURCE_LABEL, type ProcurementSourceType } from "@/lib/procurement-source";
 import { allocateFifo, guessStockCategory, nextStockCode, type StockMove } from "@/lib/stock";
 
@@ -170,13 +170,14 @@ export async function createRequisition(formData: FormData): Promise<Result> {
   const admin = await isAdminUser(supabase);
   const docInput = str("doc_no");
   if (admin && docInput && (await docNumberTaken(supabase, "requisition", docInput))) return { error: `เลขที่ ${docInput} ถูกใช้แล้ว` };
-  const docNo = admin && docInput ? docInput : await assignDocNumber(supabase, "requisition", date);
-  const { data: req, error } = await supabase
-    .from("proc_stock_requisitions")
-    .insert({ doc_no: docNo, req_date: date, requester_name: str("requester_name"), requester_position: str("requester_position") || null, purpose: str("purpose") || null })
-    .select("id, doc_no, req_date, requester_name")
-    .single();
-  if (error) return { error: error.message.includes("row-level") ? NO_PERMISSION : error.message };
+  const { data: req, error } = await insertWithDocNumber<{ id: string; doc_no: string | null; req_date: string; requester_name: string }>(supabase, "requisition", date, admin && docInput ? docInput : null, (no) =>
+    supabase
+      .from("proc_stock_requisitions")
+      .insert({ doc_no: no, req_date: date, requester_name: str("requester_name"), requester_position: str("requester_position") || null, purpose: str("purpose") || null })
+      .select("id, doc_no, req_date, requester_name")
+      .single(),
+  );
+  if (error || !req) return { error: error?.message.includes("row-level") ? NO_PERMISSION : error?.message ?? "บันทึกไม่สำเร็จ" };
   const issueError = await issueLines(
     supabase,
     req,

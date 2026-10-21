@@ -3,11 +3,12 @@
 // สัญญาการยืมเงิน (/finance/loans) — บันทึกสัญญา/การส่งใช้ ตามระเบียบกระทรวงการคลังฯ พ.ศ. 2562 หมวด 5 (ดู src/lib/loan.ts)
 // คืน { error } แทนการ throw — production ของ Next ซ่อนข้อความ error ที่ throw จาก server action
 
+import { dbFail } from "@/lib/action-log";
 import type { Json } from "@/lib/supabase/database.types";
 import { docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { assignDocNumber, docNumberTaken, insertWithDocNumber, isAdminUser } from "@/lib/doc-number-server";
 import { LOAN_DUE_DAYS, loanBalance, loanDueDate, parseLoanType, type LoanItem } from "@/lib/loan";
 
 type Result = { error?: string; id?: string; docNo?: string | null };
@@ -119,7 +120,7 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
       .update({ ...fields, ...(docNo ? { doc_no: docNo } : {}) })
       .eq("id", id)
       .select("id");
-    if (error) return { error: rlsMessage(error.message) };
+    if (error) return dbFail("saveLoan", rlsMessage(error.message));
     if (!data?.length) return { error: "บันทึกไม่สำเร็จ — สัญญาที่การเงินจ่ายเงินแล้ว แก้ไขได้เฉพาะเจ้าหน้าที่" };
     await rememberPosition(supabase, borrower, fields.borrower_position);
     revalidatePath(PATH);
@@ -135,9 +136,11 @@ export async function saveLoan(id: string | null, formData: FormData): Promise<R
     };
 
   // ครูยื่น = ยังไม่ออกเลข (นับเลขต้องเห็นทุกสัญญา) เจ้าหน้าที่การเงินออกเลขตอนตรวจสอบ
-  const docNo = admin && docNoInput ? docNoInput : me.staff ? await assignDocNumber(supabase, "loan", requestDate) : null;
-  const { data, error } = await supabase.from("proc_loan_contracts").insert({ ...fields, doc_no: docNo }).select("id").single();
-  if (error) return { error: rlsMessage(error.message) };
+  const manual = admin && docNoInput ? docNoInput : null;
+  const insert = (no: string | null) => supabase.from("proc_loan_contracts").insert({ ...fields, doc_no: no }).select("id").single();
+  const { data, error, docNo } =
+    manual || me.staff ? await insertWithDocNumber<{ id: string }>(supabase, "loan", requestDate, manual, insert) : { ...(await insert(null)), docNo: null };
+  if (error || !data) return dbFail("saveLoan", rlsMessage(error?.message ?? "บันทึกไม่สำเร็จ"));
   await rememberPosition(supabase, borrower, fields.borrower_position);
   revalidatePath(PATH);
   return { id: data.id, docNo };
@@ -154,7 +157,7 @@ export async function deleteLoan(id: string): Promise<Result> {
   const { data: cur } = await supabase.from("proc_loan_contracts").select("director_approved_at").eq("id", id).maybeSingle();
   if (cur?.director_approved_at && !(await isAdminUser(supabase))) return { error: "ผู้อำนวยการอนุมัติแล้ว ลบไม่ได้" };
   const { data, error } = await supabase.from("proc_loan_contracts").delete().eq("id", id).select("id");
-  if (error) return { error: rlsMessage(error.message) };
+  if (error) return dbFail("deleteLoan", rlsMessage(error.message));
   if (!data?.length) return { error: "ลบไม่สำเร็จ (ไม่มีสิทธิ์ หรือไม่พบสัญญา)" };
   revalidatePath(PATH);
   return {};
@@ -190,7 +193,8 @@ export async function addRepayment(loanId: string, formData: FormData): Promise<
     receipt_no: receiptNo,
     note: str("note") || null,
   }).select("id").single();
-  if (error) return { error: rlsMessage(error.message) };
+  if (error?.code === "23505") return { error: `ใบรับใบสำคัญเลขที่ ${receiptNo} ถูกใช้แล้ว (มีผู้บันทึกพร้อมกัน) — เปลี่ยนเลขที่แล้วบันทึกอีกครั้ง` };
+  if (error) return dbFail("addRepayment", rlsMessage(error.message));
   revalidatePath(PATH);
   return { id: row.id };
 }
@@ -223,7 +227,7 @@ export async function updateReceiptNo(id: string, receiptNo: string): Promise<Re
   const no = receiptNo.trim() || null;
   if (no && (await receiptNoTaken(supabase, no, id))) return { error: `ใบรับใบสำคัญเลขที่ ${no} ถูกใช้แล้ว` };
   const { data, error } = await supabase.from("proc_loan_repayments").update({ receipt_no: no }).eq("id", id).select("id");
-  if (error) return { error: rlsMessage(error.message) };
+  if (error) return dbFail("updateReceiptNo", rlsMessage(error.message));
   if (!data?.length) return { error: "บันทึกไม่สำเร็จ" };
   revalidatePath(PATH);
   return {};
@@ -232,7 +236,7 @@ export async function updateReceiptNo(id: string, receiptNo: string): Promise<Re
 export async function deleteRepayment(id: string): Promise<Result> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("proc_loan_repayments").delete().eq("id", id).select("id");
-  if (error) return { error: rlsMessage(error.message) };
+  if (error) return dbFail("deleteRepayment", rlsMessage(error.message));
   if (!data?.length) return { error: "ลบไม่สำเร็จ" };
   revalidatePath(PATH);
   return {};
@@ -263,7 +267,7 @@ export async function issueLoanNumber(id: string, docNo: string, checkedDate: st
   if (!cur) return { error: "ไม่พบสัญญา" };
   if (checkedDate < cur.request_date) return { error: "วันที่ตรวจสอบต้องไม่ก่อนวันที่ยื่นสัญญา" };
   const { error } = await supabase.from("proc_loan_contracts").update({ doc_no: no, checked_date: checkedDate, updated_at: new Date().toISOString() }).eq("id", id);
-  if (error) return { error: rlsMessage(error.message) };
+  if (error) return dbFail("issueLoanNumber", rlsMessage(error.message));
   revalidatePath(PATH);
   return { id, docNo: no };
 }
@@ -290,7 +294,7 @@ export async function recordLoanPayment(id: string, receivedDate: string, travel
     .from("proc_loan_contracts")
     .update({ received_date: receivedDate, travel_return_date: ret, due_days: dueDays, due_date: loanDueDate(loanType, dueDays, receivedDate, ret), updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { error: rlsMessage(error.message) };
+  if (error) return dbFail("recordLoanPayment", rlsMessage(error.message));
   revalidatePath(PATH);
   return { id };
 }
@@ -300,7 +304,7 @@ export async function recordLoanPayment(id: string, receivedDate: string, travel
 export async function approveLoan(id: string, approve: boolean): Promise<Result> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("proc_approve_loan", { p_id: id, p_approve: approve });
-  if (error) return { error: error.message };
+  if (error) return dbFail("approveLoan", error.message);
   if (data) return { error: String(data) };
   revalidatePath(PATH);
   revalidatePath("/");

@@ -11,6 +11,7 @@ import type {
   updateActivity as updateActivityAction,
   updateProject as updateProjectAction,
 } from "./actions";
+import { todayTh } from "@/lib/thai";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
@@ -202,7 +203,7 @@ export function ProjectsTable({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `โครงการ-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `โครงการ-${todayTh()}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();

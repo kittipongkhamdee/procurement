@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { checkApprovalBudget } from "@/lib/approval-budget";
 import { parseItemClass } from "@/lib/item-class";
-import { assignDocNumber, docNumberTaken, isAdminUser } from "@/lib/doc-number-server";
+import { assignDocNumber, docNumberTaken, insertWithDocNumber, isAdminUser } from "@/lib/doc-number-server";
 import { deleteFromStorage } from "@/lib/storage";
 import { table1Ref, W119_LIMIT } from "@/lib/w119";
 
@@ -107,17 +107,19 @@ export async function createW119(formData: FormData): Promise<Result> {
   // เลขที่ออกอัตโนมัติตามรูปแบบที่ตั้งไว้ — แอดมินกำหนดเลขเองได้
   const admin = await isAdminUser(supabase);
   if (admin && parsed.docNoInput && (await docNumberTaken(supabase, "w119", parsed.docNoInput))) return { error: `เลขที่ ${parsed.docNoInput} ถูกใช้แล้ว` };
-  const docNo = admin && parsed.docNoInput ? parsed.docNoInput : await assignDocNumber(supabase, "w119", parsed.fields.record_date);
-  if (!docNo) return { error: "ยังไม่ได้ตั้งรูปแบบเลขที่เอกสารของเมนูนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าตั้งค่า (รูปแบบเลขที่เอกสารงานพัสดุ)" };
+  const manual = admin && parsed.docNoInput ? parsed.docNoInput : null;
+  if (!manual && !(await assignDocNumber(supabase, "w119", parsed.fields.record_date))) return { error: "ยังไม่ได้ตั้งรูปแบบเลขที่เอกสารของเมนูนี้ — ให้ผู้ดูแลระบบตั้งที่หน้าตั้งค่า (รูปแบบเลขที่เอกสารงานพัสดุ)" };
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const { data, error } = await supabase
-    .from("proc_w119_reports")
-    .insert({ ...parsed.fields, doc_no: docNo, created_by: user?.id ?? null })
-    .select("id")
-    .single();
-  if (error) return { error: error.message };
+  const { data, error, docNo } = await insertWithDocNumber<{ id: string }>(supabase, "w119", parsed.fields.record_date, manual, (no) =>
+    supabase
+      .from("proc_w119_reports")
+      .insert({ ...parsed.fields, doc_no: no ?? "", created_by: user?.id ?? null })
+      .select("id")
+      .single(),
+  );
+  if (error || !data) return { error: error?.message ?? "บันทึกไม่สำเร็จ" };
   const itemError = await replaceItems(supabase, data.id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
   return { ...done(data.id), docNo };

@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatThaiDate } from "@/lib/thai";
+import { formatThaiDate, todayTh } from "@/lib/thai";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
@@ -117,7 +117,7 @@ function rentalDays(start: string | null, end: string | null): number {
 /** สถานะสัญญาจากวันสิ้นสุด: ยังไม่ระบุ / ยังไม่ครบกำหนด / ใกล้ครบ (≤7 วัน) / เลยกำหนด */
 function contractStatus(endDate: string | null): { label: string; cls: string } {
   if (!endDate) return { label: "ไม่ระบุวันสิ้นสุด", cls: "badge-slate" };
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayTh();
   const days = Math.round((Date.parse(endDate) - Date.parse(today)) / 86_400_000);
   if (days < 0) return { label: `เลยกำหนด ${-days} วัน`, cls: "badge-red" };
   if (days <= 7) return { label: `เหลือ ${days} วัน`, cls: "badge-amber" };
