@@ -29,6 +29,7 @@ import {
   zero,
   addBal,
   type Balance,
+  type FinAccount,
   type FinTxn,
   type MoneyType,
   type Opening,
@@ -75,6 +76,7 @@ function LedgerContent() {
   const [fy, setFy] = useState<number>(fiscalYearOf(todayLocal()));
   const [years, setYears] = useState<number[]>([]);
   const [types, setTypes] = useState<MoneyType[]>([]);
+  const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [openings, setOpenings] = useState<Opening[]>([]);
   const [txns, setTxns] = useState<FinTxn[] | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
@@ -90,15 +92,17 @@ function LedgerContent() {
     const { data: by } = await supabase.from("plan_budget_years").select("id, year, is_open").order("year", { ascending: false });
     const yearRow = by?.find((y) => y.year === fy);
     setYears(Array.from(new Set([fiscalYearOf(todayLocal()), ...(by ?? []).map((y) => y.year)])).sort((a, b) => b - a));
-    const [{ data: mt }, { data: op }, { data: tx }, { data: pj }] = await Promise.all([
+    const [{ data: mt }, { data: op }, { data: tx }, { data: pj }, { data: ac }] = await Promise.all([
       supabase.from("fin_money_types").select("id, name, category, account_id, sort_order, is_active").order("sort_order"),
       supabase.from("fin_opening_balances").select("fiscal_year, money_type_id, cash, bank, gov").eq("fiscal_year", fy),
       supabase.from("fin_transactions").select("*").eq("fiscal_year", fy).order("txn_date").order("created_at"),
       yearRow
         ? supabase.from("plan_projects").select("id, name, budget, sort_order, plan_activities(id, name, budget, sort_order)").eq("budget_year_id", yearRow.id).order("sort_order")
         : Promise.resolve({ data: [] }),
+      supabase.from("fin_accounts").select("id, name, bank_name, account_no, sort_order, is_active").order("sort_order"),
     ]);
     setTypes((mt ?? []) as MoneyType[]);
+    setAccounts((ac ?? []) as FinAccount[]);
     setOpenings(((op ?? []) as Opening[]).map((o) => ({ ...o, cash: Number(o.cash), bank: Number(o.bank), gov: Number(o.gov) })));
     setTxns(((tx ?? []) as unknown as FinTxn[]).map((t) => ({ ...t, amount: Number(t.amount) })));
     // ระยะที่ 2: งานอื่นที่รอบันทึก (เฉพาะผู้บันทึก — ผู้ดูอย่างเดียวไม่ต้องโหลด)
@@ -417,7 +421,7 @@ function LedgerContent() {
         </>
       )}
 
-      {tab === "balance" && <BalanceTab types={types} balances={balances} asOf={asOf} setAsOf={setAsOf} />}
+      {tab === "balance" && <BalanceTab types={types} accounts={accounts} balances={balances} asOf={asOf} setAsOf={setAsOf} />}
       {tab === "projects" && <ProjectsTab projects={projects} />}
       {tab === "reports" && <ReportsTab fy={fy} types={types} />}
       {tab === "pending" && canWrite && <PendingTab items={pending} types={types} projects={projects} suggest={suggest} onChanged={reload} />}
@@ -427,7 +431,26 @@ function LedgerContent() {
   );
 }
 
-function BalanceTab({ types, balances, asOf, setAsOf }: { types: MoneyType[]; balances: Map<string, Balance>; asOf: string | null; setAsOf: (d: string | null) => void }) {
+function BalanceTab({
+  types,
+  accounts,
+  balances,
+  asOf,
+  setAsOf,
+}: {
+  types: MoneyType[];
+  accounts: FinAccount[];
+  balances: Map<string, Balance>;
+  asOf: string | null;
+  setAsOf: (d: string | null) => void;
+}) {
+  // ยอดเงินฝากธนาคารรวมตามสมุดบัญชีแต่ละเล่ม (ประเภทเงินผูกเล่มไว้ที่หน้าตั้งค่า) — ใช้เทียบกับยอดในสมุดบัญชี/statement จริง
+  const byAccount = accounts.map((a) => {
+    const inAcc = types.filter((t) => t.account_id === a.id);
+    return { account: a, types: inAcc, bank: inAcc.reduce((s, t) => s + (balances.get(t.id)?.bank ?? 0), 0) };
+  });
+  const unassigned = types.filter((t) => !t.account_id && (balances.get(t.id)?.bank ?? 0) !== 0);
+  const unassignedBank = unassigned.reduce((s, t) => s + (balances.get(t.id)?.bank ?? 0), 0);
   const groups = groupByCategory(types.filter((t) => t.is_active || total(balances.get(t.id) ?? zero()) !== 0));
   const grand = [...balances.values()].reduce((s, b) => addBal(s, b), zero());
   return (
@@ -484,6 +507,49 @@ function BalanceTab({ types, balances, asOf, setAsOf }: { types: MoneyType[]; ba
               <td className="text-right font-semibold tabular-nums">{baht(grand.bank)}</td>
               <td className="text-right font-semibold tabular-nums">{baht(grand.gov)}</td>
               <td className="text-right font-bold tabular-nums">{baht(total(grand))}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card mt-4 overflow-x-auto p-0">
+        <div className="px-4 pt-3">
+          <div className="font-semibold text-slate-900">ยอดเงินฝากธนาคารแยกตามสมุดบัญชี</div>
+          <p className="text-xs text-slate-500">
+            รวมช่อง &quot;เงินฝากธนาคาร&quot; ของประเภทเงินที่ผูกกับสมุดบัญชีแต่ละเล่ม ณ วันที่เลือก — ใช้เทียบกับยอดในสมุดบัญชีเงินฝาก/statement ของธนาคาร (ผูกประเภทเงินกับเล่มได้ที่หน้าตั้งค่า)
+          </p>
+        </div>
+        <table className="table-base w-full">
+          <thead>
+            <tr>
+              <th>สมุดบัญชี</th>
+              <th>ธนาคาร / เลขที่บัญชี</th>
+              <th>ประเภทเงินในเล่ม</th>
+              <th className="text-right">ยอดเงินฝากตามระบบ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {byAccount.map(({ account: a, types: ts, bank }) => (
+              <tr key={a.id} className={a.is_active ? "" : "opacity-60"}>
+                <td className="font-medium text-slate-900">{a.name}</td>
+                <td className="text-slate-600">{[a.bank_name, a.account_no].filter(Boolean).join(" · ") || "-"}</td>
+                <td className="text-slate-600">{ts.length ? ts.map((t) => t.name).join(", ") : "-"}</td>
+                <td className="whitespace-nowrap text-right font-semibold tabular-nums">{baht(bank)}</td>
+              </tr>
+            ))}
+            {unassigned.length > 0 && (
+              <tr>
+                <td className="font-medium text-amber-700">ยังไม่ระบุสมุดบัญชี</td>
+                <td className="text-slate-600">-</td>
+                <td className="text-slate-600">{unassigned.map((t) => t.name).join(", ")}</td>
+                <td className="whitespace-nowrap text-right font-semibold tabular-nums text-amber-700">{baht(unassignedBank)}</td>
+              </tr>
+            )}
+            <tr>
+              <td className="font-semibold" colSpan={3}>
+                รวมเงินฝากธนาคาร
+              </td>
+              <td className="whitespace-nowrap text-right font-bold tabular-nums">{baht(grand.bank)}</td>
             </tr>
           </tbody>
         </table>
