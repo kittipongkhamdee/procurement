@@ -91,6 +91,7 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
     updated_at: new Date().toISOString(),
   };
   if (id) {
+    if (await isFundTxn(supabase, id)) return { error: FUND_LOCKED };
     const { data, error } = await supabase.from("fin_transactions").update(fields).eq("id", id).select("id");
     if (error) return { error: rls(error.message) };
     if (!data?.length) return { error: NO_RIGHT };
@@ -133,8 +134,15 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
   return { id: data.id, docSeq };
 }
 
+const FUND_LOCKED = "รายการนี้มาจาก \"ยืมเงินระหว่างประเภทเงิน\" — แก้ไข/ลบได้ที่หน้านั้น";
+async function isFundTxn(supabase: Supabase, id: string) {
+  const { data } = await supabase.from("fin_transactions").select("fund_role").eq("id", id).maybeSingle();
+  return !!data?.fund_role;
+}
+
 export async function deleteTxn(id: string): Promise<Result> {
   const supabase = await createClient();
+  if (await isFundTxn(supabase, id)) return { error: FUND_LOCKED };
   const { data, error } = await supabase.from("fin_transactions").delete().eq("id", id).select("id");
   if (error) return { error: rls(error.message) };
   if (!data?.length) return { error: NO_RIGHT };

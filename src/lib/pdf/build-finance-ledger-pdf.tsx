@@ -1,6 +1,7 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { createClient } from "@/lib/supabase/server";
 import { balancesByType, fiscalMonths, fiscalRange, fiscalYearOf, registerForMonth, sortTxns, zero, type FinTxn, type MoneyType, type Opening, type VoucherClear } from "@/lib/finance-ledger";
+import { FundLoanMemoDocument } from "./fund-loan-document";
 import { DailyBalanceDocument, MoneyRegisterDocument, VoucherRegisterDocument, type FinSigners, type RegisterPage } from "./finance-ledger-document";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -105,6 +106,41 @@ export async function buildVoucherRegisterPdf(supabase: Supabase, fy: number) {
       fy={fy}
       typeName={new Map(types.map((x) => [x.id, x.name]))}
       projectName={new Map((projects ?? []).map((p) => [p.id, p.name]))}
+    />,
+  );
+}
+
+/** บันทึกข้อความขออนุมัติยืมเงินระหว่างประเภทเงิน */
+export async function buildFundLoanMemoPdf(supabase: Supabase, id: string) {
+  const { data: loan } = await supabase
+    .from("fin_fund_loans")
+    .select("loan_date, lender_type_id, semester, academic_year, memo_no, memo_date, reason, fin_fund_loan_lines(borrower_type_id, amount, sort_order)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!loan) return null;
+  const [{ data: types }, { data: school }] = await Promise.all([
+    supabase.from("fin_money_types").select("id, name"),
+    supabase.from("proc_school_settings").select("school_name").eq("id", true).maybeSingle(),
+  ]);
+  const name = new Map((types ?? []).map((x) => [x.id, x.name as string]));
+  const schoolName = school?.school_name ?? "โรงเรียนตาเบาวิทยา";
+  const signers = await loadSigners(supabase, schoolName);
+  const lines = [...((loan.fin_fund_loan_lines ?? []) as { borrower_type_id: string; amount: number; sort_order: number }[])].sort((a, b) => a.sort_order - b.sort_order);
+  return renderToBuffer(
+    <FundLoanMemoDocument
+      data={{
+        school_name: schoolName,
+        memo_no: loan.memo_no,
+        memo_date: loan.memo_date,
+        loan_date: loan.loan_date,
+        lender: name.get(loan.lender_type_id) ?? "",
+        lines: lines.map((l) => ({ borrower: name.get(l.borrower_type_id) ?? "", amount: Number(l.amount) })),
+        semester: loan.semester,
+        academic_year: loan.academic_year,
+        reason: loan.reason,
+        finance_officer: signers.officer,
+        director: signers.head,
+      }}
     />,
   );
 }

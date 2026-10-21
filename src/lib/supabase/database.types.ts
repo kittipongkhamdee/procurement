@@ -44,6 +44,121 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_fund_loans: {
+        Row: {
+          id: string
+          fiscal_year: number
+          doc_seq: number
+          loan_date: string
+          lender_type_id: string
+          pocket: string
+          semester: string | null
+          academic_year: string | null
+          memo_no: string | null
+          memo_date: string | null
+          reason: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          fiscal_year: number
+          doc_seq: number
+          loan_date: string
+          lender_type_id: string
+          pocket?: string
+          semester?: string | null
+          academic_year?: string | null
+          memo_no?: string | null
+          memo_date?: string | null
+          reason?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          fiscal_year?: number
+          doc_seq?: number
+          loan_date?: string
+          lender_type_id?: string
+          pocket?: string
+          semester?: string | null
+          academic_year?: string | null
+          memo_no?: string | null
+          memo_date?: string | null
+          reason?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      fin_fund_loan_lines: {
+        Row: {
+          id: string
+          loan_id: string
+          borrower_type_id: string
+          amount: number
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          loan_id: string
+          borrower_type_id: string
+          amount: number
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          loan_id?: string
+          borrower_type_id?: string
+          amount?: number
+          sort_order?: number
+        }
+        Relationships: [
+          { foreignKeyName: "fin_fund_loan_lines_loan_id_fkey"; columns: ["loan_id"]; isOneToOne: false; referencedRelation: "fin_fund_loans"; referencedColumns: ["id"] },
+        ]
+      }
+      fin_fund_loan_repays: {
+        Row: {
+          id: string
+          line_id: string
+          fiscal_year: number
+          doc_seq: number
+          repay_date: string
+          amount: number
+          pocket: string
+          note: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          line_id: string
+          fiscal_year: number
+          doc_seq: number
+          repay_date: string
+          amount: number
+          pocket?: string
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          line_id?: string
+          fiscal_year?: number
+          doc_seq?: number
+          repay_date?: string
+          amount?: number
+          pocket?: string
+          note?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "fin_fund_loan_repays_line_id_fkey"; columns: ["line_id"]; isOneToOne: false; referencedRelation: "fin_fund_loan_lines"; referencedColumns: ["id"] },
+        ]
+      }
       fin_money_types: {
         Row: {
           account_id: string | null
@@ -177,6 +292,9 @@ export type Database = {
           note: string | null
           source_id: string | null
           source_kind: string | null
+          fund_line_id: string | null
+          fund_repay_id: string | null
+          fund_role: string | null
           payee: string | null
           project_id: string | null
           to_pocket: string | null
@@ -200,6 +318,9 @@ export type Database = {
           note?: string | null
           source_id?: string | null
           source_kind?: string | null
+          fund_line_id?: string | null
+          fund_repay_id?: string | null
+          fund_role?: string | null
           payee?: string | null
           project_id?: string | null
           to_pocket?: string | null
@@ -223,6 +344,9 @@ export type Database = {
           note?: string | null
           source_id?: string | null
           source_kind?: string | null
+          fund_line_id?: string | null
+          fund_repay_id?: string | null
+          fund_role?: string | null
           payee?: string | null
           project_id?: string | null
           to_pocket?: string | null

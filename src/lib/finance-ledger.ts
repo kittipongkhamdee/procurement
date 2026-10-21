@@ -50,8 +50,23 @@ export type FinTxn = {
   note: string | null;
   source_kind?: SourceKind | null;
   source_id?: string | null;
+  /** ยืมเงินระหว่างประเภทเงิน (fin_fund_loans) — สร้าง/ลบจากหน้า "ยืมเงินระหว่างประเภทเงิน" เท่านั้น */
+  fund_role?: FundRole | null;
+  fund_line_id?: string | null;
+  fund_repay_id?: string | null;
   created_at: string;
 };
+
+/** ยืมเงินระหว่างประเภทเงิน (เช่น ค่าอุปกรณ์การเรียนไม่พอ ยืมจากกิจกรรมพัฒนาคุณภาพผู้เรียน) — ไม่ต้องทำสัญญายืมเงิน
+ *  ให้ยืม: ผู้ให้ยืมลงจ่าย (ช่องลูกหนี้) · ผู้ยืมลงรับ — ส่งใช้คืน: ผู้ยืมลงจ่าย · ผู้ให้ยืมลงรับ (ล้างลูกหนี้) — เลขที่ บง n/ปีงบ */
+export type FundRole = "loan_out" | "loan_in" | "repay_out" | "repay_in";
+export const FUND_ROLE_LABEL: Record<FundRole, string> = {
+  loan_out: "ให้ยืมระหว่างประเภทเงิน",
+  loan_in: "รับเงินยืมระหว่างประเภทเงิน",
+  repay_out: "ส่งใช้เงินยืมระหว่างประเภทเงิน",
+  repay_in: "รับคืนเงินยืมระหว่างประเภทเงิน",
+};
+export const fundDoc = (seq: number, fy: number) => `บง ${seq}/${fy}`;
 
 export type Balance = Record<Pocket, number>;
 export const zero = (): Balance => ({ cash: 0, bank: 0, gov: 0 });
@@ -156,8 +171,8 @@ type Entry = Omit<RegisterRow, "balance"> & { effect: Balance; sortKey: string }
 function entriesOf(txns: FinTxn[], clears: VoucherClear[]): Entry[] {
   const out: Entry[] = txns.map((t) => {
     const amt = Number(t.amount);
-    const isLoan = t.kind === "pay" && t.source_kind === "loan";
-    const isRefund = t.kind === "receive" && t.source_kind === "loan_repay";
+    const isLoan = t.kind === "pay" && (t.source_kind === "loan" || t.fund_role === "loan_out");
+    const isRefund = t.kind === "receive" && (t.source_kind === "loan_repay" || t.fund_role === "repay_in");
     return {
       id: t.id,
       date: t.txn_date,

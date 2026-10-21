@@ -12,7 +12,7 @@ import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, confirmWarning, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { ChevronLeftIcon, ClipboardCheckIcon, CoinsIcon, PlusIcon, FileTextIcon, FolderIcon, PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, ClipboardCheckIcon, CoinsIcon, WalletIcon, PlusIcon, FileTextIcon, FolderIcon, PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
 import { HubCardGrid, type HubCard } from "@/components/hub-cards";
 import {
   balancesByType,
@@ -22,6 +22,7 @@ import {
   groupByCategory,
   KIND_LABEL,
   SOURCE_LABEL,
+  FUND_ROLE_LABEL,
   POCKET_SHORT,
   sortTxns,
   thaiMonthLabel,
@@ -57,6 +58,7 @@ function todayLocal() {
 }
 
 // งบ/อนุมัติแล้ว/จ่ายจริง ตามนิยามเดียวกับเมนูโครงการและแดชบอร์ด (src/lib/project-spending.ts) — คงเหลือ = งบ − อนุมัติแล้ว
+type FundOwed = { lender: string; borrower: string; amount: number };
 type Spend = { budget: number; approved: number; paid: number };
 type ProjectRow = Omit<ProjectOption, "activities"> & Spend & { activities: ({ id: string; name: string } & Spend)[] };
 
@@ -86,6 +88,7 @@ function LedgerContent() {
   const [typeFilter, setTypeFilter] = useState("");
   const [query, setQuery] = useState("");
   const [asOf, setAsOf] = useState<string | null>(todayLocal());
+  const [fundOwed, setFundOwed] = useState<FundOwed[]>([]);
 
   const reload = useCallback(async () => {
     const supabase = createClient();
@@ -101,6 +104,22 @@ function LedgerContent() {
         : Promise.resolve({ data: [] }),
       supabase.from("fin_accounts").select("id, name, bank_name, account_no, sort_order, is_active").order("sort_order"),
     ]);
+    // ยืมเงินระหว่างประเภทเงินที่ยังค้างส่งใช้ (ทุกปีงบ)
+    supabase
+      .from("fin_fund_loan_lines")
+      .select("borrower_type_id, amount, fin_fund_loans(lender_type_id), fin_fund_loan_repays(amount)")
+      .then(({ data }) => {
+        const m = new Map<string, FundOwed>();
+        for (const r of (data ?? []) as unknown as { borrower_type_id: string; amount: number; fin_fund_loans: { lender_type_id: string }; fin_fund_loan_repays: { amount: number }[] }[]) {
+          const owed = Number(r.amount) - (r.fin_fund_loan_repays ?? []).reduce((s, x) => s + Number(x.amount), 0);
+          if (owed <= 0.001) continue;
+          const k = `${r.fin_fund_loans.lender_type_id}|${r.borrower_type_id}`;
+          const cur = m.get(k) ?? { lender: r.fin_fund_loans.lender_type_id, borrower: r.borrower_type_id, amount: 0 };
+          cur.amount = Math.round((cur.amount + owed) * 100) / 100;
+          m.set(k, cur);
+        }
+        setFundOwed([...m.values()]);
+      });
     setTypes((mt ?? []) as MoneyType[]);
     setAccounts((ac ?? []) as FinAccount[]);
     setOpenings(((op ?? []) as Opening[]).map((o) => ({ ...o, cash: Number(o.cash), bank: Number(o.bank), gov: Number(o.gov) })));
@@ -273,6 +292,15 @@ function LedgerContent() {
               sub: `วันนี้ · เงินสด ${baht(grand.cash)} · ธนาคาร ${baht(grand.bank)} · ส่วนราชการ ${baht(grand.gov)}`,
             },
             {
+              key: "fund-loans",
+              title: "ยืมเงินระหว่างประเภทเงิน",
+              description: "เงินประเภทหนึ่งไม่พอ ยืมจากประเภทอื่น (เช่น กิจกรรมพัฒนาคุณภาพผู้เรียน) — ไม่ต้องทำสัญญายืม · ส่งใช้คืน · พิมพ์บันทึกขออนุมัติ",
+              href: "/finance/ledger/fund-loans",
+              icon: <WalletIcon className={ICON} />,
+              value: `${baht(fundOwed.reduce((s, x) => s + x.amount, 0))} บาท`,
+              sub: `ยอดค้างส่งใช้ · ${fundOwed.length.toLocaleString("th-TH")} คู่ประเภทเงิน`,
+            },
+            {
               key: "projects",
               title: "งบโครงการ",
               description: "งบประมาณ / อนุมัติแล้ว / จ่ายจริง / คงเหลือ รายโครงการและกิจกรรม",
@@ -348,7 +376,7 @@ function LedgerContent() {
                         {baht(t.amount)}
                       </span>
                     </div>
-                    {canWrite && (
+                    {canWrite && !t.fund_role && (
                       <div className="mt-2 flex justify-end gap-1">
                         <TxnForm copyFrom={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
                         <TxnForm txn={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
@@ -384,6 +412,7 @@ function LedgerContent() {
                           <div className="text-slate-900">
                             {t.description}
                             {t.source_kind && <span className="badge-slate ml-2 !text-sm">จาก{SOURCE_LABEL[t.source_kind]}</span>}
+                            {t.fund_role && <span className="badge-slate ml-2 !text-sm">{FUND_ROLE_LABEL[t.fund_role]}</span>}
                           </div>
                           {(t.payee || t.project_id) && (
                             <div className="text-slate-500">
@@ -400,7 +429,14 @@ function LedgerContent() {
                         <td className="whitespace-nowrap text-slate-600">
                           {t.kind === "transfer" ? `${POCKET_SHORT[t.from_pocket!]} → ${POCKET_SHORT[t.to_pocket!]} ${baht(t.amount)}` : POCKET_SHORT[(t.kind === "receive" ? t.to_pocket : t.from_pocket)!]}
                         </td>
-                        {canWrite && (
+                        {canWrite && t.fund_role && (
+                          <td className="whitespace-nowrap text-right">
+                            <Link href="/finance/ledger/fund-loans" className="btn-secondary btn-sm">
+                              จัดการ
+                            </Link>
+                          </td>
+                        )}
+                        {canWrite && !t.fund_role && (
                           <td className="whitespace-nowrap text-right">
                             <div className="flex justify-end gap-1">
                               <TxnForm copyFrom={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
@@ -421,7 +457,7 @@ function LedgerContent() {
         </>
       )}
 
-      {tab === "balance" && <BalanceTab types={types} accounts={accounts} balances={balances} asOf={asOf} setAsOf={setAsOf} />}
+      {tab === "balance" && <BalanceTab types={types} accounts={accounts} balances={balances} asOf={asOf} setAsOf={setAsOf} fundOwed={fundOwed} />}
       {tab === "projects" && <ProjectsTab projects={projects} />}
       {tab === "reports" && <ReportsTab fy={fy} types={types} />}
       {tab === "pending" && canWrite && <PendingTab items={pending} types={types} projects={projects} suggest={suggest} onChanged={reload} />}
@@ -437,12 +473,14 @@ function BalanceTab({
   balances,
   asOf,
   setAsOf,
+  fundOwed,
 }: {
   types: MoneyType[];
   accounts: FinAccount[];
   balances: Map<string, Balance>;
   asOf: string | null;
   setAsOf: (d: string | null) => void;
+  fundOwed: FundOwed[];
 }) {
   // ยอดเงินฝากธนาคารรวมตามสมุดบัญชีแต่ละเล่ม (ประเภทเงินผูกเล่มไว้ที่หน้าตั้งค่า) — ใช้เทียบกับยอดในสมุดบัญชี/statement จริง
   const byAccount = accounts.map((a) => {
@@ -511,6 +549,27 @@ function BalanceTab({
           </tbody>
         </table>
       </div>
+
+      {fundOwed.length > 0 && (
+        <div className="card mt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="font-semibold text-slate-900">เงินยืมระหว่างประเภทเงินที่ยังค้างส่งใช้</div>
+            <Link href="/finance/ledger/fund-loans" className="btn-secondary btn-sm">
+              ดูรายละเอียด / ส่งใช้คืน
+            </Link>
+          </div>
+          <ul className="mt-2 space-y-1 text-sm">
+            {fundOwed.map((p) => (
+              <li key={`${p.lender}|${p.borrower}`} className="flex flex-wrap justify-between gap-2">
+                <span>
+                  <b>{types.find((t) => t.id === p.borrower)?.name}</b> ยืม <b>{types.find((t) => t.id === p.lender)?.name}</b>
+                </span>
+                <span className="font-semibold tabular-nums text-amber-700">{baht(p.amount)} บาท</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="card mt-4 overflow-x-auto p-0">
         <div className="px-4 pt-3">
