@@ -7,6 +7,16 @@
 export type Pocket = "cash" | "bank" | "gov";
 export type TxnKind = "receive" | "pay" | "transfer";
 export type DocKind = "บร" | "บค" | "บจ";
+/** งานต้นทางที่ผูกกับรายการรับ-จ่าย (ระยะที่ 2) — 1 รายการต้นทางบันทึกได้ครั้งเดียว */
+export type SourceKind = "purchase" | "w119" | "urgent" | "claim" | "loan" | "loan_repay";
+export const SOURCE_LABEL: Record<SourceKind, string> = {
+  purchase: "งานซื้อ/งานจ้าง",
+  w119: "ว 119 ค่าใช้จ่ายบริหารงาน",
+  urgent: "จัดซื้อ/จัดจ้างกรณีเร่งด่วน",
+  claim: "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)",
+  loan: "จ่ายเงินยืม (สัญญายืมเงิน)",
+  loan_repay: "รับคืนเงินยืม (ส่งใช้เป็นเงินสด)",
+};
 
 export const POCKETS: Pocket[] = ["cash", "bank", "gov"];
 export const POCKET_LABEL: Record<Pocket, string> = { cash: "เงินสด", bank: "เงินฝากธนาคาร", gov: "เงินฝากส่วนราชการผู้เบิก" };
@@ -38,6 +48,8 @@ export type FinTxn = {
   project_id: string | null;
   activity_id: string | null;
   note: string | null;
+  source_kind?: SourceKind | null;
+  source_id?: string | null;
   created_at: string;
 };
 

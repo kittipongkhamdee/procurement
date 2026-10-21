@@ -9,10 +9,10 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
-import { confirmDelete, toastError, toastSuccess } from "@/lib/swal";
+import { confirmDelete, confirmWarning, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { ChevronLeftIcon, CoinsIcon, FileTextIcon, FolderIcon, PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
+import { ChevronLeftIcon, ClipboardCheckIcon, CoinsIcon, FileTextIcon, FolderIcon, PrinterIcon, SearchIcon, SettingsIcon, TrashIcon } from "@/components/icons";
 import { HubCardGrid, type HubCard } from "@/components/hub-cards";
 import {
   balancesByType,
@@ -21,6 +21,7 @@ import {
   fiscalYearOf,
   groupByCategory,
   KIND_LABEL,
+  SOURCE_LABEL,
   POCKET_SHORT,
   sortTxns,
   thaiMonthLabel,
@@ -33,13 +34,15 @@ import {
   type Opening,
 } from "@/lib/finance-ledger";
 import { loadProjectSpending, projectBudget } from "@/lib/project-spending";
-import { deleteTxn } from "./actions";
-import { TxnForm, type ProjectOption } from "./txn-form";
+import { deleteTxn, skipSource, unskipSource } from "./actions";
+import { TxnForm, type ProjectOption, type TxnSuggest } from "./txn-form";
+import { guessMoneyType, loadPendingSources, type PendingItem } from "./pending-sources";
 
 // หน้ารวมเป็นการ์ด (แบบเดียวกับงานสัญญา) — กดการ์ดเปิดส่วนนั้นด้วย ?view= (ปีงบที่เลือกคงอยู่เพราะเป็นหน้าเดิม)
-type Tab = "txns" | "balance" | "projects" | "reports";
+type Tab = "txns" | "pending" | "balance" | "projects" | "reports";
 const TABS: { key: Tab; label: string }[] = [
   { key: "txns", label: "รายการรับ-จ่าย" },
+  { key: "pending", label: "รอบันทึกจากงานอื่น" },
   { key: "balance", label: "ยอดคงเหลือ" },
   { key: "projects", label: "งบโครงการ" },
   { key: "reports", label: "พิมพ์รายงาน" },
@@ -75,6 +78,7 @@ function LedgerContent() {
   const [openings, setOpenings] = useState<Opening[]>([]);
   const [txns, setTxns] = useState<FinTxn[] | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [pending, setPending] = useState<PendingItem[]>([]);
   const [people, setPeople] = useState<{ vendors: string[]; teachers: string[]; pastPayees: string[] }>({ vendors: [], teachers: [], pastPayees: [] });
   const [month, setMonth] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -97,6 +101,8 @@ function LedgerContent() {
     setTypes((mt ?? []) as MoneyType[]);
     setOpenings(((op ?? []) as Opening[]).map((o) => ({ ...o, cash: Number(o.cash), bank: Number(o.bank), gov: Number(o.gov) })));
     setTxns(((tx ?? []) as unknown as FinTxn[]).map((t) => ({ ...t, amount: Number(t.amount) })));
+    // ระยะที่ 2: งานอื่นที่รอบันทึก (เฉพาะผู้บันทึก — ผู้ดูอย่างเดียวไม่ต้องโหลด)
+    if (canWrite) loadPendingSources(supabase, fy).then(setPending);
     const pjRows = (pj ?? []) as unknown as { id: string; name: string; budget: number | null; plan_activities: { id: string; name: string; budget: number | null; sort_order: number }[] }[];
     const spend = await loadProjectSpending(supabase, pjRows.map((p) => p.id));
     setProjects(
@@ -111,7 +117,7 @@ function LedgerContent() {
           .map((a) => ({ id: a.id, name: a.name, budget: Number(a.budget ?? 0), approved: spend.approvedForActivity(p.id, a.name), paid: spend.paidByActivity.get(a.id) ?? 0 })),
       })),
     );
-  }, [fy]);
+  }, [fy, canWrite]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -240,6 +246,19 @@ function LedgerContent() {
               value: txns.length.toLocaleString("th-TH"),
               sub: `รายการ · รับ ${baht(yearTotals.receive)} · จ่าย ${baht(yearTotals.pay)} บาท`,
             },
+            ...(canWrite
+              ? [
+                  {
+                    key: "pending",
+                    title: "รอบันทึกจากงานอื่น",
+                    description: "งานซื้อ/จ้างที่ตรวจรับแล้ว · ว 119 · กรณีเร่งด่วน · เบิกค่าใช้จ่ายโครงการ · จ่ายเงินยืม · รับคืนเงินยืม — กดบันทึก ระบบเติมข้อมูลให้",
+                    href: "/finance/ledger?view=pending",
+                    icon: <ClipboardCheckIcon className={ICON} />,
+                    value: pending.filter((p) => !p.skipped).length.toLocaleString("th-TH"),
+                    sub: `รายการรอบันทึก · รวม ${baht(pending.filter((p) => !p.skipped).reduce((s, p) => s + p.amount, 0))} บาท`,
+                  } satisfies HubCard,
+                ]
+              : []),
             {
               key: "balance",
               title: "ยอดคงเหลือ",
@@ -358,7 +377,10 @@ function LedgerContent() {
                         <td className="whitespace-nowrap">{formatThaiDate(t.txn_date)}</td>
                         <td className="whitespace-nowrap">{docLabel(t) || "-"}</td>
                         <td>
-                          <div className="text-slate-900">{t.description}</div>
+                          <div className="text-slate-900">
+                            {t.description}
+                            {t.source_kind && <span className="badge-slate ml-2 !text-sm">จาก{SOURCE_LABEL[t.source_kind]}</span>}
+                          </div>
                           {(t.payee || t.project_id) && (
                             <div className="text-slate-500">
                               {t.payee}
@@ -398,6 +420,7 @@ function LedgerContent() {
       {tab === "balance" && <BalanceTab types={types} balances={balances} asOf={asOf} setAsOf={setAsOf} />}
       {tab === "projects" && <ProjectsTab projects={projects} />}
       {tab === "reports" && <ReportsTab fy={fy} types={types} />}
+      {tab === "pending" && canWrite && <PendingTab items={pending} types={types} projects={projects} suggest={suggest} onChanged={reload} />}
 
       <p className="mt-4 text-xs text-slate-400">ประเภทรายการ: {Object.values(KIND_LABEL).join(" / ")} — โอน/ถอน/ฝาก ย้ายเงินระหว่างเงินสด ธนาคาร และส่วนราชการ ไม่นับเป็นรับ/จ่าย</p>
     </div>
@@ -573,6 +596,124 @@ function ReportsTab({ fy, types }: { fy: number; types: MoneyType[] }) {
           พิมพ์ PDF
         </a>
       </div>
+    </div>
+  );
+}
+
+function PendingTab({ items, types, projects, suggest, onChanged }: { items: PendingItem[]; types: MoneyType[]; projects: ProjectRow[]; suggest: TxnSuggest; onChanged: () => void }) {
+  const [showSkipped, setShowSkipped] = useState(false);
+  const list = items.filter((i) => showSkipped || !i.skipped);
+  const skippedCount = items.filter((i) => i.skipped).length;
+  async function skip(it: PendingItem) {
+    if (!(await confirmWarning({ title: "ไม่ต้องบันทึกรายการนี้?", text: `${it.ref} — ซ่อนจากรายการรอบันทึก (เช่น จ่ายด้วยวิธีอื่น หรือบันทึกรวมกับรายการอื่นแล้ว) กู้คืนได้ภายหลัง`, confirmButtonText: "ไม่ต้องบันทึก" }))) return;
+    const res = await skipSource(it.kind, it.id, "");
+    if (res.error) return void (await toastError(res.error));
+    onChanged();
+  }
+  async function restore(it: PendingItem) {
+    const res = await unskipSource(it.kind, it.id);
+    if (res.error) return void (await toastError(res.error));
+    onChanged();
+  }
+  const groups = Object.entries(SOURCE_LABEL)
+    .map(([kind, label]) => ({ kind, label, rows: list.filter((i) => i.kind === kind) }))
+    .filter((g) => g.rows.length > 0);
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-slate-500">งานที่เสร็จแล้วในระบบแต่ยังไม่ได้ลงบัญชีรับ-จ่าย — กด &quot;บันทึก&quot; ระบบเติมรายการ ยอดเงิน ผู้รับ โครงการ และชนิดเอกสารให้ ตรวจแล้วกดบันทึก (บันทึกแล้วจะหายจากรายการนี้)</p>
+        {skippedCount > 0 && (
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" checked={showSkipped} onChange={(e) => setShowSkipped(e.target.checked)} />
+            แสดงรายการที่เลือกไม่ต้องบันทึก ({skippedCount})
+          </label>
+        )}
+      </div>
+      {groups.length === 0 ? (
+        <div className="card table-empty">ไม่มีรายการรอบันทึก — งานจากเมนูอื่นของปีงบนี้ลงบัญชีครบแล้ว</div>
+      ) : (
+        <div className="space-y-4">
+          {groups.map((g) => (
+            <div key={g.kind} className="card overflow-x-auto p-0">
+              <div className="flex items-center gap-2 px-4 pt-3">
+                <span className="font-semibold text-slate-900">{g.label}</span>
+                <span className="badge-amber !text-sm">{g.rows.length} รายการ</span>
+              </div>
+              <table className="table-base w-full">
+                <thead>
+                  <tr>
+                    <th>วันที่</th>
+                    <th>อ้างอิง</th>
+                    <th>รายการ</th>
+                    <th className="text-right">จำนวนเงิน</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.rows.map((it) => (
+                    <tr key={it.id} className={it.skipped ? "opacity-60" : ""}>
+                      <td className="whitespace-nowrap">{formatThaiDate(it.date)}</td>
+                      <td className="whitespace-nowrap">
+                        <Link href={it.href} className="text-navy-800 hover:underline">
+                          {it.ref}
+                        </Link>
+                      </td>
+                      <td>
+                        <div className="text-slate-900">
+                          {it.description}
+                          {it.warn && <span className="badge-amber ml-2 !text-sm">{it.warn}</span>}
+                        </div>
+                        {it.payee && <div className="text-slate-500">{it.payee}</div>}
+                      </td>
+                      <td className={`whitespace-nowrap text-right tabular-nums ${it.txnKind === "receive" ? "text-emerald-700" : "text-red-600"}`}>
+                        {it.txnKind === "receive" ? "+" : "-"}
+                        {baht(it.amount)}
+                      </td>
+                      <td className="whitespace-nowrap text-right">
+                        <div className="flex justify-end gap-1">
+                          {it.skipped ? (
+                            <button type="button" onClick={() => restore(it)} className="btn-secondary btn-sm">
+                              กู้คืน
+                            </button>
+                          ) : (
+                            <>
+                              <TxnForm
+                                source={{ kind: it.kind, id: it.id, ref: it.ref }}
+                                copyFrom={{
+                                  txn_date: it.date,
+                                  kind: it.txnKind,
+                                  from_pocket: "bank",
+                                  to_pocket: it.kind === "loan_repay" ? "cash" : "bank",
+                                  doc_kind: it.docKind || null,
+                                  doc_no: it.docNo,
+                                  description: it.description,
+                                  payee: it.payee,
+                                  amount: it.amount,
+                                  money_type_id: guessMoneyType(types, it.fundHint),
+                                  project_id: it.projectId,
+                                  activity_id: it.activityId,
+                                  note: it.note || null,
+                                }}
+                                types={types}
+                                projects={projects}
+                                suggest={suggest}
+                                onSaved={onChanged}
+                              />
+                              <button type="button" onClick={() => skip(it)} title="ไม่ต้องบันทึก" className="btn-secondary btn-sm">
+                                ไม่ต้องบันทึก
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

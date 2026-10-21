@@ -2,6 +2,7 @@
 // - งบประมาณ = ผลรวมงบกิจกรรม (ไม่มีกิจกรรม = งบของโครงการ)
 // - อนุมัติแล้ว = บันทึกขออนุมัติที่ ผอ. อนุมัติ (proc_approvals.status = "อนุมัติ", requested_amount)
 // - จ่ายจริง = รายการจ่ายในบัญชีรับ-จ่ายเงินที่ผูกโครงการ (fin_transactions kind = "pay")
+//   หักเงินยืมที่ผู้ยืมคืนเป็นเงินสด (รับคืนเงินยืม source_kind = "loan_repay") — จ่ายเงินยืมนับเป็นจ่ายของโครงการตอนจ่าย
 // - คงเหลือ = งบประมาณ − อนุมัติแล้ว
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -24,7 +25,7 @@ export async function loadProjectSpending(supabase: SupabaseClient<Database>, pr
   if (projectIds.length === 0) return { byProject, approvedForActivity: () => 0, paidByActivity };
   const [{ data: approvals }, { data: pays }] = await Promise.all([
     supabase.from("proc_approvals").select("project_id, activity_name, requested_amount").eq("status", "อนุมัติ").in("project_id", projectIds),
-    supabase.from("fin_transactions").select("project_id, activity_id, amount").eq("kind", "pay").in("project_id", projectIds),
+    supabase.from("fin_transactions").select("project_id, activity_id, amount, kind, source_kind").in("project_id", projectIds),
   ]);
   const get = (id: string) => byProject.get(id) ?? (byProject.set(id, { approved: 0, paid: 0 }), byProject.get(id)!);
   for (const a of approvals ?? []) {
@@ -36,7 +37,10 @@ export async function loadProjectSpending(supabase: SupabaseClient<Database>, pr
   }
   for (const p of pays ?? []) {
     if (!p.project_id) continue;
-    const amt = Number(p.amount ?? 0);
+    const isPay = p.kind === "pay";
+    const isLoanRefund = p.kind === "receive" && p.source_kind === "loan_repay";
+    if (!isPay && !isLoanRefund) continue;
+    const amt = Number(p.amount ?? 0) * (isPay ? 1 : -1);
     get(p.project_id).paid += amt;
     if (p.activity_id) paidByActivity.set(p.activity_id, (paidByActivity.get(p.activity_id) ?? 0) + amt);
   }

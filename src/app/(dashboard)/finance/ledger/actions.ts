@@ -5,7 +5,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { fiscalYearOf, FIN_SIGNER_KEYS, POCKETS, type DocKind, type Pocket, type TxnKind } from "@/lib/finance-ledger";
+import { fiscalYearOf, FIN_SIGNER_KEYS, POCKETS, SOURCE_LABEL, type DocKind, type Pocket, type SourceKind, type TxnKind } from "@/lib/finance-ledger";
 
 type Result = { error?: string; id?: string; docSeq?: number | null };
 const PATH = "/finance/ledger";
@@ -97,8 +97,18 @@ export async function saveTxn(id: string | null, fd: FormData): Promise<Result> 
     revalidatePath(PATH);
     return { id, docSeq };
   }
-  const { data, error } = await supabase.from("fin_transactions").insert(fields).select("id").single();
-  if (error) return { error: error.message.includes("fin_transactions_doc_seq") ? "เลขที่เอกสารซ้ำ ลองบันทึกอีกครั้ง" : rls(error.message) };
+  // ผูกงานต้นทาง (ระยะที่ 2) — เฉพาะตอนสร้างรายการใหม่จาก "รอบันทึกจากงานอื่น"
+  const sourceKind = str("source_kind") as SourceKind;
+  const source = sourceKind in SOURCE_LABEL && str("source_id") ? { source_kind: sourceKind, source_id: str("source_id") } : {};
+  const { data, error } = await supabase.from("fin_transactions").insert({ ...fields, ...source }).select("id").single();
+  if (error)
+    return {
+      error: error.message.includes("fin_transactions_doc_seq")
+        ? "เลขที่เอกสารซ้ำ ลองบันทึกอีกครั้ง"
+        : error.message.includes("fin_transactions_source")
+          ? "รายการต้นทางนี้บันทึกในบัญชีรับ-จ่ายแล้ว"
+          : rls(error.message),
+    };
   revalidatePath(PATH);
   return { id: data.id, docSeq };
 }
@@ -189,6 +199,26 @@ export async function saveSigners(fd: FormData): Promise<Result> {
     { key: `${key}_position`, value: String(fd.get(`${key}_position`) ?? "").trim() || null, updated_at: now },
   ]);
   const { error } = await supabase.from("fin_settings").upsert(payload);
+  if (error) return { error: rls(error.message) };
+  revalidatePath(PATH);
+  return {};
+}
+
+/** ซ่อนรายการต้นทางจาก "รอบันทึกจากงานอื่น" (เช่น จ่ายด้วยวิธีอื่น/บันทึกรวมกับรายการอื่นแล้ว) */
+export async function skipSource(kind: SourceKind, id: string, reason: string): Promise<Result> {
+  const supabase = await createClient();
+  if (!(await canWrite(supabase))) return { error: NO_RIGHT };
+  if (!(kind in SOURCE_LABEL)) return { error: "ประเภทต้นทางไม่ถูกต้อง" };
+  const { error } = await supabase.from("fin_source_skips").upsert({ source_kind: kind, source_id: id, reason: reason.trim() || null });
+  if (error) return { error: rls(error.message) };
+  revalidatePath(PATH);
+  return {};
+}
+
+export async function unskipSource(kind: SourceKind, id: string): Promise<Result> {
+  const supabase = await createClient();
+  if (!(await canWrite(supabase))) return { error: NO_RIGHT };
+  const { error } = await supabase.from("fin_source_skips").delete().eq("source_kind", kind).eq("source_id", id);
   if (error) return { error: rls(error.message) };
   revalidatePath(PATH);
   return {};

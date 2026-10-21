@@ -117,6 +117,30 @@ export type Database = {
           },
         ]
       }
+      fin_source_skips: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          reason: string | null
+          source_id: string
+          source_kind: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          reason?: string | null
+          source_id: string
+          source_kind: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          reason?: string | null
+          source_id?: string
+          source_kind?: string
+        }
+        Relationships: []
+      }
       fin_settings: {
         Row: {
           key: string
@@ -151,6 +175,8 @@ export type Database = {
           kind: string
           money_type_id: string
           note: string | null
+          source_id: string | null
+          source_kind: string | null
           payee: string | null
           project_id: string | null
           to_pocket: string | null
@@ -172,6 +198,8 @@ export type Database = {
           kind: string
           money_type_id: string
           note?: string | null
+          source_id?: string | null
+          source_kind?: string | null
           payee?: string | null
           project_id?: string | null
           to_pocket?: string | null
@@ -193,6 +221,8 @@ export type Database = {
           kind?: string
           money_type_id?: string
           note?: string | null
+          source_id?: string | null
+          source_kind?: string | null
           payee?: string | null
           project_id?: string | null
           to_pocket?: string | null

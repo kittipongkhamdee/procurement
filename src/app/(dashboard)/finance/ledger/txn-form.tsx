@@ -7,7 +7,7 @@ import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/sw
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { CopyIcon, PencilIcon, PlusIcon } from "@/components/icons";
-import { DOC_KINDS, effect, fiscalYearOf, type Balance, KIND_LABEL, POCKET_LABEL, POCKETS, type DocKind, type FinTxn, type MoneyType, type Pocket, type TxnKind } from "@/lib/finance-ledger";
+import { DOC_KINDS, effect, fiscalYearOf, SOURCE_LABEL, type Balance, type SourceKind, KIND_LABEL, POCKET_LABEL, POCKETS, type DocKind, type FinTxn, type MoneyType, type Pocket, type TxnKind } from "@/lib/finance-ledger";
 import { saveTxn, suggestDocSeq } from "./actions";
 
 /** budget/approved (ถ้ามี) ใช้แสดงงบคงเหลือ = งบ − อนุมัติแล้ว ใต้ช่องโครงการ/กิจกรรม */
@@ -33,17 +33,20 @@ function todayLocal() {
 /** balances = ยอดคงเหลือล่าสุดของปีงบแยกประเภทเงิน — ใช้เตือนเมื่อจ่าย/โอนออกเกินยอดคงเหลือ */
 export type TxnSuggest = { payees: string[]; descriptions: string[]; balances: Map<string, Balance> };
 
-/** txn = แก้ไขรายการเดิม · copyFrom = รายการใหม่ที่คัดลอกค่าจากรายการเดิม (วันที่ = วันนี้, เลขที่ บค/บจ = เลขถัดไป) */
+/** txn = แก้ไขรายการเดิม · copyFrom = รายการใหม่ที่คัดลอกค่าจากรายการเดิม (วันที่ = วันนี้, เลขที่ บค/บจ = เลขถัดไป)
+ *  source = บันทึกจากงานต้นทาง (ระยะที่ 2) — copyFrom เป็นค่าที่เติมจากงานนั้น (รวมวันที่) และผูก source_kind/source_id ไว้ */
 export function TxnForm({
   txn,
   copyFrom,
+  source,
   types,
   projects,
   suggest,
   onSaved,
 }: {
   txn?: FinTxn;
-  copyFrom?: FinTxn;
+  copyFrom?: Partial<FinTxn>;
+  source?: { kind: SourceKind; id: string; ref: string };
   types: MoneyType[];
   projects: ProjectOption[];
   suggest: TxnSuggest;
@@ -51,7 +54,7 @@ export function TxnForm({
 }) {
   const ref = useRef<ModalHandle>(null);
   const tpl = txn ?? copyFrom;
-  const [date, setDate] = useState<string | null>(txn?.txn_date ?? todayLocal());
+  const [date, setDate] = useState<string | null>(txn?.txn_date ?? (source ? copyFrom?.txn_date : undefined) ?? todayLocal());
   const [kind, setKind] = useState<TxnKind>(tpl?.kind ?? "pay");
   const [docKind, setDocKind] = useState<DocKind | "">(tpl?.doc_kind ?? (tpl ? "" : "บจ"));
   const [docSeq, setDocSeq] = useState<string>(txn?.doc_seq ? String(txn.doc_seq) : "");
@@ -143,7 +146,7 @@ export function TxnForm({
   return (
     <Modal
       ref={ref}
-      title={txn ? "แก้ไขรายการรับ-จ่าย" : copyFrom ? "บันทึกรายการรับ-จ่าย (คัดลอกจากรายการเดิม)" : "บันทึกรายการรับ-จ่าย"}
+      title={txn ? "แก้ไขรายการรับ-จ่าย" : source ? `บันทึกจาก${SOURCE_LABEL[source.kind]}` : copyFrom ? "บันทึกรายการรับ-จ่าย (คัดลอกจากรายการเดิม)" : "บันทึกรายการรับ-จ่าย"}
       wide
       lazy
       onOpenChange={(open) => {
@@ -153,6 +156,11 @@ export function TxnForm({
         txn ? (
           <span title="แก้ไข" className="btn-secondary btn-sm">
             <PencilIcon className="h-3.5 w-3.5" />
+          </span>
+        ) : source ? (
+          <span title={`บันทึกในบัญชีรับ-จ่าย — ${source.ref}`} className="btn-primary btn-sm">
+            <PlusIcon className="h-3.5 w-3.5" />
+            บันทึก
           </span>
         ) : copyFrom ? (
           <span title="คัดลอกเป็นรายการใหม่" className="btn-secondary btn-sm">
@@ -167,6 +175,15 @@ export function TxnForm({
       }
     >
       <form key={formKey} onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {source && (
+          <>
+            <input type="hidden" name="source_kind" value={source.kind} />
+            <input type="hidden" name="source_id" value={source.id} />
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 sm:col-span-2">
+              ผูกกับ <b>{source.ref}</b> — ระบบเติมข้อมูลจากงานต้นทางให้แล้ว ตรวจสอบประเภทเงิน ช่องที่จ่าย และวันที่จ่ายจริงก่อนบันทึก
+            </p>
+          </>
+        )}
         <div>
           <label className="label">
             วันที่ <span className="text-red-600">*</span>
@@ -264,7 +281,7 @@ export function TxnForm({
               <span className="shrink-0 text-sm text-slate-600">/{date ? fiscalYearOf(date) : "...."}</span>
             </div>
           ) : (
-            <input name="doc_no" defaultValue={txn?.doc_no ?? ""} placeholder={docKind === "บร" ? "เช่น 27ก 26785/1 (เล่มที่/เลขที่)" : "เลขที่เอกสาร (ถ้ามี)"} className="input w-full" />
+            <input name="doc_no" defaultValue={(txn ?? (source ? copyFrom : undefined))?.doc_no ?? ""} placeholder={docKind === "บร" ? "เช่น 27ก 26785/1 (เล่มที่/เลขที่)" : "เลขที่เอกสาร (ถ้ามี)"} className="input w-full" />
           )}
           {seqKind && <p className="mt-1 text-xs text-slate-500">ระบบเสนอเลขถัดไปของปีงบให้ แก้ได้ (ห้ามซ้ำ)</p>}
         </div>
@@ -337,7 +354,7 @@ export function TxnForm({
           <button type="button" onClick={() => ref.current?.close()} className="btn-secondary">
             ยกเลิก
           </button>
-          {!txn && (
+          {!txn && !source && (
             <button type="submit" value="next" disabled={saving} className="btn-secondary" title="บันทึกแล้วเปิดฟอร์มว่างต่อ — คงวันที่ ประเภทเงิน ช่อง และโครงการไว้">
               บันทึกและเพิ่มต่อ
             </button>
