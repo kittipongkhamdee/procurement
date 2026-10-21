@@ -3,11 +3,11 @@
 // ฟอร์มบันทึกรายการรับ-จ่าย (แทนการพิมพ์แถวในชีต DATA) — เลขที่ บค/บจ เสนอเลขถัดไปของปีงบให้ แก้ได้
 
 import { useRef, useState } from "react";
-import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PencilIcon, PlusIcon } from "@/components/icons";
-import { DOC_KINDS, fiscalYearOf, KIND_LABEL, POCKET_LABEL, POCKETS, type DocKind, type FinTxn, type MoneyType, type Pocket, type TxnKind } from "@/lib/finance-ledger";
+import { DOC_KINDS, effect, fiscalYearOf, type Balance, KIND_LABEL, POCKET_LABEL, POCKETS, type DocKind, type FinTxn, type MoneyType, type Pocket, type TxnKind } from "@/lib/finance-ledger";
 import { saveTxn, suggestDocSeq } from "./actions";
 
 export type ProjectOption = { id: string; name: string; activities: { id: string; name: string }[] };
@@ -17,7 +17,10 @@ function todayLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-export function TxnForm({ txn, types, projects, onSaved }: { txn?: FinTxn; types: MoneyType[]; projects: ProjectOption[]; onSaved: () => void }) {
+/** balances = ยอดคงเหลือล่าสุดของปีงบแยกประเภทเงิน — ใช้เตือนเมื่อจ่าย/โอนออกเกินยอดคงเหลือ */
+export type TxnSuggest = { payees: string[]; descriptions: string[]; balances: Map<string, Balance> };
+
+export function TxnForm({ txn, types, projects, suggest, onSaved }: { txn?: FinTxn; types: MoneyType[]; projects: ProjectOption[]; suggest: TxnSuggest; onSaved: () => void }) {
   const ref = useRef<ModalHandle>(null);
   const [date, setDate] = useState<string | null>(txn?.txn_date ?? todayLocal());
   const [kind, setKind] = useState<TxnKind>(txn?.kind ?? "pay");
@@ -40,6 +43,28 @@ export function TxnForm({ txn, types, projects, onSaved }: { txn?: FinTxn; types
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    // เตือน (ไม่บังคับ) เมื่อจ่าย/โอนออกเกินยอดคงเหลือของประเภทเงินนั้น — ไม่นับผลของรายการเดิมที่กำลังแก้
+    const from = String(fd.get("from_pocket") ?? "") as Pocket;
+    const typeId = String(fd.get("money_type_id") ?? "");
+    const amount = Number(fd.get("amount")) || 0;
+    if (kind !== "receive" && typeId && from) {
+      const bal = { ...(suggest.balances.get(typeId) ?? { cash: 0, bank: 0, gov: 0 }) };
+      if (txn && txn.money_type_id === typeId) {
+        const old = effect(txn);
+        bal.cash -= old.cash;
+        bal.bank -= old.bank;
+        bal.gov -= old.gov;
+      }
+      if (amount > bal[from] + 0.001) {
+        const typeName = types.find((t) => t.id === typeId)?.name ?? "";
+        const ok = await confirmWarning({
+          title: "ยอดเงินไม่พอ",
+          text: `${typeName} — ${POCKET_LABEL[from]} คงเหลือ ${bal[from].toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท แต่จะ${kind === "pay" ? "จ่าย" : "โอนออก"} ${amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })} บาท ยอดจะติดลบ — ตรวจสอบยอดยกมา/ประเภทเงิน/ช่องที่จ่าย ก่อนบันทึก`,
+          confirmButtonText: "บันทึกต่อ",
+        });
+        if (!ok) return;
+      }
+    }
     setSaving(true);
     try {
       const res = await saveTxn(txn?.id ?? null, fd);
@@ -197,11 +222,28 @@ export function TxnForm({ txn, types, projects, onSaved }: { txn?: FinTxn; types
           <label className="label">
             รายการ <span className="text-red-600">*</span>
           </label>
-          <input name="description" defaultValue={txn?.description ?? ""} required placeholder="เช่น จ่ายเงินค่าวัตถุดิบประกอบอาหารกลางวัน 5 วัน" className="input w-full" />
+          <input name="description" list={`fin-desc-${txn?.id ?? "new"}`} defaultValue={txn?.description ?? ""} required placeholder="เช่น จ่ายเงินค่าวัตถุดิบประกอบอาหารกลางวัน 5 วัน" className="input w-full" />
+          <datalist id={`fin-desc-${txn?.id ?? "new"}`}>
+            {suggest.descriptions.map((d) => (
+              <option key={d} value={d} />
+            ))}
+          </datalist>
         </div>
         <div className="sm:col-span-2">
           <label className="label">{kind === "receive" ? "รับจาก" : "จ่ายให้"}</label>
-          <input name="payee" defaultValue={txn?.payee ?? ""} placeholder={kind === "receive" ? "เช่น สพฐ., ผู้บริจาค" : "ชื่อผู้รับเงิน / ร้านค้า"} className="input w-full" />
+          <input
+            name="payee"
+            list={`fin-payee-${txn?.id ?? "new"}`}
+            defaultValue={txn?.payee ?? ""}
+            placeholder={kind === "receive" ? "เช่น สพฐ., ผู้บริจาค" : "พิมพ์เพื่อค้นหาร้านค้า/ผู้ขาย/ครู หรือกรอกชื่อเอง"}
+            className="input w-full"
+          />
+          <datalist id={`fin-payee-${txn?.id ?? "new"}`}>
+            {suggest.payees.map((p) => (
+              <option key={p} value={p} />
+            ))}
+          </datalist>
+          <p className="mt-1 text-xs text-slate-500">ช่วยกรอกจากเมนูร้านค้า/ผู้ขาย รายชื่อครู และชื่อที่เคยบันทึก — ไม่มีในรายการพิมพ์เองได้</p>
         </div>
 
         <div>

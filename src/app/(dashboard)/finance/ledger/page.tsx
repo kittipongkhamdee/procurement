@@ -75,6 +75,7 @@ function LedgerContent() {
   const [openings, setOpenings] = useState<Opening[]>([]);
   const [txns, setTxns] = useState<FinTxn[] | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [people, setPeople] = useState<{ vendors: string[]; teachers: string[]; pastPayees: string[] }>({ vendors: [], teachers: [], pastPayees: [] });
   const [month, setMonth] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [query, setQuery] = useState("");
@@ -116,6 +117,30 @@ function LedgerContent() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
+
+  // ช่วยกรอก "จ่ายให้/รับจาก": ร้านค้า/ผู้ขาย + รายชื่อครู + ชื่อที่เคยกรอก (โหลดครั้งเดียว ไม่ขึ้นกับปีงบ)
+  useEffect(() => {
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("proc_vendors").select("name").order("name"),
+      supabase.from("plan_teachers").select("name").eq("is_active", true).order("sort_order"),
+      supabase.from("fin_transactions").select("payee").not("payee", "is", null).order("created_at", { ascending: false }).limit(500),
+    ]).then(([v, tc, past]) =>
+      setPeople({
+        vendors: (v.data ?? []).map((x) => x.name).filter(Boolean),
+        teachers: (tc.data ?? []).map((x) => x.name).filter(Boolean),
+        pastPayees: (past.data ?? []).map((x) => x.payee as string),
+      }),
+    );
+  }, []);
+  const suggest = useMemo(
+    () => ({
+      payees: Array.from(new Set([...people.pastPayees, ...people.vendors, ...people.teachers].map((x) => x.trim()).filter(Boolean))),
+      descriptions: Array.from(new Set(sortTxns(txns ?? []).reverse().map((t) => t.description.trim()))).slice(0, 300),
+      balances: balancesByType(openings, txns ?? []),
+    }),
+    [people, txns, openings],
+  );
 
   const typeName = useMemo(() => new Map(types.map((t) => [t.id, t.name])), [types]);
   const projectName = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects]);
@@ -189,7 +214,7 @@ function LedgerContent() {
               ตั้งค่า
             </Link>
           )}
-          {canWrite && <TxnForm types={types} projects={projects} onSaved={reload} />}
+          {canWrite && <TxnForm types={types} projects={projects} suggest={suggest} onSaved={reload} />}
         </div>
       </div>
 
@@ -302,7 +327,7 @@ function LedgerContent() {
                     </div>
                     {canWrite && (
                       <div className="mt-2 flex justify-end gap-1">
-                        <TxnForm txn={t} types={types} projects={projects} onSaved={reload} />
+                        <TxnForm txn={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
                         <button type="button" onClick={() => remove(t)} title="ลบ" className="btn-danger btn-sm">
                           <TrashIcon className="h-3.5 w-3.5" />
                         </button>
@@ -351,7 +376,7 @@ function LedgerContent() {
                         {canWrite && (
                           <td className="whitespace-nowrap text-right">
                             <div className="flex justify-end gap-1">
-                              <TxnForm txn={t} types={types} projects={projects} onSaved={reload} />
+                              <TxnForm txn={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />
                               <button type="button" onClick={() => remove(t)} title="ลบ" className="btn-danger btn-sm">
                                 <TrashIcon className="h-3.5 w-3.5" />
                               </button>
