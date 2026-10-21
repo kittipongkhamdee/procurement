@@ -14,7 +14,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
-import { fundDoc, POCKET_LABEL, POCKETS, round2, type MoneyType, type Pocket } from "@/lib/finance-ledger";
+import { balancesByType, fiscalYearOf, fundDoc, POCKET_LABEL, POCKETS, round2, type FinTxn, type MoneyType, type Opening, type Pocket } from "@/lib/finance-ledger";
 import { deleteFundLoan, deleteFundRepay, saveFundLoan, saveFundRepay, updateFundLoanMemo } from "./actions";
 
 type Repay = { id: string; repay_date: string; amount: number; pocket: Pocket; doc_seq: number; fiscal_year: number; note: string | null };
@@ -48,17 +48,25 @@ export default function FundLoansPage() {
   const [types, setTypes] = useState<MoneyType[]>([]);
   const [loans, setLoans] = useState<Loan[] | null>(null);
   const [show, setShow] = useState<"open" | "all">("open");
+  const [ledger, setLedger] = useState<{ openings: Opening[]; txns: FinTxn[] }>({ openings: [], txns: [] });
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: mt }, { data: ln }] = await Promise.all([
+    const [{ data: mt }, { data: ln }, { data: op }, { data: tx }] = await Promise.all([
       supabase.from("fin_money_types").select("id, name, category, account_id, sort_order, is_active").order("sort_order"),
       supabase
         .from("fin_fund_loans")
         .select("*, fin_fund_loan_lines(id, borrower_type_id, amount, sort_order, fin_fund_loan_repays(id, repay_date, amount, pocket, doc_seq, fiscal_year, note))")
         .order("loan_date", { ascending: false })
         .order("created_at", { ascending: false }),
+      supabase.from("fin_opening_balances").select("fiscal_year, money_type_id, cash, bank, gov"),
+      supabase.from("fin_transactions").select("fiscal_year, txn_date, kind, from_pocket, to_pocket, amount, money_type_id"),
     ]);
+    // ยอดคงเหลือของผู้ให้ยืม (แสดงในฟอร์ม) — คำนวณตามปีงบของวันที่ยืม
+    setLedger({
+      openings: ((op ?? []) as Opening[]).map((o) => ({ ...o, cash: Number(o.cash), bank: Number(o.bank), gov: Number(o.gov) })),
+      txns: ((tx ?? []) as unknown as FinTxn[]).map((x) => ({ ...x, amount: Number(x.amount) })),
+    });
     setTypes((mt ?? []) as MoneyType[]);
     type Raw = Omit<Loan, "lines"> & { fin_fund_loan_lines: (Omit<Line, "repays"> & { fin_fund_loan_repays: Repay[] })[] };
     setLoans(
@@ -128,7 +136,7 @@ export default function FundLoansPage() {
             {canWrite ? "" : " — ดูได้อย่างเดียว"}
           </p>
         </div>
-        {canWrite && <LoanForm types={types} onSaved={reload} />}
+        {canWrite && <LoanForm types={types} ledger={ledger} onSaved={reload} />}
       </div>
 
       <div className="card mb-4">
@@ -276,7 +284,7 @@ function MemoFields({ loan }: { loan?: Loan }) {
   );
 }
 
-function LoanForm({ types, onSaved }: { types: MoneyType[]; onSaved: () => void }) {
+function LoanForm({ types, ledger, onSaved }: { types: MoneyType[]; ledger: { openings: Opening[]; txns: FinTxn[] }; onSaved: () => void }) {
   const ref = useRef<ModalHandle>(null);
   const active = types.filter((t) => t.is_active);
   const [lender, setLender] = useState(() => active.find((t) => t.name.includes("กิจกรรมพัฒนาคุณภาพผู้เรียน"))?.id ?? "");
@@ -284,6 +292,17 @@ function LoanForm({ types, onSaved }: { types: MoneyType[]; onSaved: () => void 
   const [saving, setSaving] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const sum = round2(lines.reduce((s, l) => s + (Number(l.amount) || 0), 0));
+  const [date, setDate] = useState<string | null>(todayLocal());
+  const [pocket, setPocket] = useState<Pocket>("bank");
+  const lenderBal = useMemo(() => {
+    if (!lender || !date) return null;
+    const fy = fiscalYearOf(date);
+    return balancesByType(
+      ledger.openings.filter((o) => o.fiscal_year === fy),
+      ledger.txns.filter((x) => x.fiscal_year === fy),
+      date,
+    ).get(lender) ?? { cash: 0, bank: 0, gov: 0 };
+  }, [lender, date, ledger]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -296,6 +315,7 @@ function LoanForm({ types, onSaved }: { types: MoneyType[]; onSaved: () => void 
       if (res.error) return void (await toastError(res.error));
       await toastSuccess("บันทึกการยืมแล้ว — ลงรายการรับ-จ่ายทั้งสองประเภทให้แล้ว");
       setLines([{ borrower_type_id: "", amount: "" }]);
+      setDate(todayLocal());
       setFormKey((k) => k + 1);
       ref.current?.close();
       onSaved();
@@ -324,11 +344,11 @@ function LoanForm({ types, onSaved }: { types: MoneyType[]; onSaved: () => void 
           <label className="label">
             วันที่ยืม (วันที่โอนเงินจริง) <span className="text-red-600">*</span>
           </label>
-          <ThaiDatePicker name="loan_date" defaultValue={todayLocal()} maxDate={todayLocal()} required />
+          <ThaiDatePicker name="loan_date" value={date} onChange={setDate} maxDate={todayLocal()} required />
         </div>
         <div>
           <label className="label">ช่องเงิน</label>
-          <select name="pocket" defaultValue="bank" className="input w-full">
+          <select name="pocket" value={pocket} onChange={(e) => setPocket(e.target.value as Pocket)} className="input w-full">
             {POCKETS.map((p) => (
               <option key={p} value={p}>
                 {POCKET_LABEL[p]}
@@ -348,6 +368,13 @@ function LoanForm({ types, onSaved }: { types: MoneyType[]; onSaved: () => void 
               </option>
             ))}
           </select>
+          {lenderBal && (
+            <p className={`mt-1 text-sm ${lenderBal[pocket] < sum ? "text-red-600" : "text-slate-600"}`}>
+              ยอดคงเหลือ ณ วันที่ยืม — {POCKET_LABEL[pocket]} <b className="tabular-nums">{baht(lenderBal[pocket])}</b> บาท
+              {POCKETS.filter((p) => p !== pocket && lenderBal[p] !== 0).map((p) => ` · ${POCKET_LABEL[p]} ${baht(lenderBal[p])}`)}
+              {lenderBal[pocket] < sum && " — ไม่พอให้ยืม"}
+            </p>
+          )}
         </div>
         <div className="sm:col-span-2">
           <label className="label">

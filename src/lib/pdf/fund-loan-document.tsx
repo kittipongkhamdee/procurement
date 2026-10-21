@@ -2,7 +2,7 @@ import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { formatBaht, thaiBahtText } from "@/lib/thai";
 import { t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
-import { B, CM, INDENT, Para, Sign, styles } from "./procurement-set-document";
+import { CM, INDENT, Para, Sign, styles } from "./procurement-set-document";
 import { Tick } from "./w119-document";
 
 // บันทึกข้อความขออนุมัติยืมเงินระหว่างประเภทเงิน (เช่น ค่าอุปกรณ์การเรียนไม่พอ ยืมจากกิจกรรมพัฒนาคุณภาพผู้เรียน)
@@ -48,11 +48,11 @@ export function FundLoanMemoDocument({ data: d }: { data: FundLoanMemoData }) {
             </View>
           ))}
         </View>
-        <Para text={`ทั้งนี้ เมื่อได้รับจัดสรรงบประมาณเพิ่มเติมแล้ว จะดำเนินการส่งใช้เงินยืมคืน${d.lender}โดยด่วน`} />
+        <Para text={`ทั้งนี้ จะดำเนินการส่งใช้เงินยืมคืนรายการเดิมเมื่อได้รับจัดสรรงบประมาณเพิ่มเติม ทั้งนี้ ให้เป็นไปตามแนวทางและหนังสือสั่งการที่เกี่ยวข้อง`} />
         <View wrap={false}>
           <Text style={{ marginLeft: INDENT }}>{t("จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติ")}</Text>
           <Sign role="" name={d.finance_officer.name || null} extra={[d.finance_officer.position]} style={{ marginLeft: L - 30, marginTop: 14 }} />
-          <View style={{ marginTop: 14, borderWidth: B, padding: 6 }}>
+          <View style={{ marginTop: 14, paddingVertical: 6 }}>
             <Text style={styles.bold}>{t("ความเห็นผู้อำนวยการ")}</Text>
             <View style={{ flexDirection: "row", gap: 24 }}>
               <Tick text="อนุมัติ" />
