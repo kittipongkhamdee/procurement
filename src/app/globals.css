@@ -53,6 +53,10 @@ body {
 .swal2-popup {
   font-family: var(--font-noto-sans-thai), sans-serif !important;
   border-radius: 0.75rem !important;
+  /* popup เปิดใน <dialog> ของ Modal ที่อาจอยู่ในเซลล์ตาราง whitespace-nowrap — ตัดบรรทัดเสมอ ไม่ให้ข้อความล้น */
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  max-width: calc(100vw - 2rem);
 }
 .swal2-title {
   font-size: 1.1rem !important;
