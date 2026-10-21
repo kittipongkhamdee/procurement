@@ -1,7 +1,7 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
 import { shortThaiDate } from "@/lib/procurement-register";
-import { addBal, docLabel, groupByCategory, thaiMonthLabel, total, zero, type Balance, type FinTxn, type MoneyType, type registerForMonth } from "@/lib/finance-ledger";
+import { addBal, groupByCategory, thaiMonthLabel, total, zero, type Balance, type FinTxn, type MoneyType, type registerForMonth } from "@/lib/finance-ledger";
 import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
 
@@ -135,10 +135,13 @@ export function DailyBalanceDocument({ schoolName, date, types, balances, signer
 
 export type RegisterPage = { type: MoneyType; month: string; reg: ReturnType<typeof registerForMonth> };
 
-const RW = { date: 58, doc: 88, desc: 210, rcv: 70, pay: 70, cash: 75, bank: 80, gov: 80, note: 55 };
+// ตามแบบ "ทะเบียนคุมเงินนอกงบประมาณ" — จ่ายแยก ลูกหนี้ (จ่ายเงินยืม) / ใบสำคัญ (จ่ายจริง) · ลูกหนี้ในวงเล็บ = ล้างลูกหนี้
+const RW = { date: 58, doc: 80, desc: 190, rcv: 68, debtor: 62, voucher: 62, cash: 64, bank: 76, gov: 76, note: 50 };
+const signed = (n: number) => (n < 0 ? `(${formatBaht(-n)})` : n ? formatBaht(n) : "");
 
 function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolName: string; fy: number }) {
-  const { reg } = page;
+  const { reg, type } = page;
+  const isOctober = page.month.endsWith("-10");
   const balCells = (b: Balance, bold = false) => (
     <>
       <Cell w={RW.cash} text={money(b.cash)} align="right" bold={bold} />
@@ -146,65 +149,73 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
       <Cell w={RW.gov} text={money(b.gov)} align="right" bold={bold} />
     </>
   );
-  const sumRow = (label: string, rcv: string, pay: string, b: Balance | null) => (
+  const sumRow = (label: string, v: { receive: number; debtor: number; voucher: number } | null, b: Balance | null) => (
     <View style={{ flexDirection: "row" }} wrap={false}>
-      <Cell w={RW.date + RW.doc + RW.desc} text={label} align="center" bold />
-      <Cell w={RW.rcv} text={rcv} align="right" bold />
-      <Cell w={RW.pay} text={pay} align="right" bold />
+      <Cell w={RW.date + RW.doc + RW.desc} text={label} align="right" bold />
+      <Cell w={RW.rcv} text={v ? money(v.receive) : ""} align="right" bold />
+      <Cell w={RW.debtor} text={v ? signed(v.debtor) || "-" : ""} align="right" bold />
+      <Cell w={RW.voucher} text={v ? money(v.voucher) : ""} align="right" bold />
       {b ? balCells(b, true) : <Cell w={RW.cash + RW.bank + RW.gov} text="" />}
       <Cell w={RW.note} text="" />
     </View>
   );
+  const head = (w: number, label: string) => (
+    <View style={[styles.cell, styles.head, { width: w, justifyContent: "center" }]}>
+      {lines(label, w, true).map((l, i) => (
+        <Text key={i}>{t(l)}</Text>
+      ))}
+    </View>
+  );
+  const typeLabel = type.category && type.category !== type.name ? `${type.name} (${type.category.replace(/^เงินอุดหนุน/, "")})` : type.name;
   return (
     <Page size="A4" orientation="landscape" style={styles.page}>
-      <Text style={styles.title}>{t(`ทะเบียนคุม${page.type.name.startsWith("เงิน") ? "" : "เงิน"}${page.type.name}`)}</Text>
-      <Text style={styles.center}>{t(`${schoolName}   ปีงบประมาณ ${fy}   ประจำเดือน ${thaiMonthLabel(page.month)}`)}</Text>
+      <Text style={styles.title}>{t("ทะเบียนคุมเงินนอกงบประมาณ")}</Text>
+      <Text style={[styles.center, styles.bold]}>{t(`ประจำปีงบประมาณ ${fy}`)}</Text>
+      <Text style={[styles.center, styles.bold]}>{t(`ประเภท ${typeLabel}`)}</Text>
+      <Text style={[styles.center, styles.bold]}>{t(`${schoolName}   ประจำเดือน ${thaiMonthLabel(page.month)}`)}</Text>
       <View style={styles.table}>
         <View style={{ flexDirection: "row" }} fixed>
-          <View style={[styles.cell, styles.head, { width: RW.date, justifyContent: "center" }]}>
-            <Text>{t("วัน เดือน ปี")}</Text>
-          </View>
-          <View style={[styles.cell, styles.head, { width: RW.doc, justifyContent: "center" }]}>
-            <Text>{t("ที่เอกสาร")}</Text>
-          </View>
-          <View style={[styles.cell, styles.head, { width: RW.desc, justifyContent: "center" }]}>
-            <Text>{t("รายการ")}</Text>
-          </View>
-          <View style={[styles.cell, styles.head, { width: RW.rcv, justifyContent: "center" }]}>
-            <Text>{t("รับ")}</Text>
-          </View>
-          <View style={[styles.cell, styles.head, { width: RW.pay, justifyContent: "center" }]}>
-            <Text>{t("จ่าย")}</Text>
+          {head(RW.date, "วัน เดือน ปี")}
+          {head(RW.doc, "ที่เอกสาร")}
+          {head(RW.desc, "รายการ")}
+          {head(RW.rcv, "รับ")}
+          <View style={{ width: RW.debtor + RW.voucher }}>
+            <Text style={[styles.cell, styles.head]}>{t("จ่าย")}</Text>
+            {/* flexGrow ให้หัวคอลัมน์ย่อยยืดเต็มความสูงแถวหัวตาราง (เท่ากลุ่มคงเหลือที่หัวย่อย 2 บรรทัด) */}
+            <View style={{ flexDirection: "row", flexGrow: 1 }}>
+              {head(RW.debtor, "ลูกหนี้")}
+              {head(RW.voucher, "ใบสำคัญ")}
+            </View>
           </View>
           <View style={{ width: RW.cash + RW.bank + RW.gov }}>
             <Text style={[styles.cell, styles.head]}>{t("คงเหลือ")}</Text>
-            <View style={{ flexDirection: "row" }}>
-              <Text style={[styles.cell, styles.head, { width: RW.cash }]}>{t("เงินสด")}</Text>
-              <Text style={[styles.cell, styles.head, { width: RW.bank }]}>{t("เงินฝากธนาคาร")}</Text>
-              <Text style={[styles.cell, styles.head, { width: RW.gov }]}>{t("ฝากส่วนราชการ")}</Text>
+            <View style={{ flexDirection: "row", flexGrow: 1 }}>
+              {head(RW.cash, "เงินสด")}
+              {head(RW.bank, "เงินฝากธนาคาร")}
+              {head(RW.gov, "เงินฝากส่วนราชการผู้เบิก")}
             </View>
           </View>
-          <View style={[styles.cell, styles.head, { width: RW.note, justifyContent: "center" }]}>
-            <Text>{t("หมายเหตุ")}</Text>
-          </View>
+          {head(RW.note, "หมายเหตุ")}
         </View>
         <View style={{ flexDirection: "row" }} wrap={false}>
-          <Cell w={RW.date} text="" />
+          <Cell w={RW.date} text={isOctober ? shortThaiDate(`${page.month}-01`) : ""} align="center" />
           <Cell w={RW.doc} text="" />
-          <Cell w={RW.desc} text="ยอดยกมา" bold />
+          <Cell w={RW.desc} text={isOctober ? `ยอดยกมาจากปีงบประมาณ ${fy - 1}` : "ยอดยกมา"} bold />
           <Cell w={RW.rcv} text="" />
-          <Cell w={RW.pay} text="" />
+          <Cell w={RW.debtor} text="" />
+          <Cell w={RW.voucher} text="" />
           {balCells(reg.broughtForward)}
           <Cell w={RW.note} text="" />
         </View>
-        {reg.rows.map(({ txn, receive, pay, balance }) => (
-          <View key={txn.id} style={{ flexDirection: "row" }} wrap={false}>
-            <Cell w={RW.date} text={shortThaiDate(txn.txn_date)} align="center" />
-            <Cell w={RW.doc} text={docLabel(txn)} align="center" wrap />
-            <Cell w={RW.desc} text={txn.kind === "transfer" ? `${txn.description} (โอน)` : txn.description} wrap />
-            <Cell w={RW.rcv} text={moneyOrBlank(receive)} align="right" />
-            <Cell w={RW.pay} text={moneyOrBlank(pay)} align="right" />
-            {balCells(balance)}
+        {reg.rows.map((r) => (
+          <View key={r.id} style={{ flexDirection: "row" }} wrap={false}>
+            <Cell w={RW.date} text={shortThaiDate(r.date)} align="center" />
+            <Cell w={RW.doc} text={r.doc} align="center" wrap />
+            <Cell w={RW.desc} text={r.transfer ? `${r.description} (โอน)` : r.description} wrap />
+            <Cell w={RW.rcv} text={moneyOrBlank(r.receive)} align="right" />
+            <Cell w={RW.debtor} text={signed(r.debtor)} align="right" />
+            <Cell w={RW.voucher} text={moneyOrBlank(r.voucher)} align="right" />
+            {balCells(r.balance)}
             {/* หมายเหตุในระบบไม่พิมพ์ลง PDF — เว้นช่องไว้ให้เขียนเอง */}
             <Cell w={RW.note} text="" />
           </View>
@@ -214,9 +225,9 @@ function RegisterSheet({ page, schoolName, fy }: { page: RegisterPage; schoolNam
             <Text style={[styles.cell, { flex: 1, textAlign: "center" }]}>{t("ไม่มีรายการรับ-จ่ายในเดือนนี้")}</Text>
           </View>
         )}
-        {sumRow("รวมตั้งแต่ต้นเดือน", money(reg.month.receive), money(reg.month.pay), null)}
-        {sumRow("รวมตั้งแต่ต้นปี", money(reg.ytd.receive), money(reg.ytd.pay), null)}
-        {sumRow("ยอดยกไป", "", "", reg.carriedForward)}
+        {sumRow("รวมเดือนนี้", reg.month, null)}
+        {sumRow("รวมตั้งแต่ต้นปี", reg.ytd, null)}
+        {sumRow("ยอดยกไป", null, reg.carriedForward)}
       </View>
     </Page>
   );

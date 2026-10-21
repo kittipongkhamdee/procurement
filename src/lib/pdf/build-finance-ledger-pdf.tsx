@@ -1,6 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { createClient } from "@/lib/supabase/server";
-import { balancesByType, fiscalMonths, fiscalYearOf, registerForMonth, sortTxns, zero, type FinTxn, type MoneyType, type Opening } from "@/lib/finance-ledger";
+import { balancesByType, fiscalMonths, fiscalRange, fiscalYearOf, registerForMonth, sortTxns, zero, type FinTxn, type MoneyType, type Opening, type VoucherClear } from "@/lib/finance-ledger";
 import { DailyBalanceDocument, MoneyRegisterDocument, VoucherRegisterDocument, type FinSigners, type RegisterPage } from "./finance-ledger-document";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -50,6 +50,34 @@ export async function buildMoneyRegisterPdf(supabase: Supabase, fy: number, mont
   const lastTxn = sortTxns(txns).at(-1)?.txn_date.slice(0, 7) ?? "";
   const until = [today, lastTxn].sort().at(-1)!;
   const selected = month === "all" ? months.filter((m) => m <= until || m === months[0]) : months.filter((m) => m === month);
+  // ล้างลูกหนี้ด้วยใบสำคัญ: การส่งใช้เงินยืม (ส่วนใบสำคัญ) ของสัญญาที่บันทึกจ่ายเงินยืมไว้ในประเภทเงินนั้น
+  const loanTypeOf = new Map(txns.filter((x) => x.kind === "pay" && x.source_kind === "loan" && x.source_id).map((x) => [x.source_id!, x.money_type_id]));
+  const clearsByType = new Map<string, VoucherClear[]>();
+  if (loanTypeOf.size) {
+    const [from, to] = fiscalRange(fy);
+    const { data: reps } = await supabase
+      .from("proc_loan_repayments")
+      .select("id, loan_id, repay_date, voucher_amount, voucher_count, receipt_no, created_at, proc_loan_contracts(doc_no)")
+      .in("loan_id", [...loanTypeOf.keys()])
+      .gt("voucher_amount", 0)
+      .gte("repay_date", from)
+      .lte("repay_date", to);
+    for (const r of reps ?? []) {
+      const typeId = loanTypeOf.get(r.loan_id);
+      if (!typeId) continue;
+      const loanNo = (r.proc_loan_contracts as unknown as { doc_no: string | null } | null)?.doc_no ?? "-";
+      const list = clearsByType.get(typeId) ?? [];
+      list.push({
+        id: r.id,
+        date: r.repay_date,
+        doc: r.receipt_no ?? "",
+        description: `ส่งใช้เงินยืมตามสัญญาเลขที่ ${loanNo} เป็นใบสำคัญ${r.voucher_count ? ` ${r.voucher_count} ฉบับ` : ""}`,
+        amount: Number(r.voucher_amount),
+        created_at: r.created_at,
+      });
+      clearsByType.set(typeId, list);
+    }
+  }
   const pages: RegisterPage[] = [];
   const list = typeId ? types.filter((x) => x.id === typeId) : types;
   for (const type of list) {
@@ -57,7 +85,7 @@ export async function buildMoneyRegisterPdf(supabase: Supabase, fy: number, mont
     const op = openings.find((o) => o.money_type_id === type.id);
     const opening = op ? { cash: op.cash, bank: op.bank, gov: op.gov } : zero();
     if (!typeId && tx.length === 0 && opening.cash + opening.bank + opening.gov === 0) continue;
-    for (const m of selected) pages.push({ type, month: m, reg: registerForMonth(opening, tx, m) });
+    for (const m of selected) pages.push({ type, month: m, reg: registerForMonth(opening, tx, m, clearsByType.get(type.id) ?? []) });
   }
   if (pages.length === 0) return null;
   return renderToBuffer(<MoneyRegisterDocument pages={pages} schoolName={schoolName} fy={fy} />);

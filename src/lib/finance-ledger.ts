@@ -143,34 +143,72 @@ export function sortTxns<T extends Pick<FinTxn, "txn_date" | "created_at">>(rows
   return [...rows].sort((a, b) => a.txn_date.localeCompare(b.txn_date) || a.created_at.localeCompare(b.created_at));
 }
 
-export type RegisterRow = { txn: FinTxn; receive: number; pay: number; balance: Balance };
+/** แถวล้างลูกหนี้เงินยืมด้วยใบสำคัญ (ส่งใช้เป็นใบสำคัญ) — ไม่มีเงินเคลื่อนไหว: ลูกหนี้ลด ใบสำคัญเพิ่ม ยอดคงเหลือไม่เปลี่ยน
+ *  ดึงจากการส่งใช้เงินยืม (proc_loan_repayments.voucher_amount) ของสัญญาที่บันทึกจ่ายเงินยืมไว้ในประเภทเงินนั้น */
+export type VoucherClear = { id: string; date: string; doc: string; description: string; amount: number; created_at: string };
+
+/** แถวในทะเบียนคุมเงินนอกงบประมาณ — จ่ายแยก ลูกหนี้ (จ่ายเงินยืม) / ใบสำคัญ (จ่ายจริงมีใบสำคัญคู่จ่าย)
+ *  ลูกหนี้ติดลบ = ล้างลูกหนี้ (ส่งใช้เป็นใบสำคัญ หรือรับคืนเงินสด) */
+export type RegisterRow = { id: string; date: string; doc: string; description: string; receive: number; debtor: number; voucher: number; transfer: boolean; note: string | null; balance: Balance };
+
+type Entry = Omit<RegisterRow, "balance"> & { effect: Balance; sortKey: string };
+
+function entriesOf(txns: FinTxn[], clears: VoucherClear[]): Entry[] {
+  const out: Entry[] = txns.map((t) => {
+    const amt = Number(t.amount);
+    const isLoan = t.kind === "pay" && t.source_kind === "loan";
+    const isRefund = t.kind === "receive" && t.source_kind === "loan_repay";
+    return {
+      id: t.id,
+      date: t.txn_date,
+      doc: docLabel(t),
+      description: t.description,
+      receive: t.kind === "receive" ? amt : 0,
+      debtor: isLoan ? amt : isRefund ? -amt : 0,
+      voucher: t.kind === "pay" && !isLoan ? amt : 0,
+      transfer: t.kind === "transfer",
+      note: t.note,
+      effect: effect(t),
+      sortKey: `${t.txn_date}|${t.created_at}`,
+    };
+  });
+  for (const c of clears)
+    out.push({ id: `clear-${c.id}`, date: c.date, doc: c.doc, description: c.description, receive: 0, debtor: -c.amount, voucher: c.amount, transfer: false, note: null, effect: zero(), sortKey: `${c.date}|${c.created_at}` });
+  return out.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
 /** ทะเบียนคุมเงินประเภทหนึ่งของเดือนหนึ่ง — ยอดยกมา (ยกมาต้นปี + รายการก่อนเดือนนี้), แถวรายการพร้อมยอดคงเหลือสะสม, รวมเดือน/ต้นปี */
-export function registerForMonth(opening: Balance, txns: FinTxn[], ym: string) {
-  const sorted = sortTxns(txns);
+export function registerForMonth(opening: Balance, txns: FinTxn[], ym: string, clears: VoucherClear[] = []) {
+  const entries = entriesOf(txns, clears);
   let bal = { ...opening };
-  let ytdReceive = 0;
-  let ytdPay = 0;
-  for (const t of sorted) {
-    if (t.txn_date.slice(0, 7) >= ym) break;
-    bal = addBal(bal, effect(t));
-    ytdReceive += receiveOf(t);
-    ytdPay += payOf(t);
+  const sum = { receive: 0, debtor: 0, voucher: 0 };
+  const add = (acc: typeof sum, e: Entry) => {
+    acc.receive += e.receive;
+    acc.debtor += e.debtor;
+    acc.voucher += e.voucher;
+  };
+  for (const e of entries) {
+    if (e.date.slice(0, 7) >= ym) break;
+    bal = addBal(bal, e.effect);
+    add(sum, e);
   }
   const broughtForward = { ...bal };
   const rows: RegisterRow[] = [];
-  let mReceive = 0;
-  let mPay = 0;
-  for (const t of sorted.filter((x) => x.txn_date.slice(0, 7) === ym)) {
-    bal = addBal(bal, effect(t));
-    rows.push({ txn: t, receive: receiveOf(t), pay: payOf(t), balance: { ...bal } });
-    mReceive += receiveOf(t);
-    mPay += payOf(t);
+  const month = { receive: 0, debtor: 0, voucher: 0 };
+  for (const e of entries.filter((x) => x.date.slice(0, 7) === ym)) {
+    bal = addBal(bal, e.effect);
+    const { effect: _e, sortKey: _k, ...row } = e;
+    void _e;
+    void _k;
+    rows.push({ ...row, balance: { ...bal } });
+    add(month, e);
   }
+  const r = (o: typeof sum) => ({ receive: round2(o.receive), debtor: round2(o.debtor), voucher: round2(o.voucher) });
   return {
     broughtForward,
     rows,
-    month: { receive: round2(mReceive), pay: round2(mPay) },
-    ytd: { receive: round2(ytdReceive + mReceive), pay: round2(ytdPay + mPay) },
+    month: r(month),
+    ytd: r({ receive: sum.receive + month.receive, debtor: sum.debtor + month.debtor, voucher: sum.voucher + month.voucher }),
     carriedForward: bal,
   };
 }
