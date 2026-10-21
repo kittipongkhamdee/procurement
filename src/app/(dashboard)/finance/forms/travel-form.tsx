@@ -170,6 +170,7 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
         .from("proc_loan_contracts")
         .select(LOAN_COLS)
         .or(`borrower_user_id.eq.${user.userId},created_by.eq.${user.userId}`)
+        .eq("loan_type", "travel")
         .order("request_date", { ascending: false })
         .limit(30)
         .then(({ data }) => setLoans(((data ?? []) as unknown as LoanRow[]).map((l) => ({ ...l, amount: Number(l.amount) }))));
@@ -391,48 +392,56 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
             พิมพ์ส่วนที่ 2 {claimFor === "group" && "(เบิกเป็นคณะ — พิมพ์เสมอ)"}
           </label>
         </div>
-        <div className="overflow-x-auto">
-          <table className="table-base w-full">
-            <thead>
-              <tr>
-                <th>ที่</th>
-                <th>ชื่อ</th>
-                <th>ตำแหน่ง</th>
-                <th className="text-right">เบี้ยเลี้ยง</th>
-                <th className="text-right">ที่พัก</th>
-                <th className="text-right">พาหนะ</th>
-                <th className="text-right">อื่นๆ</th>
-                <th>หมายเหตุ</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m, i) => (
-                <tr key={i}>
-                  <td>{i + 1}</td>
-                  <td>
-                    <input list="travel-people" value={m.name} onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, name: e.target.value, position: positionOf(e.target.value) ?? x.position } : x)))} className="input w-40" aria-label="ชื่อ" />
-                  </td>
-                  <td>
-                    <input value={m.position} onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, position: e.target.value } : x)))} className="input w-28" aria-label="ตำแหน่ง" />
-                  </td>
-                  {(["allowance", "lodging", "transport", "other"] as const).map((k) => (
-                    <td key={k}>
-                      <input type="number" step="0.01" min="0" value={m[k]} onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, [k]: e.target.value } : x)))} className="input w-24 text-right" aria-label={k} />
-                    </td>
-                  ))}
-                  <td>
-                    <input value={m.note} onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, note: e.target.value } : x)))} placeholder="เช่น 240 x 3 วัน" className="input w-36" aria-label="หมายเหตุ" />
-                  </td>
-                  <td>
-                    <button type="button" onClick={() => setMembers(members.length > 1 ? members.filter((_, j) => j !== i) : [emptyMember()])} className="btn-danger btn-sm" title="ลบแถว">
+        {/* รายชื่อผู้เดินทาง: การ์ดต่อคน (ตารางกว้างเกินจอมือถือ) */}
+        <div className="space-y-3">
+          {members.map((m, i) => {
+            const upd = (patch: Partial<MemberRow>) => setMembers(members.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+            const rowTotal = n(m.allowance) + n(m.lodging) + n(m.transport) + n(m.other);
+            return (
+              <div key={i} className="rounded-lg border border-slate-200 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-700">คนที่ {i + 1}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600">
+                      รวม <b className="tabular-nums">{money(rowTotal)}</b> บาท
+                    </span>
+                    <button type="button" onClick={() => setMembers(members.length > 1 ? members.filter((_, j) => j !== i) : [emptyMember()])} className="btn-danger btn-sm" title="ลบผู้เดินทาง">
                       <TrashIcon className="h-3.5 w-3.5" />
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <label className="label">ชื่อ</label>
+                    <input list="travel-people" value={m.name} onChange={(e) => upd({ name: e.target.value, position: positionOf(e.target.value) ?? m.position })} className="input w-full" />
+                  </div>
+                  <div>
+                    <label className="label">ตำแหน่ง</label>
+                    <input value={m.position} onChange={(e) => upd({ position: e.target.value })} className="input w-full" />
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {(
+                    [
+                      ["allowance", "เบี้ยเลี้ยง"],
+                      ["lodging", "ค่าเช่าที่พัก"],
+                      ["transport", "ค่าพาหนะ"],
+                      ["other", "ค่าใช้จ่ายอื่น"],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <div key={k}>
+                      <label className="label">{label}</label>
+                      <input type="number" step="0.01" min="0" value={m[k]} onChange={(e) => upd({ [k]: e.target.value })} className="input w-full text-right" />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2">
+                  <label className="label">หมายเหตุ</label>
+                  <input value={m.note} onChange={(e) => upd({ note: e.target.value })} placeholder="เช่น เบี้ยเลี้ยง 240 x 3 วัน" className="input w-full" />
+                </div>
+              </div>
+            );
+          })}
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" onClick={() => setMembers([...members, emptyMember()])} className="btn-secondary btn-sm">
