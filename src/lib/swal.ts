@@ -121,16 +121,15 @@ export async function toastSuccess(title: string) {
   });
 }
 
-export async function toastError(title: string) {
+/** แจ้งข้อผิดพลาดเป็นป๊อปอัปกลางจอ ค้างไว้จนผู้ใช้กด "รับทราบ" (เดิมเป็น toast มุมจอ 3 วินาที — ผู้ใช้อ่านไม่ทัน ต.ค. 2569)
+ *  ชื่อฟังก์ชันคงเดิมเพื่อไม่ต้องแก้ทุกจุดที่เรียก */
+export async function toastError(message: string) {
   const swal = await loadSwal();
   await swal.fire({
-    toast: true,
-    position: "top-end",
     icon: "error",
-    title,
-    showConfirmButton: false,
-    timer: 3200,
-    timerProgressBar: true,
+    title: "ทำรายการไม่สำเร็จ",
+    text: message,
+    confirmButtonText: "รับทราบ",
   });
 }
 
