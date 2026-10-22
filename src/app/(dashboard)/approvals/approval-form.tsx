@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatThaiDate } from "@/lib/thai";
-import { EXPENSE_CATEGORIES, EXPENSE_LABELS, expenseCategoryIndex } from "@/lib/expense-categories";
+import { formatThaiDate, THAI_MONTHS } from "@/lib/thai";
+import { createClient } from "@/lib/supabase/client";
+import { EXPENSE_CATEGORIES, EXPENSE_LABELS, expenseCategoryIndex, SERVICE_EXPENSE_INDEX as SERVICE_INDEX } from "@/lib/expense-categories";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
@@ -188,6 +189,44 @@ export function ApprovalForm({
   });
   const [planDateISO, setPlanDateISO] = useState(initial ? "" : (prefill?.plan_date ?? ""));
   const [submitting, setSubmitting] = useState(false);
+  // ช่วยกรอกรายละเอียดต่อท้ายหมวด (เช่น ค่าใช้สอย "ค่าจ้างครูอัตราจ้าง (ชื่อ) ประจำเดือน… ตามสัญญาจ้างเลขที่ …")
+  // ดึงสัญญาจ้างจากเมนูงานสัญญา × เดือนนี้/เดือนก่อน — พิมพ์ "ค่าจ้างครู" แล้วเลือกจากรายการได้ แก้ต่อได้
+  const [detailSuggestions, setDetailSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+    const months = [0, -1].map((k) => {
+      const d = new Date(now.getFullYear(), now.getMonth() + k, 1);
+      return `${THAI_MONTHS[d.getMonth() + 1]} ${d.getFullYear() + 543}`;
+    });
+    createClient()
+      .from("proc_contracts")
+      .select("contract_type, contract_no, vendor_name, detail, end_date")
+      .like("contract_type", "%จ้าง%")
+      .order("contract_date", { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        const out: string[] = [];
+        for (const m of months) {
+          for (const c of data ?? []) {
+            const what = /ครู/.test(c.detail ?? "") ? "ค่าจ้างครูอัตราจ้าง" : `ค่าจ้าง${(c.detail ?? "").replace(/^จ้าง/, "")}`;
+            out.push(`${what} (${c.vendor_name}) ประจำเดือน${m} ตามสัญญาจ้างเลขที่ ${c.contract_no}`);
+          }
+          out.push(`ค่าจ้างครูอัตราจ้าง (ชื่อ) ประจำเดือน${m} ตามสัญญาจ้างเลขที่ `);
+        }
+        setDetailSuggestions(Array.from(new Set(out)));
+      });
+  }, []);
+  const detailOf = (i: number, label: string) => (label.startsWith(SUMMARY_LABELS[i]) ? label.slice(SUMMARY_LABELS[i].length).trim() : "");
+  const detailInput = (i: number, label: string) => (
+    <input
+      value={detailOf(i, label)}
+      onChange={(e) => updateSummaryRow(i, { label: e.target.value.trim() ? `${SUMMARY_LABELS[i]} ${e.target.value.replace(/^\s+/, "")}` : SUMMARY_LABELS[i] })}
+      list={i === SERVICE_INDEX ? "approval-detail-suggestions" : undefined}
+      placeholder={i === SERVICE_INDEX ? "รายละเอียด (ถ้ามี) เช่น พิมพ์ \"ค่าจ้างครู\" แล้วเลือก" : "รายละเอียด (ถ้ามี)"}
+      aria-label={`รายละเอียด${SUMMARY_LABELS[i]}`}
+      className="input mt-1 w-full"
+    />
+  );
 
   // เลือกกลุ่มงานแล้วให้แสดงเฉพาะโครงการของกลุ่มนั้น (โครงการที่เลือกอยู่ยังแสดงเสมอ กันค่าเดิมหายตอนแก้ไขบันทึกเก่า)
   // กลุ่มบริหารงาน → จับคู่ตามกลุ่มของโครงการ, กลุ่มสาระฯ → จับคู่ตามชื่อโครงการ, ไม่ได้เลือก → ทุกโครงการ
@@ -566,8 +605,9 @@ export function ApprovalForm({
           {summaryRows.map((row, i) => (
             <div key={i} className="rounded-md border border-slate-200 p-3">
               <div className="mb-2 text-sm font-semibold text-slate-600">
-                {i + 1}. {i === OTHER_INDEX ? "อื่นๆ" : row.label}
+                {i + 1}. {i === OTHER_INDEX ? "อื่นๆ" : SUMMARY_LABELS[i]}
                 <p className="text-xs font-normal text-slate-400">{EXPENSE_CATEGORIES[i]?.hint}</p>
+                {i !== OTHER_INDEX && detailInput(i, row.label)}
               </div>
               {i === OTHER_INDEX && (
                 <div className="mb-3">
@@ -639,9 +679,10 @@ export function ApprovalForm({
                         <span className="hidden shrink-0 sm:inline">)</span>
                       </div>
                     ) : (
-                      row.label
+                      SUMMARY_LABELS[i]
                     )}
                     <p className="text-xs text-slate-400">{EXPENSE_CATEGORIES[i]?.hint}</p>
+                    {i !== OTHER_INDEX && detailInput(i, row.label)}
                   </td>
                   <td className="px-2 py-1">
                     <input
@@ -696,6 +737,11 @@ export function ApprovalForm({
 
       <section className="card">
         <h2 className="card-title">รายการวัสดุ อุปกรณ์ (หน้า 2 ของเอกสาร)</h2>
+        <datalist id="approval-detail-suggestions">
+          {detailSuggestions.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
         <datalist id="approval-item-name-suggestions">
           {itemNameSuggestions.map((n) => (
             <option key={n} value={n} />
