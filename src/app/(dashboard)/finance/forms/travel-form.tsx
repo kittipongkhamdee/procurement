@@ -68,6 +68,9 @@ function initialText(i: TravelClaim | null, d: FormDefaults): Text {
   };
 }
 
+// ตัวเลือกประเภทเบี้ยเลี้ยง — ค่าเก่าที่พิมพ์ไว้นอกรายการยังแสดงเป็นตัวเลือกแรกให้ ไม่หาย
+const ALLOWANCE_TYPES = ["เหมาจ่าย", "ก", "ข"];
+
 function F({ label, value, onChange, placeholder, wide = false, type = "text" }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; wide?: boolean; type?: string }) {
   return (
     <div className={wide ? "sm:col-span-2" : ""}>
@@ -367,7 +370,17 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
           </div>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <F label="ค่าเบี้ยเลี้ยงเดินทางประเภท" value={f.allowance_type} onChange={set("allowance_type")} placeholder="เช่น ก / ข" />
+          <div>
+            <label className="label">ค่าเบี้ยเลี้ยงเดินทางประเภท</label>
+            <select value={f.allowance_type} onChange={(e) => set("allowance_type")(e.target.value)} className="input w-full">
+              <option value="">— เลือก —</option>
+              {(ALLOWANCE_TYPES.includes(f.allowance_type) || !f.allowance_type ? ALLOWANCE_TYPES : [f.allowance_type, ...ALLOWANCE_TYPES]).map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
           <F label="จำนวน (วัน)" value={f.allowance_days} onChange={set("allowance_days")} />
           <F label="รวม (บาท)" type="number" value={money4.allowance} onChange={setM("allowance")} wide />
           <F label="ค่าเช่าที่พักประเภท" value={f.lodging_type} onChange={set("lodging_type")} placeholder="เช่น เหมาจ่าย / จ่ายจริง" />
