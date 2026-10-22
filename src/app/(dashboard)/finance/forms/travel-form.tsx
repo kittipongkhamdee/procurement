@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { DateTimeInput } from "@/components/date-time-input";
 import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
 import { allowanceDays, claimTotal, lodgingNights, rateFor, travelDuration, type LoanTravel, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
 import { saveReceiptForm } from "./form-store";
@@ -319,7 +320,7 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
           {radio("from", from, PLACES, (v) => setFrom(v as TravelPlace))}
           <div>
             <label className="label">ตั้งแต่วันที่ / เวลา</label>
-            <ThaiDatePicker value={dates.depart_date} onChange={setD("depart_date")} time={f.depart_time} onTimeChange={set("depart_time")} placeholder="เลือกวันที่และเวลา" />
+            <DateTimeInput date={dates.depart_date} time={f.depart_time} onChange={(d, t) => { setD("depart_date")(d); set("depart_time")(t); }} />
           </div>
         </div>
         <div className="space-y-2">
@@ -327,13 +328,14 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
           {radio("back", back, PLACES, (v) => setBack(v as TravelPlace))}
           <div>
             <label className="label">วันที่ / เวลา</label>
-            <ThaiDatePicker
-              value={dates.return_date}
-              onChange={setD("return_date")}
-              minDate={dates.depart_date ?? undefined}
+            <DateTimeInput
+              date={dates.return_date}
               time={f.return_time}
-              onTimeChange={set("return_time")}
-              placeholder="เลือกวันที่และเวลา"
+              minDate={dates.depart_date ?? undefined}
+              onChange={(d, t) => {
+                setD("return_date")(d);
+                set("return_time")(t);
+              }}
             />
           </div>
         </div>

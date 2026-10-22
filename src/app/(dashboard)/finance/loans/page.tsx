@@ -13,6 +13,7 @@ import { confirmChoice, confirmDelete, errorMessage, promptText, toastError, toa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
+import { DateTimeInput } from "@/components/date-time-input";
 import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
 import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber, suggestReceiptNo, updateReceiptNo } from "./actions";
 import { TEACHER_POSITIONS } from "@/lib/teacher-positions";
@@ -283,21 +284,23 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
                     ))}
                   </select>
                   {k === "depart" ? (
-                    <ThaiDatePicker
-                      value={travel.depart_date}
-                      onChange={(d) => setT("depart_date", d)}
+                    <DateTimeInput
+                      date={travel.depart_date}
                       time={travel.depart_time}
-                      onTimeChange={(v) => setT("depart_time", v)}
-                      placeholder="เลือกวันที่และเวลา"
+                      onChange={(d, t) => {
+                        setT("depart_date", d);
+                        setT("depart_time", t);
+                      }}
                     />
                   ) : (
-                    <ThaiDatePicker
-                      value={returnDate}
-                      onChange={setReturnDate}
-                      minDate={travel.depart_date ?? undefined}
+                    <DateTimeInput
+                      date={returnDate}
                       time={travel.return_time}
-                      onTimeChange={(v) => setT("return_time", v)}
-                      placeholder="เลือกวันที่และเวลา"
+                      minDate={travel.depart_date ?? undefined}
+                      onChange={(d, t) => {
+                        setReturnDate(d);
+                        setT("return_time", t);
+                      }}
                     />
                   )}
                 </div>

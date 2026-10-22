@@ -14,8 +14,8 @@ const QUICK_OFFSETS: { label: string; days: number | null }[] = [
 ];
 
 type Coords =
-  | { left: number; width: number; maxHeight: number; top: number }
-  | { left: number; width: number; maxHeight: number; bottom: number };
+  | { left: number; width: number; top: number }
+  | { left: number; width: number; bottom: number };
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -55,8 +55,6 @@ export function ThaiDatePicker({
   required,
   minDate,
   maxDate,
-  time,
-  onTimeChange,
 }: {
   /** ใส่เมื่อใช้แบบ uncontrolled ในฟอร์ม — จะ render hidden input ชื่อนี้ด้วยค่า ISO ที่เลือก */
   name?: string;
@@ -70,14 +68,7 @@ export function ThaiDatePicker({
   minDate?: string;
   /** วันสุดท้ายที่เลือกได้ (ISO) — วันหลังจากนี้กดไม่ได้ (เช่น วันที่ของขั้นตอนที่เกิดขึ้นแล้ว ห้ามลงวันที่ล่วงหน้า) */
   maxDate?: string;
-  /** ใส่ time+onTimeChange เพื่อเลือกเวลาในปฏิทินเดียวกัน (กดเลือกชั่วโมง/นาที ไม่ใช้วงล้อของโทรศัพท์) — เก็บเป็น "HH.MM" */
-  time?: string;
-  onTimeChange?: (t: string) => void;
 }) {
-  const withTime = onTimeChange !== undefined;
-  const tm = /^(\d{1,2})[.:](\d{2})$/.exec((time ?? "").trim());
-  const hour = tm ? Number(tm[1]) : null;
-  const minute = tm ? Number(tm[2]) : null;
   const isControlled = value !== undefined && onChange !== undefined;
   const [internal, setInternal] = useState<string | null>(defaultValue);
   const selected = isControlled ? value! : internal;
@@ -113,14 +104,13 @@ export function ThaiDatePicker({
       const rect = input.getBoundingClientRect();
       const gap = 4;
       const margin = 12;
-      const panelHeight = withTime ? 560 : 340;
+      const panelHeight = 340;
       const spaceBelow = window.innerHeight - rect.bottom - gap;
       const spaceAbove = rect.top - gap;
       const openAbove = spaceBelow < panelHeight && spaceAbove > spaceBelow;
       const width = Math.min(Math.max(rect.width, 280), window.innerWidth - margin * 2);
       const left = Math.min(Math.max(rect.left, margin), window.innerWidth - width - margin);
-      const maxHeight = Math.max((openAbove ? spaceAbove : spaceBelow) - margin, 240);
-      setCoords(openAbove ? { left, width, maxHeight, bottom: window.innerHeight - rect.top + gap } : { left, width, maxHeight, top: rect.bottom + gap });
+      setCoords(openAbove ? { left, width, bottom: window.innerHeight - rect.top + gap } : { left, width, top: rect.bottom + gap });
     }
     updatePosition();
     window.addEventListener("resize", updatePosition);
@@ -129,7 +119,7 @@ export function ThaiDatePicker({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [open, withTime]);
+  }, [open]);
 
   function setSelected(iso: string | null) {
     if (isControlled) onChange!(iso);
@@ -141,12 +131,7 @@ export function ThaiDatePicker({
     setViewYear(y);
     setViewMonth(m);
     setSelected(toIso(y, m, d));
-    // โหมดมีเวลา: เลือกวันแล้วยังเปิดค้างไว้ให้เลือกเวลาต่อ
-    if (!withTime) setOpen(false);
-  }
-
-  function pickTime(h: number | null, m: number | null) {
-    onTimeChange?.(`${pad2(h ?? 8)}.${pad2(m ?? 0)}`);
+    setOpen(false);
   }
 
   function applyOffset(days: number | null) {
@@ -201,7 +186,7 @@ export function ThaiDatePicker({
         type="text"
         readOnly
         onClick={() => setOpen((v) => !v)}
-        value={withTime && selected && tm ? `${formatDisplay(selected)} เวลา ${pad2(hour!)}.${pad2(minute!)} น.` : formatDisplay(selected)}
+        value={formatDisplay(selected)}
         placeholder={placeholder}
         className="input w-full cursor-pointer"
       />
@@ -211,7 +196,7 @@ export function ThaiDatePicker({
         createPortal(
           <div
             ref={panelRef}
-            style={{ position: "fixed", left: coords.left, width: coords.width, maxHeight: coords.maxHeight, overflowY: "auto", ...("top" in coords ? { top: coords.top } : { bottom: coords.bottom }) }}
+            style={{ position: "fixed", left: coords.left, width: coords.width, ...("top" in coords ? { top: coords.top } : { bottom: coords.bottom }) }}
             className="z-50 rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
           >
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -294,43 +279,6 @@ export function ThaiDatePicker({
                 );
               })}
             </div>
-
-            {withTime && (
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-                  <span>ชั่วโมง</span>
-                  <span className="text-sm font-semibold text-navy-800">{tm ? `${pad2(hour!)}.${pad2(minute!)} น.` : "ยังไม่เลือกเวลา"}</span>
-                </div>
-                <div className="grid grid-cols-8 gap-1">
-                  {Array.from({ length: 24 }, (_, h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => pickTime(h, minute)}
-                      className={`rounded-lg py-1 text-sm ${hour === h ? "bg-navy-800 font-semibold text-white" : "text-slate-700 hover:bg-navy-50"}`}
-                    >
-                      {pad2(h)}
-                    </button>
-                  ))}
-                </div>
-                <div className="mb-1 mt-2 text-xs text-slate-500">นาที</div>
-                <div className="grid grid-cols-6 gap-1">
-                  {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => pickTime(hour, m)}
-                      className={`rounded-lg py-1 text-sm ${minute === m ? "bg-navy-800 font-semibold text-white" : "text-slate-700 hover:bg-navy-50"}`}
-                    >
-                      {pad2(m)}
-                    </button>
-                  ))}
-                </div>
-                <button type="button" onClick={() => setOpen(false)} className="btn-primary btn-sm mt-3 w-full justify-center">
-                  ตกลง
-                </button>
-              </div>
-            )}
           </div>,
           portalTarget,
         )}
