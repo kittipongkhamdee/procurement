@@ -387,6 +387,14 @@ function LedgerContent() {
                         {baht(t.amount)}
                       </span>
                     </div>
+                    {canWrite && t.fund_role && (
+                      <div className="mt-2 flex items-center justify-end gap-2">
+                        <span className="text-xs text-slate-500">{FUND_ROLE_LABEL[t.fund_role]} — แก้/ลบที่หน้ายืมเงินระหว่างประเภทเงิน</span>
+                        <Link href="/finance/ledger/fund-loans" className="btn-secondary btn-sm">
+                          จัดการ
+                        </Link>
+                      </div>
+                    )}
                     {canWrite && !t.fund_role && (
                       <div className="mt-2 flex justify-end gap-1">
                         <TxnForm copyFrom={t} types={types} projects={projects} suggest={suggest} onSaved={reload} />

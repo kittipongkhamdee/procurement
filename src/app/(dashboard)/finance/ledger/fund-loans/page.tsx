@@ -234,6 +234,14 @@ export default function FundLoansPage() {
                       </button>
                     )}
                   </div>
+                  {/* บอกเหตุที่ยังไม่มีปุ่มลบ — ต้องลบตามลำดับย้อนกลับ */}
+                  {canWrite && (hasRepay || (approved && role !== "admin")) && (
+                    <p className="w-full text-xs text-slate-500">
+                      ลบการยืมนี้ได้เมื่อ{hasRepay ? "ลบการส่งใช้คืนทุกรายการแล้ว (ปุ่มลบอยู่ในตารางด้านล่าง)" : ""}
+                      {hasRepay && approved && role !== "admin" ? " และ" : ""}
+                      {approved && role !== "admin" ? "ผู้อำนวยการกดยกเลิกอนุมัติแล้ว" : ""}
+                    </p>
+                  )}
                 </div>
                 <div className="mt-3 overflow-x-auto">
                   <table className="table-base w-full">
@@ -259,7 +267,8 @@ export default function FundLoansPage() {
                                     ส่งใช้ {formatThaiDate(r.repay_date)} · {fundDoc(r.doc_seq, r.fiscal_year, fmt)} · {baht(r.amount)} บาท
                                   </span>
                                   {canWrite && (
-                                    <button type="button" onClick={() => removeRepay(r)} className="text-red-600 hover:underline">
+                                    <button type="button" onClick={() => removeRepay(r)} title="ลบการส่งใช้คืน" className="btn-danger btn-sm">
+                                      <TrashIcon className="h-3.5 w-3.5" />
                                       ลบ
                                     </button>
                                   )}
