@@ -70,6 +70,33 @@ function initialText(i: TravelClaim | null, d: FormDefaults): Text {
 
 // ตัวเลือกประเภทเบี้ยเลี้ยง — ค่าเก่าที่พิมพ์ไว้นอกรายการยังแสดงเป็นตัวเลือกแรกให้ ไม่หาย
 const ALLOWANCE_TYPES = ["เหมาจ่าย", "ก", "ข"];
+const LODGING_TYPES = ["เหมาจ่าย", "จ่ายจริง"];
+
+function TypeSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="input w-full">
+        <option value="">— เลือก —</option>
+        {(options.includes(value) || !value ? options : [value, ...options]).map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+/** กล่องแยกรายการค่าใช้จ่ายแต่ละหมวด — กันสับสนว่าช่องไหนเป็นของรายการไหน (บนมือถือช่องเรียงยาวต่อกัน) */
+function Box({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="rounded-lg border border-slate-200 p-3 sm:col-span-2">
+      <legend className="px-1 text-sm font-semibold text-slate-800">{title}</legend>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">{children}</div>
+    </fieldset>
+  );
+}
 
 function F({ label, value, onChange, placeholder, wide = false, type = "text" }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; wide?: boolean; type?: string }) {
   return (
@@ -370,26 +397,24 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
           </div>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <div>
-            <label className="label">ค่าเบี้ยเลี้ยงเดินทางประเภท</label>
-            <select value={f.allowance_type} onChange={(e) => set("allowance_type")(e.target.value)} className="input w-full">
-              <option value="">— เลือก —</option>
-              {(ALLOWANCE_TYPES.includes(f.allowance_type) || !f.allowance_type ? ALLOWANCE_TYPES : [f.allowance_type, ...ALLOWANCE_TYPES]).map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-          <F label="จำนวน (วัน)" value={f.allowance_days} onChange={set("allowance_days")} />
-          <F label="รวม (บาท)" type="number" value={money4.allowance} onChange={setM("allowance")} wide />
-          <F label="ค่าเช่าที่พักประเภท" value={f.lodging_type} onChange={set("lodging_type")} placeholder="เช่น เหมาจ่าย / จ่ายจริง" />
-          <F label="จำนวน (วัน)" value={f.lodging_days} onChange={set("lodging_days")} />
-          <F label="รวม (บาท)" type="number" value={money4.lodging} onChange={setM("lodging")} wide />
-          <F label="ค่าพาหนะ (รายละเอียด)" value={f.transport_desc} onChange={set("transport_desc")} wide placeholder="เช่น รถยนต์ส่วนตัว 120 กม. x 4 บาท" />
-          <F label="รวม (บาท)" type="number" value={money4.transport} onChange={setM("transport")} wide />
-          <F label="ค่าใช้จ่ายอื่น (รายละเอียด)" value={f.other_desc} onChange={set("other_desc")} wide />
-          <F label="รวม (บาท)" type="number" value={money4.other} onChange={setM("other")} wide />
+          <Box title="ค่าเบี้ยเลี้ยง">
+            <TypeSelect label="ประเภท" value={f.allowance_type} options={ALLOWANCE_TYPES} onChange={set("allowance_type")} />
+            <F label="จำนวน (วัน)" value={f.allowance_days} onChange={set("allowance_days")} />
+            <F label="รวม (บาท)" type="number" value={money4.allowance} onChange={setM("allowance")} />
+          </Box>
+          <Box title="ค่าเช่าที่พัก">
+            <TypeSelect label="ประเภท" value={f.lodging_type} options={LODGING_TYPES} onChange={set("lodging_type")} />
+            <F label="จำนวน (วัน)" value={f.lodging_days} onChange={set("lodging_days")} />
+            <F label="รวม (บาท)" type="number" value={money4.lodging} onChange={setM("lodging")} />
+          </Box>
+          <Box title="ค่าพาหนะ">
+            <F label="รายละเอียด" value={f.transport_desc} onChange={set("transport_desc")} wide placeholder="เช่น รถยนต์ส่วนตัว 120 กม. x 4 บาท" />
+            <F label="รวม (บาท)" type="number" value={money4.transport} onChange={setM("transport")} />
+          </Box>
+          <Box title="ค่าใช้จ่ายอื่น">
+            <F label="รายละเอียด" value={f.other_desc} onChange={set("other_desc")} wide />
+            <F label="รวม (บาท)" type="number" value={money4.other} onChange={setM("other")} />
+          </Box>
         </div>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <span className="text-sm text-slate-600">
