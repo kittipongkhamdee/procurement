@@ -350,16 +350,16 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
             ช่วยคำนวณตามอัตรากระทรวงการคลัง: เบี้ยเลี้ยง 240 บาท/วัน (ชำนาญการพิเศษลงมา) หรือ 270 บาท/วัน (เชี่ยวชาญขึ้นไป) · ค่าเช่าที่พักเหมาจ่าย 800 / 1,200 บาท/คืน · รถยนต์ส่วนบุคคล 4 บาท/กม.
             (นับ 24 ชม. = 1 วัน เศษเกิน 12 ชม. = 1 วัน · ไม่พักแรม เกิน 6 ชม. = ครึ่งวัน)
           </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="flex items-center gap-2 sm:pb-2">
               <input type="checkbox" checked={overnight} onChange={(e) => setOvernight(e.target.checked)} />
               พักแรม
             </label>
-            <div>
+            <div className="w-full sm:w-auto">
               <label className="label">ระยะทางรถยนต์ส่วนบุคคล (กม. ไป-กลับ)</label>
-              <input type="number" min="0" value={km} onChange={(e) => setKm(e.target.value)} className="input w-40" />
+              <input type="number" min="0" inputMode="decimal" value={km} onChange={(e) => setKm(e.target.value)} className="input w-full sm:w-40" />
             </div>
-            <button type="button" onClick={calcRates} className="btn-secondary btn-sm">
+            <button type="button" onClick={calcRates} className="btn-secondary btn-sm self-start sm:self-auto">
               คำนวณให้{claimFor === "group" ? " (ทุกคนในส่วนที่ 2)" : ""}
             </button>
           </div>
