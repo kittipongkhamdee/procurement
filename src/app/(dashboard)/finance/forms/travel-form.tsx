@@ -139,11 +139,17 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
   const [members, setMembers] = useState<MemberRow[]>(() =>
     initial?.members.length ? initial.members.map((m) => ({ ...m, allowance: s(m.allowance), lodging: s(m.lodging), transport: s(m.transport), other: s(m.other) })) : [emptyMember()],
   );
-  const [signers, setSigners] = useState({
-    checker: initial?.checker ?? { name: defaults.officer, position: "เจ้าหน้าที่การเงิน" },
-    approver: initial?.approver ?? { name: defaults.director, position: defaults.school ? `ผู้อำนวยการ${defaults.school}` : "" },
-    payer: initial?.payer ?? { name: defaults.officer, position: "เจ้าหน้าที่การเงิน" },
+  // ผู้ลงนามดึงจากที่ตั้งค่าไว้ (เจ้าหน้าที่การเงิน/ผู้อำนวยการ) — ฉบับเก่าที่บันทึกชื่อว่างไว้ก็เติมจากค่าตั้งให้
+  const [signers, setSigners] = useState(() => {
+    const def = (who: { name: string; position: string } | undefined, name: string, position: string) => ({ name: who?.name || name, position: who?.position || position });
+    return {
+      checker: def(initial?.checker, defaults.officer, "เจ้าหน้าที่การเงิน"),
+      approver: def(initial?.approver, defaults.director, defaults.school ? `ผู้อำนวยการ${defaults.school}` : ""),
+      payer: def(initial?.payer, defaults.officer, "เจ้าหน้าที่การเงิน"),
+    };
   });
+  // ปกติซ่อนช่องกรอกผู้ลงนาม แสดงเป็นสรุป — เปิดแก้ได้เฉพาะกรณีพิเศษ (เช่น รักษาราชการแทน)
+  const [editSigners, setEditSigners] = useState(false);
   const [saving, setSaving] = useState(false);
   const [km, setKm] = useState("");
   const [overnight, setOvernight] = useState(true);
@@ -495,14 +501,39 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
       </section>
 
       <section>
-        <h3 className="mb-2 font-semibold text-slate-800">ผู้ลงนาม</h3>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-semibold text-slate-800">ผู้ลงนาม</h3>
+          <button type="button" onClick={() => setEditSigners((v) => !v)} className="btn-secondary btn-sm">
+            {editSigners ? "ซ่อน" : "เปลี่ยนผู้ลงนาม (กรณีพิเศษ)"}
+          </button>
+        </div>
+        {!editSigners && (
+          <ul className="mb-3 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+            {(
+              [
+                ["ผู้ตรวจสอบหลักฐาน", signers.checker],
+                ["ผู้อนุมัติ", signers.approver],
+                ["ผู้จ่ายเงิน", signers.payer],
+              ] as const
+            ).map(([label, who]) => (
+              <li key={label}>
+                <span className="text-slate-500">{label}:</span>{" "}
+                {who.name ? `${who.name}${who.position ? ` (${who.position})` : ""}` : <span className="text-amber-700">ยังไม่ได้ตั้งค่า — พิมพ์ออกมาเป็นจุดไข่ปลา</span>}
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <F label="ผู้ตรวจสอบหลักฐาน" value={signers.checker.name} onChange={setSign("checker", "name")} />
-          <F label="ตำแหน่ง" value={signers.checker.position} onChange={setSign("checker", "position")} />
-          <F label="ผู้อนุมัติ" value={signers.approver.name} onChange={setSign("approver", "name")} />
-          <F label="ตำแหน่ง" value={signers.approver.position} onChange={setSign("approver", "position")} />
-          <F label="ผู้จ่ายเงิน" value={signers.payer.name} onChange={setSign("payer", "name")} />
-          <F label="ตำแหน่ง" value={signers.payer.position} onChange={setSign("payer", "position")} />
+          {editSigners && (
+            <>
+              <F label="ผู้ตรวจสอบหลักฐาน" value={signers.checker.name} onChange={setSign("checker", "name")} />
+              <F label="ตำแหน่ง" value={signers.checker.position} onChange={setSign("checker", "position")} />
+              <F label="ผู้อนุมัติ" value={signers.approver.name} onChange={setSign("approver", "name")} />
+              <F label="ตำแหน่ง" value={signers.approver.position} onChange={setSign("approver", "position")} />
+              <F label="ผู้จ่ายเงิน" value={signers.payer.name} onChange={setSign("payer", "name")} />
+              <F label="ตำแหน่ง" value={signers.payer.position} onChange={setSign("payer", "position")} />
+            </>
+          )}
           <div className="sm:col-span-2">
             <label className="label">หมายเหตุ</label>
             <textarea value={f.note} onChange={(e) => set("note")(e.target.value)} rows={2} className="input w-full" placeholder="เช่น วันเวลาเดินทางของผู้ร่วมคณะที่ต่างกัน" />
