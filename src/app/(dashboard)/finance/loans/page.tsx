@@ -13,7 +13,6 @@ import { confirmChoice, confirmDelete, errorMessage, promptText, toastError, toa
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { TimeSelect } from "@/components/time-select";
 import { CheckIcon, CoinsIcon, FileTextIcon, PencilIcon, PlusIcon, PrinterIcon, SearchIcon, TagIcon, TrashIcon } from "@/components/icons";
 import { addRepayment, deleteLoan, deleteRepayment, issueLoanNumber, recordLoanPayment, saveLoan, suggestLoanNumber, suggestReceiptNo, updateReceiptNo } from "./actions";
 import { TEACHER_POSITIONS } from "@/lib/teacher-positions";
@@ -283,14 +282,24 @@ function LoanForm({ loan, lookups, onSaved }: { loan?: Loan; lookups: Lookups; o
                       </option>
                     ))}
                   </select>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {k === "depart" ? (
-                      <ThaiDatePicker value={travel.depart_date} onChange={(d) => setT("depart_date", d)} />
-                    ) : (
-                      <ThaiDatePicker value={returnDate} onChange={setReturnDate} minDate={travel.depart_date ?? undefined} />
-                    )}
-                    <TimeSelect value={k === "depart" ? travel.depart_time : travel.return_time} onChange={(v) => setT(k === "depart" ? "depart_time" : "return_time", v)} />
-                  </div>
+                  {k === "depart" ? (
+                    <ThaiDatePicker
+                      value={travel.depart_date}
+                      onChange={(d) => setT("depart_date", d)}
+                      time={travel.depart_time}
+                      onTimeChange={(v) => setT("depart_time", v)}
+                      placeholder="เลือกวันที่และเวลา"
+                    />
+                  ) : (
+                    <ThaiDatePicker
+                      value={returnDate}
+                      onChange={setReturnDate}
+                      minDate={travel.depart_date ?? undefined}
+                      time={travel.return_time}
+                      onTimeChange={(v) => setT("return_time", v)}
+                      placeholder="เลือกวันที่และเวลา"
+                    />
+                  )}
                 </div>
               ))}
               <div>

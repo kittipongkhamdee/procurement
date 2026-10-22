@@ -9,7 +9,6 @@ import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
-import { TimeSelect } from "@/components/time-select";
 import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
 import { allowanceDays, claimTotal, lodgingNights, rateFor, travelDuration, type LoanTravel, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
 import { saveReceiptForm } from "./form-store";
@@ -318,23 +317,24 @@ export function TravelForm({ id, initial, loanId = null, defaults, onSaved }: { 
         <div className="space-y-2">
           <label className="label">ออกเดินทางจาก</label>
           {radio("from", from, PLACES, (v) => setFrom(v as TravelPlace))}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <D label="ตั้งแต่วันที่" value={dates.depart_date} onChange={setD("depart_date")} />
-            <div>
-              <label className="label">เวลา</label>
-              <TimeSelect value={f.depart_time} onChange={set("depart_time")} />
-            </div>
+          <div>
+            <label className="label">ตั้งแต่วันที่ / เวลา</label>
+            <ThaiDatePicker value={dates.depart_date} onChange={setD("depart_date")} time={f.depart_time} onTimeChange={set("depart_time")} placeholder="เลือกวันที่และเวลา" />
           </div>
         </div>
         <div className="space-y-2">
           <label className="label">กลับถึง</label>
           {radio("back", back, PLACES, (v) => setBack(v as TravelPlace))}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <D label="วันที่" value={dates.return_date} onChange={setD("return_date")} min={dates.depart_date ?? undefined} />
-            <div>
-              <label className="label">เวลา</label>
-              <TimeSelect value={f.return_time} onChange={set("return_time")} />
-            </div>
+          <div>
+            <label className="label">วันที่ / เวลา</label>
+            <ThaiDatePicker
+              value={dates.return_date}
+              onChange={setD("return_date")}
+              minDate={dates.depart_date ?? undefined}
+              time={f.return_time}
+              onTimeChange={set("return_time")}
+              placeholder="เลือกวันที่และเวลา"
+            />
           </div>
         </div>
         <p className="text-sm text-slate-600 sm:col-span-2">
