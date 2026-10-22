@@ -1,20 +1,20 @@
 "use client";
 
 // ฟอร์มกรอกแบบใบสำคัญรับเงิน (กิจกรรมเสริมสร้างความรู้ให้กับนักเรียน — หนังสือ สพฐ. ว 2983/2555, แนวทางฯ ปีงบ 2569 หน้า 98–99)
-//   ๑ ใบสำคัญรับเงินสำหรับวิทยากร · ๒ แบบใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน
+//   ๒ แบบใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน (ใบวิทยากรเลิกใช้ฟอร์มกรอก — ครูเขียนมือบนแบบฟอร์มเปล่า)
 // บันทึกเก็บไว้แก้/พิมพ์ซ้ำได้ (fin_receipt_forms) — ช่องที่เว้นว่างพิมพ์เป็นจุดไข่ปลาให้เขียนเอง
 
 import { useRef, useState } from "react";
 import { errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
-import type { SpeakerReceipt, StudentReceipt } from "@/lib/pdf/receipt-forms-document";
+import type { StudentReceipt } from "@/lib/pdf/receipt-forms-document";
 import { saveReceiptForm } from "./form-store";
 
 export type FormDefaults = { school: string; area: string; officer: string; director: string };
 
 /** ปุ่มบันทึก (สร้างใหม่/แก้ไข) */
-function SaveButton({ id, kind, title, data, onSaved }: { id: string | null; kind: "speaker" | "student"; title: string; data: unknown; onSaved: (id: string) => void }) {
+function SaveButton({ id, kind, title, data, onSaved }: { id: string | null; kind: "student"; title: string; data: unknown; onSaved: (id: string) => void }) {
   const [saving, setSaving] = useState(false);
   async function save() {
     setSaving(true);
@@ -36,7 +36,6 @@ function SaveButton({ id, kind, title, data, onSaved }: { id: string | null; kin
   );
 }
 
-type Item = { description: string; amount: string };
 type Row = { name: string; address: string; food: string; lodging: string; transport: string; paid_date: string | null };
 const emptyRow = (): Row => ({ name: "", address: "", food: "", lodging: "", transport: "", paid_date: null });
 const n = (s: string) => Math.round((Number(s) || 0) * 100) / 100;
@@ -62,84 +61,6 @@ function Field({ label, value, onChange, placeholder, className = "" }: { label:
     <div className={className}>
       <label className="label">{label}</label>
       <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="input w-full" />
-    </div>
-  );
-}
-
-export function SpeakerForm({ id, initial, defaults, onSaved }: { id: string | null; initial: SpeakerReceipt | null; defaults: FormDefaults; onSaved: (id: string) => void }) {
-  const [f, setF] = useState(() =>
-    initial
-      ? { org: initial.org, project: initial.project, name: initial.name, house_no: initial.house_no, subdistrict: initial.subdistrict, district: initial.district, province: initial.province, received_from: initial.received_from, payer: initial.payer }
-      : { org: defaults.school, project: "", name: "", house_no: "", subdistrict: "", district: "", province: "", received_from: defaults.school, payer: defaults.officer },
-  );
-  const [date, setDate] = useState<string | null>(initial?.date ?? null);
-  const [items, setItems] = useState<Item[]>(() => (initial?.items.length ? initial.items.map((i) => ({ description: i.description, amount: i.amount ? String(i.amount) : "" })) : [{ description: "", amount: "" }]));
-  const set = (k: keyof typeof f) => (v: string) => setF({ ...f, [k]: v });
-  const total = items.reduce((s, i) => s + n(i.amount), 0);
-  const data = { ...f, date, items: items.map((i) => ({ description: i.description, amount: n(i.amount) })) };
-  return (
-    <div className="card space-y-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="ชื่อส่วนราชการผู้จัดกิจกรรม" value={f.org} onChange={set("org")} />
-        <Field label="โครงการ/หลักสูตร/กิจกรรม" value={f.project} onChange={set("project")} />
-        <div>
-          <label className="label">วันที่</label>
-          <ThaiDatePicker value={date} onChange={setDate} />
-        </div>
-        <Field label="ข้าพเจ้า (ชื่อวิทยากร)" value={f.name} onChange={set("name")} />
-        <Field label="อยู่บ้านเลขที่" value={f.house_no} onChange={set("house_no")} />
-        <Field label="ตำบล/แขวง" value={f.subdistrict} onChange={set("subdistrict")} />
-        <Field label="อำเภอ/เขต" value={f.district} onChange={set("district")} />
-        <Field label="จังหวัด" value={f.province} onChange={set("province")} />
-        <Field label="ได้รับเงินจาก" value={f.received_from} onChange={set("received_from")} />
-        <Field label="ผู้จ่ายเงิน" value={f.payer} onChange={set("payer")} />
-      </div>
-      <div>
-        <label className="label">รายการ (สูงสุด 14 รายการ)</label>
-        <div className="space-y-2">
-          {items.map((it, i) => (
-            <div key={i} className="flex flex-wrap gap-2">
-              <input
-                value={it.description}
-                onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))}
-                placeholder="เช่น ค่าตอบแทนวิทยากร 6 ชั่วโมง ๆ ละ 600 บาท"
-                className="input min-w-0 flex-1"
-                aria-label="รายการ"
-              />
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={it.amount}
-                onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))}
-                placeholder="จำนวนเงิน"
-                className="input w-36"
-                aria-label="จำนวนเงิน"
-              />
-              {items.length > 1 && (
-                <button type="button" onClick={() => setItems(items.filter((_, j) => j !== i))} className="btn-danger btn-sm" title="ลบแถว">
-                  <TrashIcon className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          {items.length < 14 && (
-            <button type="button" onClick={() => setItems([...items, { description: "", amount: "" }])} className="btn-secondary btn-sm">
-              <PlusIcon className="h-3.5 w-3.5" />
-              เพิ่มรายการ
-            </button>
-          )}
-          <span className="text-sm text-slate-600">
-            รวม <b className="tabular-nums">{money(total)}</b> บาท
-          </span>
-        </div>
-      </div>
-      <div className="flex flex-wrap justify-end gap-2">
-        <SaveButton id={id} kind="speaker" title={[f.name, f.project].filter(Boolean).join(" — ")} data={data} onSaved={onSaved} />
-        <PrintForm kind="speaker" data={data} label="พิมพ์ใบสำคัญรับเงิน (PDF)" />
-      </div>
     </div>
   );
 }

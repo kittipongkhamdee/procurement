@@ -1,11 +1,11 @@
 // แบบฟอร์มการเงิน — บันทึก/ลบจากเบราว์เซอร์ตรงเข้าฐานข้อมูล (สิทธิ์บังคับด้วย RLS: ครูสร้างได้ แก้/ลบได้เฉพาะของตัวเอง
 // เจ้าหน้าที่การเงิน/แอดมินแก้ได้ทุกฉบับ) — เดิมผ่าน server action แต่ผู้ใช้กดบันทึกแล้วข้อมูลไม่ถึงฐานข้อมูล (ต.ค. 2569)
-// ใบสำคัญรับเงิน (วิทยากร/นักเรียน) อยู่ fin_receipt_forms, รายงานการเดินทางไปราชการ (แบบ 8708) อยู่ fin_travel_forms
+// ใบสำคัญรับเงิน (นักเรียน) อยู่ fin_receipt_forms, รายงานการเดินทางไปราชการ (แบบ 8708) อยู่ fin_travel_forms
 
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/lib/supabase/database.types";
 
-export type FormKind = "speaker" | "student" | "travel";
+export type FormKind = "student" | "travel";
 type Result = { error?: string; id?: string };
 const NO_RIGHT = "ไม่มีสิทธิ์ — แก้ไข/ลบได้เฉพาะผู้สร้าง หรือเจ้าหน้าที่การเงิน";
 

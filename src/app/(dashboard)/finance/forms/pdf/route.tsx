@@ -3,9 +3,9 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { contentDisposition } from "@/lib/http";
 import { TravelClaimDocument, type TravelClaim } from "@/lib/pdf/travel-claim-document";
-import { SpeakerReceiptDocument, StudentReceiptDocument, type SpeakerReceipt, type StudentReceipt } from "@/lib/pdf/receipt-forms-document";
+import { StudentReceiptDocument, type StudentReceipt } from "@/lib/pdf/receipt-forms-document";
 
-// แบบใบสำคัญรับเงิน (เอกสารแนบ ๑ วิทยากร / ๒ นักเรียน) — ฟอร์มหน้าเว็บ POST ข้อมูลมา (รายชื่อนักเรียนยาวเกิน query string)
+// แบบใบสำคัญรับเงิน (เอกสารแนบ ๒ นักเรียน) / แบบ 8708 — ฟอร์มหน้าเว็บ POST ข้อมูลมา (รายชื่อนักเรียนยาวเกิน query string)
 // ไม่บันทึกลงฐานข้อมูล พิมพ์อย่างเดียว
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -22,15 +22,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 });
   }
   const buffer =
-    kind === "speaker"
-      ? await renderToBuffer(<SpeakerReceiptDocument data={data as SpeakerReceipt} />)
-      : kind === "student"
-        ? await renderToBuffer(<StudentReceiptDocument data={data as StudentReceipt} />)
-        : kind === "travel"
-          ? await renderToBuffer(<TravelClaimDocument data={await withLoanNumber(supabase, data as TravelClaim)} />)
-          : null;
+    kind === "student"
+      ? await renderToBuffer(<StudentReceiptDocument data={data as StudentReceipt} />)
+      : kind === "travel"
+        ? await renderToBuffer(<TravelClaimDocument data={await withLoanNumber(supabase, data as TravelClaim)} />)
+        : null;
   if (!buffer) return NextResponse.json({ error: "ไม่รู้จักแบบฟอร์ม" }, { status: 400 });
-  const name = kind === "speaker" ? "ใบสำคัญรับเงิน-วิทยากร.pdf" : kind === "student" ? "ใบสำคัญรับเงิน-นักเรียน.pdf" : "ใบเบิกค่าใช้จ่ายเดินทางไปราชการ-8708.pdf";
+  const name = kind === "student" ? "ใบสำคัญรับเงิน-นักเรียน.pdf" : "ใบเบิกค่าใช้จ่ายเดินทางไปราชการ-8708.pdf";
   return new NextResponse(new Uint8Array(buffer), {
     headers: { "Cache-Control": "no-store", "Content-Type": "application/pdf", "Content-Disposition": contentDisposition("inline", name) },
   });

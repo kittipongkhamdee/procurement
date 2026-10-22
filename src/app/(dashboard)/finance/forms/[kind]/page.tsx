@@ -1,6 +1,6 @@
 "use client";
 
-// ใบสำคัญรับเงิน (วิทยากร / นักเรียน) — รายการที่บันทึกไว้ + ฟอร์มสร้าง/แก้ไข
+// ใบสำคัญรับเงิน (นักเรียน) / แบบ 8708 — รายการที่บันทึกไว้ + ฟอร์มสร้าง/แก้ไข
 // ครูทุกคนสร้างได้ แก้/ลบได้เฉพาะของตัวเอง (เจ้าหน้าที่การเงิน/แอดมินแก้ได้ทุกฉบับ — ตรงกับ RLS fin_receipt_forms)
 
 import Link from "next/link";
@@ -11,20 +11,19 @@ import { useAuth } from "@/lib/AuthContext";
 import { confirmDelete, toastError, toastSuccess } from "@/lib/swal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons";
-import type { SpeakerReceipt, StudentReceipt } from "@/lib/pdf/receipt-forms-document";
+import type { StudentReceipt } from "@/lib/pdf/receipt-forms-document";
 import type { TravelClaim } from "@/lib/travel-claim";
 import { TravelForm } from "../travel-form";
-import { SpeakerForm, StudentForm, type FormDefaults } from "../receipt-forms";
+import { StudentForm, type FormDefaults } from "../receipt-forms";
 import { deleteReceiptForm } from "../form-store";
 
 const TITLES = {
-  speaker: "ใบสำคัญรับเงินสำหรับวิทยากร",
   student: "ใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน",
   travel: "รายงานการเดินทางไปราชการ (แบบ 8708)",
 } as const;
-const SUBTITLE = { speaker: "เอกสารแนบ ๑", student: "เอกสารแนบ ๒", travel: "ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ (ส่วนที่ 1) + หลักฐานการจ่ายเงิน (ส่วนที่ 2)" } as const;
+const SUBTITLE = { student: "เอกสารแนบ ๒", travel: "ใบเบิกค่าใช้จ่ายในการเดินทางไปราชการ (ส่วนที่ 1) + หลักฐานการจ่ายเงิน (ส่วนที่ 2)" } as const;
 type Kind = keyof typeof TITLES;
-type Saved = { id: string; title: string; data: SpeakerReceipt | StudentReceipt | TravelClaim; created_by: string | null; updated_at: string; loan_id?: string | null };
+type Saved = { id: string; title: string; data: StudentReceipt | TravelClaim; created_by: string | null; updated_at: string; loan_id?: string | null };
 
 export default function ReceiptKindPage() {
   const kind = useParams<{ kind: string }>().kind as Kind;
@@ -141,8 +140,6 @@ export default function ReceiptKindPage() {
           {current && !canEdit(current) && <p className="mb-2 text-sm text-amber-700">ฉบับนี้เป็นของผู้อื่น — พิมพ์ได้ แต่บันทึกการแก้ไขไม่ได้</p>}
           {kind === "travel" ? (
             <TravelForm key={`${formKey}-${defaults.school}`} initial={(current?.data as TravelClaim) ?? null} loanId={current ? current.loan_id ?? null : linkLoan} {...formProps} />
-          ) : kind === "speaker" ? (
-            <SpeakerForm key={`${formKey}-${defaults.school}`} initial={(current?.data as SpeakerReceipt) ?? null} {...formProps} />
           ) : (
             <StudentForm key={`${formKey}-${defaults.school}`} initial={(current?.data as StudentReceipt) ?? null} {...formProps} />
           )}

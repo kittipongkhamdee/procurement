@@ -1,6 +1,6 @@
 "use client";
 
-// แบบฟอร์มการเงิน — หน้ารวมเป็นการ์ด (ใบสำคัญรับเงินวิทยากร / นักเรียน / รายงานการเดินทางไปราชการ) + เอกสารหมวด "การเงิน" จากคลังเอกสารดาวน์โหลด
+// แบบฟอร์มการเงิน — หน้ารวมเป็นการ์ด (ใบสำคัญรับเงินนักเรียน / รายงานการเดินทางไปราชการ) + เอกสารหมวด "การเงิน" จากคลังเอกสารดาวน์โหลด
 // ครูทุกคนเข้าได้ — สร้าง/แก้ไขใบสำคัญรับเงินของตัวเองได้ และดาวน์โหลดแบบฟอร์มการเงินได้จากหน้านี้
 
 import Link from "next/link";
@@ -9,14 +9,14 @@ import { createClient } from "@/lib/supabase/client";
 import { driveFileId, driveViewUrl, isDriveRef, isExternalLink } from "@/lib/storage/ref";
 import { fileTypeBadge } from "@/lib/file-type";
 import { HubCardGrid } from "@/components/hub-cards";
-import { FileTextIcon, TruckIcon, UsersIcon } from "@/components/icons";
+import { TruckIcon, UsersIcon } from "@/components/icons";
 
 const BUCKET = "procurement-files";
 const FINANCE_CATEGORY = "การเงิน";
 type Doc = { id: string; file_name: string; file_url: string; file_type: string | null; category: string | null };
 
 export default function FinanceFormsPage() {
-  const [counts, setCounts] = useState({ speaker: 0, student: 0, travel: 0 });
+  const [counts, setCounts] = useState({ student: 0, travel: 0 });
   const [docs, setDocs] = useState<Doc[] | null>(null);
   const [urls, setUrls] = useState<Map<string, string>>(new Map());
 
@@ -33,7 +33,7 @@ export default function FinanceFormsPage() {
         .order("created_at", { ascending: false }),
     ]).then(async ([f, tr, d]) => {
       const rows = f.data ?? [];
-      setCounts({ speaker: rows.filter((r) => r.kind === "speaker").length, student: rows.filter((r) => r.kind === "student").length, travel: tr.count ?? 0 });
+      setCounts({ student: rows.filter((r) => r.kind === "student").length, travel: tr.count ?? 0 });
       const list = (d.data ?? []) as Doc[];
       setDocs(list);
       // ลิงก์ดาวน์โหลด: ลิงก์ภายนอกใช้ตรง, Google Drive เปิดหน้าดู, Supabase ใช้ signed URL (1 ชม.)
@@ -62,15 +62,6 @@ export default function FinanceFormsPage() {
       </div>
       <HubCardGrid
         cards={[
-          {
-            key: "speaker",
-            title: "ใบสำคัญรับเงินสำหรับวิทยากร",
-            description: "เอกสารแนบ ๑ — ค่าตอบแทนวิทยากรในการจัดกิจกรรมเพื่อเสริมสร้างความรู้ให้กับนักเรียน",
-            href: "/finance/forms/speaker",
-            icon: <FileTextIcon className="h-6 w-6" />,
-            value: counts.speaker.toLocaleString("th-TH"),
-            sub: "ฉบับที่บันทึกไว้",
-          },
           {
             key: "student",
             title: "ใบสำคัญรับเงินค่าใช้จ่ายในการจัดกิจกรรมสำหรับนักเรียน",
