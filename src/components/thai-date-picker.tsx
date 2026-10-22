@@ -55,6 +55,7 @@ export function ThaiDatePicker({
   required,
   minDate,
   maxDate,
+  inputClassName = "input w-full cursor-pointer",
 }: {
   /** ใส่เมื่อใช้แบบ uncontrolled ในฟอร์ม — จะ render hidden input ชื่อนี้ด้วยค่า ISO ที่เลือก */
   name?: string;
@@ -68,6 +69,8 @@ export function ThaiDatePicker({
   minDate?: string;
   /** วันสุดท้ายที่เลือกได้ (ISO) — วันหลังจากนี้กดไม่ได้ (เช่น วันที่ของขั้นตอนที่เกิดขึ้นแล้ว ห้ามลงวันที่ล่วงหน้า) */
   maxDate?: string;
+  /** คลาสของช่องแสดงวันที่ — เปลี่ยนเมื่อฝังในกล่องอื่น (เช่น DateTimeInput) */
+  inputClassName?: string;
 }) {
   const isControlled = value !== undefined && onChange !== undefined;
   const [internal, setInternal] = useState<string | null>(defaultValue);
@@ -188,7 +191,7 @@ export function ThaiDatePicker({
         onClick={() => setOpen((v) => !v)}
         value={formatDisplay(selected)}
         placeholder={placeholder}
-        className="input w-full cursor-pointer"
+        className={inputClassName}
       />
       {open &&
         coords &&
