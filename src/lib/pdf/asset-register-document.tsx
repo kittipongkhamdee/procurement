@@ -5,6 +5,10 @@ import { registerThSarabunFont, t } from "./thai-pdf";
 
 registerThSarabunFont();
 
+// หน้าประวัติการซ่อม: จำนวนแถวรวมขั้นต่ำ (รายการในระบบ + แถวว่าง) และความสูงแถวว่าง ให้พอดีหน้า A4 แนวนอน
+const REPAIR_MIN_ROWS = 15;
+const REPAIR_BLANK_ROW_H = 28;
+
 const styles = StyleSheet.create({
   page: {
     fontFamily: "THSarabunNew",
@@ -63,7 +67,7 @@ const styles = StyleSheet.create({
   // อื่นๆ แสดงแค่ปี พ.ศ. 4 หลัก ซึ่งแคบกว่ามากอยู่แล้ว
   colDate: { width: "8%", paddingLeft: 2 },
   colDocRef: { width: "8%", textAlign: "center" },
-  colItem: { width: "16%" },
+  colItem: { width: "15%" },
   colQty: { width: "5%", textAlign: "center" },
   colUnit: { width: "6%", textAlign: "center" },
   colUnitPrice: { width: "8%", textAlign: "right" },
@@ -73,7 +77,7 @@ const styles = StyleSheet.create({
   colAnnual: { width: "7%", textAlign: "right" },
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "8%", textAlign: "right" },
-  colNote: { width: "8%" },
+  colNote: { width: "9%" },
   cellLine: { fontSize: 14.5 },
   // สไตล์ตารางหน้า 2 "ประวัติการซ่อมบำรุงรักษาทรัพย์สิน" — คอลัมน์รวมกัน 100% เหมือนกัน:
   // ครั้งที่ 8% + วันเดือนปี 12% + รายการ 45% + จำนวนเงิน 15% + หมายเหตุ 20%
@@ -322,6 +326,16 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
               <Text style={[styles.cell, styles.repairColDesc]}>{guard(r.description)}</Text>
               <Text style={[styles.cell, styles.repairColAmount]}>{guard(r.amount != null ? formatBaht(r.amount) : "")}</Text>
               <Text style={[styles.cellLast, styles.repairColNote]}>{guard(r.note ?? "")}</Text>
+            </View>
+          ))}
+          {/* แถวว่างเติมให้เต็มหน้า — ไว้เขียนบันทึกการซ่อมด้วยมือต่อจากรายการในระบบ */}
+          {Array.from({ length: Math.max(0, REPAIR_MIN_ROWS - data.repairs.length) }, (_, i) => (
+            <View style={[styles.tRow, { height: REPAIR_BLANK_ROW_H }]} key={`blank-${i}`}>
+              <View style={[styles.cell, styles.repairColSeq]} />
+              <View style={[styles.cell, styles.repairColDate]} />
+              <View style={[styles.cell, styles.repairColDesc]} />
+              <View style={[styles.cell, styles.repairColAmount]} />
+              <View style={[styles.cellLast, styles.repairColNote]} />
             </View>
           ))}
         </View>

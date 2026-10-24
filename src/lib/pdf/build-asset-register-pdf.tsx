@@ -49,7 +49,7 @@ function acquireRowFor(item: {
     net: item.price,
     note:
       item.price != null && item.price <= NO_DEPRECIATION_THRESHOLD
-        ? ["ไม่คำนวณค่าเสื่อม", "(มูลค่าไม่เกิน", "5,000 บาท)"]
+        ? ["ไม่คำนวณ", "ค่าเสื่อม", "(มูลค่า", "ไม่เกิน", "5,000 บาท)"]
         : null,
   };
 }
