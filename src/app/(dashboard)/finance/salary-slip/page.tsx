@@ -2,7 +2,7 @@
 
 // สลิปเงินเดือน — ฟอร์มช่วยเปิดสลิปเงินเดือนจากเว็บทางการของ สพม.สุรินทร์ (salaryweb3.sesao33.net)
 // หน้านี้ "ไม่" เก็บหรือดึงข้อมูลเงินเดือนมาไว้ในระบบเราเอง เพียงประกอบลิงก์แล้วเปิดหน้าสลิปบนเว็บต้นทาง
-// ในแท็บใหม่ (ข้อมูลและการควบคุมสิทธิ์ทั้งหมดอยู่ที่เว็บต้นทาง) — จึงไม่ต้องกรอกเลขบัญชีธนาคาร เพราะเว็บ
+// ในหน้าต่างเล็ก/ป๊อปอัป (ข้อมูลและการควบคุมสิทธิ์ทั้งหมดอยู่ที่เว็บต้นทาง) — จึงไม่ต้องกรอกเลขบัญชีธนาคาร เพราะเว็บ
 // ต้นทางแสดงผลได้ด้วยเลขบัตรประชาชน + เดือน/ปี (ดูฟอร์ม repslp.php ของต้นทาง)
 
 import { useState } from "react";
@@ -48,7 +48,19 @@ export default function SalarySlipPage() {
       bk: SLIP_FIXED.bk,
       cm: SLIP_FIXED.cm,
     });
-    window.open(`${SLIP_BASE}?${params.toString()}`, "_blank", "noopener,noreferrer");
+    // เปิดเป็นหน้าต่างเล็กขนาดพอดีสลิป กลางจอ (เว็บต้นทางเป็น http จึงฝัง iframe ในหน้า https ของเราไม่ได้ — ถูกบล็อก)
+    // บนมือถือเบราว์เซอร์มักเปิดเป็นแท็บใหม่แทนหน้าต่างเล็กเอง ซึ่งใช้งานได้ตามปกติ
+    const w = Math.min(960, window.screen.availWidth - 40);
+    const h = Math.min(720, window.screen.availHeight - 80);
+    const left = Math.max(0, Math.round((window.screen.availWidth - w) / 2));
+    const top = Math.max(0, Math.round((window.screen.availHeight - h) / 2));
+    const win = window.open(
+      `${SLIP_BASE}?${params.toString()}`,
+      "salaryslip",
+      `popup=yes,width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`,
+    );
+    if (!win) setError("เบราว์เซอร์บล็อกหน้าต่างป๊อปอัป กรุณาอนุญาตป๊อปอัปสำหรับเว็บนี้แล้วกดอีกครั้ง");
+    else win.focus();
   }
 
   // ปีให้เลือก: ปีปัจจุบัน ย้อนหลัง 3 ปี
@@ -109,7 +121,7 @@ export default function SalarySlipPage() {
         </form>
 
         <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
-          สลิปจะเปิดในแท็บใหม่จากเว็บ salaryweb3.sesao33.net โดยตรง — ระบบนี้ไม่ได้เก็บข้อมูลเงินเดือนของท่านไว้
+          สลิปจะเปิดในหน้าต่างเล็กจากเว็บ salaryweb3.sesao33.net โดยตรง — ระบบนี้ไม่ได้เก็บข้อมูลเงินเดือนของท่านไว้
           ไม่ต้องกรอกเลขบัญชีธนาคาร
         </p>
       </div>
