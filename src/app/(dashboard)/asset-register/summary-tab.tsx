@@ -5,6 +5,7 @@
 // PDF ทะเบียนคุมทรัพย์สิน (ดู src/lib/asset-depreciation.ts) เพื่อให้ยอดตรงกัน
 
 import { useCallback, useEffect, useState } from "react";
+import { applyLocationFilter, distinctLocations, parseLocationKey } from "@/lib/asset-location";
 import { createClient } from "@/lib/supabase/client";
 import { formatBaht } from "@/lib/thai";
 import { computeAssetDepreciation } from "@/lib/asset-depreciation";
@@ -37,7 +38,7 @@ function conditionBadge(conditionId: string | null, conditionLookup: Map<string,
   return { cls: `badge-${c.badge_color}`, label: c.name };
 }
 
-export function SummaryTab({ categories, conditions }: { categories: Option[]; conditions: (Option & { badge_color: string })[] }) {
+export function SummaryTab({ conditions }: { conditions: (Option & { badge_color: string })[] }) {
   const conditionLookup = new Map(conditions.map((c) => [c.id, { name: c.name, badge_color: c.badge_color }]));
   const [items, setItems] = useState<SummaryItem[] | null>(null);
   const [allCount, setAllCount] = useState(0);
@@ -45,7 +46,8 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
     Map<string, { name: string; useful_life_years: number | null; depreciation_rate_percent: number | null }>
   >(new Map());
   const [categoryLookupLoaded, setCategoryLookupLoaded] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState(ALL);
+  const [locationFilter, setLocationFilter] = useState(ALL);
+  const [locations, setLocations] = useState<{ key: string; label: string }[]>([]);
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
   // debounce ช่องค้นหาก่อนยิง query จริง กันไม่ให้ยิงคำขอไปเซิร์ฟเวอร์ทุกครั้งที่พิมพ์แต่ละตัวอักษร
@@ -69,7 +71,7 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
       .select("id, name, category_id, asset_code, quantity, unit, building, floor, room, condition_id, acquired_date, acquired_year, price")
       .order("created_at", { ascending: false });
 
-    if (categoryFilter !== ALL) query = query.eq("category_id", categoryFilter);
+    if (locationFilter !== ALL) query = applyLocationFilter(query, parseLocationKey(locationFilter));
     if (conditionFilter !== ALL) query = query.eq("condition_id", conditionFilter);
     if (debouncedSearch) {
       const q = debouncedSearch.replace(/,/g, " ");
@@ -84,15 +86,17 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
 
     const { data } = await query;
     setItems((data as unknown as SummaryItem[]) ?? []);
-  }, [categoryFilter, conditionFilter, debouncedSearch]);
+  }, [locationFilter, conditionFilter, debouncedSearch]);
 
   const loadStaticData = useCallback(async () => {
     const supabase = createClient();
-    const [{ count }, { data: categoriesData }] = await Promise.all([
+    const [{ count }, { data: categoriesData }, { data: locRows }] = await Promise.all([
       supabase.from("asset_items").select("id", { count: "exact", head: true }),
       supabase.from("asset_categories").select("id, name, useful_life_years, depreciation_rate_percent"),
+      supabase.from("asset_items").select("building, floor, room").limit(5000),
     ]);
     setAllCount(count ?? 0);
+    setLocations(distinctLocations(locRows ?? []));
     setCategoryLookup(new Map((categoriesData ?? []).map((c) => [c.id, c])));
     setCategoryLookupLoaded(true);
   }, []);
@@ -147,12 +151,12 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
       <div className="card mb-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div>
-            <label className="label">หมวดหมู่</label>
-            <select value={categoryFilter} onChange={(e) => updateFilter(setCategoryFilter, e.target.value)} className="input">
+            <label className="label">สถานที่</label>
+            <select value={locationFilter} onChange={(e) => updateFilter(setLocationFilter, e.target.value)} className="input">
               <option value={ALL}>ทั้งหมด</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              {locations.map((l) => (
+                <option key={l.key} value={l.key}>
+                  {l.label}
                 </option>
               ))}
             </select>
@@ -189,11 +193,11 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
           จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
         </p>
         <div className="flex items-center gap-2">
-          <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} className="btn-secondary btn-sm">
+          <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ locationFilter, conditionFilter, search })}`} className="btn-secondary btn-sm">
             <ExcelFileIcon className="h-3.5 w-3.5" />
             ส่งออก Excel
           </a>
-          <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ categoryFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
+          <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ locationFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
             <PrinterIcon className="h-3.5 w-3.5" />
             พิมพ์
           </a>
@@ -393,16 +397,16 @@ export function SummaryTab({ categories, conditions }: { categories: Option[]; c
 }
 
 function buildSummaryQuery({
-  categoryFilter,
+  locationFilter,
   conditionFilter,
   search,
 }: {
-  categoryFilter: string;
+  locationFilter: string;
   conditionFilter: string;
   search: string;
 }) {
   const params = new URLSearchParams();
-  if (categoryFilter !== ALL) params.set("category", categoryFilter);
+  if (locationFilter !== ALL) params.set("location", locationFilter);
   if (conditionFilter !== ALL) params.set("condition", conditionFilter);
   if (search.trim()) params.set("q", search.trim());
   return params.toString();

@@ -167,7 +167,7 @@ export default function AssetRegisterPage() {
             onChanged={reload}
           />
         )}
-        {tab === "summary" && <SummaryTab categories={activeCategories} conditions={activeConditions} />}
+        {tab === "summary" && <SummaryTab conditions={activeConditions} />}
         {tab === "master" && !isTeacher && (
           <MasterDataTab
             canManage={canManage}

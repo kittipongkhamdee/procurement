@@ -1,11 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { Database } from "@/lib/supabase/database.types";
+import { applyLocationFilter, parseLocationKey } from "@/lib/asset-location";
 import { computeAssetDepreciation } from "@/lib/asset-depreciation";
 import { AssetSummaryDocument, type AssetSummaryPdfData } from "./asset-summary-document";
 
 export type AssetSummaryFilters = {
   categoryId?: string;
+  /** คีย์สถานที่จาก locationKey() */
+  location?: string;
   conditionId?: string;
   search?: string;
 };
@@ -21,6 +24,7 @@ export async function buildAssetSummaryPdfData(
 
   if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
   if (filters.conditionId) query = query.eq("condition_id", filters.conditionId);
+  if (filters.location) query = applyLocationFilter(query, parseLocationKey(filters.location));
 
   const [{ data: items }, { data: categories }, { data: conditions }, { data: schoolSettings }] = await Promise.all([
     query,
