@@ -11,7 +11,6 @@ import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { RegisterTab } from "./register-tab";
 import { MasterDataTab } from "./master-data-tab";
-import { SurveyRoundTab } from "./survey-round-tab";
 import { SummaryTab } from "./summary-tab";
 import { AssetImportModal } from "./asset-import-modal";
 
@@ -33,7 +32,6 @@ const ALL_TABS = [
   { key: "summary", label: "ทะเบียนทรัพย์สิน" },
   { key: "register", label: "จัดการทรัพย์สิน" },
   { key: "master", label: "ข้อมูลหลัก" },
-  { key: "rounds", label: "รอบสำรวจ" },
 ] as const;
 type TabKey = (typeof ALL_TABS)[number]["key"];
 
@@ -181,7 +179,6 @@ export default function AssetRegisterPage() {
             onChanged={reload}
           />
         )}
-        {tab === "rounds" && !isTeacher && <SurveyRoundTab canManage={canManage} rounds={rounds} onChanged={reload} />}
       </div>
     </div>
   );

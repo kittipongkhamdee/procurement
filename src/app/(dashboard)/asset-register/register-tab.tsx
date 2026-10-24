@@ -113,13 +113,6 @@ function buildRegisterExportQuery({
   return params.toString();
 }
 
-function statusBadge(status: string) {
-  if (status === "approved") return { cls: "badge-emerald", label: "อนุมัติแล้ว" };
-  if (status === "rejected") return { cls: "badge-red", label: "ไม่อนุมัติ" };
-  if (status === "submitted") return { cls: "badge-amber", label: "รอตรวจสอบ" };
-  return { cls: "badge-slate", label: "แบบร่าง" };
-}
-
 function conditionBadge(conditionId: string | null, conditionLookup: Map<string, { name: string; badge_color: string }>) {
   const c = conditionId ? conditionLookup.get(conditionId) : null;
   if (!c) return { cls: "badge-slate", label: "-" };
@@ -136,7 +129,6 @@ function ItemModal({
   acquisitionMethods,
   itemTypes,
   conditions,
-  rounds,
   defaultRoundId,
   onSaved,
 }: {
@@ -446,16 +438,8 @@ function ItemModal({
       ) : (
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="label">รอบสำรวจ</label>
-              <select name="round_id" defaultValue={item?.round_id ?? defaultRoundId} required className="input">
-                {rounds.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.year} — {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* เลิกใช้รอบสำรวจแล้ว (ผู้ดูแลเพิ่มรายการเอง) — คอลัมน์ round_id ยังบังคับกรอกในฐานข้อมูล จึงผูกกับรอบล่าสุดให้อัตโนมัติ */}
+            <input type="hidden" name="round_id" value={item?.round_id ?? defaultRoundId} />
             <div className="sm:col-span-2">
               <label className="label">รหัสครุภัณฑ์</label>
               <div className="flex gap-2">
@@ -758,9 +742,10 @@ export function RegisterTab({
   const [items, setItems] = useState<AssetItem[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [allCount, setAllCount] = useState(0);
-  const [roundFilter, setRoundFilter] = useState(ALL);
+  // เลิกใช้รอบสำรวจ/สถานะการตรวจแล้ว — คงตัวแปรไว้เป็นค่า "ทั้งหมด" ให้ query/ส่งออกเดิมทำงานต่อได้
+  const roundFilter = ALL;
   const [categoryFilter, setCategoryFilter] = useState(ALL);
-  const [statusFilter, setStatusFilter] = useState(ALL);
+  const statusFilter = ALL;
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
   // debounce ช่องค้นหาก่อนยิง query จริง กันไม่ให้ยิงคำขอไปเซิร์ฟเวอร์ทุกครั้งที่พิมพ์แต่ละตัวอักษร
@@ -873,18 +858,7 @@ export function RegisterTab({
   return (
     <div>
       <div className="card mb-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
-          <div>
-            <label className="label">รอบสำรวจ</label>
-            <select value={roundFilter} onChange={(e) => updateFilter(setRoundFilter, e.target.value)} className="input">
-              <option value={ALL}>ทั้งหมด</option>
-              {rounds.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.year} — {r.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className="label">หมวดหมู่</label>
             <select value={categoryFilter} onChange={(e) => updateFilter(setCategoryFilter, e.target.value)} className="input">
@@ -894,16 +868,6 @@ export function RegisterTab({
                   {c.name}
                 </option>
               ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">สถานะ</label>
-            <select value={statusFilter} onChange={(e) => updateFilter(setStatusFilter, e.target.value)} className="input">
-              <option value={ALL}>ทั้งหมด</option>
-              <option value="draft">แบบร่าง</option>
-              <option value="submitted">รอตรวจสอบ</option>
-              <option value="approved">อนุมัติแล้ว</option>
-              <option value="rejected">ไม่อนุมัติ</option>
             </select>
           </div>
           <div>
@@ -991,7 +955,6 @@ export function RegisterTab({
         {/* พื้นที่แคบ: การ์ดแสดงรายการทีละแถว แทนตารางกว้าง 10 คอลัมน์ */}
         <div className="divide-y divide-slate-100 @min-[64rem]:hidden">
           {pageRows.map((it) => {
-            const sb = statusBadge(it.status);
             const cb = conditionBadge(it.condition_id, conditionLookup);
             return (
               <div key={it.id} className="px-4 py-3">
@@ -1007,7 +970,6 @@ export function RegisterTab({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-slate-900">{it.name}</span>
                       <span className={cb.cls}>{cb.label}</span>
-                      <span className={sb.cls}>{sb.label}</span>
                     </div>
                     <p className="mt-0.5 text-xs text-slate-500">
                       {it.asset_code ?? "-"} · {it.category_id ? (categoryName.get(it.category_id) ?? "-") : "-"}
@@ -1066,14 +1028,12 @@ export function RegisterTab({
               <th className="text-center">จำนวน</th>
               <th className="whitespace-nowrap text-right">ราคา (บาท)</th>
               <th className="text-center">สภาพ</th>
-              <th className="text-center">สถานะ</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {pageRows.map((it) => {
-              const sb = statusBadge(it.status);
-              const cb = conditionBadge(it.condition_id, conditionLookup);
+                const cb = conditionBadge(it.condition_id, conditionLookup);
               return (
                 <tr key={it.id}>
                   <td>
@@ -1096,9 +1056,6 @@ export function RegisterTab({
                   <td className="whitespace-nowrap text-right tabular-nums">{formatBaht(it.price)}</td>
                   <td className="text-center">
                     <span className={cb.cls}>{cb.label}</span>
-                  </td>
-                  <td className="text-center">
-                    <span className={sb.cls}>{sb.label}</span>
                   </td>
                   <td className="w-44 text-right">
                     <div className="flex flex-wrap justify-end gap-2">
