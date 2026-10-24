@@ -67,6 +67,7 @@ const NAV_SECTIONS = [
       { href: "/finance/loans", label: "สัญญายืมเงิน", icon: <WalletIcon className={ICON_CLASS} /> },
       { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/finance/forms", label: "แบบฟอร์มการเงิน", icon: <FileTextIcon className={ICON_CLASS} /> },
+      { href: "/finance/salary-slip", label: "สลิปเงินเดือน", icon: <CoinsIcon className={ICON_CLASS} /> },
     ],
   },
   {
