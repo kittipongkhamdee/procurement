@@ -11,6 +11,7 @@ export async function GET(request: Request) {
   const rows = await fetchAssetItemsForExport(supabase, {
     roundId: url.searchParams.get("round") ?? undefined,
     categoryId: url.searchParams.get("category") ?? undefined,
+    location: url.searchParams.get("location") ?? undefined,
     status: url.searchParams.get("status") ?? undefined,
     conditionId: url.searchParams.get("condition") ?? undefined,
     search: url.searchParams.get("q") ?? undefined,

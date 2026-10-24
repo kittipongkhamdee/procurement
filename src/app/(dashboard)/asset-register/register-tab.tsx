@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { applyLocationFilter, distinctLocations, parseLocationKey } from "@/lib/asset-location";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess, confirmDelete } from "@/lib/swal";
 import { formatThaiDate } from "@/lib/thai";
@@ -93,12 +94,14 @@ function formatBaht(n: number | null) {
 
 function buildRegisterExportQuery({
   roundFilter,
+  locationFilter,
   categoryFilter,
   statusFilter,
   conditionFilter,
   search,
 }: {
   roundFilter: string;
+  locationFilter: string;
   categoryFilter: string;
   statusFilter: string;
   conditionFilter: string;
@@ -106,6 +109,7 @@ function buildRegisterExportQuery({
 }) {
   const params = new URLSearchParams();
   if (roundFilter !== ALL) params.set("round", roundFilter);
+  if (locationFilter !== ALL) params.set("location", locationFilter);
   if (categoryFilter !== ALL) params.set("category", categoryFilter);
   if (statusFilter !== ALL) params.set("status", statusFilter);
   if (conditionFilter !== ALL) params.set("condition", conditionFilter);
@@ -744,6 +748,8 @@ export function RegisterTab({
   const [allCount, setAllCount] = useState(0);
   // เลิกใช้รอบสำรวจ/สถานะการตรวจแล้ว — คงตัวแปรไว้เป็นค่า "ทั้งหมด" ให้ query/ส่งออกเดิมทำงานต่อได้
   const roundFilter = ALL;
+  const [locationFilter, setLocationFilter] = useState(ALL);
+  const [locations, setLocations] = useState<{ key: string; label: string }[]>([]);
   const [categoryFilter, setCategoryFilter] = useState(ALL);
   const statusFilter = ALL;
   const [conditionFilter, setConditionFilter] = useState(ALL);
@@ -787,6 +793,7 @@ export function RegisterTab({
       .order("created_at", { ascending: false });
 
     if (roundFilter !== ALL) query = query.eq("round_id", roundFilter);
+    if (locationFilter !== ALL) query = applyLocationFilter(query, parseLocationKey(locationFilter));
     if (categoryFilter !== ALL) query = query.eq("category_id", categoryFilter);
     if (statusFilter !== ALL) query = query.eq("status", statusFilter as "draft" | "submitted" | "approved" | "rejected");
     if (conditionFilter !== ALL) query = query.eq("condition_id", conditionFilter);
@@ -807,7 +814,16 @@ export function RegisterTab({
     const { data, count } = await query.range(from, from + pageSize - 1);
     setItems((data as unknown as AssetItem[]) ?? []);
     setTotalCount(count ?? 0);
-  }, [roundFilter, categoryFilter, statusFilter, conditionFilter, debouncedSearch, page]);
+  }, [roundFilter, locationFilter, categoryFilter, statusFilter, conditionFilter, debouncedSearch, page]);
+
+  // ตัวเลือกตัวกรองสถานที่ (อาคาร/ชั้น/ห้อง ที่มีครุภัณฑ์อยู่จริง) — ดึงเฉพาะ 3 คอลัมน์ครั้งเดียว
+  useEffect(() => {
+    createClient()
+      .from("asset_items")
+      .select("building, floor, room")
+      .limit(5000)
+      .then(({ data }) => setLocations(distinctLocations(data ?? [])));
+  }, []);
 
   const loadAllCount = useCallback(async () => {
     const supabase = createClient();
@@ -858,7 +874,18 @@ export function RegisterTab({
   return (
     <div>
       <div className="card mb-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <div>
+            <label className="label">สถานที่</label>
+            <select value={locationFilter} onChange={(e) => updateFilter(setLocationFilter, e.target.value)} className="input">
+              <option value={ALL}>ทั้งหมด</option>
+              {locations.map((l) => (
+                <option key={l.key} value={l.key}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="label">หมวดหมู่</label>
             <select value={categoryFilter} onChange={(e) => updateFilter(setCategoryFilter, e.target.value)} className="input">
@@ -909,7 +936,7 @@ export function RegisterTab({
         </p>
         <div className="flex items-center gap-2">
           <a
-            href={`/asset-register/xlsx?${buildRegisterExportQuery({ roundFilter, categoryFilter, statusFilter, conditionFilter, search })}`}
+            href={`/asset-register/xlsx?${buildRegisterExportQuery({ roundFilter, locationFilter, categoryFilter, statusFilter, conditionFilter, search })}`}
             className="btn-secondary btn-sm"
           >
             <ExcelFileIcon className="h-3.5 w-3.5" />

@@ -1,9 +1,12 @@
+import { applyLocationFilter, parseLocationKey } from "@/lib/asset-location";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
 export type AssetRegisterExportFilters = {
   roundId?: string;
   categoryId?: string;
+  /** คีย์สถานที่จาก locationKey() */
+  location?: string;
   status?: string;
   conditionId?: string;
   search?: string;
@@ -42,6 +45,7 @@ export async function fetchAssetItemsForExport(
 
   if (filters.roundId) query = query.eq("round_id", filters.roundId);
   if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
+  if (filters.location) query = applyLocationFilter(query, parseLocationKey(filters.location));
   if (filters.status) query = query.eq("status", filters.status as "draft" | "submitted" | "approved" | "rejected");
   if (filters.conditionId) query = query.eq("condition_id", filters.conditionId);
   if (filters.search) {

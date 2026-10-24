@@ -50,31 +50,28 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
   const [locations, setLocations] = useState<{ key: string; label: string }[]>([]);
   const [conditionFilter, setConditionFilter] = useState(ALL);
   const [search, setSearch] = useState("");
-  // debounce ช่องค้นหาก่อนยิง query จริง กันไม่ให้ยิงคำขอไปเซิร์ฟเวอร์ทุกครั้งที่พิมพ์แต่ละตัวอักษร
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // ไม่ดึงข้อมูลทันทีที่เปิดหน้า/เปลี่ยนตัวกรอง — รอผู้ใช้กดปุ่ม "ค้นหา" ก่อน (ข้อมูลมีมาก ลดภาระ Supabase แพ็กเกจฟรี)
+  // applied = ตัวกรองที่กดค้นหาล่าสุด, null = ยังไม่เคยกด
+  const [applied, setApplied] = useState<{ location: string; condition: string; q: string } | null>(null);
   const [page, setPage] = useState(1);
   const pageSize = 50;
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
-    return () => clearTimeout(t);
-  }, [search]);
 
   // กรองที่ฝั่ง Supabase query โดยตรง (ไม่ดึงทุกรายการมากรองในเบราว์เซอร์แบบเดิม) — ยอดรวมท้าย
   // ตาราง/การ์ดสรุปยังต้องคำนวณจาก "ทุกแถวที่ตรงตัวกรอง" (ไม่ใช่แค่หน้าที่เห็น) จึงยังดึงมาทั้งหมดที่
   // ตรงเงื่อนไข ไม่ตัดด้วย range แบบแท็บทะเบียนทรัพย์สิน แต่การกรองด้วยหมวดหมู่/สภาพ/คำค้นหาที่ฝั่ง
   // เซิร์ฟเวอร์ช่วยลดปริมาณข้อมูลที่ต้องโอนมาเมื่อผู้ใช้เลือกตัวกรองแคบลง
   const reload = useCallback(async () => {
+    if (!applied) return;
     const supabase = createClient();
     let query = supabase
       .from("asset_items")
       .select("id, name, category_id, asset_code, quantity, unit, building, floor, room, condition_id, acquired_date, acquired_year, price")
       .order("created_at", { ascending: false });
 
-    if (locationFilter !== ALL) query = applyLocationFilter(query, parseLocationKey(locationFilter));
-    if (conditionFilter !== ALL) query = query.eq("condition_id", conditionFilter);
-    if (debouncedSearch) {
-      const q = debouncedSearch.replace(/,/g, " ");
+    if (applied.location !== ALL) query = applyLocationFilter(query, parseLocationKey(applied.location));
+    if (applied.condition !== ALL) query = query.eq("condition_id", applied.condition);
+    if (applied.q) {
+      const q = applied.q.replace(/,/g, " ");
       const orParts = [`name.ilike.%${q}%`, `asset_code.ilike.%${q}%`, `building.ilike.%${q}%`, `room.ilike.%${q}%`];
       // รวม id ไว้ในช่องค้นหาด้วย — ค่าที่เข้ารหัสใน QR Code เป็น asset_code ถ้ามี ไม่งั้น fallback
       // เป็น id (ดู build-asset-register-pdf.tsx/build-asset-tag-pdf.tsx) สแกนแล้ววางค่าตรงนี้ได้เลย
@@ -86,7 +83,7 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
 
     const { data } = await query;
     setItems((data as unknown as SummaryItem[]) ?? []);
-  }, [locationFilter, conditionFilter, debouncedSearch]);
+  }, [applied]);
 
   const loadStaticData = useCallback(async () => {
     const supabase = createClient();
@@ -113,10 +110,86 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
 
   function updateFilter(setter: (v: string) => void, value: string) {
     setter(value);
-    setPage(1);
   }
 
-  if (items === null || !categoryLookupLoaded) return <p className="table-empty">กำลังโหลดข้อมูล...</p>;
+  function runSearch(q = search) {
+    setItems(null);
+    setPage(1);
+    setApplied({ location: locationFilter, condition: conditionFilter, q: q.trim() });
+  }
+
+  const filtersCard = (
+    <div className="card mb-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          runSearch();
+        }}
+        className="grid grid-cols-1 gap-3 sm:grid-cols-4"
+      >
+        <div>
+          <label className="label">สถานที่</label>
+          <select value={locationFilter} onChange={(e) => updateFilter(setLocationFilter, e.target.value)} className="input">
+            <option value={ALL}>ทั้งหมด</option>
+            {locations.map((l) => (
+              <option key={l.key} value={l.key}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">สภาพ</label>
+          <select value={conditionFilter} onChange={(e) => updateFilter(setConditionFilter, e.target.value)} className="input">
+            <option value={ALL}>ทั้งหมด</option>
+            {conditions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">ค้นหา</label>
+          <div className="flex gap-2">
+            <input
+              value={search}
+              onChange={(e) => updateFilter(setSearch, e.target.value)}
+              placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่/สแกน QR"
+              className="input"
+            />
+            <QrScanButton
+              onScan={(value) => {
+                setSearch(value);
+                runSearch(value);
+              }}
+            />
+          </div>
+        </div>
+        <div className="sm:col-span-4 flex justify-end">
+          <button type="submit" className="btn-primary inline-flex items-center gap-2">
+            ค้นหา
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
+  if (!categoryLookupLoaded) return <p className="table-empty">กำลังโหลดข้อมูล...</p>;
+  if (!applied)
+    return (
+      <div>
+        {filtersCard}
+        <p className="table-empty">เลือกสถานที่/สภาพ หรือพิมพ์คำค้น แล้วกด &quot;ค้นหา&quot; เพื่อแสดงรายการ (ไม่เลือกอะไร = แสดงทั้งหมด {allCount.toLocaleString("th-TH")} รายการ)</p>
+      </div>
+    );
+  if (items === null)
+    return (
+      <div>
+        {filtersCard}
+        <p className="table-empty">กำลังค้นหา...</p>
+      </div>
+    );
 
   // คำนวณค่าเสื่อมของทุกแถวที่ผ่านตัวกรองไว้ล่วงหน้าครั้งเดียว (ไม่ใช่แค่หน้าปัจจุบัน) เพื่อใช้ทั้งแสดง
   // ผลรายแถวและรวมยอดท้ายตาราง/การ์ดสรุป ให้ยอดรวมตรงกับ "ทั้งหมดที่กรองไว้" ไม่ใช่แค่หน้าที่เห็น
@@ -148,44 +221,7 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
 
   return (
     <div>
-      <div className="card mb-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <div>
-            <label className="label">สถานที่</label>
-            <select value={locationFilter} onChange={(e) => updateFilter(setLocationFilter, e.target.value)} className="input">
-              <option value={ALL}>ทั้งหมด</option>
-              {locations.map((l) => (
-                <option key={l.key} value={l.key}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label">สภาพ</label>
-            <select value={conditionFilter} onChange={(e) => updateFilter(setConditionFilter, e.target.value)} className="input">
-              <option value={ALL}>ทั้งหมด</option>
-              {conditions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label">ค้นหา</label>
-            <div className="flex gap-2">
-              <input
-                value={search}
-                onChange={(e) => updateFilter(setSearch, e.target.value)}
-                placeholder="ชื่อ/รหัสครุภัณฑ์/สถานที่/สแกน QR"
-                className="input"
-              />
-              <QrScanButton onScan={(value) => updateFilter(setSearch, value)} />
-            </div>
-          </div>
-        </div>
-      </div>
+      {filtersCard}
 
       <div className="mb-4 flex items-center justify-between">
         <p className="text-sm text-slate-500">
@@ -193,11 +229,11 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
           จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
         </p>
         <div className="flex items-center gap-2">
-          <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ locationFilter, conditionFilter, search })}`} className="btn-secondary btn-sm">
+          <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ locationFilter: applied.location, conditionFilter: applied.condition, search: applied.q })}`} className="btn-secondary btn-sm">
             <ExcelFileIcon className="h-3.5 w-3.5" />
             ส่งออก Excel
           </a>
-          <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ locationFilter, conditionFilter, search })}`} target="_blank" className="btn-secondary btn-sm">
+          <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ locationFilter: applied.location, conditionFilter: applied.condition, search: applied.q })}`} target="_blank" className="btn-secondary btn-sm">
             <PrinterIcon className="h-3.5 w-3.5" />
             พิมพ์
           </a>
