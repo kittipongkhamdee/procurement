@@ -32,7 +32,7 @@ const BOTTOM_TABS: { href: string; label: string; icon: typeof HomeIcon; match?:
   { href: "/", label: "หน้าแรก", icon: HomeIcon },
   { href: "/projects", label: "โครงการ", icon: FolderIcon },
   { href: "/supplies/procurement", label: "ซื้อ-จ้าง", icon: ShoppingCartIcon },
-  { href: "/finance/ledger", label: "การเงิน", icon: WalletIcon, match: "/finance" },
+  { href: "/finance", label: "การเงิน", icon: WalletIcon, match: "/finance" },
 ];
 
 // เมนูที่กำลังตรวจ/แก้ไขอยู่ ยังไม่พร้อมให้ใช้งานจริง — ปิดลิงก์ไว้ก่อนชั่วคราว (ยังเข้าหน้าตรงๆ
