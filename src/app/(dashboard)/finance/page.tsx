@@ -42,12 +42,12 @@ type Summary = {
 type Task = { key: string; label: string; count: number; hint: string; href: string; tone: "red" | "amber" | "navy" };
 
 export default function FinanceHubPage() {
-  const { role, isProcStaff, user, loading: authLoading } = useAuth();
+  const { role, user, loading: authLoading } = useAuth();
   const userId = user?.userId ?? null;
   const [s, setS] = useState<Summary | null>(null);
 
-  const isFinance = role === "admin" || role === "finance_officer";
-  const isDirector = role === "director" || role === "admin";
+  // ผู้อำนวยการ/เจ้าหน้าที่การเงิน/แอดมิน เห็นงานที่ต้องทำทุกรายการ — บทบาทอื่น (ครูทั่วไป ฯลฯ) เห็นเฉพาะเงินยืมของตัวเองที่ค้างส่งใช้/เกินกำหนด
+  const isManager = role === "admin" || role === "finance_officer" || role === "director";
 
   useEffect(() => {
     if (authLoading) return;
@@ -64,7 +64,7 @@ export default function FinanceHubPage() {
         supabase.from("fin_travel_forms").select("id", { count: "exact", head: true }),
       ]);
       // รายการรอบันทึกในบัญชี — โหลดเฉพาะผู้มีสิทธิ์บันทึก (ตัวนับเดียวกับแถบ "รอบันทึกจากงานอื่น" ในหน้าบัญชีรับ-จ่าย)
-      const pending = isFinance ? await loadPendingSources(supabase, fy).catch(() => []) : [];
+      const pending = isManager ? await loadPendingSources(supabase, fy).catch(() => []) : [];
 
       const rows = tx.data ?? [];
       const loanRows = (loans.data ?? []).map((l) => {
@@ -104,27 +104,28 @@ export default function FinanceHubPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isFinance, userId]);
+  }, [authLoading, isManager, userId]);
 
   if (authLoading || !s) return <PageLoadingSkeleton />;
 
   // งานที่ต้องทำ — แสดงเฉพาะที่เกี่ยวกับบทบาท และมีจำนวน > 0
   const tasks: Task[] = [];
-  if (isFinance && s.pendingSources > 0)
+  if (isManager && s.pendingSources > 0)
     tasks.push({ key: "pending", label: "รายการรอบันทึกในบัญชีรับ-จ่าย", count: s.pendingSources, hint: "จากงานซื้อ/จ้าง ว 119 กรณีเร่งด่วน เบิกค่าใช้จ่ายโครงการ ฯลฯ", href: "/finance/ledger", tone: "amber" });
-  if (isProcStaff && s.loanNeedNumber > 0)
+  if (isManager && s.loanNeedNumber > 0)
     tasks.push({ key: "loan-number", label: "สัญญายืมเงินรอตรวจสอบ/ออกเลขที่", count: s.loanNeedNumber, hint: "ครูยื่นแล้ว รอการเงินตรวจสอบ", href: "/finance/loans", tone: "amber" });
-  if (isDirector && s.loanNeedApprove > 0)
+  if (isManager && s.loanNeedApprove > 0)
     tasks.push({ key: "loan-approve", label: "สัญญายืมเงินรอผู้อำนวยการอนุมัติ", count: s.loanNeedApprove, hint: "ออกเลขที่แล้ว รออนุมัติ", href: "/finance/loans", tone: "red" });
-  if (isProcStaff && s.loanNeedPay > 0)
+  if (isManager && s.loanNeedPay > 0)
     tasks.push({ key: "loan-pay", label: "สัญญายืมเงินที่อนุมัติแล้ว รอจ่ายเงิน", count: s.loanNeedPay, hint: "บันทึกวันที่จ่ายเงินให้ผู้ยืม", href: "/finance/loans", tone: "navy" });
-  if (isDirector && s.fundNeedApprove > 0)
+  if (isManager && s.fundNeedApprove > 0)
     tasks.push({ key: "fund-approve", label: "ยืมเงินระหว่างประเภทเงินรอผู้อำนวยการอนุมัติ", count: s.fundNeedApprove, hint: "ต้องอนุมัติก่อนส่งใช้คืน", href: "/finance/ledger/fund-loans", tone: "red" });
-  if (isProcStaff && s.loanOverdue > 0)
+  if (isManager && s.loanOverdue > 0)
     tasks.push({ key: "loan-overdue", label: "เงินยืมเกินกำหนดส่งใช้", count: s.loanOverdue, hint: "ติดตามผู้ยืมให้ส่งใช้", href: "/finance/loans", tone: "red" });
-  if (!isProcStaff && s.myOverdue > 0)
+  // ผู้จัดการเห็นเกินกำหนดทุกสัญญาแล้ว (รวมของตัวเอง) จึงไม่ซ้ำ — เฉพาะบทบาทอื่นเห็นของตัวเอง
+  if (!isManager && s.myOverdue > 0)
     tasks.push({ key: "my-overdue", label: "เงินยืมของท่านเกินกำหนดส่งใช้", count: s.myOverdue, hint: "กรุณาส่งใช้เงินยืม", href: "/finance/loans", tone: "red" });
-  if (!isProcStaff && s.myOutstanding > 0)
+  if (s.myOutstanding > 0)
     tasks.push({ key: "my-outstanding", label: "เงินยืมของท่านที่ยังค้างส่งใช้", count: 1, hint: `คงค้าง ${baht(s.myOutstanding)} บาท`, href: "/finance/loans", tone: "amber" });
 
   const toneCls = { red: "badge-red", amber: "badge-amber", navy: "badge-navy" } as const;
