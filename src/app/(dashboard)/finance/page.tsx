@@ -46,8 +46,8 @@ export default function FinanceHubPage() {
   const userId = user?.userId ?? null;
   const [s, setS] = useState<Summary | null>(null);
 
-  // ผู้อำนวยการ/เจ้าหน้าที่การเงิน/แอดมิน เห็นงานที่ต้องทำทุกรายการ — บทบาทอื่น (ครูทั่วไป ฯลฯ) เห็นเฉพาะเงินยืมของตัวเองที่ค้างส่งใช้/เกินกำหนด
-  const isManager = role === "admin" || role === "finance_officer" || role === "director";
+  // ผู้อำนวยการ/รองผู้อำนวยการ/เจ้าหน้าที่การเงิน/แอดมิน เห็นงานที่ต้องทำทุกรายการ — บทบาทอื่น (ครูทั่วไป ฯลฯ) เห็นเฉพาะเงินยืมของตัวเองที่ค้างส่งใช้/เกินกำหนด
+  const isManager = role === "admin" || role === "finance_officer" || role === "director" || role === "deputy_director";
 
   useEffect(() => {
     if (authLoading) return;
