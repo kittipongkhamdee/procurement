@@ -63,7 +63,7 @@ const NAV_SECTIONS = [
   {
     heading: "การเงินและบัญชี",
     items: [
-      { href: "/finance/ledger", label: "บัญชีรับ-จ่ายเงิน", icon: <CoinsIcon className={ICON_CLASS} /> },
+      { href: "/finance/ledger", label: "การเงิน", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/finance/loans", label: "สัญญายืมเงิน", icon: <WalletIcon className={ICON_CLASS} /> },
       { href: "/supplies/withholding-tax", label: "ภาษีหัก ณ ที่จ่าย", icon: <CoinsIcon className={ICON_CLASS} /> },
       { href: "/finance/forms", label: "แบบฟอร์มการเงิน", icon: <FileTextIcon className={ICON_CLASS} /> },
