@@ -4,7 +4,7 @@
 // เจ้าหน้าที่การเงิน (และแอดมิน) บันทึก/แก้ไข — ผอ. และครูดูอย่างเดียว (RLS fin_can_write)
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
@@ -86,55 +86,6 @@ export function LedgerView({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOver
     <Suspense fallback={<PageLoadingSkeleton />}>
       <LedgerContent topSlot={topSlot} extraCards={extraCards} />
     </Suspense>
-  );
-}
-
-/** ปุ่ม "ตั้งค่า" เปิดเมนู: เลือกปีงบประมาณที่ดูข้อมูล (ทุกบทบาท) + ลิงก์ไปหน้าตั้งค่าการเงิน (เฉพาะแอดมิน/เจ้าหน้าที่การเงิน) */
-function FiscalSettingsMenu({ fy, years, onChangeFy, canWrite }: { fy: number; years: number[]; onChangeFy: (y: number) => void; canWrite: boolean }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-  return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="btn-secondary inline-flex items-center gap-2">
-        <SettingsIcon className="h-4 w-4" />
-        {canWrite ? "ตั้งค่า" : `ปีงบ ${fy}`}
-      </button>
-      {open && (
-        <div className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
-          <label className="label">ปีงบประมาณที่ดูข้อมูล</label>
-          <select
-            value={fy}
-            onChange={(e) => {
-              onChangeFy(Number(e.target.value));
-              setOpen(false);
-            }}
-            className="input w-full"
-            aria-label="ปีงบประมาณ"
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                ปีงบประมาณ {y}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-slate-500">เปลี่ยนเฉพาะข้อมูลบัญชีรับ-จ่าย การ์ดบัญชีธนาคารแสดงยอดปีงบปัจจุบันเสมอ</p>
-          {canWrite && (
-            <Link href="/finance/ledger/settings" className="mt-3 flex items-center gap-2 rounded-lg border-t border-slate-100 px-1 pt-3 text-sm font-semibold text-navy-800 hover:underline">
-              <SettingsIcon className="h-4 w-4" />
-              ตั้งค่าการเงิน (ประเภทเงิน · สมุดบัญชี · ยอดยกมา)
-            </Link>
-          )}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -331,7 +282,6 @@ function LedgerContent({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOverview
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <FiscalSettingsMenu fy={fy} years={years} onChangeFy={setFy} canWrite={canWrite} />
           {canWrite && <TxnForm types={types} projects={projects} suggest={suggest} onSaved={reload} />}
         </div>
       </div>
@@ -423,6 +373,35 @@ function LedgerContent({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOverview
                     description: "ประเภทเงิน · สมุดบัญชีเงินฝาก · ยอดยกมาต้นปีงบ · ผู้ลงนามรายงาน",
                     href: "/finance/ledger/settings",
                     icon: <SettingsIcon className={ICON} />,
+                    // การ์ดตั้งค่ามีช่องเลือกปีงบประมาณที่ดูข้อมูลบัญชีรับ-จ่าย (เห็นเฉพาะผู้มีสิทธิ์ตั้งค่า: แอดมิน/เจ้าหน้าที่การเงิน)
+                    custom: (
+                      <div>
+                        <div className="flex items-start gap-3">
+                          <span className="rounded-lg bg-navy-800/10 p-2.5 text-navy-800">
+                            <SettingsIcon className={ICON} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <h2 className="text-base font-semibold text-slate-900">ตั้งค่า</h2>
+                            <p className="mt-0.5 text-sm text-slate-500">ประเภทเงิน · สมุดบัญชีเงินฝาก · ยอดยกมาต้นปีงบ · ผู้ลงนามรายงาน</p>
+                          </div>
+                        </div>
+                        <div className="mt-4 border-t border-slate-100 pt-3">
+                          <label className="label">ปีงบประมาณที่ดูข้อมูลบัญชีรับ-จ่าย</label>
+                          <select value={fy} onChange={(e) => setFy(Number(e.target.value))} className="input w-full" aria-label="ปีงบประมาณ">
+                            {years.map((y) => (
+                              <option key={y} value={y}>
+                                ปีงบประมาณ {y}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="mt-1 text-xs text-slate-500">การ์ดบัญชีธนาคารแสดงยอดปีงบปัจจุบันเสมอ ไม่ขึ้นกับปีที่เลือก</p>
+                          <Link href="/finance/ledger/settings" className="btn-secondary btn-sm mt-3 inline-flex items-center gap-2">
+                            <SettingsIcon className="h-3.5 w-3.5" />
+                            ไปหน้าตั้งค่าการเงิน
+                          </Link>
+                        </div>
+                      </div>
+                    ),
                   } satisfies HubCard,
                 ]
               : []),

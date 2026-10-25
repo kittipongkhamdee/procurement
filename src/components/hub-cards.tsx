@@ -13,12 +13,19 @@ export type HubCard = {
   value?: string;
   /** ข้อความใต้ตัวเลข */
   sub?: string;
+  /** เนื้อหาการ์ดแบบกำหนดเอง (เช่นมีช่องเลือก/ปุ่มในการ์ด) — ถ้าใส่ จะไม่เป็นลิงก์ทั้งใบ ต้องมีลิงก์/ปุ่มเองข้างใน */
+  custom?: ReactNode;
 };
 
 export function HubCardGrid({ cards }: { cards: HubCard[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {cards.map((card) => (
+      {cards.map((card) =>
+        card.custom ? (
+          <div key={card.key} className="card">
+            {card.custom}
+          </div>
+        ) : (
         <Link key={card.key} href={card.href} className="card block transition hover:border-navy-800/40 hover:shadow-md">
           <div className="flex items-start gap-3">
             <span className="rounded-lg bg-navy-800/10 p-2.5 text-navy-800">{card.icon}</span>
@@ -34,7 +41,8 @@ export function HubCardGrid({ cards }: { cards: HubCard[] }) {
             </div>
           )}
         </Link>
-      ))}
+        ),
+      )}
     </div>
   );
 }
