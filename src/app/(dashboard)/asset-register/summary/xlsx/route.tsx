@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth-actions";
 import { buildAssetSummaryPdfData } from "@/lib/pdf/build-asset-summary-pdf";
 import { buildExcelBuffer } from "@/lib/excel";
 import { contentDisposition } from "@/lib/http";
 
 export async function GET(request: Request) {
+  // ครูทั่วไปดูทะเบียนได้อย่างเดียว ไม่มีสิทธิ์ส่งออก/พิมพ์ (ซ่อนปุ่มที่หน้าจอ + กันตรงนี้ด้วยกันเปิดลิงก์เอง)
+  const me = await getCurrentUser();
+  if (!me || me.role === "teacher") return new NextResponse("ไม่มีสิทธิ์ส่งออกข้อมูลนี้", { status: 403 });
+
   const url = new URL(request.url);
   const supabase = await createClient();
 

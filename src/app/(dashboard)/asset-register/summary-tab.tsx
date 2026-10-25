@@ -38,7 +38,7 @@ function conditionBadge(conditionId: string | null, conditionLookup: Map<string,
   return { cls: `badge-${c.badge_color}`, label: c.name };
 }
 
-export function SummaryTab({ conditions }: { conditions: (Option & { badge_color: string })[] }) {
+export function SummaryTab({ conditions, canExport }: { conditions: (Option & { badge_color: string })[]; canExport: boolean }) {
   const conditionLookup = new Map(conditions.map((c) => [c.id, { name: c.name, badge_color: c.badge_color }]));
   const [items, setItems] = useState<SummaryItem[] | null>(null);
   const [allCount, setAllCount] = useState(0);
@@ -228,16 +228,18 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
           พบ <span className="font-semibold text-slate-900">{rowsWithTotals.length.toLocaleString("th-TH")}</span> รายการ
           จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
         </p>
-        <div className="flex items-center gap-2">
-          <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ locationFilter: applied.location, conditionFilter: applied.condition, search: applied.q })}`} className="btn-secondary btn-sm">
-            <ExcelFileIcon className="h-3.5 w-3.5" />
-            ส่งออก Excel
-          </a>
-          <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ locationFilter: applied.location, conditionFilter: applied.condition, search: applied.q })}`} target="_blank" className="btn-secondary btn-sm">
-            <PrinterIcon className="h-3.5 w-3.5" />
-            พิมพ์
-          </a>
-        </div>
+        {canExport && (
+          <div className="flex items-center gap-2">
+            <a href={`/asset-register/summary/xlsx?${buildSummaryQuery({ locationFilter: applied.location, conditionFilter: applied.condition, search: applied.q })}`} className="btn-secondary btn-sm">
+              <ExcelFileIcon className="h-3.5 w-3.5" />
+              ส่งออก Excel
+            </a>
+            <a href={`/asset-register/summary/pdf?${buildSummaryQuery({ locationFilter: applied.location, conditionFilter: applied.condition, search: applied.q })}`} target="_blank" className="btn-secondary btn-sm">
+              <PrinterIcon className="h-3.5 w-3.5" />
+              พิมพ์
+            </a>
+          </div>
+        )}
       </div>
 
       {/* @container: สลับการ์ด/ตารางตามความกว้าง "พื้นที่เนื้อหา" จริง (ไม่ใช่ความกว้างหน้าจอ) เพราะแถบเมนูซ้ายกินที่ไม่เท่ากัน —

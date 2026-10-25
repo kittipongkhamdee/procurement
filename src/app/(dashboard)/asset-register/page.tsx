@@ -169,7 +169,7 @@ export default function AssetRegisterPage() {
             onChanged={reload}
           />
         )}
-        {tab === "summary" && <SummaryTab conditions={activeConditions} />}
+        {tab === "summary" && <SummaryTab conditions={activeConditions} canExport={!isTeacher} />}
         {tab === "master" && !isTeacher && (
           <MasterDataTab
             canManage={canManage}
