@@ -32,15 +32,6 @@ type SummaryItem = {
 
 const ALL = "__all__";
 
-// สีแท่งกราฟตามสีป้ายสภาพ (badge_color ในข้อมูลหลัก)
-const BAR_COLORS: Record<string, string> = {
-  emerald: "bg-emerald-500",
-  amber: "bg-amber-500",
-  red: "bg-red-500",
-  navy: "bg-navy-800",
-  slate: "bg-slate-400",
-};
-
 function conditionBadge(conditionId: string | null, conditionLookup: Map<string, { name: string; badge_color: string }>) {
   const c = conditionId ? conditionLookup.get(conditionId) : null;
   if (!c) return { cls: "badge-slate", label: "-" };
@@ -224,15 +215,6 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
     { price: 0, annual: 0, cumulative: 0, net: 0 },
   );
 
-  // นับตามสภาพ — แสดงครบทุกสภาพที่เปิดใช้ (รวมสภาพที่ไม่มีรายการ = 0) เรียงตามลำดับข้อมูลหลัก
-  const conditionCounts = conditions.map((c) => ({
-    ...c,
-    count: rowsWithTotals.filter(({ it }) => it.condition_id === c.id).length,
-  }));
-  const noCondition = rowsWithTotals.filter(({ it }) => !it.condition_id).length;
-  if (noCondition > 0) conditionCounts.push({ id: "__none__", name: "ไม่ระบุสภาพ", badge_color: "slate", count: noCondition });
-  const maxCondCount = Math.max(0, ...conditionCounts.map((c) => c.count));
-
   const totalPages = Math.max(1, Math.ceil(rowsWithTotals.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageRows = rowsWithTotals.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -255,45 +237,6 @@ export function SummaryTab({ conditions }: { conditions: (Option & { badge_color
             <PrinterIcon className="h-3.5 w-3.5" />
             พิมพ์
           </a>
-        </div>
-      </div>
-
-      {/* แดชบอร์ดสรุป — ตัวเลขรวมของ "ทุกแถวที่ตรงตัวกรอง" (ไม่ใช่แค่หน้าที่เห็น) + กราฟแยกตามสภาพ */}
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        {[
-          { label: "จำนวนรายการ", value: rowsWithTotals.length.toLocaleString("th-TH"), unit: "รายการ", accent: false },
-          { label: "ราคาทุนรวม", value: formatBaht(grandTotals.price), unit: "บาท", accent: false },
-          { label: "ค่าเสื่อม/ปี รวม", value: formatBaht(grandTotals.annual), unit: "บาท", accent: false },
-          { label: "ค่าเสื่อมสะสมรวม", value: formatBaht(grandTotals.cumulative), unit: "บาท", accent: false },
-          { label: "มูลค่าสุทธิรวม", value: formatBaht(grandTotals.net), unit: "บาท", accent: true },
-        ].map((k) => (
-          <div key={k.label} className="card !p-4">
-            <p className="text-xs text-slate-500">{k.label}</p>
-            <p className={`mt-1 text-xl font-bold tabular-nums ${k.accent ? "text-navy-800" : "text-slate-900"}`}>{k.value}</p>
-            <p className="text-xs text-slate-400">{k.unit}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="card mb-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">จำนวนรายการแยกตามสภาพ</h2>
-        <div className="space-y-2.5">
-          {conditionCounts.map((c) => (
-            <div key={c.id} className="grid grid-cols-[8.5rem_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[13rem_1fr_auto]">
-              <span className="truncate text-slate-700" title={c.name}>
-                {c.name}
-              </span>
-              <div className="h-4 overflow-hidden rounded bg-slate-100">
-                <div
-                  className={`h-full rounded ${BAR_COLORS[c.badge_color] ?? "bg-slate-400"}`}
-                  style={{ width: `${maxCondCount ? (c.count / maxCondCount) * 100 : 0}%`, minWidth: c.count > 0 ? "4px" : 0 }}
-                />
-              </div>
-              <span className="w-24 text-right tabular-nums text-slate-900">
-                {c.count.toLocaleString("th-TH")} <span className="text-xs text-slate-400">({rowsWithTotals.length ? Math.round((c.count / rowsWithTotals.length) * 100) : 0}%)</span>
-              </span>
-            </div>
-          ))}
         </div>
       </div>
 

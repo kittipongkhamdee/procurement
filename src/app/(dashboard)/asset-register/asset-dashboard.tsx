@@ -1,0 +1,127 @@
+"use client";
+
+// แดชบอร์ดสรุปทะเบียนทรัพย์สิน (บนสุดของหน้า) — ตัวเลขรวมทุกรายการ + กราฟแยกตามสภาพ
+// ดึงเฉพาะ 5 คอลัมน์ที่ใช้คำนวณ (ไม่ดึงชื่อ/รูป/สถานที่) แบ่งหน้าละ 1,000 แถว (เพดานของ Supabase)
+// ค่าเสื่อมใช้ตรรกะเดียวกับ PDF ทะเบียนคุม (src/lib/asset-depreciation.ts) ยอดจึงตรงกัน
+
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { formatBaht } from "@/lib/thai";
+import { computeAssetDepreciation } from "@/lib/asset-depreciation";
+
+type Condition = { id: string; name: string; badge_color: string };
+type Category = { id: string; useful_life_years: number | null; depreciation_rate_percent: number | null };
+type Row = {
+  price: number | null;
+  acquired_date: string | null;
+  acquired_year: number | null;
+  category_id: string | null;
+  condition_id: string | null;
+};
+
+// สีแท่งกราฟตามสีป้ายสภาพ (badge_color ในข้อมูลหลัก)
+const BAR_COLORS: Record<string, string> = {
+  emerald: "bg-emerald-500",
+  amber: "bg-amber-500",
+  red: "bg-red-500",
+  navy: "bg-navy-800",
+  slate: "bg-slate-400",
+};
+
+const PAGE = 1000;
+
+export function AssetDashboard({ conditions, categories, refreshKey }: { conditions: Condition[]; categories: Category[]; refreshKey?: number }) {
+  const [rows, setRows] = useState<Row[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const supabase = createClient();
+      const all: Row[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data } = await supabase
+          .from("asset_items")
+          .select("price, acquired_date, acquired_year, category_id, condition_id")
+          .order("id")
+          .range(from, from + PAGE - 1);
+        all.push(...((data as Row[] | null) ?? []));
+        if (!data || data.length < PAGE) break;
+      }
+      if (!cancelled) setRows(all);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
+
+  const stats = useMemo(() => {
+    if (!rows) return null;
+    const catMap = new Map(categories.map((c) => [c.id, c]));
+    const t = { price: 0, annual: 0, cumulative: 0, net: 0 };
+    for (const it of rows) {
+      const cat = it.category_id ? catMap.get(it.category_id) : null;
+      const d = computeAssetDepreciation({
+        price: it.price,
+        acquired_date: it.acquired_date,
+        acquired_year: it.acquired_year,
+        useful_life_years: cat?.useful_life_years ?? null,
+        depreciation_rate_percent: cat?.depreciation_rate_percent ?? null,
+      });
+      t.price += it.price ?? 0;
+      t.annual += d.annual ?? 0;
+      t.cumulative += d.cumulative ?? 0;
+      t.net += d.net ?? 0;
+    }
+    const counts = conditions.map((c) => ({ ...c, count: rows.filter((r) => r.condition_id === c.id).length }));
+    const none = rows.filter((r) => !r.condition_id).length;
+    if (none > 0) counts.push({ id: "__none__", name: "ไม่ระบุสภาพ", badge_color: "slate", count: none });
+    return { total: rows.length, ...t, counts, max: Math.max(0, ...counts.map((c) => c.count)) };
+  }, [rows, categories, conditions]);
+
+  if (!stats) return <p className="mb-4 text-sm text-slate-500">กำลังโหลดแดชบอร์ด...</p>;
+
+  const kpis = [
+    { label: "จำนวนรายการ", value: stats.total.toLocaleString("th-TH"), unit: "รายการ", accent: false },
+    { label: "ราคาทุนรวม", value: formatBaht(stats.price), unit: "บาท", accent: false },
+    { label: "ค่าเสื่อม/ปี รวม", value: formatBaht(stats.annual), unit: "บาท", accent: false },
+    { label: "ค่าเสื่อมสะสมรวม", value: formatBaht(stats.cumulative), unit: "บาท", accent: false },
+    { label: "มูลค่าสุทธิรวม", value: formatBaht(stats.net), unit: "บาท", accent: true },
+  ];
+
+  return (
+    <div className="mb-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        {kpis.map((k) => (
+          <div key={k.label} className="card !p-4">
+            <p className="text-xs text-slate-500">{k.label}</p>
+            <p className={`mt-1 text-xl font-bold tabular-nums ${k.accent ? "text-navy-800" : "text-slate-900"}`}>{k.value}</p>
+            <p className="text-xs text-slate-400">{k.unit}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="card mt-3">
+        <h2 className="mb-3 text-sm font-semibold text-slate-900">จำนวนรายการแยกตามสภาพ</h2>
+        <div className="space-y-2.5">
+          {stats.counts.map((c) => (
+            <div key={c.id} className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[13rem_1fr_auto]">
+              <span className="truncate text-slate-700" title={c.name}>
+                {c.name}
+              </span>
+              <div className="h-4 overflow-hidden rounded bg-slate-100">
+                <div
+                  className={`h-full rounded ${BAR_COLORS[c.badge_color] ?? "bg-slate-400"}`}
+                  style={{ width: `${stats.max ? (c.count / stats.max) * 100 : 0}%`, minWidth: c.count > 0 ? "4px" : 0 }}
+                />
+              </div>
+              <span className="w-24 text-right tabular-nums text-slate-900">
+                {c.count.toLocaleString("th-TH")}{" "}
+                <span className="text-xs text-slate-400">({stats.total ? Math.round((c.count / stats.total) * 100) : 0}%)</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
