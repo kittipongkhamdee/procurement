@@ -12,7 +12,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { RegisterTab } from "./register-tab";
 import { MasterDataTab } from "./master-data-tab";
 import { SummaryTab } from "./summary-tab";
-import { AssetDashboard } from "./asset-dashboard";
+import { AssetDashboard, clearAssetDashboardCache } from "./asset-dashboard";
 import { AssetImportModal } from "./asset-import-modal";
 
 type Option = { id: string; name: string };
@@ -106,6 +106,12 @@ export default function AssetRegisterPage() {
     reload();
   }, [reload]);
 
+  // มีการเพิ่ม/แก้/ลบทรัพย์สินหรือข้อมูลหลัก → ล้างแคชแดชบอร์ดให้ดึงตัวเลขใหม่
+  function handleChanged() {
+    clearAssetDashboardCache();
+    reload();
+  }
+
   if (authLoading || loading) return <PageLoadingSkeleton />;
 
   const activeCategories = categories.filter((c) => c.is_active);
@@ -126,6 +132,7 @@ export default function AssetRegisterPage() {
         {canManage && (
           <AssetImportModal
             onDone={() => {
+              clearAssetDashboardCache();
               setImportTick((n) => n + 1);
               setTab("register");
             }}
@@ -166,7 +173,7 @@ export default function AssetRegisterPage() {
             acquisitionMethods={activeAcquisitionMethods}
             itemTypes={activeItemTypes}
             conditions={activeConditions}
-            onChanged={reload}
+            onChanged={handleChanged}
           />
         )}
         {tab === "summary" && <SummaryTab conditions={activeConditions} canExport={!isTeacher} />}
@@ -180,7 +187,7 @@ export default function AssetRegisterPage() {
             acquisitionMethods={acquisitionMethods}
             itemTypes={itemTypes}
             conditions={conditions}
-            onChanged={reload}
+            onChanged={handleChanged}
           />
         )}
       </div>

@@ -30,11 +30,42 @@ const BAR_COLORS: Record<string, string> = {
 
 const PAGE = 1000;
 
+// จำข้อมูลที่ดึงมาไว้ใน sessionStorage 30 นาที (หายเมื่อปิดแท็บ) — เปิดหน้าซ้ำไม่ต้องดึง Supabase ใหม่ทุกครั้ง
+// เมื่อมีการเพิ่ม/แก้/ลบทรัพย์สิน หรือแก้ข้อมูลหลัก หน้าหลักเรียก clearAssetDashboardCache() ให้ดึงใหม่ทันที
+const CACHE_KEY = "asset-dashboard-rows-v1";
+const CACHE_TTL_MS = 30 * 60 * 1000;
+
+function readCache(): Row[] | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { at, rows } = JSON.parse(raw) as { at: number; rows: Row[] };
+    if (typeof at !== "number" || Date.now() - at > CACHE_TTL_MS || !Array.isArray(rows)) return null;
+    return rows;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAssetDashboardCache() {
+  try {
+    sessionStorage.removeItem(CACHE_KEY);
+  } catch {
+    // เบราว์เซอร์ปิดการเก็บข้อมูล — ไม่มีแคชให้ล้าง
+  }
+}
+
 export function AssetDashboard({ conditions, categories, refreshKey }: { conditions: Condition[]; categories: Category[]; refreshKey?: number }) {
   const [rows, setRows] = useState<Row[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const cached = readCache();
+    if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRows(cached);
+      return;
+    }
     (async () => {
       const supabase = createClient();
       const all: Row[] = [];
@@ -47,7 +78,14 @@ export function AssetDashboard({ conditions, categories, refreshKey }: { conditi
         all.push(...((data as Row[] | null) ?? []));
         if (!data || data.length < PAGE) break;
       }
-      if (!cancelled) setRows(all);
+      if (!cancelled) {
+        setRows(all);
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), rows: all }));
+        } catch {
+          // เก็บไม่ได้ก็แค่ไม่มีแคช
+        }
+      }
     })();
     return () => {
       cancelled = true;
