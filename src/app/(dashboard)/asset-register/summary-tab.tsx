@@ -14,7 +14,7 @@ import { QrScanButton } from "./qr-scan-button";
 
 type Option = { id: string; name: string };
 
-type SummaryItem = {
+export type SummaryItem = {
   id: string;
   name: string;
   category_id: string | null;
@@ -38,7 +38,16 @@ function conditionBadge(conditionId: string | null, conditionLookup: Map<string,
   return { cls: `badge-${c.badge_color}`, label: c.name };
 }
 
-export function SummaryTab({ conditions, canExport }: { conditions: (Option & { badge_color: string })[]; canExport: boolean }) {
+export function SummaryTab({
+  conditions,
+  canExport,
+  onFilteredChange,
+}: {
+  conditions: (Option & { badge_color: string })[];
+  canExport: boolean;
+  /** ส่งรายการที่ตรงตัวกรองล่าสุดให้แดชบอร์ดด้านบนรวมยอด (null = ยังไม่ได้ค้นหา/ออกจากแท็บ) */
+  onFilteredChange?: (rows: SummaryItem[] | null, filterActive: boolean) => void;
+}) {
   const conditionLookup = new Map(conditions.map((c) => [c.id, { name: c.name, badge_color: c.badge_color }]));
   const [items, setItems] = useState<SummaryItem[] | null>(null);
   const [allCount, setAllCount] = useState(0);
@@ -107,6 +116,16 @@ export function SummaryTab({ conditions, canExport }: { conditions: (Option & { 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadStaticData();
   }, [loadStaticData]);
+
+  // ส่งผลค้นหาล่าสุดให้แดชบอร์ด (ระหว่างค้นหา items = null → คงค่าเดิมไว้ ไม่กะพริบ)
+  useEffect(() => {
+    if (items && applied) onFilteredChange?.(items, applied.location !== ALL || applied.condition !== ALL || applied.q !== "");
+  }, [items, applied, onFilteredChange]);
+
+  // ออกจากแท็บ → กลับไปแสดงยอดทั้งระบบ
+  useEffect(() => {
+    return () => onFilteredChange?.(null, false);
+  }, [onFilteredChange]);
 
   function updateFilter(setter: (v: string) => void, value: string) {
     setter(value);

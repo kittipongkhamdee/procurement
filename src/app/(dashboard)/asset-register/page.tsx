@@ -12,7 +12,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { RegisterTab } from "./register-tab";
 import { MasterDataTab } from "./master-data-tab";
 import { SummaryTab } from "./summary-tab";
-import { AssetDashboard, clearAssetDashboardCache } from "./asset-dashboard";
+import { AssetDashboard, clearAssetDashboardCache, type DashboardRow } from "./asset-dashboard";
 import { AssetImportModal } from "./asset-import-modal";
 
 type Option = { id: string; name: string };
@@ -63,6 +63,9 @@ export default function AssetRegisterPage() {
   const [rounds, setRounds] = useState<SurveyRound[]>([]);
   // ส่งครุภัณฑ์จากรายการจัดซื้อแล้ว → โหลดแท็บจัดการทรัพย์สินใหม่
   const [importTick, setImportTick] = useState(0);
+  // รายการที่ตรงตัวกรองของแท็บทะเบียน — ให้แดชบอร์ดรวมยอดตามตัวกรอง (null = ทั้งระบบ)
+  const [filtered, setFiltered] = useState<{ rows: DashboardRow[] | null; active: boolean }>({ rows: null, active: false });
+  const handleFilteredChange = useCallback((rows: DashboardRow[] | null, active: boolean) => setFiltered({ rows, active }), []);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -141,7 +144,7 @@ export default function AssetRegisterPage() {
       </div>
 
       {/* แดชบอร์ดสรุป — อยู่ใต้หัวหน้าจอ/ปุ่มดึงจากรายการจัดซื้อ เหนือแท็บ */}
-      <AssetDashboard conditions={activeConditions} categories={categories} refreshKey={importTick} />
+      <AssetDashboard conditions={activeConditions} categories={categories} refreshKey={importTick} filteredRows={filtered.rows} filterActive={filtered.active} />
 
       <div className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200">
         {visibleTabs.map((t) => (
@@ -176,7 +179,7 @@ export default function AssetRegisterPage() {
             onChanged={handleChanged}
           />
         )}
-        {tab === "summary" && <SummaryTab conditions={activeConditions} canExport={!isTeacher} />}
+        {tab === "summary" && <SummaryTab conditions={activeConditions} canExport={!isTeacher} onFilteredChange={handleFilteredChange} />}
         {tab === "master" && !isTeacher && (
           <MasterDataTab
             canManage={canManage}

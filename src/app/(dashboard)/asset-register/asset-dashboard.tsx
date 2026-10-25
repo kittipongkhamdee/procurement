@@ -11,7 +11,7 @@ import { computeAssetDepreciation } from "@/lib/asset-depreciation";
 
 type Condition = { id: string; name: string; badge_color: string };
 type Category = { id: string; useful_life_years: number | null; depreciation_rate_percent: number | null };
-type Row = {
+export type DashboardRow = {
   price: number | null;
   acquired_date: string | null;
   acquired_year: number | null;
@@ -35,11 +35,11 @@ const PAGE = 1000;
 const CACHE_KEY = "asset-dashboard-rows-v1";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
-function readCache(): Row[] | null {
+function readCache(): DashboardRow[] | null {
   try {
     const raw = sessionStorage.getItem(CACHE_KEY);
     if (!raw) return null;
-    const { at, rows } = JSON.parse(raw) as { at: number; rows: Row[] };
+    const { at, rows } = JSON.parse(raw) as { at: number; rows: DashboardRow[] };
     if (typeof at !== "number" || Date.now() - at > CACHE_TTL_MS || !Array.isArray(rows)) return null;
     return rows;
   } catch {
@@ -55,8 +55,22 @@ export function clearAssetDashboardCache() {
   }
 }
 
-export function AssetDashboard({ conditions, categories, refreshKey }: { conditions: Condition[]; categories: Category[]; refreshKey?: number }) {
-  const [rows, setRows] = useState<Row[] | null>(null);
+export function AssetDashboard({
+  conditions,
+  categories,
+  refreshKey,
+  filteredRows,
+  filterActive,
+}: {
+  conditions: Condition[];
+  categories: Category[];
+  refreshKey?: number;
+  /** รายการที่ตรงตัวกรองจากแท็บทะเบียน (กดค้นหาแล้ว) — ถ้ามีจะรวมยอดเฉพาะรายการเหล่านี้แทนทั้งระบบ */
+  filteredRows?: DashboardRow[] | null;
+  /** true เมื่อมีการเลือกตัวกรอง (สถานที่/สภาพ/คำค้น) ไว้จริง */
+  filterActive?: boolean;
+}) {
+  const [allRows, setRows] = useState<DashboardRow[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,14 +82,14 @@ export function AssetDashboard({ conditions, categories, refreshKey }: { conditi
     }
     (async () => {
       const supabase = createClient();
-      const all: Row[] = [];
+      const all: DashboardRow[] = [];
       for (let from = 0; ; from += PAGE) {
         const { data } = await supabase
           .from("asset_items")
           .select("price, acquired_date, acquired_year, category_id, condition_id")
           .order("id")
           .range(from, from + PAGE - 1);
-        all.push(...((data as Row[] | null) ?? []));
+        all.push(...((data as DashboardRow[] | null) ?? []));
         if (!data || data.length < PAGE) break;
       }
       if (!cancelled) {
@@ -92,6 +106,7 @@ export function AssetDashboard({ conditions, categories, refreshKey }: { conditi
     };
   }, [refreshKey]);
 
+  const rows = filteredRows ?? allRows;
   const stats = useMemo(() => {
     if (!rows) return null;
     const catMap = new Map(categories.map((c) => [c.id, c]));
@@ -128,6 +143,12 @@ export function AssetDashboard({ conditions, categories, refreshKey }: { conditi
 
   return (
     <div className="mb-6">
+      {filteredRows && filterActive && (
+        <p className="mb-2 text-sm text-slate-500">
+          ตัวเลขนี้รวมเฉพาะ <span className="font-semibold text-slate-900">{stats.total.toLocaleString("th-TH")}</span> รายการที่ตรงตัวกรอง
+          {allRows ? ` (จากทั้งหมด ${allRows.length.toLocaleString("th-TH")} รายการ)` : ""}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {kpis.map((k) => (
           <div key={k.label} className="card !p-4">
