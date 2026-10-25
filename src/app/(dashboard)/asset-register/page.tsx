@@ -118,9 +118,6 @@ export default function AssetRegisterPage() {
 
   return (
     <div>
-      {/* แดชบอร์ดสรุปอยู่บนสุด (เหนือหัวหน้าจอ/ปุ่มดึงจากรายการจัดซื้อ) */}
-      <AssetDashboard conditions={activeConditions} categories={categories} refreshKey={importTick} />
-
       <div className="page-header">
         <div>
           <h1 className="page-title">ทะเบียนคุมทรัพย์สิน</h1>
@@ -135,6 +132,9 @@ export default function AssetRegisterPage() {
           />
         )}
       </div>
+
+      {/* แดชบอร์ดสรุป — อยู่ใต้หัวหน้าจอ/ปุ่มดึงจากรายการจัดซื้อ เหนือแท็บ */}
+      <AssetDashboard conditions={activeConditions} categories={categories} refreshKey={importTick} />
 
       <div className="mt-4 flex gap-1 overflow-x-auto border-b border-slate-200">
         {visibleTabs.map((t) => (
