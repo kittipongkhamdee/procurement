@@ -11,7 +11,8 @@ import { createClient } from "@/lib/supabase/client";
 import { HubCardGrid, type HubCard } from "@/components/hub-cards";
 import { ChevronRightIcon, CoinsIcon, FileTextIcon, WalletIcon } from "@/components/icons";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { fiscalYearOf, round2 } from "@/lib/finance-ledger";
+import { balancesByType, fiscalYearOf, round2, type FinTxn, type Opening } from "@/lib/finance-ledger";
+import { BankAccountCard } from "@/components/bank-account-card";
 import { loanBalance, isOverdue } from "@/lib/loan";
 import { todayTh } from "@/lib/thai";
 import { loadPendingSources } from "./ledger/pending-sources";
@@ -33,6 +34,7 @@ type Summary = {
   loanNeedPay: number; // ผอ. อนุมัติแล้ว รอจ่ายเงิน
   myOutstanding: number; // ของตัวเอง ค้างส่งใช้
   myOverdue: number;
+  accounts: { id: string; name: string; bank_name: string | null; account_no: string | null; balance: number }[];
   fundNeedApprove: number;
   fundOutstanding: number;
   receiptForms: number;
@@ -56,13 +58,22 @@ export default function FinanceHubPage() {
       const supabase = createClient();
       const today = todayTh();
       const fy = fiscalYearOf(today);
-      const [tx, loans, fund, rf, tf] = await Promise.all([
-        supabase.from("fin_transactions").select("kind, amount").eq("fiscal_year", fy),
+      const [tx, loans, fund, rf, tf, acc, mt, op] = await Promise.all([
+        supabase.from("fin_transactions").select("kind, amount, from_pocket, to_pocket, money_type_id, txn_date").eq("fiscal_year", fy),
         supabase.from("proc_loan_contracts").select("id, doc_no, amount, received_date, due_date, director_approved_at, created_by, proc_loan_repayments(cash_amount, voucher_amount)"),
         supabase.from("fin_fund_loans").select("id, director_approved_at, fin_fund_loan_lines(amount, fin_fund_loan_repays(amount))"),
         supabase.from("fin_receipt_forms").select("id", { count: "exact", head: true }),
         supabase.from("fin_travel_forms").select("id", { count: "exact", head: true }),
+        supabase.from("fin_accounts").select("id, name, bank_name, account_no").eq("is_active", true).order("sort_order"),
+        supabase.from("fin_money_types").select("id, account_id"),
+        supabase.from("fin_opening_balances").select("fiscal_year, money_type_id, cash, bank, gov").eq("fiscal_year", fy),
       ]);
+      // ยอดคงเหลือแต่ละบัญชีธนาคาร = ช่อง "เงินฝากธนาคาร" ของทุกประเภทเงินที่ผูกกับบัญชีนั้น ณ วันนี้ (ตรงกับรายงานเงินคงเหลือประจำวัน)
+      const byType = balancesByType((op.data ?? []) as Opening[], (tx.data ?? []) as unknown as FinTxn[], today);
+      const accounts = (acc.data ?? []).map((a) => ({
+        ...a,
+        balance: round2((mt.data ?? []).filter((t) => t.account_id === a.id).reduce((sum, t) => sum + (byType.get(t.id)?.bank ?? 0), 0)),
+      }));
       // รายการรอบันทึกในบัญชี — โหลดเฉพาะผู้มีสิทธิ์บันทึก (ตัวนับเดียวกับแถบ "รอบันทึกจากงานอื่น" ในหน้าบัญชีรับ-จ่าย)
       const pending = isManager ? await loadPendingSources(supabase, fy).catch(() => []) : [];
 
@@ -94,6 +105,7 @@ export default function FinanceHubPage() {
         loanNeedPay: loanRows.filter((l) => l.director_approved_at && !l.received_date).length,
         myOutstanding: round2(mine.reduce((a, l) => a + l.outstanding, 0)),
         myOverdue: mine.filter((l) => l.overdue).length,
+        accounts,
         fundNeedApprove: fundRows.filter((f) => !f.approved).length,
         fundOutstanding: round2(fundRows.reduce((a, f) => a + f.outstanding, 0)),
         receiptForms: rf.count ?? 0,
@@ -204,6 +216,24 @@ export default function FinanceHubPage() {
           </ul>
         )}
       </div>
+
+      {s.accounts.length > 0 && (
+        <section className="mb-6">
+          <h2 className="mb-2 font-semibold text-slate-900">บัญชีเงินฝากธนาคาร</h2>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {s.accounts.map((a) => (
+              <BankAccountCard
+                key={a.id}
+                name={a.name}
+                bankName={a.bank_name}
+                accountNo={a.account_no}
+                balance={a.balance}
+                settingsHref={role === "admin" || role === "finance_officer" ? "/finance/ledger/settings" : undefined}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <HubCardGrid cards={cards} />
     </div>
