@@ -282,7 +282,8 @@ function LedgerContent({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOverview
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {canWrite && <TxnForm types={types} projects={projects} suggest={suggest} onSaved={reload} />}
+          {/* ปุ่มบันทึกรับ-จ่ายแสดงเฉพาะหน้ารวม และหน้ารายการรับ-จ่าย — หน้าอื่น (ยอดคงเหลือ/งบโครงการ/พิมพ์รายงาน/รอบันทึกจากงานอื่น) ไม่ใช้ */}
+          {canWrite && (!tab || tab === "txns") && <TxnForm types={types} projects={projects} suggest={suggest} onSaved={reload} />}
         </div>
       </div>
 
