@@ -4,7 +4,7 @@
 // เจ้าหน้าที่การเงิน (และแอดมิน) บันทึก/แก้ไข — ผอ. และครูดูอย่างเดียว (RLS fin_can_write)
 
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/AuthContext";
@@ -86,6 +86,55 @@ export function LedgerView({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOver
     <Suspense fallback={<PageLoadingSkeleton />}>
       <LedgerContent topSlot={topSlot} extraCards={extraCards} />
     </Suspense>
+  );
+}
+
+/** ปุ่ม "ตั้งค่า" เปิดเมนู: เลือกปีงบประมาณที่ดูข้อมูล (ทุกบทบาท) + ลิงก์ไปหน้าตั้งค่าการเงิน (เฉพาะแอดมิน/เจ้าหน้าที่การเงิน) */
+function FiscalSettingsMenu({ fy, years, onChangeFy, canWrite }: { fy: number; years: number[]; onChangeFy: (y: number) => void; canWrite: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="btn-secondary inline-flex items-center gap-2">
+        <SettingsIcon className="h-4 w-4" />
+        {canWrite ? "ตั้งค่า" : `ปีงบ ${fy}`}
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+          <label className="label">ปีงบประมาณที่ดูข้อมูล</label>
+          <select
+            value={fy}
+            onChange={(e) => {
+              onChangeFy(Number(e.target.value));
+              setOpen(false);
+            }}
+            className="input w-full"
+            aria-label="ปีงบประมาณ"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                ปีงบประมาณ {y}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">เปลี่ยนเฉพาะข้อมูลบัญชีรับ-จ่าย การ์ดบัญชีธนาคารแสดงยอดปีงบปัจจุบันเสมอ</p>
+          {canWrite && (
+            <Link href="/finance/ledger/settings" className="mt-3 flex items-center gap-2 rounded-lg border-t border-slate-100 px-1 pt-3 text-sm font-semibold text-navy-800 hover:underline">
+              <SettingsIcon className="h-4 w-4" />
+              ตั้งค่าการเงิน (ประเภทเงิน · สมุดบัญชี · ยอดยกมา)
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -210,7 +259,32 @@ function LedgerContent({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOverview
   }, [txns, month, typeFilter, query, fmt]);
 
   const balances = useMemo(() => balancesByType(openings, txns ?? [], asOf ?? undefined), [openings, txns, asOf]);
-  const balancesToday = useMemo(() => balancesByType(openings, txns ?? [], todayLocal()), [openings, txns]);
+  // ยอดวันนี้ของ "ปีงบประมาณปัจจุบัน" เสมอ (ใช้กับการ์ดบัญชีธนาคารหน้ารวม) — ไม่ขึ้นกับปีที่เลือกดูข้อมูล
+  // ถ้ากำลังดูปีอื่นอยู่ ดึงยอดยกมา+รายการของปีปัจจุบันแยกต่างหาก (ข้อมูลน้อย)
+  const curFy = fiscalYearOf(todayLocal());
+  const [curFyData, setCurFyData] = useState<{ openings: Opening[]; txns: FinTxn[] } | null>(null);
+  useEffect(() => {
+    if (fy === curFy) return;
+    let cancelled = false;
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("fin_opening_balances").select("fiscal_year, money_type_id, cash, bank, gov").eq("fiscal_year", curFy),
+      supabase.from("fin_transactions").select("id, fiscal_year, txn_date, kind, from_pocket, to_pocket, amount, money_type_id").eq("fiscal_year", curFy),
+    ]).then(([op, tx]) => {
+      if (cancelled) return;
+      setCurFyData({
+        openings: ((op.data ?? []) as Opening[]).map((o) => ({ ...o, cash: Number(o.cash), bank: Number(o.bank), gov: Number(o.gov) })),
+        txns: ((tx.data ?? []) as unknown as FinTxn[]).map((t) => ({ ...t, amount: Number(t.amount) })),
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fy, curFy]);
+  const balancesToday = useMemo(
+    () => (fy === curFy ? balancesByType(openings, txns ?? [], todayLocal()) : balancesByType(curFyData?.openings ?? [], curFyData?.txns ?? [], todayLocal())),
+    [fy, curFy, openings, txns, curFyData],
+  );
   // ยอดวันนี้สำหรับการ์ดหน้ารวม (แท็บยอดคงเหลือเลือกวันที่เองได้)
   const grand = useMemo(() => [...balancesByType(openings, txns ?? [], todayLocal()).values()].reduce((s, b) => addBal(s, b), zero()), [openings, txns]);
   const projectTotals = useMemo(
@@ -252,24 +326,12 @@ function LedgerContent({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOverview
           )}
           <h1 className="page-title">{tab ? TABS.find((x) => x.key === tab)!.label : "งานการเงิน"}</h1>
           <p className="page-subtitle">
-            {tab ? `ปีงบประมาณ ${fy}` : "บัญชีรับ-จ่าย สัญญายืมเงิน ภาษีหัก ณ ที่จ่าย แบบฟอร์มการเงิน และสลิปเงินเดือน"}
+            {tab ? `ปีงบประมาณ ${fy}` : `บัญชีรับ-จ่าย สัญญายืมเงิน ภาษีหัก ณ ที่จ่าย แบบฟอร์มการเงิน และสลิปเงินเดือน · ข้อมูลบัญชีรับ-จ่ายปีงบประมาณ ${fy}`}
             {canWrite ? "" : " — ดูได้อย่างเดียว (เจ้าหน้าที่การเงินเป็นผู้บันทึก)"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select value={fy} onChange={(e) => setFy(Number(e.target.value))} className="input w-auto" aria-label="ปีงบประมาณ">
-            {years.map((y) => (
-              <option key={y} value={y}>
-                ปีงบประมาณ {y}
-              </option>
-            ))}
-          </select>
-          {canWrite && (
-            <Link href="/finance/ledger/settings" className="btn-secondary inline-flex items-center gap-2">
-              <SettingsIcon className="h-4 w-4" />
-              ตั้งค่า
-            </Link>
-          )}
+          <FiscalSettingsMenu fy={fy} years={years} onChangeFy={setFy} canWrite={canWrite} />
           {canWrite && <TxnForm types={types} projects={projects} suggest={suggest} onSaved={reload} />}
         </div>
       </div>
