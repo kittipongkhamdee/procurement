@@ -285,13 +285,15 @@ function LedgerContent({ topSlot, extraCards }: { topSlot?: (ctx: LedgerOverview
           {/* ปุ่มบันทึกรับ-จ่ายแสดงเฉพาะหน้ารวม และหน้ารายการรับ-จ่าย — หน้าอื่น (ยอดคงเหลือ/งบโครงการ/พิมพ์รายงาน/รอบันทึกจากงานอื่น) ไม่ใช้ */}
           {canWrite && (!tab || tab === "txns") && <TxnForm types={types} projects={projects} suggest={suggest} onSaved={reload} />}
           {/* เลือกปีงบประมาณที่ดูข้อมูลบัญชีรับ-จ่าย — ทุกบทบาทที่เข้าหน้านี้ได้เลือกได้ (ผอ./รอง ผอ. ดูข้อมูลย้อนหลัง) การ์ดบัญชีธนาคารแสดงยอดปีงบปัจจุบันเสมอ */}
-          <select value={fy} onChange={(e) => setFy(Number(e.target.value))} className="input w-auto" aria-label="ปีงบประมาณที่ดูข้อมูลบัญชีรับ-จ่าย">
-            {years.map((y) => (
-              <option key={y} value={y}>
-                ปีงบประมาณ {y}
-              </option>
-            ))}
-          </select>
+          {(!tab || tab === "txns") && (
+            <select value={fy} onChange={(e) => setFy(Number(e.target.value))} className="input w-auto" aria-label="ปีงบประมาณที่ดูข้อมูลบัญชีรับ-จ่าย">
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  ปีงบประมาณ {y}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
