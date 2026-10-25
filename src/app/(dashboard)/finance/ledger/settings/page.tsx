@@ -204,7 +204,7 @@ export default function LedgerSettingsPage() {
     return (
       <div className="card text-sm text-slate-600">
         หน้านี้สำหรับเจ้าหน้าที่การเงินหรือผู้ดูแลระบบ —{" "}
-        <Link href="/finance/ledger" className="font-semibold text-navy-800 underline">
+        <Link href="/finance" className="font-semibold text-navy-800 underline">
           กลับการเงิน
         </Link>
       </div>
@@ -257,7 +257,7 @@ export default function LedgerSettingsPage() {
     <div className="space-y-6">
       <div className="page-header">
         <div>
-          <Link href="/finance/ledger" className="back-link mb-2">
+          <Link href="/finance" className="back-link mb-2">
             <ChevronLeftIcon className="h-4 w-4" />
             การเงิน
           </Link>

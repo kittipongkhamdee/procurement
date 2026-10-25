@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fiscalYearOf, FIN_SIGNER_KEYS, POCKETS, SOURCE_DATE_FIELDS, SOURCE_LABEL, sourceDoneDate, type DocKind, type Pocket, type SourceKind, type TxnKind } from "@/lib/finance-ledger";
 
 type Result = { error?: string; id?: string; docSeq?: number | null };
-const PATH = "/finance/ledger";
+const PATH = "/finance";
 const NO_RIGHT = "ไม่มีสิทธิ์ — บันทึกได้เฉพาะเจ้าหน้าที่การเงินหรือผู้ดูแลระบบ";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;

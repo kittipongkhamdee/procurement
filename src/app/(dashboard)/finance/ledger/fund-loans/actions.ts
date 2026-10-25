@@ -12,7 +12,7 @@ import { DOC_FORMAT_KEYS, docFormatsFrom, effect, fiscalYearOf, fundDoc, POCKETS
 
 type Result = { error?: string; id?: string };
 type Supabase = Awaited<ReturnType<typeof createClient>>;
-const PATHS = ["/finance/ledger", "/finance/ledger/fund-loans"];
+const PATHS = ["/finance", "/finance/ledger/fund-loans"];
 const NO_RIGHT = "ไม่มีสิทธิ์ — บันทึกได้เฉพาะเจ้าหน้าที่การเงินหรือผู้ดูแลระบบ";
 
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
