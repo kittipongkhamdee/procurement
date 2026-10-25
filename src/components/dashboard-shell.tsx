@@ -27,11 +27,12 @@ import {
 type NavItem = { href: string; label: string; icon: ReactNode };
 type NavSection = { heading: string | null; items: NavItem[] };
 
-const BOTTOM_TABS = [
+// match = กลุ่มหน้าที่ถือว่าอยู่ในแท็บนี้ (ไฮไลต์แท็บ) — แท็บ "การเงิน" ครอบคลุมทุกหน้าใต้ /finance
+const BOTTOM_TABS: { href: string; label: string; icon: typeof HomeIcon; match?: string }[] = [
   { href: "/", label: "หน้าแรก", icon: HomeIcon },
   { href: "/projects", label: "โครงการ", icon: FolderIcon },
   { href: "/supplies/procurement", label: "ซื้อ-จ้าง", icon: ShoppingCartIcon },
-  { href: "/project-disbursements", label: "การเงิน", icon: WalletIcon },
+  { href: "/finance/ledger", label: "การเงิน", icon: WalletIcon, match: "/finance" },
 ];
 
 // เมนูที่กำลังตรวจ/แก้ไขอยู่ ยังไม่พร้อมให้ใช้งานจริง — ปิดลิงก์ไว้ก่อนชั่วคราว (ยังเข้าหน้าตรงๆ
@@ -473,7 +474,7 @@ export function DashboardShell({
               </div>
             );
           }
-          const active = pathname === tab.href;
+          const active = tab.match ? pathname === tab.match || pathname.startsWith(`${tab.match}/`) : pathname === tab.href;
           return (
             <Link
               key={tab.href}

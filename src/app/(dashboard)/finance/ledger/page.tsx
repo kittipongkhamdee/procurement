@@ -231,10 +231,10 @@ function LedgerContent() {
           {tab && (
             <Link href="/finance/ledger" className="back-link mb-2">
               <ChevronLeftIcon className="h-4 w-4" />
-              บัญชีรับ-จ่ายเงิน
+              การเงิน
             </Link>
           )}
-          <h1 className="page-title">{tab ? TABS.find((x) => x.key === tab)!.label : "บัญชีรับ-จ่ายเงิน"}</h1>
+          <h1 className="page-title">{tab ? TABS.find((x) => x.key === tab)!.label : "การเงิน"}</h1>
           <p className="page-subtitle">
             {tab ? `ปีงบประมาณ ${fy}` : "บันทึกรับ-จ่ายแยกประเภทเงิน · รายงานเงินคงเหลือประจำวัน · ทะเบียนคุมเงิน · ทะเบียนคุมใบสำคัญคู่จ่าย"}
             {canWrite ? "" : " — ดูได้อย่างเดียว (เจ้าหน้าที่การเงินเป็นผู้บันทึก)"}

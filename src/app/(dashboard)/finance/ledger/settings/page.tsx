@@ -205,7 +205,7 @@ export default function LedgerSettingsPage() {
       <div className="card text-sm text-slate-600">
         หน้านี้สำหรับเจ้าหน้าที่การเงินหรือผู้ดูแลระบบ —{" "}
         <Link href="/finance/ledger" className="font-semibold text-navy-800 underline">
-          กลับบัญชีรับ-จ่ายเงิน
+          กลับการเงิน
         </Link>
       </div>
     );
@@ -259,9 +259,9 @@ export default function LedgerSettingsPage() {
         <div>
           <Link href="/finance/ledger" className="back-link mb-2">
             <ChevronLeftIcon className="h-4 w-4" />
-            บัญชีรับ-จ่ายเงิน
+            การเงิน
           </Link>
-          <h1 className="page-title">ตั้งค่าบัญชีรับ-จ่ายเงิน</h1>
+          <h1 className="page-title">ตั้งค่าการเงิน</h1>
           <p className="page-subtitle">ประเภทเงิน · สมุดบัญชีเงินฝาก · ยอดยกมาต้นปีงบประมาณ · ผู้ลงนามรายงาน</p>
         </div>
       </div>

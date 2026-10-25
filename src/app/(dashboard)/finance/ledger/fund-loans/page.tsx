@@ -145,7 +145,7 @@ export default function FundLoansPage() {
         <div>
           <Link href="/finance/ledger" className="back-link mb-2">
             <ChevronLeftIcon className="h-4 w-4" />
-            บัญชีรับ-จ่ายเงิน
+            การเงิน
           </Link>
           <h1 className="page-title">ยืมเงินระหว่างประเภทเงิน</h1>
           <p className="page-subtitle">
