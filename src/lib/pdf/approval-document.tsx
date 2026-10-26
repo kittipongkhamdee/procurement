@@ -112,6 +112,8 @@ type FieldRowProps = {
   align?: "left" | "center" | "right";
   /** ระยะห่างใต้แถว (ค่าเริ่มต้น 2pt) */
   rowGap?: number;
+  /** จำนวนบรรทัดขั้นต่ำ (เติมบรรทัดจุดไข่ปลาว่างต่อท้าย) — ใช้กับแบบฟอร์มเปล่าไว้เขียนมือ */
+  minLines?: number;
 };
 
 const GAP = 4;
@@ -152,6 +154,7 @@ function FieldRow({
   valueWidth,
   align = "left",
   rowGap = 1.5,
+  minLines = 1,
 }: FieldRowProps) {
   const pSize = prefixSize ?? size;
   const prefixEl = prefix ? (
@@ -173,6 +176,7 @@ function FieldRow({
   }
 
   const lines = fieldRowLines({ prefix, prefixBold, prefixSize, value, suffix, size, indent, width });
+  while (lines.length < minLines) lines.push("");
   return (
     <>
       {lines.map((line, i) => {
@@ -281,7 +285,7 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
       <View style={[rowStyle, { borderBottomWidth: 0 }]}>
         <View style={[cell, { width: SUMMARY_COLS.no }]} />
         <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รวมทั้งสิ้น")}</Text></View>
-        <View style={[cell, { width: SUMMARY_COLS.amount }]}><Text style={[styles.bold, { textAlign: "right" }]}>{formatBaht(total)}</Text></View>
+        <View style={[cell, { width: SUMMARY_COLS.amount }]}><Text style={[styles.bold, { textAlign: "right" }]}>{data.blank ? "" : formatBaht(total)}</Text></View>
         <View style={[cell, { width: SUMMARY_COLS.note, borderRightWidth: 0 }]} />
       </View>
     </View>
@@ -333,7 +337,7 @@ function OpinionBoxes({ data, size }: { data: ApprovalPdfData; size: number }) {
           <OpinionTitle no={1} title="ความเห็นงานแผนงาน" />
           <Text style={line}>{t("- ตรวจสอบแล้วมีโครงการ")}</Text>
           <FieldRow size={size} prefix="- เงินโครงการทั้งสิ้น" value={data.budget != null ? formatBaht(data.budget) : ""} suffix="บาท" valueWidth={74} align="right" rowGap={0} />
-          <FieldRow size={size} prefix="- เงินขอใช้ครั้งนี้" value={formatBaht(data.requested_amount)} suffix="บาท" valueWidth={86} align="right" rowGap={0} />
+          <FieldRow size={size} prefix="- เงินขอใช้ครั้งนี้" value={data.blank ? "" : formatBaht(data.requested_amount)} suffix="บาท" valueWidth={86} align="right" rowGap={0} />
           <FieldRow size={size} prefix="- เงินโครงการเหลือ" value={data.remaining != null ? formatBaht(data.remaining) : ""} suffix="บาท" valueWidth={80} align="right" rowGap={0} />
           <SignOff size={size} name={data.signer_planning} />
         </View>
@@ -401,6 +405,8 @@ const ITEMS_PER_PAGE = 29;
 const ITEMS_LAST_PAGE = 24;
 /** รายการน้อยกว่านี้ให้เติมแถวว่างจนครบ (ไว้เขียนเพิ่มด้วยมือ) */
 const ITEMS_MIN_ROWS = 5;
+/** แบบฟอร์มเปล่า (เขียนมือ) — จำนวนแถวรายการวัสดุในหน้า ๒ (ต้องไม่เกิน ITEMS_LAST_PAGE เพื่อให้เหลือที่ลงชื่อ) */
+const ITEMS_BLANK_ROWS = 20;
 
 /** แบ่งรายการเป็นหน้า: หน้าละไม่เกิน ITEMS_PER_PAGE และหน้าสุดท้ายไม่เกิน ITEMS_LAST_PAGE (เหลือที่ให้ลายมือชื่อ) —
  * ถ้าเกิน จะดึงแถวมาเหลือไว้หน้าสุดท้ายอย่างน้อย ๕ แถว ไม่ปล่อยให้หน้าสุดท้ายมีแต่ลายมือชื่อ */
@@ -418,9 +424,9 @@ function paginateItems<T>(items: T[]): T[][] {
 const ITEM_ROW_H = 20.4;
 const ITEM_COLS = { no: 30, qty: 68, price: 68, total: 68, note: 56 };
 
-function ItemsTable({ items, startNo = 1 }: { items: ApprovalPdfData["items"]; startNo?: number }) {
+function ItemsTable({ items, startNo = 1, minRows = ITEMS_MIN_ROWS }: { items: ApprovalPdfData["items"]; startNo?: number; minRows?: number }) {
   // พิมพ์เฉพาะแถวที่ใช้จริง ยกเว้นน้อยกว่า ITEMS_MIN_ROWS รายการ ให้เติมแถวว่างจนครบ
-  const rowsCount = Math.max(ITEMS_MIN_ROWS, items.length);
+  const rowsCount = Math.max(minRows, items.length);
   const nameW = CONTENT_W - ITEM_COLS.no - ITEM_COLS.qty - ITEM_COLS.price - ITEM_COLS.total - ITEM_COLS.note;
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
   const row = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, height: ITEM_ROW_H };
@@ -481,10 +487,11 @@ function docNumberText(raw: string | null): string {
 /** "จะดำเนินการวันที่ … และขออนุมัติงบประมาณในครั้งนี้ จำนวนเงิน … บาท ดังนี้" ต่อกันในบรรทัดเดียว — ช่องวันที่ขยายตาม
  * พื้นที่ที่เหลือ (ถ้าแคบเกินไปจริงๆ จะแยกส่วนจำนวนเงินลงบรรทัดใหม่แทน) */
 function PlanDateAndAmount({ data }: { data: ApprovalPdfData }) {
+  const money = (n: number) => (data.blank ? "" : formatBaht(n));
   const lead = "จะดำเนินการวันที่";
   const mid = "และขออนุมัติงบประมาณในครั้งนี้ จำนวนเงิน";
   const tail = "บาท ดังนี้";
-  const amount = formatBaht(data.requested_amount);
+  const amount = money(data.requested_amount);
   const amountW = Math.max(50, measureText(amount, FS) + 10);
   const fixed = [lead, mid, tail].reduce((sum, txt) => sum + measureText(txt, FS), 0) + GAP * 4;
   const dateW = CONTENT_W - fixed - amountW;
@@ -597,7 +604,7 @@ function boxFontSize(data: ApprovalPdfData): number {
 
 export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
   // ไม่มีรายการเลย = ไม่มีหน้ารายการวัสดุ
-  const itemPages = data.items.length > 0 ? paginateItems(data.items) : [];
+  const itemPages = data.items.length > 0 || data.blank ? paginateItems(data.items) : [];
   return (
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
       <Page size="A4" style={styles.page}>
@@ -626,9 +633,9 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           <PlainRow prefix="เรียน" value={data.addressed_to} />
         </View>
 
-        <FieldRow prefix="ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)" value={data.department ?? ""} indent={INDENT} />
-        <FieldRow prefix="จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)" value={data.activity_name ?? ""} />
-        <FieldRow prefix="ตามโครงการ/งาน" value={data.project_name ?? ""} />
+        <FieldRow prefix="ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)" value={data.department ?? ""} indent={INDENT} minLines={data.blank ? 2 : 1} />
+        <FieldRow prefix="จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)" value={data.activity_name ?? ""} minLines={data.blank ? 2 : 1} />
+        <FieldRow prefix="ตามโครงการ/งาน" value={data.project_name ?? ""} minLines={data.blank ? 2 : 1} />
         <PlanDateAndAmount data={data} />
 
         {/* ตารางรายการเงิน ต่อจาก "ดังนี้" แล้วจึงตามด้วย "จึงเรียนมา…" และลายมือชื่อ */}
@@ -658,7 +665,7 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
           {itemPages.length > 1 && (
             <Text style={{ fontSize: FS_P23, textAlign: "right" }}>{t(`แผ่นที่ ${pi + 1}/${itemPages.length}`)}</Text>
           )}
-          <ItemsTable items={pageItems} startNo={itemPages.slice(0, pi).reduce((n, p) => n + p.length, 1)} />
+          <ItemsTable items={pageItems} minRows={data.blank ? ITEMS_BLANK_ROWS : undefined} startNo={itemPages.slice(0, pi).reduce((n, p) => n + p.length, 1)} />
           {pi === itemPages.length - 1 && (
             <View wrap={false} style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14 }}>
               <SignatureBlock suffix="ผู้ขออนุมัติ" name={data.requested_by_name} size={FS_P23} />

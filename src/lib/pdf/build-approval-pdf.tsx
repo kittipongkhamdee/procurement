@@ -103,3 +103,42 @@ export async function buildApprovalPdfData(
 export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
   return renderToBuffer(<ApprovalDocument data={data} />);
 }
+
+/** บันทึกข้อความขออนุมัติแบบฟอร์มเปล่า (ไว้พิมพ์ให้เขียนมือ) — เติมเฉพาะส่วนราชการ/เรียน จากข้อมูลโรงเรียนในหน้าตั้งค่า */
+export async function buildBlankApprovalPdfData(supabase: SupabaseClient<Database>): Promise<ApprovalPdfData> {
+  const { data: school } = await supabase.from("proc_school_settings").select("school_name, logo_url, school_address").eq("id", true).maybeSingle();
+  const schoolName = school?.school_name ?? "โรงเรียนตาเบาวิทยา";
+  return {
+    blank: true,
+    doc_number: null,
+    doc_date: "",
+    subject: "",
+    addressed_to: `ผู้อำนวยการ${schoolName}`,
+    department: null,
+    activity_name: null,
+    project_name: null,
+    plan_date_text: null,
+    requested_amount: 0,
+    summary_items: [],
+    requested_by_name: null,
+    requested_by_position: null,
+    budget: null,
+    remaining: null,
+    fund_type: null,
+    deputy_decision: null,
+    deputy_note: null,
+    status: "รออนุมัติ",
+    approve_note: null,
+    approved_at: null,
+    signer_planning: null,
+    signer_finance: null,
+    signer_deputy: null,
+    signer_director: null,
+    school_name: schoolName,
+    school_logo_url: school?.logo_url ?? null,
+    school_address: school?.school_address ?? null,
+    group_name: null,
+    budget_year_text: null,
+    items: [],
+  };
+}

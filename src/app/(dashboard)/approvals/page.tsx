@@ -668,9 +668,14 @@ export default function ApprovalsPage() {
         <div>
           <h1 className="page-title">การบันทึกขออนุมัติ</h1>
         </div>
-        <a href="/approvals/new" className="btn-primary">
-          + สร้างบันทึกขออนุมัติ
-        </a>
+        <div className="flex flex-wrap items-center gap-2">
+          <a href="/approvals/blank/pdf" target="_blank" className="btn-secondary">
+            แบบฟอร์มเปล่า (เขียนมือ)
+          </a>
+          <a href="/approvals/new" className="btn-primary">
+            + สร้างบันทึกขออนุมัติ
+          </a>
+        </div>
       </div>
 
       {/* การ์ดสรุปของทั้งโรงเรียน — ทุกคนเห็น (ครูด้วย) */}

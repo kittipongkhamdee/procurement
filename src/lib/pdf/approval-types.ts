@@ -1,4 +1,6 @@
 export type ApprovalPdfData = {
+  /** แบบฟอร์มเปล่าไว้เขียนมือ — ไม่แสดงจำนวนเงิน เติมบรรทัดจุดไข่ปลาและแถวรายการว่างเพิ่ม */
+  blank?: boolean;
   doc_number: string | null;
   doc_date: string;
   subject: string;
