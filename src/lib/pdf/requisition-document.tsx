@@ -2,6 +2,7 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatThaiDate } from "@/lib/thai";
 import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
+import { SignBody } from "./sign-block";
 
 // ใบเบิกวัสดุ (A4 แนวตั้ง) — แบบตาม EGPEASY 6.2: ข้าพเจ้า…มีความประสงค์ขอเบิกพัสดุ เพื่อ… / ตาราง ขอเบิก-เบิกได้ /
 // ลงชื่อ ผู้เบิก · ผู้จ่าย · ผู้รับพัสดุ · ผู้สั่งจ่าย (หัวหน้าเจ้าหน้าที่) — TH Sarabun New 16pt
@@ -53,11 +54,7 @@ function Sign({ role, name, extra = [], title }: { role: string; name: string | 
   return (
     <View style={{ width: CONTENT_W / 2, alignItems: "center" }} wrap={false}>
       {title && <Text style={[styles.bold, { marginBottom: 4 }]}>{t(title)}</Text>}
-      <Text>{t(`ลงชื่อ......................................................${role}`)}</Text>
-      <Text>{t(name ? `(${name})` : "(......................................................)")}</Text>
-      {extra.map((x, i) => (
-        <Text key={i}>{t(x)}</Text>
-      ))}
+      <SignBody role={role} name={name} extra={extra} size={FS} />
     </View>
   );
 }

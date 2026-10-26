@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { registerThSarabunFont, t } from "./thai-pdf";
+import { SignBody } from "./sign-block";
 
 registerThSarabunFont();
 
@@ -138,13 +139,11 @@ export function AssetAuditReportDocument({ data }: { data: AssetAuditReportPdfDa
         <Text>{guard(data.report_note ?? "-")}</Text>
 
         <View style={styles.signRow}>
-          <View style={styles.signBox}>
-            <Text style={styles.signLine}>{guard("ลงชื่อ ...................................................")}</Text>
-            <Text>{guard("ผู้ตรวจสอบพัสดุ")}</Text>
+          <View style={[styles.signBox, { alignItems: "center" }]}>
+            <SignBody name={null} extra={["ผู้ตรวจสอบพัสดุ"]} />
           </View>
-          <View style={styles.signBox}>
-            <Text style={styles.signLine}>{guard("ลงชื่อ ...................................................")}</Text>
-            <Text>{guard("หัวหน้าหน่วยงาน")}</Text>
+          <View style={[styles.signBox, { alignItems: "center" }]}>
+            <SignBody name={null} extra={["หัวหน้าหน่วยงาน"]} />
           </View>
         </View>
       </Page>

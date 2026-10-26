@@ -4,6 +4,7 @@ import type { LoanItem, LoanRepayment, LoanType } from "@/lib/loan";
 import { shortThaiDate } from "@/lib/procurement-register";
 import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
+import { SignBody } from "./sign-block";
 
 // สัญญาการยืมเงิน แบบ 8500 (แบบที่กระทรวงการคลังกำหนด ตามระเบียบฯ การเบิกเงินจากคลัง พ.ศ. 2562 ข้อ 55) — A4 แนวตั้ง 2 หน้า
 // จัดรูปแบบตามตัวอย่างที่ผู้ใช้ส่งมา (แบบ 8500 ของโรงเรียน/โรงพยาบาล): กรอบล้อมทั้งแผ่น แบ่งช่องด้วยเส้น
@@ -87,9 +88,7 @@ function SignRow({ role, name, position, date, label = "ลงชื่อ" }: {
   return (
     <View style={{ marginTop: 6, flexDirection: "row" }} wrap={false}>
       <View style={{ width: 300, alignItems: "center" }}>
-        <Text>{t(`${label}..............................................${role}`)}</Text>
-        <Text>{t(name ? `(${name})` : `(${DOTS})`)}</Text>
-        {position !== undefined && <Text>{t(`ตำแหน่ง ${position || DOTS}`)}</Text>}
+        <SignBody label={label} role={role} name={name} extra={position !== undefined ? [`ตำแหน่ง ${position || DOTS}`] : []} size={FS} />
       </View>
       {date !== undefined && <Text style={{ marginLeft: 12 }}>{t(`วันที่ ${dateOr(date)}`)}</Text>}
     </View>
@@ -343,9 +342,7 @@ function ReceiptCopy({ d, copy }: { d: VoucherReceiptData; copy: string }) {
         keep={[d.borrower_name, d.school_name, d.affiliation]}
       />
       <View style={{ marginLeft: CONTENT_W / 2 - 40, alignItems: "center", marginTop: 10 }}>
-        <Text>{t("ลงชื่อ..............................................ผู้รับใบสำคัญ")}</Text>
-        <Text>{t(d.receiver_name ? `(${d.receiver_name})` : `(${DOTS})`)}</Text>
-        <Text>{t(`ตำแหน่ง ${d.receiver_position || "เจ้าหน้าที่การเงิน"}`)}</Text>
+        <SignBody role="ผู้รับใบสำคัญ" name={d.receiver_name} extra={[`ตำแหน่ง ${d.receiver_position || "เจ้าหน้าที่การเงิน"}`]} size={FS} />
       </View>
     </View>
   );

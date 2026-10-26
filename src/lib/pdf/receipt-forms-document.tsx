@@ -2,6 +2,7 @@ import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { formatThaiDate } from "@/lib/thai";
 import { t } from "./thai-pdf";
 import { B, CM, FAMILY, wrap } from "./procurement-set-document";
+import { SignBody } from "./sign-block";
 
 // แบบใบสำคัญรับเงินตามหลักเกณฑ์การเบิกจ่ายค่าใช้จ่ายในการจัดกิจกรรมเพื่อเสริมสร้างความรู้ให้กับนักเรียน
 // (หนังสือ สพฐ. ที่ ศธ 04002/ว 2983 ลว. 23 พ.ย. 2555 — แนวทางโครงการสนับสนุนค่าใช้จ่ายฯ ปีงบประมาณ 2569 หน้า 98–99)
@@ -120,9 +121,7 @@ export function StudentReceiptDocument({ data: d }: { data: StudentReceipt }) {
           {num(SC.total, grand || null)}
         </View>
         <View style={{ marginLeft: LAND_W / 2, marginTop: 14, alignItems: "center", alignSelf: "flex-start" }} wrap={false}>
-          <Text>{t(`ลงชื่อ${dots(45)}ผู้จ่ายเงิน`)}</Text>
-          <Text>{t(`(${d.payer.trim() || dots(45)})`)}</Text>
-          <Text>{t(`ตำแหน่ง${v(d.payer_position, 45)}`)}</Text>
+          <SignBody role="ผู้จ่ายเงิน" name={d.payer} extra={[`ตำแหน่ง${v(d.payer_position, 45)}`]} size={FS} />
         </View>
       </Page>
     </Document>

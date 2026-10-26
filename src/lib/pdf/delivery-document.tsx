@@ -4,6 +4,7 @@ import { formatBaht, formatThaiDate, thaiBahtText, THAI_MONTHS } from "@/lib/tha
 import { registerSarabunFont, t } from "./thai-pdf";
 import { MemoHeader } from "./approval-document";
 import { wrapByWidth as wrapWith } from "./thai-measure";
+import { SignBody } from "./sign-block";
 
 // ชุดเอกสารส่งมอบงานตามสัญญา ๔ หน้า (ตามแบบที่โรงเรียนใช้): ใบส่งมอบงาน, ใบตรวจรับพัสดุ (ระเบียบฯ ข้อ ๑๗๕),
 // บันทึกข้อความรายงานผลการตรวจรับพัสดุและขออนุมัติเบิกจ่ายเงิน, ใบสำคัญรับเงิน
@@ -109,9 +110,8 @@ function Para({ text, indent = INDENT, style, keep }: { text: string; indent?: n
 /** ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ — บรรทัดลงชื่อ/ชื่อในวงเล็บจัดกึ่งกลางกัน */
 function Sign({ role, name, marginTop = 18, left = PAGE_W / 2 - PAD_LEFT }: { role: string; name: string | null; marginTop?: number; left?: number }) {
   return (
-    <View style={{ marginLeft: left, marginTop, alignSelf: "flex-start", alignItems: "center" }} wrap={false}>
-      <Text>{t(`ลงชื่อ.......................................${role}`)}</Text>
-      <Text>{t(name ? `(${name})` : "(.......................................)")}</Text>
+    <View style={{ marginLeft: left, marginTop, alignSelf: "flex-start" }} wrap={false}>
+      <SignBody role={role} name={name} size={FS} />
     </View>
   );
 }
@@ -219,11 +219,8 @@ export function DeliveryDocument({ data: d }: { data: DeliveryPdfData }) {
         <View style={{ marginTop: 10 }} wrap={false}>
           <Text>{t("- ทราบ")}</Text>
           <Text>{t("- อนุมัติ")}</Text>
-          <View style={{ marginTop: 14, alignSelf: "flex-start", alignItems: "center" }}>
-            <Text>{t("ลงชื่อ.......................................")}</Text>
-            <Text>{t(d.director ? `(${d.director})` : "(.......................................)")}</Text>
-            <Text>{t(`ผู้อำนวยการ${d.school_name}`)}</Text>
-            <Text>{t(`วันที่ ${deliveryDate}`)}</Text>
+          <View style={{ marginTop: 14, alignSelf: "flex-start" }}>
+            <SignBody name={d.director} extra={[`ผู้อำนวยการ${d.school_name}`, `วันที่ ${deliveryDate}`]} size={FS} />
           </View>
         </View>
       </Page>

@@ -7,6 +7,7 @@ import { MemoHeader } from "./approval-document";
 import { procurementSheets, W804_INLINE_MAX, type SheetKey } from "./procurement-sheets";
 import { RequisitionPage } from "./requisition-document";
 import { measureText as measureWith, wrapByWidth as wrapWith } from "./thai-measure";
+import { SignBody } from "./sign-block";
 
 // ชุดเอกสารงานซื้อ / งานจ้าง (วิธีเฉพาะเจาะจง) ๘ แผ่น ตามแบบที่โรงเรียนใช้ (เช่น ชุดซื้อเสารั้ว 81/2569):
 //  1 บันทึกรายงานขอซื้อ/ขอจ้าง  2 รายละเอียดแนบท้ายบันทึก  3 ใบเสนอราคา  4 บันทึกรายงานผลการพิจารณาและขออนุมัติสั่งซื้อ/สั่งจ้าง
@@ -163,16 +164,12 @@ function DirectorTicks() {
   );
 }
 
-/** ลายมือชื่อ: "ลงชื่อ.......<ตำแหน่ง>" / ชื่อในวงเล็บ (ไม่มีชื่อ = เส้นจุด) / บรรทัดเพิ่มเติม — ทุกบรรทัดจัดกึ่งกลางคอลัมน์เดียวกัน
+/** ลายมือชื่อ: "ลงชื่อ ……<ตำแหน่ง>" เส้นจุดยาวเท่าชื่อ / ชื่อในวงเล็บ (ไม่มีชื่อ = เส้นจุดเปล่า) / บรรทัดเพิ่มเติม — จัดกึ่งกลางใต้เส้นจุด (ดู sign-block.tsx)
  *  (style.width กำหนด = กึ่งกลางในความกว้างนั้น, ไม่กำหนด = กว้างเท่าบรรทัดที่ยาวที่สุด) */
 export function Sign({ role, name, extra = [], style }: { role: string; name: string | null; extra?: string[]; style?: Styles[string] }) {
   return (
     <View style={[{ alignSelf: "flex-start", alignItems: "center" }, style ?? {}]} wrap={false}>
-      <Text>{t(`ลงชื่อ.......................................${role}`)}</Text>
-      <Text>{t(name ? `(${name})` : "(.......................................)")}</Text>
-      {extra.map((x, i) => (
-        <Text key={i}>{t(x)}</Text>
-      ))}
+      <SignBody role={role} name={name} extra={extra} size={FS} />
     </View>
   );
 }

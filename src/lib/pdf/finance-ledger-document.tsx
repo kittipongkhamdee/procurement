@@ -4,6 +4,7 @@ import { shortThaiDate } from "@/lib/procurement-register";
 import { addBal, groupByCategory, thaiMonthLabel, total, zero, type Balance, type FinTxn, type MoneyType, type registerForMonth } from "@/lib/finance-ledger";
 import { registerThSarabunFont, t } from "./thai-pdf";
 import { wrapByWidth } from "./thai-measure";
+import { SignBody } from "./sign-block";
 
 // เอกสารบัญชีรับ-จ่ายเงิน (แทนชีตในไฟล์ Excel เดิม) — TH Sarabun New 16pt (ตาราง 15pt)
 // 1) รายงานเงินคงเหลือประจำวัน (A4 แนวตั้ง) — ช่องลงนามตามชีต "คงเหลือประจำวัน"
@@ -54,9 +55,7 @@ export type FinSigners = { officer: Signer; committee: Signer[]; head: Signer };
 function SignLine({ role, signer, width = 240 }: { role: string; signer: Signer; width?: number }) {
   return (
     <View style={{ width, alignItems: "center", marginTop: 14 }} wrap={false}>
-      <Text>{t(`ลงชื่อ....................................${role}`)}</Text>
-      <Text>{t(`(${signer.name || "...................................."})`)}</Text>
-      <Text>{t(signer.position || " ")}</Text>
+      <SignBody role={role} name={signer.name} extra={[signer.position]} size={FS} />
     </View>
   );
 }

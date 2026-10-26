@@ -17,6 +17,7 @@ const money = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 
 const words = (n: number) => thaiBahtText(n).replace(/^\(|\)$/g, "");
 
 import { PLACE_LABEL, claimTotal, travelDuration, type TravelClaim, type TravelMember, type TravelPlace } from "@/lib/travel-claim";
+import { SignBody } from "./sign-block";
 export type { TravelClaim, TravelMember, TravelPlace } from "@/lib/travel-claim";
 
 const page = { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.35, paddingTop: 1.5 * CM, paddingBottom: 1.2 * CM, paddingLeft: 2.5 * CM, paddingRight: 2 * CM };
@@ -86,10 +87,9 @@ function SignBox({ title, s: who, suffix = "" }: { title?: string[]; s: { name: 
         <Text key={i}>{t(l)}</Text>
       ))}
       <View style={{ height: title ? 22 : 6 }} />
-      <Row segs={["ลงชื่อ", { w: 150 }, suffix]} gap={6} />
-      <Row segs={["(", { v: who.name, w: 150 }, ")"]} indent={18} gap={6} />
-      <Row segs={["ตำแหน่ง", { v: who.position }]} gap={6} />
-      <Row segs={["วันที่", { w: undefined }]} gap={2} />
+      <View style={{ alignSelf: "center" }}>
+        <SignBody role={suffix} name={who.name} extra={[`ตำแหน่ง${v(who.position, 40)}`, `วันที่${dots(40)}`]} size={FS} />
+      </View>
     </View>
   );
 }
@@ -136,9 +136,7 @@ export function TravelClaimDocument({ data: d }: { data: TravelClaim }) {
         <Row segs={["ข้าพเจ้าขอรับรองว่ารายการที่กล่าวมาข้างต้นเป็นความจริง และหลักฐานการจ่ายที่ส่งมาด้วย"]} indent={1.5 * CM} />
         <Row segs={["จำนวน", { v: d.evidence_count, w: 90 }, "ฉบับ รวมทั้งจำนวนเงินที่ขอเบิกถูกต้องตามกฎหมายทุกประการ"]} />
         <View style={{ marginLeft: W * 0.3, marginTop: 8 }}>
-          <Row segs={["ลงชื่อ", { w: 190 }, "ผู้ขอรับเงิน"]} />
-          <Row segs={["(", { v: d.name, w: 190 }, ")"]} indent={22} />
-          <Row segs={["ตำแหน่ง", { v: d.position, w: 190 }]} />
+          <SignBody role="ผู้ขอรับเงิน" name={d.name} extra={[`ตำแหน่ง${v(d.position, 40)}`]} size={FS} />
         </View>
       </Page>
 
@@ -264,10 +262,7 @@ function Part2({ d, members }: { d: TravelClaim; members: TravelMember[] }) {
           <Text style={{ fontSize: 13 }}>{t("3. ผู้จ่ายเงิน หมายถึง ผู้ที่ขอยืมเงินจากทางราชการ และจ่ายเงินยืมนั้นให้แก่ผู้เดินทางแต่ละคน เป็นผู้ลงลายมือชื่อผู้จ่ายเงิน")}</Text>
         </View>
         <View style={{ width: 230, alignItems: "center" }}>
-          <Row segs={["ลงชื่อ", { w: 140 }, "ผู้จ่ายเงิน"]} gap={4} />
-          <Row segs={["(", { v: d.payer.name, w: 140 }, ")"]} gap={4} />
-          <Row segs={["ตำแหน่ง", { v: d.payer.position, w: 140 }]} gap={4} />
-          <Row segs={["วันที่", { w: 150 }]} gap={0} />
+          <SignBody role="ผู้จ่ายเงิน" name={d.payer.name} extra={[`ตำแหน่ง${v(d.payer.position, 40)}`, `วันที่${dots(40)}`]} size={FS} />
         </View>
       </View>
     </Page>
