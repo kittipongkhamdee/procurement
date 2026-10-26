@@ -314,12 +314,36 @@ function OpinionTitle({ no, title }: { no: number; title: string }) {
   );
 }
 
+/** ลงชื่อในกรอบความเห็น: "(ลงชื่อ) ………" โดยเส้นจุดยาวเท่าความกว้างของชื่อในวงเล็บ (ยังไม่มีชื่อ = ความกว้างเริ่มต้น),
+ * ชื่อในวงเล็บและตำแหน่งจัดกึ่งกลางใต้เส้นจุด — ทั้งก้อนจัดกึ่งกลางช่อง */
+const SIGN_BLANK_W = 130;
 function SignOff({ name, role, size = FS_BOX }: { name: string | null; role?: string; size?: number }) {
+  const prefixW = measureText("(ลงชื่อ)", size) + GAP;
+  const nameText = name ? `(${name})` : "";
+  const nameW = nameText ? measureText(nameText, size) + 6 : SIGN_BLANK_W;
+  const dotsW = Math.min(nameW, CELL_W - prefixW);
+  const roleW = role ? measureText(role, size) + 6 : 0;
+  const textW = Math.min(Math.max(dotsW, roleW), CELL_W);
+  const dotsCenter = prefixW + dotsW / 2;
+  // ถ้าตำแหน่งยาวกว่าเส้นจุดมาก ข้อความกึ่งกลางจะล้นซ้ายของแถวลงชื่อ → เลื่อนทั้งก้อนไปทางขวาให้พอดี
+  const shift = Math.max(0, textW / 2 - dotsCenter);
+  const blockW = shift + Math.max(prefixW + dotsW, dotsCenter + textW / 2);
   return (
-    <View style={{ alignItems: "center", marginTop: 1, lineHeight: 1.05 }}>
-      <FieldRow prefix="(ลงชื่อ)" value="" valueWidth={120} width={CELL_W} size={size} rowGap={0} />
-      <Text>{t(name ? `(${name})` : "(                                    )")}</Text>
-      {role ? <Text>{t(role)}</Text> : null}
+    <View style={{ alignSelf: "center", width: blockW, marginTop: 1, lineHeight: 1.05 }}>
+      <View style={{ marginLeft: shift }}>
+        <FieldRow prefix="(ลงชื่อ)" value="" valueWidth={dotsW} width={prefixW + dotsW} size={size} rowGap={0} />
+      </View>
+      <View style={{ marginLeft: shift + dotsCenter - textW / 2, width: textW, alignItems: "center" }}>
+        {nameText ? (
+          <Text>{t(nameText)}</Text>
+        ) : (
+          <View style={{ width: dotsW, flexDirection: "row", justifyContent: "space-between" }}>
+            <Text>{t("(")}</Text>
+            <Text>{t(")")}</Text>
+          </View>
+        )}
+        {role ? <Text>{t(role)}</Text> : null}
+      </View>
     </View>
   );
 }
