@@ -292,12 +292,30 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
   );
 }
 
-/** ลายมือชื่อ "(ลงชื่อ)……… <ตำแหน่ง>" + ชื่อในวงเล็บใต้เส้น — จัดกึ่งกลางคอลัมน์เดียวกัน (ผู้ใช้ขอ ต.ค. 2569 ให้เหมือนเอกสารอื่นในระบบ) */
-function SignatureBlock({ suffix, name, size = FS, valueWidth = 90 }: { suffix: string; name: string | null; size?: number; valueWidth?: number }) {
+const SIGN_BLANK_W = 130; // ความกว้างเส้นจุดลงชื่อเมื่อยังไม่มีชื่อ (เขียนมือ)
+
+/** ลายมือชื่อ "(ลงชื่อ) ……… <ตำแหน่ง>" — เส้นจุดยาวเท่าชื่อในวงเล็บ (ยังไม่มีชื่อ = ความกว้างเริ่มต้น) และชื่อในวงเล็บจัดกึ่งกลางใต้เส้นจุด
+ * ตำแหน่งต่อท้ายเส้นจุด; ก้อนเริ่มที่แนวกึ่งกลางกระดาษ ถ้ายาวเกินขอบขวาจะเลื่อนเข้ามาให้พอดี */
+function SignatureBlock({ suffix, name, size = FS, blankWidth = SIGN_BLANK_W }: { suffix: string; name: string | null; size?: number; blankWidth?: number }) {
+  const prefixW = measureText("(ลงชื่อ)", size) + GAP;
+  const suffixW = measureText(suffix, size) + GAP + 4;
+  const nameText = name ? `(${name})` : "";
+  const dotsW = nameText ? measureText(nameText, size) + 6 : blankWidth;
+  const blockW = prefixW + dotsW + suffixW;
+  const overflow = Math.max(0, PAGE_W / 2 - PAD_LEFT + blockW - CONTENT_W);
   return (
-    <View style={{ alignSelf: "flex-start", alignItems: "center" }}>
-      <FieldRow prefix="(ลงชื่อ)" value="" suffix={suffix} size={size} valueWidth={valueWidth} />
-      <Text style={{ fontSize: size }}>{t(name ? `(${name})` : "(                                    )")}</Text>
+    <View style={{ alignSelf: "flex-start", marginLeft: -overflow, width: blockW }}>
+      <FieldRow prefix="(ลงชื่อ)" value="" suffix={suffix} size={size} valueWidth={dotsW} />
+      <View style={{ marginLeft: prefixW, width: dotsW, alignItems: "center" }}>
+        {nameText ? (
+          <Text style={{ fontSize: size }}>{t(nameText)}</Text>
+        ) : (
+          <View style={{ width: dotsW, flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={{ fontSize: size }}>{t("(")}</Text>
+            <Text style={{ fontSize: size }}>{t(")")}</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -316,7 +334,6 @@ function OpinionTitle({ no, title }: { no: number; title: string }) {
 
 /** ลงชื่อในกรอบความเห็น: "(ลงชื่อ) ………" โดยเส้นจุดยาวเท่าความกว้างของชื่อในวงเล็บ (ยังไม่มีชื่อ = ความกว้างเริ่มต้น),
  * ชื่อในวงเล็บและตำแหน่งจัดกึ่งกลางใต้เส้นจุด — ทั้งก้อนจัดกึ่งกลางช่อง */
-const SIGN_BLANK_W = 130;
 function SignOff({ name, role, size = FS_BOX }: { name: string | null; role?: string; size?: number }) {
   const prefixW = measureText("(ลงชื่อ)", size) + GAP;
   const nameText = name ? `(${name})` : "";
