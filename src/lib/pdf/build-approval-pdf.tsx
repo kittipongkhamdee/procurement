@@ -104,9 +104,13 @@ export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Bu
   return renderToBuffer(<ApprovalDocument data={data} />);
 }
 
-/** บันทึกข้อความขออนุมัติแบบฟอร์มเปล่า (ไว้พิมพ์ให้เขียนมือ) — เติมเฉพาะส่วนราชการ/เรียน จากข้อมูลโรงเรียนในหน้าตั้งค่า */
+/** บันทึกข้อความขออนุมัติแบบฟอร์มเปล่า (ไว้พิมพ์ให้เขียนมือ) — เติมส่วนราชการ/เรียน จากข้อมูลโรงเรียน และชื่อผู้ลงนามในกรอบความเห็นทั้ง ๔ ช่อง จากหน้าตั้งค่า */
 export async function buildBlankApprovalPdfData(supabase: SupabaseClient<Database>): Promise<ApprovalPdfData> {
-  const { data: school } = await supabase.from("proc_school_settings").select("school_name, logo_url, school_address").eq("id", true).maybeSingle();
+  const [{ data: school }, { data: signerSettings }] = await Promise.all([
+    supabase.from("proc_school_settings").select("school_name, logo_url, school_address").eq("id", true).maybeSingle(),
+    supabase.from("proc_app_settings").select("key, value").in("key", SIGNER_KEYS),
+  ]);
+  const signerByKey = new Map((signerSettings ?? []).map((r) => [r.key, r.value]));
   const schoolName = school?.school_name ?? "โรงเรียนตาเบาวิทยา";
   return {
     blank: true,
@@ -130,10 +134,10 @@ export async function buildBlankApprovalPdfData(supabase: SupabaseClient<Databas
     status: "รออนุมัติ",
     approve_note: null,
     approved_at: null,
-    signer_planning: null,
-    signer_finance: null,
-    signer_deputy: null,
-    signer_director: null,
+    signer_planning: signerByKey.get("approval_signer_planning") ?? null,
+    signer_finance: signerByKey.get("approval_signer_finance") ?? null,
+    signer_deputy: signerByKey.get("approval_signer_deputy") ?? null,
+    signer_director: signerByKey.get("approval_signer_director") ?? null,
     school_name: schoolName,
     school_logo_url: school?.logo_url ?? null,
     school_address: school?.school_address ?? null,
