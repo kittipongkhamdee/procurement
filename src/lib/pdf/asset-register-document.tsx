@@ -202,7 +202,11 @@ function HeadCell({ style, lines }: { style: StyleProp; lines: string | string[]
   );
 }
 
-export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) {
+/** หน้าที่พิมพ์ของแต่ละรายการ: front = หน้า 1 ทะเบียนคุม, history = หน้า 2 ประวัติการซ่อม, both = ทั้งสองหน้า */
+export type AssetRegisterPagesChoice = "front" | "history" | "both";
+
+/** หน้าของทะเบียนคุม 1 รายการ (ใส่ใน <Document> ได้หลายรายการต่อกันเป็นไฟล์เดียว) */
+export function AssetRegisterPages({ data, pages = "both" }: { data: AssetRegisterPdfData; pages?: AssetRegisterPagesChoice }) {
   const location = [data.building, data.floor ? `ชั้น ${data.floor}` : null, data.room ? `ห้อง ${data.room}` : null]
     .filter(Boolean)
     .join(" ");
@@ -210,7 +214,8 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
   const categoryWithName = [data.category_name, data.name].filter(Boolean).join(" - ");
 
   return (
-    <Document>
+    <>
+      {pages !== "history" && (
       <Page size="A4" orientation="landscape" style={styles.page}>
         {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image ไม่ใช่ <img> ของ HTML ไม่มี prop alt */}
         {data.qr_url && <Image src={data.qr_url} style={styles.qr} />}
@@ -302,9 +307,11 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           ))}
         </View>
       </Page>
+      )}
 
       {/* หน้า 2 (ด้านหลัง) — ประวัติการซ่อมบำรุงรักษาทรัพย์สิน ตามแบบฟอร์มมาตรฐาน สพฐ.
           (ครั้งที่/วันเดือนปี/รายการ/จำนวนเงิน/หมายเหตุ) แสดงเฉพาะรายการที่บันทึกไว้ในระบบแล้ว */}
+      {pages !== "front" && (
       <Page size="A4" orientation="landscape" style={styles.page}>
         <Text style={{ textAlign: "right", marginBottom: 4 }}>{guard("(ด้านหลัง)")}</Text>
         <View style={styles.center}>
@@ -340,6 +347,26 @@ export function AssetRegisterDocument({ data }: { data: AssetRegisterPdfData }) 
           ))}
         </View>
       </Page>
+      )}
+    </>
+  );
+}
+
+export function AssetRegisterDocument({ data, pages = "both" }: { data: AssetRegisterPdfData; pages?: AssetRegisterPagesChoice }) {
+  return (
+    <Document>
+      <AssetRegisterPages data={data} pages={pages} />
+    </Document>
+  );
+}
+
+/** ทะเบียนคุมหลายรายการต่อกันเป็นไฟล์เดียว — เรียงตามลำดับที่ส่งมา */
+export function AssetRegisterBatchDocument({ items, pages = "both" }: { items: AssetRegisterPdfData[]; pages?: AssetRegisterPagesChoice }) {
+  return (
+    <Document>
+      {items.map((d, i) => (
+        <AssetRegisterPages key={i} data={d} pages={pages} />
+      ))}
     </Document>
   );
 }

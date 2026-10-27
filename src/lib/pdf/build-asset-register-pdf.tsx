@@ -3,9 +3,12 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import type { Database } from "@/lib/supabase/database.types";
 import { sanitizeFilenamePart } from "@/lib/http";
+import { applyLocationFilter, parseLocationKey } from "@/lib/asset-location";
 import {
+  AssetRegisterBatchDocument,
   AssetRegisterDocument,
   type AssetDepreciationRow,
+  type AssetRegisterPagesChoice,
   type AssetRegisterPdfData,
 } from "./asset-register-document";
 
@@ -206,6 +209,99 @@ function buildDepreciationSchedule(item: {
   return [acquireRow];
 }
 
+const ITEM_COLUMNS =
+  "id, asset_code, sequence_no, doc_ref, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquisition_method_id, acquired_date, acquired_year, category_id, budget_source_id, photo_path";
+
+type ItemRow = {
+  id: string;
+  asset_code: string | null;
+  sequence_no: string | null;
+  doc_ref: string | null;
+  name: string;
+  quantity: number;
+  unit: string | null;
+  price: number | null;
+  building: string;
+  floor: string | null;
+  room: string;
+  spec: string | null;
+  model: string | null;
+  vendor_name: string | null;
+  vendor_address: string | null;
+  vendor_phone: string | null;
+  acquisition_method: string | null;
+  acquisition_method_id: string | null;
+  acquired_date: string | null;
+  acquired_year: number | null;
+  category_id: string | null;
+  budget_source_id: string | null;
+  photo_path: string | null;
+};
+
+type School = { school_name: string | null; education_area: string | null; school_address: string | null } | null;
+type Cat = { name: string; useful_life_years: number | null; depreciation_rate_percent: number | null } | null;
+type RepairRow = { repaired_date: string; description: string; amount: number | null; note: string | null };
+
+/** ประกอบข้อมูล PDF ของ 1 รายการจากแถวรายการ + ข้อมูลอ้างอิงที่โหลดมาแล้ว (ใช้ร่วมกันระหว่างพิมพ์ทีละรายการและพิมพ์รวมหลายรายการ) */
+function assemblePdfData(
+  item: ItemRow,
+  ctx: { category: Cat; budgetSourceName: string | null; acquisitionMethodName: string | null; school: School; repairRows: RepairRow[]; photoUrl: string | null; qrUrl: string | null },
+): AssetRegisterPdfData {
+  const { category, school } = ctx;
+  const schedule = buildDepreciationSchedule({
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    price: item.price,
+    acquired_date: item.acquired_date,
+    acquired_year: item.acquired_year,
+    useful_life_years: category?.useful_life_years ?? null,
+    depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
+    doc_ref: item.doc_ref,
+  });
+
+  // ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 (ด้านหลัง) ตามแบบฟอร์มมาตรฐาน สพฐ.
+  const repairs = ctx.repairRows.map((r, i) => ({
+    seq: i + 1,
+    dateLabel: formatShortThaiDate(r.repaired_date),
+    description: r.description,
+    amount: r.amount,
+    note: r.note,
+  }));
+
+  return {
+    asset_code: item.asset_code,
+    sequence_no: item.sequence_no,
+    name: item.name,
+    category_name: category?.name ?? null,
+    quantity: item.quantity,
+    unit: item.unit,
+    price: item.price,
+    building: item.building,
+    floor: item.floor,
+    room: item.room,
+    spec: item.spec,
+    model: item.model,
+    school_name: school?.school_name ?? "โรงเรียนตาเบาวิทยา",
+    education_area: school?.education_area ?? null,
+    school_address: school?.school_address ?? null,
+    vendor_name: item.vendor_name,
+    vendor_address: item.vendor_address,
+    vendor_phone: item.vendor_phone,
+    budget_source_name: ctx.budgetSourceName,
+    // รายการเก่าก่อนมีตารางวิธีการได้มา (asset_acquisition_methods) ยังเก็บเป็นข้อความอิสระอยู่ —
+    // ใช้ชื่อจากตารางใหม่ก่อน ถ้าไม่มีค่อย fallback ไปใช้ข้อความอิสระเดิม
+    acquisition_method: ctx.acquisitionMethodName ?? item.acquisition_method,
+    acquired_year: item.acquired_year,
+    useful_life_years: category?.useful_life_years ?? null,
+    depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
+    photo_url: ctx.photoUrl,
+    qr_url: ctx.qrUrl,
+    schedule,
+    repairs,
+  };
+}
+
 export async function buildAssetRegisterPdfData(
   supabase: SupabaseClient<Database>,
   id: string,
@@ -214,13 +310,7 @@ export async function buildAssetRegisterPdfData(
   const showPhoto = options?.showPhoto ?? true;
   const showQr = options?.showQr ?? true;
 
-  const { data: item, error } = await supabase
-    .from("asset_items")
-    .select(
-      "asset_code, sequence_no, doc_ref, name, quantity, unit, price, building, floor, room, spec, model, vendor_name, vendor_address, vendor_phone, acquisition_method, acquisition_method_id, acquired_date, acquired_year, category_id, budget_source_id, photo_path",
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const { data: item, error } = await supabase.from("asset_items").select(ITEM_COLUMNS).eq("id", id).maybeSingle();
 
   if (error || !item) return null;
 
@@ -254,62 +344,109 @@ export async function buildAssetRegisterPdfData(
         .order("repaired_date", { ascending: true }),
     ]);
 
-  const schedule = buildDepreciationSchedule({
-    name: item.name,
-    quantity: item.quantity,
-    unit: item.unit,
-    price: item.price,
-    acquired_date: item.acquired_date,
-    acquired_year: item.acquired_year,
-    useful_life_years: category?.useful_life_years ?? null,
-    depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
-    doc_ref: item.doc_ref,
+  const data = assemblePdfData(item as ItemRow, {
+    category,
+    budgetSourceName: budgetSource?.name ?? null,
+    acquisitionMethodName: acquisitionMethod?.name ?? null,
+    school: schoolSettings,
+    repairRows: repairRows ?? [],
+    photoUrl,
+    qrUrl,
   });
-
-  // ประวัติการซ่อมบำรุงรักษาทรัพย์สิน — พิมพ์เป็นตารางหน้า 2 (ด้านหลัง) ตามแบบฟอร์มมาตรฐาน สพฐ.
-  const repairs = (repairRows ?? []).map((r, i) => ({
-    seq: i + 1,
-    dateLabel: formatShortThaiDate(r.repaired_date),
-    description: r.description,
-    amount: r.amount,
-    note: r.note,
-  }));
-
-  const data: AssetRegisterPdfData = {
-    asset_code: item.asset_code,
-    sequence_no: item.sequence_no,
-    name: item.name,
-    category_name: category?.name ?? null,
-    quantity: item.quantity,
-    unit: item.unit,
-    price: item.price,
-    building: item.building,
-    floor: item.floor,
-    room: item.room,
-    spec: item.spec,
-    model: item.model,
-    school_name: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
-    education_area: schoolSettings?.education_area ?? null,
-    school_address: schoolSettings?.school_address ?? null,
-    vendor_name: item.vendor_name,
-    vendor_address: item.vendor_address,
-    vendor_phone: item.vendor_phone,
-    budget_source_name: budgetSource?.name ?? null,
-    // รายการเก่าก่อนมีตารางวิธีการได้มา (asset_acquisition_methods) ยังเก็บเป็นข้อความอิสระอยู่ —
-    // ใช้ชื่อจากตารางใหม่ก่อน ถ้าไม่มีค่อย fallback ไปใช้ข้อความอิสระเดิม
-    acquisition_method: acquisitionMethod?.name ?? item.acquisition_method,
-    acquired_year: item.acquired_year,
-    useful_life_years: category?.useful_life_years ?? null,
-    depreciation_rate_percent: category?.depreciation_rate_percent ?? null,
-    photo_url: photoUrl,
-    qr_url: qrUrl,
-    schedule,
-    repairs,
-  };
 
   return { data, fileLabel: `ทะเบียนคุมทรัพย์สิน-${sanitizeFilenamePart(item.asset_code ?? item.name)}` };
 }
 
-export async function renderAssetRegisterPdfBuffer(data: AssetRegisterPdfData): Promise<Buffer> {
-  return renderToBuffer(<AssetRegisterDocument data={data} />);
+export async function renderAssetRegisterPdfBuffer(data: AssetRegisterPdfData, pages: AssetRegisterPagesChoice = "both"): Promise<Buffer> {
+  return renderToBuffer(<AssetRegisterDocument data={data} pages={pages} />);
+}
+
+/** จำนวนรายการสูงสุดต่อไฟล์เมื่อพิมพ์รวม — เกินนี้ให้กรองให้แคบลงก่อน (กันเซิร์ฟเวอร์ใช้เวลา/หน่วยความจำเกิน) */
+export const ASSET_REGISTER_BATCH_MAX = 150;
+
+export type AssetRegisterBatchFilters = {
+  categoryId?: string;
+  /** คีย์สถานที่จาก locationKey() */
+  location?: string;
+  conditionId?: string;
+  search?: string;
+};
+
+/** ทะเบียนคุมทุกรายการที่ตรงตัวกรอง ต่อกันเป็นไฟล์เดียว — เรียงเหมือนหน้าจอ (ใหม่ → เก่า) ดึงข้อมูลอ้างอิงครั้งเดียวทั้งชุดแทนต่อรายการ */
+export async function buildAssetRegisterBatchPdfData(
+  supabase: SupabaseClient<Database>,
+  filters: AssetRegisterBatchFilters,
+  options?: { showPhoto?: boolean; showQr?: boolean },
+): Promise<{ items: AssetRegisterPdfData[]; total: number } | { error: string; total: number }> {
+  const showPhoto = options?.showPhoto ?? true;
+  const showQr = options?.showQr ?? true;
+
+  let query = supabase.from("asset_items").select(ITEM_COLUMNS, { count: "exact" }).order("created_at", { ascending: false });
+  if (filters.categoryId) query = query.eq("category_id", filters.categoryId);
+  if (filters.conditionId) query = query.eq("condition_id", filters.conditionId);
+  if (filters.location) query = applyLocationFilter(query, parseLocationKey(filters.location));
+  const search = filters.search?.trim();
+  if (search) {
+    // ค้นหาแบบเดียวกับหน้าจอ (ชื่อ/รหัสครุภัณฑ์/อาคาร/ห้อง + id) — คอมมาตัดออกเพราะเป็นตัวคั่นเงื่อนไข .or() ของ PostgREST
+    const q = search.replace(/,/g, " ");
+    const orParts = [`name.ilike.%${q}%`, `asset_code.ilike.%${q}%`, `building.ilike.%${q}%`, `room.ilike.%${q}%`];
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q)) orParts.push(`id.eq.${q}`);
+    query = query.or(orParts.join(","));
+  }
+  const { data: rows, count } = await query.range(0, ASSET_REGISTER_BATCH_MAX - 1);
+  const total = count ?? rows?.length ?? 0;
+  if (total > ASSET_REGISTER_BATCH_MAX) {
+    return { error: `มี ${total.toLocaleString("th-TH")} รายการ — พิมพ์รวมได้ไม่เกิน ${ASSET_REGISTER_BATCH_MAX} รายการต่อไฟล์ กรุณากรองให้แคบลงก่อน`, total };
+  }
+  const items = (rows ?? []) as unknown as ItemRow[];
+  if (items.length === 0) return { error: "ไม่พบรายการที่ตรงกับตัวกรอง", total: 0 };
+
+  const ids = items.map((i) => i.id);
+  const [{ data: categories }, { data: budgetSources }, { data: methods }, { data: school }, { data: repairs }] = await Promise.all([
+    supabase.from("asset_categories").select("id, name, useful_life_years, depreciation_rate_percent"),
+    supabase.from("asset_budget_sources").select("id, name"),
+    supabase.from("asset_acquisition_methods").select("id, name"),
+    supabase.from("proc_school_settings").select("school_name, education_area, school_address").eq("id", true).maybeSingle(),
+    supabase.from("asset_repairs").select("item_id, repaired_date, description, amount, note").in("item_id", ids).order("repaired_date", { ascending: true }),
+  ]);
+  const catById = new Map((categories ?? []).map((c) => [c.id, c]));
+  const budgetById = new Map((budgetSources ?? []).map((b) => [b.id, b.name]));
+  const methodById = new Map((methods ?? []).map((m) => [m.id, m.name]));
+  const repairsByItem = new Map<string, RepairRow[]>();
+  for (const r of repairs ?? []) {
+    const list = repairsByItem.get(r.item_id) ?? [];
+    list.push(r);
+    repairsByItem.set(r.item_id, list);
+  }
+
+  // รูปครุภัณฑ์: ขอ signed URL ทีเดียวทั้งชุด
+  const photoByPath = new Map<string, string>();
+  if (showPhoto) {
+    const paths = [...new Set(items.map((i) => i.photo_path).filter((p): p is string => !!p))];
+    if (paths.length > 0) {
+      const { data: signed } = await supabase.storage.from("asset-photos").createSignedUrls(paths, 3600);
+      for (const s of signed ?? []) if (s.path && s.signedUrl) photoByPath.set(s.path, s.signedUrl);
+    }
+  }
+
+  const result: AssetRegisterPdfData[] = [];
+  for (const item of items) {
+    const qrUrl = showQr ? await QRCode.toDataURL(item.asset_code || item.id, { width: 200, margin: 0 }) : null;
+    result.push(
+      assemblePdfData(item, {
+        category: item.category_id ? (catById.get(item.category_id) ?? null) : null,
+        budgetSourceName: item.budget_source_id ? (budgetById.get(item.budget_source_id) ?? null) : null,
+        acquisitionMethodName: item.acquisition_method_id ? (methodById.get(item.acquisition_method_id) ?? null) : null,
+        school,
+        repairRows: repairsByItem.get(item.id) ?? [],
+        photoUrl: item.photo_path ? (photoByPath.get(item.photo_path) ?? null) : null,
+        qrUrl,
+      }),
+    );
+  }
+  return { items: result, total };
+}
+
+export async function renderAssetRegisterBatchPdfBuffer(items: AssetRegisterPdfData[], pages: AssetRegisterPagesChoice = "both"): Promise<Buffer> {
+  return renderToBuffer(<AssetRegisterBatchDocument items={items} pages={pages} />);
 }

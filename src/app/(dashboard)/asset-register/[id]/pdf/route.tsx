@@ -12,13 +12,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const url = new URL(request.url);
   const showPhoto = url.searchParams.get("photo") !== "0";
   const showQr = url.searchParams.get("qr") !== "0";
+  // เลือกหน้าที่พิมพ์: front = หน้า 1 ทะเบียนคุม, history = หน้า 2 ประวัติการซ่อม, ไม่ระบุ = ทั้งสองหน้า
+  const pagesParam = url.searchParams.get("pages");
+  const pages = pagesParam === "front" || pagesParam === "history" ? pagesParam : "both";
 
   const result = await buildAssetRegisterPdfData(supabase, id, { showPhoto, showQr });
   if (!result) {
     return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
   }
 
-  const buffer = await renderAssetRegisterPdfBuffer(result.data);
+  const buffer = await renderAssetRegisterPdfBuffer(result.data, pages);
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

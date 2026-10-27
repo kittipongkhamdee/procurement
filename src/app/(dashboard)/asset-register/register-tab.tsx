@@ -118,6 +118,9 @@ function buildRegisterExportQuery({
 }
 
 /** query ของปุ่ม "พิมพ์" รายการที่กรองไว้ — ใช้ route พิมพ์ตารางสรุป (summary/pdf) ที่รับตัวกรองสถานที่/หมวดหมู่/สภาพ/คำค้น */
+/** จำนวนรายการสูงสุดต่อไฟล์เมื่อพิมพ์ทะเบียนคุมรวม (ตรงกับ ASSET_REGISTER_BATCH_MAX ฝั่งเซิร์ฟเวอร์) */
+const ASSET_BATCH_MAX = 150;
+
 function buildPrintQuery({
   locationFilter,
   categoryFilter,
@@ -781,6 +784,8 @@ export function RegisterTab({
   // ไปยัง route พิมพ์ PDF ของแต่ละรายการ) — ไม่ใช่ค่าที่บันทึกถาวร แค่คุมการพิมพ์รอบนี้เท่านั้น
   const [showPhotoInPdf, setShowPhotoInPdf] = useState(true);
   const [showQrInPdf, setShowQrInPdf] = useState(true);
+  // หน้าที่จะพิมพ์ของทะเบียนคุมแต่ละรายการ: หน้า 1 ทะเบียนคุม / หน้า 2 ประวัติการซ่อม / ทั้งสองหน้า
+  const [pdfPages, setPdfPages] = useState<"front" | "history" | "both">("both");
   // รายการที่ติ๊กเลือกไว้เพื่อพิมพ์สติกเกอร์รวมหลายใบในหน้าเดียว (คงค้างข้ามหน้าตาราง/การกรองได้
   // เพราะเก็บ id ไว้ ไม่ผูกกับ pageRows ปัจจุบัน)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -884,6 +889,15 @@ export function RegisterTab({
 
   const pageRows = items ?? [];
 
+  // query ของปุ่ม "พิมพ์ทะเบียนคุม" (รวมทุกรายการที่กรอง) — ตัวกรอง + สวิตช์รูป/QR + หน้าที่พิมพ์
+  function buildBatchQuery() {
+    const params = new URLSearchParams(buildPrintQuery({ locationFilter, categoryFilter, conditionFilter, search }));
+    params.set("photo", showPhotoInPdf ? "1" : "0");
+    params.set("qr", showQrInPdf ? "1" : "0");
+    params.set("pages", pdfPages);
+    return params.toString();
+  }
+
   function updateFilter(setter: (v: string) => void, value: string) {
     setter(value);
     setPage(1);
@@ -945,6 +959,14 @@ export function RegisterTab({
           <span className="text-xs font-medium text-slate-500">การพิมพ์ทะเบียนคุมทรัพย์สิน (PDF):</span>
           <ToggleSwitch checked={showPhotoInPdf} onChange={() => setShowPhotoInPdf((v) => !v)} labelOn="แสดงรูปภาพ" labelOff="ซ่อนรูปภาพ" />
           <ToggleSwitch checked={showQrInPdf} onChange={() => setShowQrInPdf((v) => !v)} labelOn="แสดง QR Code" labelOff="ซ่อน QR Code" />
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <span className="text-xs font-medium text-slate-500">หน้าที่พิมพ์:</span>
+            <select value={pdfPages} onChange={(e) => setPdfPages(e.target.value as "front" | "history" | "both")} className="input !w-auto !py-1 text-sm">
+              <option value="front">หน้า 1 ทะเบียนคุม</option>
+              <option value="history">หน้า 2 ประวัติการซ่อม</option>
+              <option value="both">ทั้ง 2 หน้า</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -968,7 +990,23 @@ export function RegisterTab({
             className="btn-secondary btn-sm"
           >
             <PrinterIcon className="h-3.5 w-3.5" />
-            พิมพ์
+            พิมพ์สรุปรายการ
+          </a>
+          <a
+            href={`/asset-register/register-pdf?${buildBatchQuery()}`}
+            target="_blank"
+            onClick={(e) => {
+              // พิมพ์รวมได้จำกัดจำนวนต่อไฟล์ — เตือนก่อนเปิดถ้าเกิน (เซิร์ฟเวอร์ตรวจซ้ำอีกชั้น)
+              if (totalCount > ASSET_BATCH_MAX) {
+                e.preventDefault();
+                void toastError(`มี ${totalCount.toLocaleString("th-TH")} รายการ — พิมพ์รวมได้ไม่เกิน ${ASSET_BATCH_MAX} รายการต่อไฟล์ กรุณากรองให้แคบลงก่อน`);
+              }
+            }}
+            className="btn-secondary btn-sm"
+            title="พิมพ์ทะเบียนคุมทุกรายการที่กรองไว้ต่อกันเป็นไฟล์เดียว ตามหน้าที่เลือก"
+          >
+            <PrinterIcon className="h-3.5 w-3.5" />
+            พิมพ์ทะเบียนคุม ({totalCount.toLocaleString("th-TH")})
           </a>
           {selectedIds.size > 0 && (
             <>
@@ -1037,7 +1075,7 @@ export function RegisterTab({
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <a
-                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}
+                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}&pages=${pdfPages}`}
                         target="_blank"
                         className="btn-secondary btn-sm"
                       >
@@ -1115,7 +1153,7 @@ export function RegisterTab({
                   <td className="w-px whitespace-nowrap text-right">
                     <div className="flex flex-nowrap items-center justify-end gap-2">
                       <a
-                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}
+                        href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}&pages=${pdfPages}`}
                         target="_blank"
                         className="btn-secondary btn-sm"
                       >
