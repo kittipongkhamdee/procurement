@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { Database } from "@/lib/supabase/database.types";
-import { applyLocationFilter, parseLocationKey } from "@/lib/asset-location";
+import { applyLocationFilter, locationLabel, parseLocationKey } from "@/lib/asset-location";
+import { todayTh } from "@/lib/thai";
 import { computeAssetDepreciation } from "@/lib/asset-depreciation";
 import { AssetSummaryDocument, type AssetSummaryPdfData } from "./asset-summary-document";
 
@@ -75,8 +76,16 @@ export async function buildAssetSummaryPdfData(
     };
   });
 
+  const loc = parseLocationKey(filters.location);
   return {
     school_name: schoolSettings?.school_name ?? "โรงเรียนตาเบาวิทยา",
+    filters: {
+      location: loc ? locationLabel(loc) : undefined,
+      category: filters.categoryId ? (categoryLookup.get(filters.categoryId)?.name ?? undefined) : undefined,
+      condition: filters.conditionId ? (conditionLookup.get(filters.conditionId) ?? undefined) : undefined,
+      search: filters.search?.trim() || undefined,
+    },
+    printed_date: todayTh(),
     rows,
   };
 }

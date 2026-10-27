@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import { formatBaht } from "@/lib/thai";
+import { formatBaht, formatThaiDate } from "@/lib/thai";
 import { registerThSarabunFont, t } from "./thai-pdf";
 
 registerThSarabunFont();
@@ -60,6 +60,10 @@ export type AssetSummaryRow = {
 
 export type AssetSummaryPdfData = {
   school_name: string;
+  /** ตัวกรองที่ใช้ตอนพิมพ์ (ข้อความพร้อมแสดง) — ไม่มี = ทั้งหมด */
+  filters?: { location?: string; category?: string; condition?: string; search?: string };
+  /** วันที่พิมพ์/คำนวณค่าเสื่อม (YYYY-MM-DD ค.ศ.) */
+  printed_date?: string;
   rows: AssetSummaryRow[];
 };
 
@@ -74,12 +78,37 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
     { price: 0, annual: 0, cumulative: 0, net: 0 },
   );
 
+  const f = data.filters ?? {};
+  const filterLines = [
+    f.location ? `สถานที่: ${f.location}` : "",
+    f.category ? `หมวดหมู่: ${f.category}` : "",
+    f.condition ? `สภาพ: ${f.condition}` : "",
+    f.search ? `คำค้น: "${f.search}"` : "",
+  ].filter(Boolean);
+
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.center}>
           <Text style={styles.title}>{guard("สรุปรายการทรัพย์สิน")}</Text>
           <Text>{guard(data.school_name)}</Text>
+        </View>
+
+        {/* รายละเอียดหัวเรื่อง: ตัวกรองที่ใช้ (สถานที่/หมวดหมู่/สภาพ/คำค้น) + วันที่คำนวณค่าเสื่อม + จำนวนและมูลค่ารวม */}
+        <View style={{ marginTop: 6, alignItems: "center" }}>
+          <Text style={{ fontWeight: "bold" }}>
+            {guard(filterLines.length ? "เฉพาะรายการที่ตรงเงื่อนไข" : "ทุกรายการ (ไม่ได้เลือกตัวกรอง)")}
+          </Text>
+          {filterLines.map((l) => (
+            <Text key={l}>{guard(l)}</Text>
+          ))}
+          <Text style={{ fontSize: 11.5, color: "#475569" }}>
+            {guard(
+              `จำนวน ${data.rows.length.toLocaleString("th-TH")} รายการ · ราคาทุนรวม ${formatBaht(totals.price)} บาท · มูลค่าสุทธิรวม ${formatBaht(totals.net)} บาท${
+                data.printed_date ? ` · คำนวณค่าเสื่อม ณ วันที่ ${formatThaiDate(data.printed_date)}` : ""
+              }`,
+            )}
+          </Text>
         </View>
 
         <View style={[styles.table, { marginTop: 8 }]}>
@@ -100,7 +129,7 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
             <Text style={[styles.cellLast, styles.colNet, styles.headLine]}>{guard("มูลค่าสุทธิ (บาท)")}</Text>
           </View>
           {data.rows.map((row) => (
-            <View style={styles.tRow} key={row.seq}>
+            <View style={styles.tRow} key={row.seq} wrap={false}>
               <Text style={[styles.cell, styles.colSeq]}>{guard(row.seq)}</Text>
               <Text style={[styles.cell, styles.colName]}>{guard(row.name)}</Text>
               <Text style={[styles.cell, styles.colCategory]}>{guard(row.categoryName ?? "-")}</Text>
@@ -117,7 +146,7 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
               <Text style={[styles.cellLast, styles.colNet]}>{guard(row.net != null ? formatBaht(row.net) : "-")}</Text>
             </View>
           ))}
-          <View style={styles.footRow}>
+          <View style={styles.footRow} wrap={false}>
             <Text style={[styles.footCell, styles.colSeq]}>{guard("")}</Text>
             <Text style={[styles.footCell, styles.colName]}>{guard(`รวม ${data.rows.length} รายการ`)}</Text>
             <Text style={[styles.footCell, styles.colCategory]}>{guard("")}</Text>
