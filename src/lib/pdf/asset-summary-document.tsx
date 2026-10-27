@@ -7,7 +7,7 @@ registerThSarabunFont();
 const styles = StyleSheet.create({
   page: { fontFamily: "THSarabunNew", fontSize: 13, padding: 24, color: "#111827" },
   center: { textAlign: "center" },
-  title: { fontSize: 20, fontWeight: "bold", marginBottom: 8 },
+  title: { fontSize: 22, fontWeight: "bold", marginBottom: 2 },
   table: { marginTop: 4, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#111827" },
   tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
   tRow: { flexDirection: "row" },
@@ -34,6 +34,18 @@ const styles = StyleSheet.create({
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "7%", textAlign: "right" },
   headLine: { fontSize: 11.5, textAlign: "center" },
+  // กรอบรายละเอียดหัวรายงาน
+  infoBox: { marginTop: 10, flexDirection: "row", borderWidth: 0.8, borderColor: "#94a3b8", backgroundColor: "#f8fafc" },
+  infoLeft: { flex: 1, padding: 8, borderRightWidth: 0.8, borderColor: "#94a3b8" },
+  infoRight: { width: 400, padding: 8, justifyContent: "center" },
+  infoHead: { fontSize: 12, fontWeight: "bold", marginBottom: 3 },
+  infoRow: { flexDirection: "row", marginBottom: 1 },
+  infoLabel: { width: 52, fontSize: 12, color: "#475569" },
+  infoValue: { flex: 1, fontSize: 13 },
+  statRow: { flexDirection: "row" },
+  stat: { width: "50%", paddingVertical: 2, paddingHorizontal: 4 },
+  statLabel: { fontSize: 11.5, color: "#475569" },
+  statValue: { fontSize: 14, fontWeight: "bold" },
 });
 
 function guard(value: string | number | null | undefined): string {
@@ -79,39 +91,63 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
   );
 
   const f = data.filters ?? {};
-  const filterLines = [
-    f.location ? `สถานที่: ${f.location}` : "",
-    f.category ? `หมวดหมู่: ${f.category}` : "",
-    f.condition ? `สภาพ: ${f.condition}` : "",
-    f.search ? `คำค้น: "${f.search}"` : "",
-  ].filter(Boolean);
+  const filterRows = (
+    [
+      ["สถานที่", f.location],
+      ["หมวดหมู่", f.category],
+      ["สภาพ", f.condition],
+      ["คำค้น", f.search ? `"${f.search}"` : ""],
+    ] as [string, string | undefined][]
+  ).filter((r): r is [string, string] => !!r[1]);
 
   return (
     <Document>
       <Page size="A4" orientation="landscape" style={styles.page}>
         <View style={styles.center}>
           <Text style={styles.title}>{guard("สรุปรายการทรัพย์สิน")}</Text>
-          <Text>{guard(data.school_name)}</Text>
+          <Text style={{ fontSize: 14 }}>{guard(data.school_name)}</Text>
         </View>
 
-        {/* รายละเอียดหัวเรื่อง: ตัวกรองที่ใช้ (สถานที่/หมวดหมู่/สภาพ/คำค้น) + วันที่คำนวณค่าเสื่อม + จำนวนและมูลค่ารวม */}
-        <View style={{ marginTop: 6, alignItems: "center" }}>
-          <Text style={{ fontWeight: "bold" }}>
-            {guard(filterLines.length ? "เฉพาะรายการที่ตรงเงื่อนไข" : "ทุกรายการ (ไม่ได้เลือกตัวกรอง)")}
-          </Text>
-          {filterLines.map((l) => (
-            <Text key={l}>{guard(l)}</Text>
-          ))}
-          <Text style={{ fontSize: 11.5, color: "#475569" }}>
-            {guard(
-              `จำนวน ${data.rows.length.toLocaleString("th-TH")} รายการ · ราคาทุนรวม ${formatBaht(totals.price)} บาท · มูลค่าสุทธิรวม ${formatBaht(totals.net)} บาท${
-                data.printed_date ? ` · คำนวณค่าเสื่อม ณ วันที่ ${formatThaiDate(data.printed_date)}` : ""
-              }`,
+        {/* รายละเอียดหัวเรื่อง: กรอบเงื่อนไขที่ใช้ (ซ้าย) + ตัวเลขสรุป (ขวา) */}
+        <View style={styles.infoBox}>
+          <View style={styles.infoLeft}>
+            <Text style={styles.infoHead}>{guard("เงื่อนไขของรายการ")}</Text>
+            {filterRows.length === 0 ? (
+              <Text style={styles.infoValue}>{guard("ทุกรายการ (ไม่ได้เลือกตัวกรอง)")}</Text>
+            ) : (
+              filterRows.map(([label, value]) => (
+                <View key={label} style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{guard(label)}</Text>
+                  <Text style={styles.infoValue}>{guard(value)}</Text>
+                </View>
+              ))
             )}
-          </Text>
+          </View>
+          <View style={styles.infoRight}>
+            <View style={styles.statRow}>
+              <View style={styles.stat}>
+                <Text style={styles.statLabel}>{guard("จำนวนรายการ")}</Text>
+                <Text style={styles.statValue}>{guard(`${data.rows.length.toLocaleString("th-TH")} รายการ`)}</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text style={styles.statLabel}>{guard("ราคาทุนรวม")}</Text>
+                <Text style={styles.statValue}>{guard(`${formatBaht(totals.price)} บาท`)}</Text>
+              </View>
+            </View>
+            <View style={styles.statRow}>
+              <View style={styles.stat}>
+                <Text style={styles.statLabel}>{guard("มูลค่าสุทธิรวม")}</Text>
+                <Text style={styles.statValue}>{guard(`${formatBaht(totals.net)} บาท`)}</Text>
+              </View>
+              <View style={styles.stat}>
+                <Text style={styles.statLabel}>{guard("คำนวณค่าเสื่อม ณ วันที่")}</Text>
+                <Text style={styles.statValue}>{guard(data.printed_date ? formatThaiDate(data.printed_date) : "-")}</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
-        <View style={[styles.table, { marginTop: 8 }]}>
+        <View style={[styles.table, { marginTop: 12 }]}>
           <View style={styles.tHeadRow} fixed>
             <Text style={[styles.cell, styles.colSeq, styles.headLine]}>{guard("ลำดับ")}</Text>
             <Text style={[styles.cell, styles.colName, styles.headLine]}>{guard("รายการ")}</Text>
