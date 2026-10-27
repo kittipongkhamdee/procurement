@@ -118,6 +118,45 @@ function buildRegisterExportQuery({
 }
 
 /** query ของปุ่ม "พิมพ์" รายการที่กรองไว้ — ใช้ route พิมพ์ตารางสรุป (summary/pdf) ที่รับตัวกรองสถานที่/หมวดหมู่/สภาพ/คำค้น */
+type SortKey = "asset_code" | "name" | "category" | "location" | "quantity" | "price" | "condition";
+type SortState = { key: SortKey; dir: "asc" | "desc" } | null;
+
+/** หัวคอลัมน์ที่กดเรียงได้ — กดครั้งแรกเรียงน้อย→มาก, ครั้งที่สองมาก→น้อย, ครั้งที่สามกลับเป็นลำดับเดิม (ใหม่→เก่า) */
+function SortTh({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  className = "",
+  align = "left",
+}: {
+  label: string;
+  sortKey: SortKey;
+  sort: SortState;
+  onSort: (key: SortKey) => void;
+  className?: string;
+  align?: "left" | "center" | "right";
+}) {
+  const active = sort?.key === sortKey ? sort.dir : null;
+  return (
+    <th className={className} aria-sort={active === "asc" ? "ascending" : active === "desc" ? "descending" : "none"}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex w-full items-center gap-1 whitespace-nowrap font-semibold hover:text-navy-800 ${
+          align === "right" ? "justify-end" : align === "center" ? "justify-center" : "justify-start"
+        } ${active ? "text-navy-800" : ""}`}
+        title="กดเพื่อเรียงลำดับ"
+      >
+        {label}
+        <span aria-hidden className={`text-[10px] leading-none ${active ? "" : "text-slate-300"}`}>
+          {active === "asc" ? "▲" : active === "desc" ? "▼" : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 /** จำนวนรายการสูงสุดต่อไฟล์เมื่อพิมพ์ทะเบียนคุมรวม (ตรงกับ ASSET_REGISTER_BATCH_MAX ฝั่งเซิร์ฟเวอร์) */
 const ASSET_BATCH_MAX = 150;
 
@@ -785,6 +824,8 @@ export function RegisterTab({
   const [showPhotoInPdf, setShowPhotoInPdf] = useState(true);
   const [showQrInPdf, setShowQrInPdf] = useState(true);
   // หน้าที่จะพิมพ์ของทะเบียนคุมแต่ละรายการ: หน้า 1 ทะเบียนคุม / หน้า 2 ประวัติการซ่อม / ทั้งสองหน้า
+  // การเรียงลำดับตารางของหน้าจอ (ฝั่งฐานข้อมูล ครอบคลุมทุกหน้า) — null = ลำดับเดิม (เพิ่มล่าสุดก่อน)
+  const [sort, setSort] = useState<SortState>(null);
   const [pdfPages, setPdfPages] = useState<"front" | "history" | "both">("both");
   // รายการที่ติ๊กเลือกไว้เพื่อพิมพ์สติกเกอร์รวมหลายใบในหน้าเดียว (คงค้างข้ามหน้าตาราง/การกรองได้
   // เพราะเก็บ id ไว้ ไม่ผูกกับ pageRows ปัจจุบัน)
@@ -812,10 +853,28 @@ export function RegisterTab({
     let query = supabase
       .from("asset_items")
       .select(
-        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition_id, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec",
+        // เรียงตามชื่อหมวดหมู่/สภาพต้อง embed ตารางนั้นใน select ด้วย (PostgREST เรียงตามคอลัมน์ของตารางที่ฝังได้)
+        "id, round_id, building, floor, room, category_id, item_type_id, name, quantity, unit, asset_code, sequence_no, doc_ref, condition_id, acquired_date, acquired_year, budget_source_id, price, photo_path, status, reject_reason, vendor_name, vendor_address, vendor_phone, acquisition_method_id, model, spec" +
+          (sort?.key === "category" ? ", asset_categories(name)" : "") +
+          (sort?.key === "condition" ? ", asset_conditions(name)" : ""),
         { count: "exact" },
-      )
-      .order("created_at", { ascending: false });
+      );
+
+    if (sort) {
+      const asc = sort.dir === "asc";
+      const nullsLast = { ascending: asc, nullsFirst: false };
+      if (sort.key === "location") {
+        query = query.order("building", { ascending: asc }).order("floor", nullsLast).order("room", { ascending: asc });
+      } else if (sort.key === "category") {
+        query = query.order("asset_categories(name)", nullsLast);
+      } else if (sort.key === "condition") {
+        query = query.order("asset_conditions(name)", nullsLast);
+      } else {
+        query = query.order(sort.key, nullsLast);
+      }
+    }
+    // ลำดับรอง/ลำดับเดิม: เพิ่มล่าสุดก่อน (+ id กันลำดับสลับเมื่อค่าเท่ากันข้ามหน้า)
+    query = query.order("created_at", { ascending: false }).order("id");
 
     if (roundFilter !== ALL) query = query.eq("round_id", roundFilter);
     if (locationFilter !== ALL) query = applyLocationFilter(query, parseLocationKey(locationFilter));
@@ -839,7 +898,7 @@ export function RegisterTab({
     const { data, count } = await query.range(from, from + pageSize - 1);
     setItems((data as unknown as AssetItem[]) ?? []);
     setTotalCount(count ?? 0);
-  }, [roundFilter, locationFilter, categoryFilter, statusFilter, conditionFilter, debouncedSearch, page]);
+  }, [roundFilter, locationFilter, categoryFilter, statusFilter, conditionFilter, debouncedSearch, page, sort]);
 
   // ตัวเลือกตัวกรองสถานที่ (อาคาร/ชั้น/ห้อง ที่มีครุภัณฑ์อยู่จริง) — ดึงเฉพาะ 3 คอลัมน์ครั้งเดียว
   useEffect(() => {
@@ -896,6 +955,11 @@ export function RegisterTab({
     params.set("qr", showQrInPdf ? "1" : "0");
     params.set("pages", pdfPages);
     return params.toString();
+  }
+
+  function toggleSort(key: SortKey) {
+    setSort((cur) => (cur?.key !== key ? { key, dir: "asc" } : cur.dir === "asc" ? { key, dir: "desc" } : null));
+    setPage(1);
   }
 
   function updateFilter(setter: (v: string) => void, value: string) {
@@ -1114,13 +1178,13 @@ export function RegisterTab({
           <thead>
             <tr>
               <th className="w-8"></th>
-              <th className="whitespace-nowrap">รหัสครุภัณฑ์</th>
-              <th>ชื่อทรัพย์สิน</th>
-              <th>หมวดหมู่</th>
-              <th>สถานที่</th>
-              <th className="text-center">จำนวน</th>
-              <th className="whitespace-nowrap text-right">ราคา (บาท)</th>
-              <th className="text-center">สภาพ</th>
+              <SortTh label="รหัสครุภัณฑ์" sortKey="asset_code" sort={sort} onSort={toggleSort} className="whitespace-nowrap" />
+              <SortTh label="ชื่อทรัพย์สิน" sortKey="name" sort={sort} onSort={toggleSort} />
+              <SortTh label="หมวดหมู่" sortKey="category" sort={sort} onSort={toggleSort} />
+              <SortTh label="สถานที่" sortKey="location" sort={sort} onSort={toggleSort} />
+              <SortTh label="จำนวน" sortKey="quantity" sort={sort} onSort={toggleSort} align="center" />
+              <SortTh label="ราคา (บาท)" sortKey="price" sort={sort} onSort={toggleSort} className="whitespace-nowrap" align="right" />
+              <SortTh label="สภาพ" sortKey="condition" sort={sort} onSort={toggleSort} align="center" />
               <th></th>
             </tr>
           </thead>
