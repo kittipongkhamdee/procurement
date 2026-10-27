@@ -77,6 +77,8 @@ export function docFormatsFrom(settings: Map<string, string> | Record<string, st
 }
 export const DEFAULT_DOC_FORMATS: DocFormats = docFormatsFrom({});
 export const fundDoc = (seq: number, fy: number, fmt: DocFormats = DEFAULT_DOC_FORMATS) => formatDocNumber(fmt.bg, seq, fy);
+/** ข้อความอ้างถึงรายการยืม/ส่งใช้คืนในหน้าจอ — รูปแบบเลขที่ว่าง (ไม่ใช้เลขที่เอกสาร) จะแสดงเป็น "ลำดับที่ N" แทน */
+export const fundRef = (seq: number, fy: number, fmt: DocFormats = DEFAULT_DOC_FORMATS) => fundDoc(seq, fy, fmt) || `ลำดับที่ ${seq}`;
 
 export type Balance = Record<Pocket, number>;
 export const zero = (): Balance => ({ cash: 0, bank: 0, gov: 0 });

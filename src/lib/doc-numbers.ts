@@ -10,11 +10,11 @@ export const DOC_NUMBER_KINDS = [
   { kind: "requisition", key: "doc_number_format_requisition", label: "ใบเบิกวัสดุ", fallback: "จ {n}/{yyyy}" },
   { kind: "loan", key: "doc_number_format_loan", label: "สัญญาการยืมเงิน", fallback: "{n}/{yyyy}" },
   { kind: "claim", key: "doc_number_format_claim", label: "เบิกค่าใช้จ่ายโครงการ (ตาราง 2)", fallback: "" },
-  // งานการเงิน — ต้องมีเลขเสมอ (เว้นว่าง = ใช้ค่าเริ่มต้น)
+  // งานการเงิน — บค./บจ./ใบรับใบสำคัญ ต้องมีเลขเสมอ (เว้นว่าง = ใช้ค่าเริ่มต้น) ส่วนยืมเงินระหว่างประเภทเงิน (บง) เว้นว่างได้ = ไม่ใช้เลขที่เอกสาร
   { kind: "loan_receipt", key: "doc_number_format_loan_receipt", label: "ใบรับใบสำคัญ (ส่งใช้เงินยืม)", fallback: "บค {n}/{yyyy}", required: true },
   { kind: "fin_bk", key: "doc_number_format_fin_bk", label: "บัญชีรับ-จ่าย: ใบสำคัญรับเงิน (บค.)", fallback: "บค {n}/{yyyy}", required: true },
   { kind: "fin_bj", key: "doc_number_format_fin_bj", label: "บัญชีรับ-จ่าย: ใบเสร็จรับเงินผู้ขาย (บจ.)", fallback: "บจ {n}/{yyyy}", required: true },
-  { kind: "fund_loan", key: "doc_number_format_fund_loan", label: "ยืมเงินระหว่างประเภทเงิน / ส่งใช้คืน", fallback: "บง {n}/{yyyy}", required: true },
+  { kind: "fund_loan", key: "doc_number_format_fund_loan", label: "ยืมเงินระหว่างประเภทเงิน / ส่งใช้คืน", fallback: "บง {n}/{yyyy}" },
 ] as const satisfies readonly { kind: string; key: string; label: string; fallback: string; required?: boolean }[];
 export type DocNumberKind = (typeof DOC_NUMBER_KINDS)[number]["kind"];
 

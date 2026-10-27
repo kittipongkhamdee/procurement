@@ -8,7 +8,7 @@ import { dbFail } from "@/lib/action-log";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminUser } from "@/lib/doc-number-server";
-import { DOC_FORMAT_KEYS, docFormatsFrom, effect, fiscalYearOf, fundDoc, POCKETS, round2, POCKET_LABEL, type FinTxn, type Pocket } from "@/lib/finance-ledger";
+import { DOC_FORMAT_KEYS, docFormatsFrom, effect, fiscalYearOf, fundDoc, fundRef, POCKETS, round2, POCKET_LABEL, type FinTxn, type Pocket } from "@/lib/finance-ledger";
 
 type Result = { error?: string; id?: string };
 type Supabase = Awaited<ReturnType<typeof createClient>>;
@@ -110,7 +110,7 @@ export async function saveFundLoan(fd: FormData): Promise<Result> {
     .insert(lines.map((l, i) => ({ loan_id: loan.id, borrower_type_id: l.borrower_type_id, amount: l.amount, sort_order: i })))
     .select("id, borrower_type_id, amount");
   const names = await typeNames(supabase, [lender, ...lines.map((l) => l.borrower_type_id)]);
-  const doc = fundDoc(seq, fy, await docFormats(supabase));
+  const doc = fundDoc(seq, fy, await docFormats(supabase)) || null;
   const base = { fiscal_year: fy, txn_date: date, doc_no: doc };
   const rows = (saved ?? []).flatMap((l) => [
     { ...base, kind: "pay", from_pocket: pocket, description: `ให้ยืมเงินแก่รายการ${names.get(l.borrower_type_id) ?? ""}`, amount: l.amount, money_type_id: lender, fund_role: "loan_out", fund_line_id: l.id },
@@ -190,8 +190,8 @@ export async function saveFundRepay(lineId: string, fd: FormData): Promise<Resul
   if (error?.code === "23505") return { error: "เลขที่ บง ชนกับรายการที่บันทึกพร้อมกัน — กรุณากดบันทึกอีกครั้ง" };
   if (error) return dbFail("saveFundRepay", error.message.includes("row-level") ? NO_RIGHT : error.message);
   const names = await typeNames(supabase, [loan.lender_type_id, line.borrower_type_id]);
-  const ref = fundDoc(loan.doc_seq, loan.fiscal_year, await docFormats(supabase));
-  const base = { fiscal_year: fy, txn_date: date, doc_no: fundDoc(seq, fy, await docFormats(supabase)), amount, fund_line_id: lineId, fund_repay_id: rep.id };
+  const ref = fundRef(loan.doc_seq, loan.fiscal_year, await docFormats(supabase));
+  const base = { fiscal_year: fy, txn_date: date, doc_no: fundDoc(seq, fy, await docFormats(supabase)) || null, amount, fund_line_id: lineId, fund_repay_id: rep.id };
   const { error: e2 } = await supabase.from("fin_transactions").insert([
     { ...base, kind: "pay", from_pocket: pocket, description: `ส่งใช้เงินยืมคืน${names.get(loan.lender_type_id) ?? ""} (ตาม ${ref})`, money_type_id: line.borrower_type_id, fund_role: "repay_out" },
     { ...base, kind: "receive", to_pocket: pocket, description: `รับคืนเงินยืมจากรายการ${names.get(line.borrower_type_id) ?? ""} (ตาม ${ref})`, money_type_id: loan.lender_type_id, fund_role: "repay_in" },

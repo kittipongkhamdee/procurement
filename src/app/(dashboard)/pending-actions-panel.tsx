@@ -39,7 +39,7 @@ import {
 } from "./project-proposals/actions";
 import { ApprovalStatusCell, type Approval, type DecisionMode } from "./approvals/page";
 import { Modal, type ModalHandle } from "@/components/modal";
-import { DOC_FORMAT_KEYS, docFormatsFrom, fundDoc } from "@/lib/finance-ledger";
+import { DOC_FORMAT_KEYS, docFormatsFrom, fundRef } from "@/lib/finance-ledger";
 import { approveFundLoan } from "./finance/ledger/fund-loans/actions";
 import { ApproveLoanModal } from "./finance/loans/loan-approve-modal";
 import { baht as formatLoanBaht, LOAN_SELECT, loanPurpose, type Loan } from "./finance/loans/loan-summary";
@@ -535,7 +535,7 @@ export function PendingActionsPanel() {
           const lines = [...(l.fin_fund_loan_lines ?? [])].sort((a, b) => a.sort_order - b.sort_order).map((x) => ({ borrower: tn.get(x.borrower_type_id) ?? "", amount: Number(x.amount) }));
           return {
             id: l.id,
-            doc: fundDoc(l.doc_seq, l.fiscal_year, fmt),
+            doc: fundRef(l.doc_seq, l.fiscal_year, fmt),
             lender: tn.get(l.lender_type_id) ?? "",
             date: l.loan_date,
             total: lines.reduce((s, x) => s + x.amount, 0),

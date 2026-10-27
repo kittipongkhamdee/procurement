@@ -14,7 +14,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
-import { DEFAULT_DOC_FORMATS, DOC_FORMAT_KEYS, docFormatsFrom, type DocFormats, balancesByType, fiscalYearOf, fundDoc, POCKET_LABEL, POCKETS, round2, type FinTxn, type MoneyType, type Opening, type Pocket } from "@/lib/finance-ledger";
+import { DEFAULT_DOC_FORMATS, DOC_FORMAT_KEYS, docFormatsFrom, type DocFormats, balancesByType, fiscalYearOf, fundRef, POCKET_LABEL, POCKETS, round2, type FinTxn, type MoneyType, type Opening, type Pocket } from "@/lib/finance-ledger";
 import { approveFundLoan, deleteFundLoan, deleteFundRepay, saveFundLoan, saveFundRepay, updateFundLoanMemo } from "./actions";
 
 type Repay = { id: string; repay_date: string; amount: number; pocket: Pocket; doc_seq: number; fiscal_year: number; note: string | null };
@@ -114,14 +114,14 @@ export default function FundLoansPage() {
   const list = show === "open" ? loans.filter((l) => l.lines.some((x) => outstandingOf(x) > 0)) : loans;
 
   async function removeLoan(l: Loan) {
-    if (!(await confirmDelete({ title: `ลบการยืม ${fundDoc(l.doc_seq, l.fiscal_year, fmt)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
+    if (!(await confirmDelete({ title: `ลบการยืม ${fundRef(l.doc_seq, l.fiscal_year, fmt)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
     const res = await deleteFundLoan(l.id);
     if (res.error) return void (await toastError(res.error));
     await toastSuccess("ลบแล้ว");
     reload();
   }
   async function approve(l: Loan, ok: boolean) {
-    const doc = fundDoc(l.doc_seq, l.fiscal_year, fmt);
+    const doc = fundRef(l.doc_seq, l.fiscal_year, fmt);
     const yes = ok
       ? await confirmWarning({ title: `อนุมัติการยืม ${doc}?`, text: `ยืมจาก${typeName.get(l.lender_type_id)} รวม ${baht(l.lines.reduce((s, x) => s + x.amount, 0))} บาท`, confirmButtonText: "อนุมัติ" })
       : await confirmWarning({ title: `ยกเลิกการอนุมัติ ${doc}?`, confirmButtonText: "ยกเลิกอนุมัติ" });
@@ -132,7 +132,7 @@ export default function FundLoansPage() {
     reload();
   }
   async function removeRepay(r: Repay) {
-    if (!(await confirmDelete({ title: `ลบการส่งใช้คืน ${fundDoc(r.doc_seq, r.fiscal_year, fmt)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
+    if (!(await confirmDelete({ title: `ลบการส่งใช้คืน ${fundRef(r.doc_seq, r.fiscal_year, fmt)}?`, text: "รายการรับ-จ่ายที่ระบบสร้างไว้ทั้งสองฝั่งจะถูกลบด้วย" }))) return;
     const res = await deleteFundRepay(r.id);
     if (res.error) return void (await toastError(res.error));
     await toastSuccess("ลบแล้ว");
@@ -195,7 +195,7 @@ export default function FundLoansPage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-semibold text-slate-900">
-                      {fundDoc(l.doc_seq, l.fiscal_year, fmt)} · ยืมจาก{typeName.get(l.lender_type_id)}
+                      {fundRef(l.doc_seq, l.fiscal_year, fmt)} · ยืมจาก{typeName.get(l.lender_type_id)}
                     </p>
                     <p className="text-sm text-slate-500">
                       {formatThaiDate(l.loan_date)} · {POCKET_LABEL[l.pocket]} · รวม {baht(sum)} บาท
@@ -264,7 +264,7 @@ export default function FundLoansPage() {
                               {x.repays.map((r) => (
                                 <div key={r.id} className="flex flex-wrap items-center gap-2 text-slate-500">
                                   <span>
-                                    ส่งใช้ {formatThaiDate(r.repay_date)} · {fundDoc(r.doc_seq, r.fiscal_year, fmt)} · {baht(r.amount)} บาท
+                                    ส่งใช้ {formatThaiDate(r.repay_date)} · {fundRef(r.doc_seq, r.fiscal_year, fmt)} · {baht(r.amount)} บาท
                                   </span>
                                   {canWrite && (
                                     <button type="button" onClick={() => removeRepay(r)} title="ลบการส่งใช้คืน" className="btn-danger btn-sm">
@@ -507,7 +507,7 @@ function MemoForm({ loan, fmt, onSaved }: { loan: Loan; fmt: DocFormats; onSaved
   return (
     <Modal
       ref={ref}
-      title={`ข้อมูลบันทึกข้อความ ${fundDoc(loan.doc_seq, loan.fiscal_year, fmt)}`}
+      title={`ข้อมูลบันทึกข้อความ ${fundRef(loan.doc_seq, loan.fiscal_year, fmt)}`}
       lazy
       trigger={
         <span title="แก้ข้อมูลบันทึกข้อความ" className="btn-secondary btn-sm">
@@ -556,7 +556,7 @@ function RepayForm({ loan, line, outstanding, typeName, fmt, onSaved }: { loan: 
     >
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 sm:col-span-2">
-          {typeName.get(line.borrower_type_id)} ส่งใช้คืน {typeName.get(loan.lender_type_id)} ตาม {fundDoc(loan.doc_seq, loan.fiscal_year, fmt)} — ยอดค้าง <b>{baht(outstanding)}</b> บาท
+          {typeName.get(line.borrower_type_id)} ส่งใช้คืน {typeName.get(loan.lender_type_id)} ตาม {fundRef(loan.doc_seq, loan.fiscal_year, fmt)} — ยอดค้าง <b>{baht(outstanding)}</b> บาท
         </p>
         <div>
           <label className="label">
