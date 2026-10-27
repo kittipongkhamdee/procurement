@@ -117,6 +117,26 @@ function buildRegisterExportQuery({
   return params.toString();
 }
 
+/** query ของปุ่ม "พิมพ์" รายการที่กรองไว้ — ใช้ route พิมพ์ตารางสรุป (summary/pdf) ที่รับตัวกรองสถานที่/หมวดหมู่/สภาพ/คำค้น */
+function buildPrintQuery({
+  locationFilter,
+  categoryFilter,
+  conditionFilter,
+  search,
+}: {
+  locationFilter: string;
+  categoryFilter: string;
+  conditionFilter: string;
+  search: string;
+}) {
+  const params = new URLSearchParams();
+  if (locationFilter !== ALL) params.set("location", locationFilter);
+  if (categoryFilter !== ALL) params.set("category", categoryFilter);
+  if (conditionFilter !== ALL) params.set("condition", conditionFilter);
+  if (search.trim()) params.set("q", search.trim());
+  return params.toString();
+}
+
 function conditionBadge(conditionId: string | null, conditionLookup: Map<string, { name: string; badge_color: string }>) {
   const c = conditionId ? conditionLookup.get(conditionId) : null;
   if (!c) return { cls: "badge-slate", label: "-" };
@@ -336,7 +356,7 @@ function ItemModal({
         item ? (
           <span
             onClick={handleOpen}
-            className="inline-flex items-center gap-1 text-sm font-medium text-navy-800 hover:underline"
+            className="btn-secondary btn-sm inline-flex cursor-pointer items-center gap-1"
           >
             <PencilIcon className="h-3.5 w-3.5" />
             {canManage ? "แก้ไข" : "ดูรายละเอียด"}
@@ -934,13 +954,21 @@ export function RegisterTab({
           จากทั้งหมด {allCount.toLocaleString("th-TH")} รายการ
           {selectedIds.size > 0 && <> — เลือกไว้ {selectedIds.size.toLocaleString("th-TH")} รายการ</>}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <a
             href={`/asset-register/xlsx?${buildRegisterExportQuery({ roundFilter, locationFilter, categoryFilter, statusFilter, conditionFilter, search })}`}
             className="btn-secondary btn-sm"
           >
             <ExcelFileIcon className="h-3.5 w-3.5" />
             ส่งออก Excel
+          </a>
+          <a
+            href={`/asset-register/summary/pdf?${buildPrintQuery({ locationFilter, categoryFilter, conditionFilter, search })}`}
+            target="_blank"
+            className="btn-secondary btn-sm"
+          >
+            <PrinterIcon className="h-3.5 w-3.5" />
+            พิมพ์
           </a>
           {selectedIds.size > 0 && (
             <>
@@ -957,23 +985,23 @@ export function RegisterTab({
               </button>
             </>
           )}
+          {canManage && (
+            <ItemModal
+              item={null}
+              canManage={canManage}
+              categories={categories}
+              buildings={buildings}
+              units={units}
+              budgetSources={budgetSources}
+              acquisitionMethods={acquisitionMethods}
+              itemTypes={itemTypes}
+              conditions={conditions}
+              rounds={rounds}
+              defaultRoundId={defaultRoundId}
+              onSaved={handleChanged}
+            />
+          )}
         </div>
-        {canManage && (
-          <ItemModal
-            item={null}
-            canManage={canManage}
-            categories={categories}
-            buildings={buildings}
-            units={units}
-            budgetSources={budgetSources}
-            acquisitionMethods={acquisitionMethods}
-            itemTypes={itemTypes}
-            conditions={conditions}
-            rounds={rounds}
-            defaultRoundId={defaultRoundId}
-            onSaved={handleChanged}
-          />
-        )}
       </div>
 
       {/* @container: สลับการ์ด/ตารางตามความกว้าง "พื้นที่เนื้อหา" จริง ตารางไม่มีแถบเลื่อนแนวนอน
@@ -1084,8 +1112,8 @@ export function RegisterTab({
                   <td className="text-center">
                     <span className={cb.cls}>{cb.label}</span>
                   </td>
-                  <td className="w-44 text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
+                  <td className="w-px whitespace-nowrap text-right">
+                    <div className="flex flex-nowrap items-center justify-end gap-2">
                       <a
                         href={`/asset-register/${it.id}/pdf?photo=${showPhotoInPdf ? 1 : 0}&qr=${showQrInPdf ? 1 : 0}`}
                         target="_blank"
