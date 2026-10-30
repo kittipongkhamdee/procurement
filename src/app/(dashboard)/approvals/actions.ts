@@ -350,6 +350,59 @@ export async function resetDeputyDecision(id: string) {
   revalidatePath("/approvals");
 }
 
+/** แอดมินบันทึกความเห็น/อนุมัติ "แทน" รองผู้อำนวยการหรือผู้อำนวยการ — กรณีท่านไม่สะดวกกดในระบบ (ข้ามขั้นตอนก่อนหน้าได้)
+ * ชื่อผู้พิจารณาเก็บเป็นชื่อผู้ลงนามของตำแหน่งนั้นตามหน้าตั้งค่า + ต่อท้ายว่าแอดมินคนไหนบันทึกแทน (และเหตุผล/ช่องทางที่ได้รับความเห็น)
+ * เพื่อให้ตรวจสอบย้อนหลังได้ ไม่ปลอมว่าท่านกดเอง — ทำได้เฉพาะแอดมินตัวจริง (ไม่นับแอดมินที่สลับไปทำงานในบทบาทอื่น) */
+export async function adminActOnBehalf(
+  id: string,
+  step: "deputy" | "director",
+  decision: "ควร" | "ไม่ควร" | "อนุมัติ" | "ไม่อนุมัติ",
+  note?: string,
+  reason?: string,
+) {
+  const { supabase, user } = await requireUser();
+  const { data: profile } = await supabase.from("proc_profiles").select("role, real_role, full_name").eq("user_id", user.id).maybeSingle();
+  if ((profile?.real_role ?? profile?.role) !== "admin" || profile?.role !== "admin") throw new Error("เฉพาะผู้ดูแลระบบเท่านั้นที่บันทึกแทนได้");
+  if (step === "deputy" && decision !== "ควร" && decision !== "ไม่ควร") throw new Error("ความเห็นไม่ถูกต้อง");
+  if (step === "director" && decision !== "อนุมัติ" && decision !== "ไม่อนุมัติ") throw new Error("ผลพิจารณาไม่ถูกต้อง");
+  const needsNote = decision === "ไม่ควร" || decision === "ไม่อนุมัติ";
+  if (needsNote && !note?.trim()) throw new Error("กรุณากรอกความคิดเห็น");
+
+  const roleLabel = step === "deputy" ? "รองผู้อำนวยการ" : "ผู้อำนวยการ";
+  const { data: setting } = await supabase
+    .from("proc_app_settings")
+    .select("value")
+    .eq("key", step === "deputy" ? "approval_signer_deputy" : "approval_signer_director")
+    .maybeSingle();
+  const adminName = (profile?.full_name ?? user.email ?? "").trim();
+  const why = reason?.trim().slice(0, 120);
+  const byName = `${setting?.value?.trim() || roleLabel} (แอดมิน ${adminName} บันทึกแทน${why ? `: ${why}` : ""})`;
+  const now = new Date().toISOString();
+
+  const query =
+    step === "deputy"
+      ? supabase
+          .from("proc_approvals")
+          .update({
+            deputy_decision: decision as "ควร" | "ไม่ควร",
+            deputy_decided_by_name: byName,
+            deputy_decided_at: now,
+            deputy_note: decision === "ไม่ควร" ? note?.trim() || null : null,
+          })
+          .eq("id", id)
+          .eq("status", "รออนุมัติ")
+          .is("deputy_decision", null)
+      : supabase
+          .from("proc_approvals")
+          .update({ status: decision, approved_by_name: byName, approved_at: now, approve_note: note?.trim() || null })
+          .eq("id", id)
+          .eq("status", "รออนุมัติ");
+  const { data, error } = await query.select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("รายการนี้ถูกดำเนินการไปแล้ว หรืออยู่ในสถานะที่บันทึกแทนไม่ได้");
+  revalidatePath("/approvals");
+}
+
 /** ฝ่ายแผนรับทราบ (ตรวจงบประมาณ/แผน) — ขั้นแรกก่อนเสนอรองผู้อำนวยการ */
 export async function updatePlanningAck(id: string, note?: string) {
   const { supabase, signerName } = await requireAdminOrGroup("ฝ่ายแผน");
