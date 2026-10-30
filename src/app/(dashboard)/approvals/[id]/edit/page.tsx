@@ -31,7 +31,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
       .eq("id", id)
       .maybeSingle(),
     supabase.from("proc_approval_items").select("name, qty, unit, unit_price, note").eq("approval_id", id).order("seq"),
-    supabase.from("plan_projects").select("id, name, admin_group_id, budget_year_id").order("sort_order"),
+    supabase.from("plan_projects").select("id, name, admin_group_id, budget_year_id, budget").order("sort_order"),
     supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
     supabase.from("proc_approvals").select("id, project_id, requested_amount").eq("status", "อนุมัติ"),
     supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
@@ -71,7 +71,8 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     id: p.id,
     name: p.name,
     adminGroupId: p.admin_group_id,
-    budget: budgetByProject.get(p.id) ?? 0,
+  // งบโครงการ = ผลรวมงบรายกิจกรรม ถ้าโครงการไม่มีกิจกรรมเลยใช้งบระดับโครงการ (plan_projects.budget) แทน — ตรงกับหน้ารายงานโครงการ/จัดสรรงบ
+    budget: budgetByProject.has(p.id) ? (budgetByProject.get(p.id) ?? 0) : Number(p.budget ?? 0),
     approvedSoFar: approvedByProject.get(p.id) ?? 0,
   }));
 

@@ -78,8 +78,8 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
   const [{ data: projects }, { data: allActivities }, { data: approvals }, { data: adminGroups }, { data: teachers }, { data: learningAreas }] =
     await Promise.all([
       currentYear
-        ? supabase.from("plan_projects").select("id, name, admin_group_id").eq("budget_year_id", currentYear.id).order("sort_order")
-        : Promise.resolve({ data: [] as { id: string; name: string; admin_group_id: string }[] }),
+        ? supabase.from("plan_projects").select("id, name, admin_group_id, budget").eq("budget_year_id", currentYear.id).order("sort_order")
+        : Promise.resolve({ data: [] as { id: string; name: string; admin_group_id: string; budget: number | null }[] }),
       supabase.from("plan_activities").select("id, project_id, name, budget, responsible"),
       supabase.from("proc_approvals").select("project_id, requested_amount").eq("status", "อนุมัติ"),
       supabase.from("plan_admin_groups").select("id, name").eq("is_active", true).order("sort_order").order("name"),
@@ -112,7 +112,8 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
     id: p.id,
     name: p.name,
     adminGroupId: p.admin_group_id,
-    budget: budgetByProject.get(p.id) ?? 0,
+  // งบโครงการ = ผลรวมงบรายกิจกรรม ถ้าโครงการไม่มีกิจกรรมเลยใช้งบระดับโครงการ (plan_projects.budget) แทน — ตรงกับหน้ารายงานโครงการ/จัดสรรงบ
+    budget: budgetByProject.has(p.id) ? (budgetByProject.get(p.id) ?? 0) : Number(p.budget ?? 0),
     approvedSoFar: approvedByProject.get(p.id) ?? 0,
   }));
 
