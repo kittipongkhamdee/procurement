@@ -655,36 +655,32 @@ export function ApprovalForm({
               <tr>
                 <th className="w-10 px-2 py-2">ที่</th>
                 <th className="px-2 py-2 text-left">รายการ</th>
-                <th className="w-32 px-2 py-2">จำนวนเงิน</th>
-                <th className="px-2 py-2 text-left">หมายเหตุ</th>
+                <th className="w-36 px-2 py-2 text-right">จำนวนเงิน</th>
+                <th className="w-[26%] px-2 py-2 text-left">หมายเหตุ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {summaryRows.map((row, i) => (
                 <tr key={i}>
-                  <td className="px-2 py-1 text-center text-slate-400">{i + 1}</td>
-                  <td className="px-2 py-1 text-slate-700">
-                    {i === OTHER_INDEX ? (
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
-                        <span className="shrink-0">
-                          อื่นๆ<span className="hidden sm:inline"> (</span>
-                        </span>
-                        <input
-                          value={row.label}
-                          onChange={(e) => updateSummaryRow(i, { label: e.target.value })}
-                          maxLength={80}
-                          aria-label="ระบุรายการอื่นๆ"
-                          className="input w-full min-w-0 sm:flex-1"
-                        />
-                        <span className="hidden shrink-0 sm:inline">)</span>
-                      </div>
-                    ) : (
-                      SUMMARY_LABELS[i]
-                    )}
+                  {/* เลขที่ชิดบนตรงกับชื่อหมวด; ช่องจำนวนเงิน/หมายเหตุชิดล่างให้อยู่แนวเดียวกับช่องรายละเอียดของทุกแถว */}
+                  <td className="px-2 py-2 text-center align-top text-slate-400">{i + 1}</td>
+                  <td className="px-2 py-2 align-top text-slate-700">
+                    {i === OTHER_INDEX ? "อื่นๆ (ระบุ)" : SUMMARY_LABELS[i]}
                     <p className="text-xs text-slate-400">{EXPENSE_CATEGORIES[i]?.hint}</p>
-                    {i !== OTHER_INDEX && detailInput(i, row.label)}
+                    {i === OTHER_INDEX ? (
+                      <input
+                        value={row.label}
+                        onChange={(e) => updateSummaryRow(i, { label: e.target.value })}
+                        maxLength={80}
+                        placeholder="ระบุรายการ (ถ้ามี)"
+                        aria-label="ระบุรายการอื่นๆ"
+                        className="input mt-1 w-full"
+                      />
+                    ) : (
+                      detailInput(i, row.label)
+                    )}
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="px-2 py-2 align-bottom">
                     <input
                       type="number"
                       step="0.01"
@@ -693,7 +689,7 @@ export function ApprovalForm({
                       className="input w-full text-right"
                     />
                   </td>
-                  <td className="px-2 py-1">
+                  <td className="px-2 py-2 align-bottom">
                     <input
                       value={row.note}
                       onChange={(e) => updateSummaryRow(i, { note: e.target.value })}
@@ -706,7 +702,8 @@ export function ApprovalForm({
                 <td colSpan={2} className="px-2 py-2 text-right">
                   รวมทั้งสิ้น
                 </td>
-                <td className="px-2 py-2 text-right text-red-600">{formatBaht(requestedAmount)}</td>
+                {/* pr-5: ให้ตัวเลขชิดขวาตรงกับตัวเลขในช่องกรอกด้านบน (ช่องกรอกมีระยะในอีก 12px) */}
+                <td className="py-2 pl-2 pr-5 text-right text-red-600">{formatBaht(requestedAmount)}</td>
                 <td />
               </tr>
             </tbody>
