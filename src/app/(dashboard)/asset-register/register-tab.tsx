@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { applyLocationFilter, distinctLocations, parseLocationKey } from "@/lib/asset-location";
 import { createClient } from "@/lib/supabase/client";
 import { errorMessage, toastError, toastSuccess, confirmDelete } from "@/lib/swal";
@@ -213,6 +213,8 @@ function ItemModal({
 }) {
   const modalRef = useRef<ModalHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  // id ของฟอร์มหลัก — ปุ่มบันทึกในแถบติดขอบล่างอยู่นอก <form> จึงผูกด้วย form={formId} (useId กันซ้ำเมื่อแต่ละแถวมี popup 2 ชุด)
+  const formId = useId();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const assetCodeInputRef = useRef<HTMLInputElement>(null);
@@ -502,7 +504,7 @@ function ItemModal({
           )}
         </dl>
       ) : (
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+        <form id={formId} ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {/* เลิกใช้รอบสำรวจแล้ว (ผู้ดูแลเพิ่มรายการเอง) — คอลัมน์ round_id ยังบังคับกรอกในฐานข้อมูล จึงผูกกับรอบล่าสุดให้อัตโนมัติ */}
             <input type="hidden" name="round_id" value={item?.round_id ?? defaultRoundId} />
@@ -656,19 +658,6 @@ function ItemModal({
               <input name="vendor_address" defaultValue={item?.vendor_address ?? ""} className="input" />
             </div>
           </div>
-
-          <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-            <div>
-              {item && (
-                <button type="button" onClick={handleDelete} className="btn-danger btn-sm">
-                  ลบรายการ
-                </button>
-              )}
-            </div>
-            <button type="submit" disabled={submitting} className="btn-primary">
-              {submitting ? "กำลังบันทึก..." : "บันทึก"}
-            </button>
-          </div>
         </form>
       )}
 
@@ -776,6 +765,23 @@ function ItemModal({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* แถบปุ่ม ลบรายการ/บันทึก ติดขอบล่างของหน้าต่างเสมอ — กดได้ทุกตำแหน่งที่เลื่อนอยู่ (รวมส่วนประวัติการซ่อม)
+          ปุ่มบันทึกผูกกับฟอร์มหลักผ่าน form={formId} เพราะอยู่นอก <form> (ประวัติการซ่อมมีฟอร์มและปุ่มของตัวเองแยกกัน) */}
+      {!(item && !canManage) && (
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 flex items-center justify-between gap-3 border-t border-slate-200 bg-white/95 px-5 py-3 backdrop-blur">
+          <div>
+            {item && (
+              <button type="button" onClick={handleDelete} className="btn-danger btn-sm">
+                ลบรายการ
+              </button>
+            )}
+          </div>
+          <button type="submit" form={formId} disabled={submitting} className="btn-primary">
+            {submitting ? "กำลังบันทึก..." : "บันทึก"}
+          </button>
         </div>
       )}
     </Modal>
