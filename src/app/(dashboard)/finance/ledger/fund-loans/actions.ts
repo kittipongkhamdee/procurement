@@ -7,6 +7,7 @@
 import { dbFail } from "@/lib/action-log";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { proxyNames, requireProxyAdmin } from "@/lib/approval-proxy";
 import { isAdminUser } from "@/lib/doc-number-server";
 import { DOC_FORMAT_KEYS, docFormatsFrom, effect, fiscalYearOf, fundDoc, fundRef, POCKETS, round2, POCKET_LABEL, type FinTxn, type Pocket } from "@/lib/finance-ledger";
 
@@ -212,6 +213,24 @@ export async function deleteFundRepay(id: string): Promise<Result> {
   if (!data?.length) return { error: NO_RIGHT };
   revalidate();
   return {};
+}
+
+/** แอดมินกดอนุมัติ "แทน" ผู้อำนวยการ — ใช้ฟังก์ชันฐานข้อมูลเดิมแล้วแก้ชื่อผู้อนุมัติเป็นชื่อ ผอ. ตามหน้าตั้งค่า + (แอดมิน … บันทึกแทน: เหตุผล) (lib/approval-proxy.ts) */
+export async function adminApproveFundLoanOnBehalf(id: string, reason?: string): Promise<Result> {
+  try {
+    const supabase = await createClient();
+    const { adminName } = await requireProxyAdmin(supabase);
+    const { data, error } = await supabase.rpc("proc_approve_fund_loan", { p_id: id, p_approve: true });
+    if (error) return dbFail("adminApproveFundLoanOnBehalf", error.message);
+    if (data) return { error: data };
+    const { byName } = await proxyNames(supabase, "director", adminName, reason);
+    const { error: e2 } = await supabase.from("fin_fund_loans").update({ director_approved_by_name: byName }).eq("id", id);
+    if (e2) return dbFail("adminApproveFundLoanOnBehalf", e2.message);
+    revalidate();
+    return { id };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "บันทึกแทนไม่สำเร็จ" };
+  }
 }
 
 /** ผู้อำนวยการอนุมัติ / ยกเลิกอนุมัติ (ก่อนมีการส่งใช้คืน) — ผ่านฟังก์ชันฐานข้อมูล (ผอ. ไม่มีสิทธิ์แก้ตารางการเงินตรง) */

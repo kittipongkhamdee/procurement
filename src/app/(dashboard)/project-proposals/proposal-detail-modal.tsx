@@ -4,7 +4,8 @@ import { useRef, useState, type ReactNode } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { WordFileIcon, PdfFileIcon } from "@/components/icons";
 import { ApprovalTimeline, PendingActionCallout, type FlowStep } from "@/components/approval-flow";
-import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
+import { AdminProxyPanel } from "@/components/admin-proxy-panel";
+import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import type {
   approveProposal as approveProposalAction,
   cancelEndorsement as cancelEndorsementAction,
@@ -13,6 +14,7 @@ import type {
   endorseProposal as endorseProposalAction,
   resetProposalStatus as resetProposalStatusAction,
 } from "./actions";
+import { adminProxyProposal } from "./actions";
 
 type ActivityRow = {
   name: string;
@@ -143,6 +145,24 @@ export function ProposalDetailModal({
       onChanged?.();
     } catch (err) {
       await toastError(errorMessage(err));
+    }
+  }
+
+  async function handleAdminProxy(step: "deputy" | "director", decision: "เห็นชอบ" | "ไม่เห็นชอบ" | "อนุมัติแล้ว" | "ไม่อนุมัติ", note?: string, reason?: string) {
+    const who = step === "deputy" ? "รองผู้อำนวยการ" : "ผู้อำนวยการ";
+    const ok = await confirmWarning({
+      title: `บันทึก "${decision === "อนุมัติแล้ว" ? "อนุมัติ" : decision}" แทน${who}?`,
+      text: "ระบบจะบันทึกว่าแอดมินเป็นผู้บันทึกแทน",
+      confirmButtonText: "บันทึกแทน",
+    });
+    if (!ok) throw new Error("ยกเลิก");
+    try {
+      await adminProxyProposal(proposal.id, step, decision, note, reason);
+      await toastSuccess(`บันทึกแทน${who}แล้ว`);
+      onChanged?.();
+    } catch (err) {
+      await toastError(errorMessage(err));
+      throw err;
     }
   }
 
@@ -520,6 +540,36 @@ export function ProposalDetailModal({
                 </div>
               </div>
             </PendingActionCallout>
+          )}
+
+          {isAdmin && (proposal.status === "รอเห็นชอบ" || proposal.status === "รออนุมัติ") && (
+            <AdminProxyPanel
+              steps={[
+                ...(proposal.status === "รอเห็นชอบ"
+                  ? [
+                      {
+                        key: "deputy",
+                        label: "บันทึกแทนรองผู้อำนวยการ (เห็นชอบ)",
+                        options: [
+                          { value: "เห็นชอบ", label: "เห็นชอบ" },
+                          { value: "ไม่เห็นชอบ", label: "ไม่เห็นชอบ", needsNote: true },
+                        ],
+                      },
+                    ]
+                  : []),
+                {
+                  key: "director",
+                  label: "บันทึกแทนผู้อำนวยการ (อนุมัติ)",
+                  options: [
+                    { value: "อนุมัติแล้ว", label: "อนุมัติ" },
+                    { value: "ไม่อนุมัติ", label: "ไม่อนุมัติ", needsNote: true },
+                  ],
+                },
+              ]}
+              onSubmit={(step, value, note, reason) =>
+                handleAdminProxy(step as "deputy" | "director", value as "เห็นชอบ" | "ไม่เห็นชอบ" | "อนุมัติแล้ว" | "ไม่อนุมัติ", note, reason)
+              }
+            />
           )}
 
           {isAdmin && !["รอเห็นชอบ"].includes(proposal.status) && (

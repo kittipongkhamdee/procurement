@@ -14,6 +14,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { CheckIcon, ChevronRightIcon, ClipboardCheckIcon, SearchIcon } from "@/components/icons";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { ApprovalTimeline, PendingActionCallout, type FlowStep } from "@/components/approval-flow";
+import { AdminProxyPanel } from "@/components/admin-proxy-panel";
 import {
   adminActOnBehalf,
   deleteApproval,
@@ -136,11 +137,6 @@ export function ApprovalStatusCell({
   const [choice, setChoice] = useState<"ควร" | "ไม่ควร" | "อนุมัติ" | "ไม่อนุมัติ" | null>(null);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  // แอดมินบันทึกแทน: step ที่เลือก + ผล + ความเห็น + เหตุผล/ช่องทางที่ได้รับความเห็น
-  const [proxyStep, setProxyStep] = useState<"deputy" | "director">("director");
-  const [proxyChoice, setProxyChoice] = useState<"ควร" | "ไม่ควร" | "อนุมัติ" | "ไม่อนุมัติ" | null>(null);
-  const [proxyNote, setProxyNote] = useState("");
-  const [proxyReason, setProxyReason] = useState("");
   const status = mergedStatus(approval);
   const needsNote = choice === "ไม่ควร" || choice === "ไม่อนุมัติ";
   const deputyDone = approval.deputy_decision !== null;
@@ -182,24 +178,6 @@ export function ApprovalStatusCell({
       modalRef.current?.close();
     } catch {
       // toast ขึ้นแล้วจากฝั่งเรียก
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleProxySave() {
-    if (!onAdminProxy || !proxyChoice) return;
-    const needs = proxyChoice === "ไม่ควร" || proxyChoice === "ไม่อนุมัติ";
-    if (needs && !proxyNote.trim()) return;
-    setSubmitting(true);
-    try {
-      await onAdminProxy(approval.id, proxyStep, proxyChoice, needs ? proxyNote.trim() : undefined, proxyReason.trim() || undefined);
-      setProxyChoice(null);
-      setProxyNote("");
-      setProxyReason("");
-      modalRef.current?.close();
-    } catch {
-      // toast ผิดพลาดขึ้นแล้วจากฝั่งเรียก — เปิด popup ค้างไว้ให้ลองใหม่ได้
     } finally {
       setSubmitting(false);
     }
@@ -400,76 +378,34 @@ export function ApprovalStatusCell({
         )}
 
         {isAdmin && onAdminProxy && approval.status === "รออนุมัติ" && (
-          <details className="rounded-md border border-amber-200 bg-amber-50/60 p-3">
-            <summary className="cursor-pointer text-sm font-semibold text-amber-900">
-              แอดมินดำเนินการแทน (ข้ามขั้นตอน)
-            </summary>
-            <div className="mt-3 space-y-3">
-              <p className="text-xs text-slate-600">
-                ใช้เมื่อรองผู้อำนวยการหรือผู้อำนวยการไม่สะดวกกดในระบบ — ระบบจะบันทึกว่าแอดมินเป็นผู้บันทึกแทน (พร้อมเหตุผลที่กรอก) ไม่ได้บันทึกเป็นการกดของท่านเอง
-                และข้ามขั้นตอนก่อนหน้าที่ยังไม่ทำได้
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {!deputyDone && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProxyStep("deputy");
-                      setProxyChoice(null);
-                    }}
-                    className={proxyStep === "deputy" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
-                  >
-                    บันทึกแทนรองผู้อำนวยการ
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProxyStep("director");
-                    setProxyChoice(null);
-                  }}
-                  className={proxyStep === "director" || deputyDone ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
-                >
-                  บันทึกแทนผู้อำนวยการ
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(proxyStep === "deputy" && !deputyDone ? (["ควร", "ไม่ควร"] as const) : (["อนุมัติ", "ไม่อนุมัติ"] as const)).map((c) => (
-                  <button key={c} type="button" onClick={() => setProxyChoice(c)} className={proxyChoice === c ? "btn-primary" : "btn-secondary"}>
-                    {c === "ควร" ? "เห็นควรอนุมัติ" : c === "ไม่ควร" ? "ไม่เห็นควรอนุมัติ" : c}
-                  </button>
-                ))}
-              </div>
-              {(proxyChoice === "ไม่ควร" || proxyChoice === "ไม่อนุมัติ") && (
-                <textarea
-                  value={proxyNote}
-                  onChange={(e) => setProxyNote(e.target.value)}
-                  placeholder="กรอกความคิดเห็นของท่าน (บังคับ)"
-                  rows={2}
-                  className="input w-full"
-                />
-              )}
-              {proxyChoice && (
-                <>
-                  <input
-                    value={proxyReason}
-                    onChange={(e) => setProxyReason(e.target.value)}
-                    maxLength={120}
-                    placeholder="เหตุผล/ช่องทางที่ได้รับความเห็น เช่น แจ้งทางไลน์ / สั่งด้วยวาจา (ไม่บังคับ แนะนำให้กรอก)"
-                    className="input w-full"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleProxySave}
-                    disabled={submitting || ((proxyChoice === "ไม่ควร" || proxyChoice === "ไม่อนุมัติ") && !proxyNote.trim())}
-                    className="btn-primary w-full"
-                  >
-                    {submitting ? "กำลังบันทึก..." : "บันทึกแทน"}
-                  </button>
-                </>
-              )}
-            </div>
-          </details>
+          <AdminProxyPanel
+            steps={[
+              ...(!deputyDone
+                ? [
+                    {
+                      key: "deputy",
+                      label: "บันทึกแทนรองผู้อำนวยการ",
+                      options: [
+                        { value: "ควร", label: "เห็นควรอนุมัติ" },
+                        { value: "ไม่ควร", label: "ไม่เห็นควรอนุมัติ", needsNote: true },
+                      ],
+                    },
+                  ]
+                : []),
+              {
+                key: "director",
+                label: "บันทึกแทนผู้อำนวยการ",
+                options: [
+                  { value: "อนุมัติ", label: "อนุมัติ" },
+                  { value: "ไม่อนุมัติ", label: "ไม่อนุมัติ", needsNote: true },
+                ],
+              },
+            ]}
+            onSubmit={async (step, value, note, reason) => {
+              await onAdminProxy(approval.id, step as "deputy" | "director", value as "ควร" | "ไม่ควร" | "อนุมัติ" | "ไม่อนุมัติ", note, reason);
+              modalRef.current?.close();
+            }}
+          />
         )}
 
         {(isAdmin || canAckPlanning) && onResetPlanning && planningDone(approval) && !deputyDone && (

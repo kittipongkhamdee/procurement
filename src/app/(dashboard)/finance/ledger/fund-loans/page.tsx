@@ -11,11 +11,12 @@ import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
 import { confirmDelete, confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { Modal, type ModalHandle } from "@/components/modal";
+import { AdminProxyPanel } from "@/components/admin-proxy-panel";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, PrinterIcon, TrashIcon } from "@/components/icons";
 import { DEFAULT_DOC_FORMATS, DOC_FORMAT_KEYS, docFormatsFrom, type DocFormats, balancesByType, fiscalYearOf, fundRef, POCKET_LABEL, POCKETS, round2, type FinTxn, type MoneyType, type Opening, type Pocket } from "@/lib/finance-ledger";
-import { approveFundLoan, deleteFundLoan, deleteFundRepay, saveFundLoan, saveFundRepay, updateFundLoanMemo } from "./actions";
+import { adminApproveFundLoanOnBehalf, approveFundLoan, deleteFundLoan, deleteFundRepay, saveFundLoan, saveFundRepay, updateFundLoanMemo } from "./actions";
 
 type Repay = { id: string; repay_date: string; amount: number; pocket: Pocket; doc_seq: number; fiscal_year: number; note: string | null };
 type Line = { id: string; borrower_type_id: string; amount: number; sort_order: number; repays: Repay[] };
@@ -234,6 +235,24 @@ export default function FundLoansPage() {
                       </button>
                     )}
                   </div>
+                  {role === "admin" && !approved && (
+                    <div className="w-full">
+                      <AdminProxyPanel
+                        steps={[{ key: "director", label: "บันทึกอนุมัติแทนผู้อำนวยการ", options: [{ value: "approve", label: "อนุมัติการยืม" }] }]}
+                        onSubmit={async (_step, _value, _note, reason) => {
+                          const ok = await confirmWarning({ title: `บันทึกอนุมัติ ${fundRef(l.doc_seq, l.fiscal_year, fmt)} แทนผู้อำนวยการ?`, text: "ระบบจะบันทึกว่าแอดมินเป็นผู้บันทึกแทน", confirmButtonText: "บันทึกแทน" });
+                          if (!ok) throw new Error("ยกเลิก");
+                          const res = await adminApproveFundLoanOnBehalf(l.id, reason);
+                          if (res.error) {
+                            await toastError(res.error);
+                            throw new Error(res.error);
+                          }
+                          await toastSuccess("บันทึกอนุมัติแทนผู้อำนวยการแล้ว");
+                          reload();
+                        }}
+                      />
+                    </div>
+                  )}
                   {/* บอกเหตุที่ยังไม่มีปุ่มลบ — ต้องลบตามลำดับย้อนกลับ */}
                   {canWrite && (hasRepay || (approved && role !== "admin")) && (
                     <p className="w-full text-xs text-slate-500">

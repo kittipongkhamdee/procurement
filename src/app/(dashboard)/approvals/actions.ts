@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { proxyNames, requireProxyAdmin } from "@/lib/approval-proxy";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -360,23 +361,14 @@ export async function adminActOnBehalf(
   note?: string,
   reason?: string,
 ) {
-  const { supabase, user } = await requireUser();
-  const { data: profile } = await supabase.from("proc_profiles").select("role, real_role, full_name").eq("user_id", user.id).maybeSingle();
-  if ((profile?.real_role ?? profile?.role) !== "admin" || profile?.role !== "admin") throw new Error("เฉพาะผู้ดูแลระบบเท่านั้นที่บันทึกแทนได้");
+  const supabase = await createClient();
+  const { adminName } = await requireProxyAdmin(supabase);
   if (step === "deputy" && decision !== "ควร" && decision !== "ไม่ควร") throw new Error("ความเห็นไม่ถูกต้อง");
   if (step === "director" && decision !== "อนุมัติ" && decision !== "ไม่อนุมัติ") throw new Error("ผลพิจารณาไม่ถูกต้อง");
   const needsNote = decision === "ไม่ควร" || decision === "ไม่อนุมัติ";
   if (needsNote && !note?.trim()) throw new Error("กรุณากรอกความคิดเห็น");
 
-  const roleLabel = step === "deputy" ? "รองผู้อำนวยการ" : "ผู้อำนวยการ";
-  const { data: setting } = await supabase
-    .from("proc_app_settings")
-    .select("value")
-    .eq("key", step === "deputy" ? "approval_signer_deputy" : "approval_signer_director")
-    .maybeSingle();
-  const adminName = (profile?.full_name ?? user.email ?? "").trim();
-  const why = reason?.trim().slice(0, 120);
-  const byName = `${setting?.value?.trim() || roleLabel} (แอดมิน ${adminName} บันทึกแทน${why ? `: ${why}` : ""})`;
+  const { byName } = await proxyNames(supabase, step, adminName, reason);
   const now = new Date().toISOString();
 
   const query =

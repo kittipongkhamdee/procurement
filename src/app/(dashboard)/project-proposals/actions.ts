@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { proxyNames, requireProxyAdmin } from "@/lib/approval-proxy";
 import { extractProposalFromFile } from "@/lib/ai/extract-proposal";
 import { deleteFromStorage, renameStorageFile } from "@/lib/storage";
 
@@ -536,6 +537,49 @@ export async function approveProposal(id: string, decision: "อนุมัต�
   if (decision === "อนุมัติแล้ว") {
     await createProjectFromProposal(supabase, id);
   }
+
+  revalidatePath("/project-proposals");
+  revalidatePath("/projects");
+}
+
+/** แอดมินบันทึกเห็นชอบ/อนุมัติ "แทน" รองผู้อำนวยการ/ผู้อำนวยการ (ข้ามขั้นตอนได้) — บันทึกว่าแอดมินเป็นผู้บันทึกแทน (lib/approval-proxy.ts)
+ * deputy: รอเห็นชอบ → รออนุมัติ / ไม่เห็นชอบ · director: (รอเห็นชอบ หรือ รออนุมัติ) → อนุมัติแล้ว / ไม่อนุมัติ (อนุมัติแล้วสร้างโครงการจริงเหมือนปกติ) */
+export async function adminProxyProposal(
+  id: string,
+  step: "deputy" | "director",
+  decision: "เห็นชอบ" | "ไม่เห็นชอบ" | "อนุมัติแล้ว" | "ไม่อนุมัติ",
+  note?: string,
+  reason?: string,
+) {
+  const supabase = await createClient();
+  const { adminName } = await requireProxyAdmin(supabase);
+  if (step === "deputy" && decision !== "เห็นชอบ" && decision !== "ไม่เห็นชอบ") throw new Error("ผลการเห็นชอบไม่ถูกต้อง");
+  if (step === "director" && decision !== "อนุมัติแล้ว" && decision !== "ไม่อนุมัติ") throw new Error("ผลการอนุมัติไม่ถูกต้อง");
+  if ((decision === "ไม่เห็นชอบ" || decision === "ไม่อนุมัติ") && !note?.trim()) throw new Error("กรุณาระบุความเห็น/ข้อเสนอแนะให้ครูปรับปรุงแก้ไข");
+
+  const { byName } = await proxyNames(supabase, step, adminName, reason);
+  const now = new Date().toISOString();
+  const query =
+    step === "deputy"
+      ? supabase
+          .from("plan_project_proposals")
+          .update({
+            status: decision === "เห็นชอบ" ? "รออนุมัติ" : "ไม่เห็นชอบ",
+            endorsed_by_name: byName,
+            endorsed_at: now,
+            endorse_note: note?.trim() || null,
+          })
+          .eq("id", id)
+          .eq("status", "รอเห็นชอบ")
+      : supabase
+          .from("plan_project_proposals")
+          .update({ status: decision, approved_by_name: byName, approved_at: now, approve_note: note?.trim() || null })
+          .eq("id", id)
+          .in("status", ["รอเห็นชอบ", "รออนุมัติ"]);
+  const { data, error } = await query.select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("ข้อเสนอนี้ถูกดำเนินการไปแล้ว หรืออยู่ในสถานะที่บันทึกแทนไม่ได้");
+  if (step === "director" && decision === "อนุมัติแล้ว") await createProjectFromProposal(supabase, id);
 
   revalidatePath("/project-proposals");
   revalidatePath("/projects");

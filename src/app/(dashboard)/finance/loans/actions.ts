@@ -8,6 +8,7 @@ import type { Json } from "@/lib/supabase/database.types";
 import { docNumberTemplate, nextDocNumber } from "@/lib/doc-numbers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { proxyNames, requireProxyAdmin } from "@/lib/approval-proxy";
 import { assignDocNumber, docNumberTaken, insertWithDocNumber, isAdminUser } from "@/lib/doc-number-server";
 import { LOAN_DUE_DAYS, loanBalance, loanDueDate, parseLoanType, type LoanItem } from "@/lib/loan";
 
@@ -297,6 +298,29 @@ export async function recordLoanPayment(id: string, receivedDate: string, travel
   if (error) return dbFail("recordLoanPayment", rlsMessage(error.message));
   revalidatePath(PATH);
   return { id };
+}
+
+/** แอดมินกดอนุมัติ "แทน" ผู้อำนวยการ — ใช้ฟังก์ชันฐานข้อมูลเดิม (ตรวจเงื่อนไขเดียวกัน) แล้วแก้ชื่อผู้อนุมัติเป็นชื่อ ผอ. ตามหน้าตั้งค่า
+ * ต่อท้ายว่าแอดมินบันทึกแทน + เหตุผล (lib/approval-proxy.ts) — ชื่อผู้อนุมัติบนสัญญา (approver_name) ถ้ายังว่างใช้ชื่อ ผอ. ไม่ใช่ชื่อแอดมิน */
+export async function adminApproveLoanOnBehalf(id: string, reason?: string): Promise<Result> {
+  try {
+    const supabase = await createClient();
+    const { adminName } = await requireProxyAdmin(supabase);
+    const { data: before } = await supabase.from("proc_loan_contracts").select("approver_name").eq("id", id).maybeSingle();
+    const { data, error } = await supabase.rpc("proc_approve_loan", { p_id: id, p_approve: true });
+    if (error) return dbFail("adminApproveLoanOnBehalf", error.message);
+    if (data) return { error: String(data) };
+    const { signer, byName } = await proxyNames(supabase, "director", adminName, reason);
+    const patch: { director_approved_by_name: string; approver_name?: string } = { director_approved_by_name: byName };
+    if (!before?.approver_name?.trim()) patch.approver_name = signer;
+    const { error: e2 } = await supabase.from("proc_loan_contracts").update(patch).eq("id", id);
+    if (e2) return dbFail("adminApproveLoanOnBehalf", e2.message);
+    revalidatePath(PATH);
+    revalidatePath("/");
+    return { id };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "บันทึกแทนไม่สำเร็จ" };
+  }
 }
 
 /** ผู้อำนวยการอนุมัติ (approve=true) / ยกเลิกอนุมัติ (false, ก่อนจ่ายเงิน) — บันทึกวันเวลา + ชื่อผู้อนุมัติ

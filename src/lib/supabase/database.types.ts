@@ -573,6 +573,8 @@ export type Database = {
       asset_audit_rounds: {
         Row: {
           acknowledged_at: string | null
+          acknowledged_proxy: string | null
+          deputy_ack_proxy: string | null
           acknowledged_by: string | null
           appointment_date: string | null
           appointment_doc_ref: string | null
@@ -592,6 +594,8 @@ export type Database = {
         }
         Insert: {
           acknowledged_at?: string | null
+          acknowledged_proxy?: string | null
+          deputy_ack_proxy?: string | null
           acknowledged_by?: string | null
           appointment_date?: string | null
           appointment_doc_ref?: string | null
@@ -611,6 +615,8 @@ export type Database = {
         }
         Update: {
           acknowledged_at?: string | null
+          acknowledged_proxy?: string | null
+          deputy_ack_proxy?: string | null
           acknowledged_by?: string | null
           appointment_date?: string | null
           appointment_doc_ref?: string | null

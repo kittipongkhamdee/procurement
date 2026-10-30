@@ -13,12 +13,14 @@ import { createClient } from "@/lib/supabase/client";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { errorMessage, toastError, toastSuccess, confirmDelete, confirmWarning } from "@/lib/swal";
+import { AdminProxyPanel } from "@/components/admin-proxy-panel";
 import { formatThaiDate } from "@/lib/thai";
 import { buildExcelBuffer } from "@/lib/excel";
 import { ArchiveIcon, BellIcon, CheckIcon, ChevronRightIcon, ExcelFileIcon, LightbulbIcon, PrinterIcon, UsersIcon } from "@/components/icons";
 import { QrScanButton } from "../../asset-register/qr-scan-button";
 import {
   acknowledgeAuditReport,
+  adminProxyAcknowledgeAudit,
   bulkConfirmAuditItems,
   deleteAuditRound,
   reopenAuditRound,
@@ -48,6 +50,9 @@ type Round = {
   submitted_at: string | null;
   deputy_acknowledged_at: string | null;
   acknowledged_at: string | null;
+  /** แอดมินบันทึกการรับทราบแทน (ชื่อแอดมิน + เหตุผล) — null = ท่านกดเอง */
+  deputy_ack_proxy: string | null;
+  acknowledged_proxy: string | null;
 };
 
 type Inspector = { user_id: string; full_name_snapshot: string; role_in_committee: string | null };
@@ -492,8 +497,8 @@ function AuditProgressBar({ inspected, total }: { inspected: number; total: numb
 function AcknowledgeTimeline({ round }: { round: Round }) {
   const steps = [
     { label: "ส่งรายงานผลการตรวจสอบ", at: round.submitted_at },
-    { label: "รองผู้อำนวยการรับทราบ", at: round.deputy_acknowledged_at },
-    { label: "ผู้อำนวยการรับทราบ", at: round.acknowledged_at },
+    { label: "รองผู้อำนวยการรับทราบ", at: round.deputy_acknowledged_at, proxy: round.deputy_ack_proxy },
+    { label: "ผู้อำนวยการรับทราบ", at: round.acknowledged_at, proxy: round.acknowledged_proxy },
   ];
   const currentIndex = steps.findIndex((s) => !s.at);
 
@@ -528,6 +533,7 @@ function AcknowledgeTimeline({ round }: { round: Round }) {
           <div key={s.label}>
             <p className={`text-xs font-medium ${s.at ? "text-emerald-700" : "text-slate-400"}`}>{s.label}</p>
             {s.at && <p className="text-[11px] text-slate-400">{formatThaiDate(s.at)}</p>}
+            {"proxy" in s && s.proxy && <p className="text-[11px] text-amber-700">({s.proxy})</p>}
           </div>
         ))}
       </div>
@@ -1423,6 +1429,29 @@ export default function AssetAuditDetailPage() {
                   รับทราบผลการตรวจสอบ
                 </button>
               </div>
+            )}
+            {isAdmin && (round.status === "submitted" || round.status === "acknowledged_deputy") && (
+              <AdminProxyPanel
+                steps={[
+                  ...(round.status === "submitted"
+                    ? [{ key: "deputy", label: "บันทึกแทนรองผู้อำนวยการ (รับทราบ)", options: [{ value: "ack", label: "รับทราบผล" }] }]
+                    : []),
+                  { key: "director", label: "บันทึกแทนผู้อำนวยการ (รับทราบ)", options: [{ value: "ack", label: "รับทราบผล" }] },
+                ]}
+                onSubmit={async (step, _value, _note, reason) => {
+                  const who = step === "deputy" ? "รองผู้อำนวยการ" : "ผู้อำนวยการ";
+                  const ok = await confirmWarning({ title: `บันทึกการรับทราบผลแทน${who}?`, text: "ระบบจะบันทึกว่าแอดมินเป็นผู้บันทึกแทน", confirmButtonText: "บันทึกแทน" });
+                  if (!ok) throw new Error("ยกเลิก");
+                  try {
+                    await adminProxyAcknowledgeAudit(roundId, step as "deputy" | "director", reason);
+                    await toastSuccess(`บันทึกการรับทราบแทน${who}แล้ว`);
+                    await reload();
+                  } catch (err) {
+                    await toastError(errorMessage(err));
+                    throw err;
+                  }
+                }}
+              />
             )}
             {round.submitted_at && (
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">

@@ -12,6 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { proxyNames, requireProxyAdmin } from "@/lib/approval-proxy";
 
 const PATH = "/asset-audits";
 
@@ -217,6 +218,33 @@ export async function acknowledgeAuditReport(roundId: string) {
     throw new Error("เฉพาะผู้อำนวยการหรือรองผู้อำนวยการเท่านั้นที่รับทราบผลรายงานได้");
   }
 
+  revalidatePath(`${PATH}/${roundId}`);
+}
+
+/** แอดมินบันทึกการรับทราบผล "แทน" รองผู้อำนวยการ/ผู้อำนวยการ (ข้ามขั้นได้) — เก็บชื่อแอดมิน + เหตุผลไว้ในคอลัมน์ *_proxy ให้ตรวจสอบย้อนหลังได้
+ * (lib/approval-proxy.ts) — deputy: submitted → acknowledged_deputy · director: submitted/acknowledged_deputy → acknowledged */
+export async function adminProxyAcknowledgeAudit(roundId: string, step: "deputy" | "director", reason?: string) {
+  const supabase = await createClient();
+  const { userId, adminName } = await requireProxyAdmin(supabase);
+  const { byName } = await proxyNames(supabase, step, adminName, reason);
+  // เก็บเฉพาะส่วน "แอดมิน … บันทึกแทน …" (ชื่อผู้ลงนามของตำแหน่งไม่จำเป็นเพราะคอลัมน์บอกขั้นอยู่แล้ว)
+  const proxyText = byName.slice(byName.indexOf("(") + 1, -1);
+  const now = new Date().toISOString();
+  const query =
+    step === "deputy"
+      ? supabase
+          .from("asset_audit_rounds")
+          .update({ status: "acknowledged_deputy", deputy_acknowledged_by: userId, deputy_acknowledged_at: now, deputy_ack_proxy: proxyText })
+          .eq("id", roundId)
+          .eq("status", "submitted")
+      : supabase
+          .from("asset_audit_rounds")
+          .update({ status: "acknowledged", acknowledged_by: userId, acknowledged_at: now, acknowledged_proxy: proxyText })
+          .eq("id", roundId)
+          .in("status", ["submitted", "acknowledged_deputy"]);
+  const { data, error } = await query.select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error("รอบนี้ถูกดำเนินการไปแล้ว หรืออยู่ในสถานะที่บันทึกแทนไม่ได้");
   revalidatePath(`${PATH}/${roundId}`);
 }
 

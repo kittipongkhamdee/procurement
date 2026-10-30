@@ -7,7 +7,9 @@ import { useRef, useState } from "react";
 import { confirmWarning, toastError, toastSuccess } from "@/lib/swal";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { CheckIcon, CloseIcon } from "@/components/icons";
-import { approveLoan } from "./actions";
+import { AdminProxyPanel } from "@/components/admin-proxy-panel";
+import { useAuth } from "@/lib/AuthContext";
+import { adminApproveLoanOnBehalf, approveLoan } from "./actions";
 import { LoanSummary, type Loan } from "./loan-summary";
 
 export function ApproveLoanModal({
@@ -23,6 +25,7 @@ export function ApproveLoanModal({
 }) {
   const ref = useRef<ModalHandle>(null);
   const [saving, setSaving] = useState(false);
+  const { isAdmin } = useAuth();
   // ลำดับวันที่: การเงินตรวจสอบ ≤ วันที่อนุมัติ (วันนี้) — กันกรณีวันที่ตรวจสอบลงล่วงหน้า (ข้อมูลเก่า)
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
   const notYet = !!loan.checked_date && loan.checked_date > today;
@@ -59,6 +62,25 @@ export function ApproveLoanModal({
         เมื่ออนุมัติ ระบบบันทึกวันที่และเวลาที่กดอนุมัติ (วันนี้) ไว้ในรายละเอียดสัญญา แล้วการเงินจึงบันทึกจ่ายเงินได้
       </p>
       {notYet && <p className="mt-2 text-sm text-red-600">วันที่การเงินตรวจสอบยังไม่ถึง — อนุมัติได้ตั้งแต่วันที่การเงินตรวจสอบ</p>}
+      {isAdmin && (
+        <div className="mt-3">
+          <AdminProxyPanel
+            steps={[{ key: "director", label: "บันทึกอนุมัติแทนผู้อำนวยการ", options: [{ value: "approve", label: "อนุมัติให้ยืม" }] }]}
+            onSubmit={async (_step, _value, _note, reason) => {
+              const ok = await confirmWarning({ title: "บันทึกอนุมัติแทนผู้อำนวยการ?", text: "ระบบจะบันทึกว่าแอดมินเป็นผู้บันทึกแทน", confirmButtonText: "บันทึกแทน" });
+              if (!ok) throw new Error("ยกเลิก");
+              const res = await adminApproveLoanOnBehalf(loan.id, reason);
+              if (res.error) {
+                await toastError(res.error);
+                throw new Error(res.error);
+              }
+              await toastSuccess("บันทึกอนุมัติแทนผู้อำนวยการแล้ว — การเงินจ่ายเงินยืมได้");
+              ref.current?.close();
+              onSaved();
+            }}
+          />
+        </div>
+      )}
       <div className="mt-3 flex justify-end gap-2">
         <button type="button" onClick={() => ref.current?.close()} className="btn-secondary">
           ปิด
