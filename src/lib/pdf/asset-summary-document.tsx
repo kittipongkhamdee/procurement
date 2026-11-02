@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { formatBaht, formatThaiDate } from "@/lib/thai";
 import { registerThSarabunFont, t } from "./thai-pdf";
+import { wrapByWidth } from "./thai-measure";
 
 registerThSarabunFont();
 
@@ -39,6 +40,24 @@ const styles = StyleSheet.create({
   infoBlock: { marginTop: 6 },
   infoLine: { fontSize: 12.5, marginBottom: 1 },
 });
+
+// ข้อความไทยไม่มีช่องว่างระหว่างคำ react-pdf ตัดบรรทัดเองไม่ได้ (ล้นคอลัมน์ / ข้อความตกไปอยู่ท้ายเซลล์) —
+// ตัดล่วงหน้าตามความกว้างคอลัมน์จริง (A4 แนวนอน กว้าง 841.89pt หักขอบกระดาษ 24pt ×2 แล้วหักช่องไฟ+เส้นในเซลล์)
+const CONTENT_W = 841.89 - 48;
+const CELL_FS = 11.5;
+function TextCell({ text, pct, align = "left", last = false }: { text: string; pct: number; align?: "left" | "center" | "right"; last?: boolean }) {
+  const w = (pct / 100) * CONTENT_W - 6 - 1 - 3;
+  const lines = wrapByWidth(text, CELL_FS, w, w, false, "THSarabunNew");
+  return (
+    <View style={[last ? styles.cellLast : styles.cell, { width: `${pct}%` }]}>
+      {lines.map((l, i) => (
+        <Text key={i} style={{ fontSize: CELL_FS, textAlign: align }}>
+          {t(l)}
+        </Text>
+      ))}
+    </View>
+  );
+}
 
 function guard(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return "";
@@ -134,13 +153,13 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
           {data.rows.map((row) => (
             <View style={styles.tRow} key={row.seq} wrap={false}>
               <Text style={[styles.cell, styles.colSeq]}>{guard(row.seq)}</Text>
-              <Text style={[styles.cell, styles.colName]}>{guard(row.name)}</Text>
-              <Text style={[styles.cell, styles.colCategory]}>{guard(row.categoryName ?? "-")}</Text>
-              <Text style={[styles.cell, styles.colCode]}>{guard(row.assetCode ?? "ยังไม่ติดป้าย")}</Text>
+              <TextCell text={row.name} pct={12} />
+              <TextCell text={row.categoryName ?? "-"} pct={9} />
+              <TextCell text={row.assetCode ?? "ยังไม่ติดป้าย"} pct={9} />
               <Text style={[styles.cell, styles.colQty]}>{guard(row.quantity)}</Text>
-              <Text style={[styles.cell, styles.colUnit]}>{guard(row.unit ?? "-")}</Text>
-              <Text style={[styles.cell, styles.colLocation]}>{guard(row.location)}</Text>
-              <Text style={[styles.cell, styles.colCondition]}>{guard(row.condition)}</Text>
+              <TextCell text={row.unit ?? "-"} pct={5} align="center" />
+              <TextCell text={row.location} pct={10} />
+              <TextCell text={row.condition} pct={6} align="center" />
               <Text style={[styles.cell, styles.colYear]}>{guard(row.acquiredYear ?? "-")}</Text>
               <Text style={[styles.cell, styles.colPrice]}>{guard(row.price != null ? formatBaht(row.price) : "-")}</Text>
               <Text style={[styles.cell, styles.colLife]}>{guard(row.usefulLifeYears ?? "-")}</Text>
