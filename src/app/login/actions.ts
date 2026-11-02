@@ -22,12 +22,16 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(translateAuthError(error.message))}`);
   }
 
+  // ประวัติการใช้งาน: บันทึกการเข้าสู่ระบบ (พลาดก็ไม่ให้ขวางการล็อกอิน)
+  await supabase.rpc("proc_log_activity", { p_action: "login", p_entity: "ระบบ", p_summary: "เข้าสู่ระบบ" }).then(undefined, () => undefined);
+
   // welcome=1 บอกแดชบอร์ดว่าเพิ่งเข้าสู่ระบบ ให้เด้ง popup แจ้งงานรอพิจารณาของผู้บริหาร
   redirect("/?welcome=1");
 }
 
 export async function logout() {
   const supabase = await createClient();
+  await supabase.rpc("proc_log_activity", { p_action: "logout", p_entity: "ระบบ", p_summary: "ออกจากระบบ" }).then(undefined, () => undefined);
   await supabase.auth.signOut();
   redirect("/login");
 }

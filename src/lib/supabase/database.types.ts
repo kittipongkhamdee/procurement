@@ -2597,6 +2597,36 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          entity: string
+          id: number
+          summary: string
+          user_id: string | null
+          user_name: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          entity?: string
+          id?: number
+          summary?: string
+          user_id?: string | null
+          user_name?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          entity?: string
+          id?: number
+          summary?: string
+          user_id?: string | null
+          user_name?: string
+        }
+        Relationships: []
+      }
       proc_profiles: {
         Row: {
           real_role: Database["public"]["Enums"]["proc_user_role"] | null
@@ -3981,6 +4011,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      proc_log_activity: {
+        Args: { p_action: string; p_entity?: string; p_summary?: string }
+        Returns: undefined
+      }
       proc_set_acting_role: {
         Args: { new_role: string | null }
         Returns: undefined

@@ -95,6 +95,7 @@ const ADMIN_SECTION = {
   heading: "ผู้ดูแลระบบ",
   items: [
     { href: "/admin/users", label: "จัดการผู้ใช้และสิทธิ์", icon: <UsersIcon className={ICON_CLASS} /> },
+    { href: "/admin/activity-logs", label: "ประวัติการใช้งานระบบ", icon: <ClipboardCheckIcon className={ICON_CLASS} /> },
     { href: "/settings", label: "ตั้งค่าระบบ", icon: <SettingsIcon className={ICON_CLASS} /> },
   ],
 };
