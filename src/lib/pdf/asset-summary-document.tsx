@@ -35,18 +35,9 @@ const styles = StyleSheet.create({
   colCumulative: { width: "8%", textAlign: "right" },
   colNet: { width: "7%", textAlign: "right" },
   headLine: { fontSize: 11.5, textAlign: "center" },
-  // กรอบรายละเอียดหัวรายงาน
-  infoBox: { marginTop: 10, flexDirection: "row", borderWidth: 0.8, borderColor: "#94a3b8", backgroundColor: "#f8fafc" },
-  infoLeft: { flex: 1, padding: 8, borderRightWidth: 0.8, borderColor: "#94a3b8" },
-  infoRight: { width: 400, padding: 8, justifyContent: "center" },
-  infoHead: { fontSize: 12, fontWeight: "bold", marginBottom: 3 },
-  infoRow: { flexDirection: "row", marginBottom: 1 },
-  infoLabel: { width: 52, fontSize: 12, color: "#475569" },
-  infoValue: { flex: 1, fontSize: 13 },
-  statRow: { flexDirection: "row", borderLeftWidth: 1, borderColor: "#111827" },
-  stat: { width: "50%", paddingVertical: 2, paddingHorizontal: 4 },
-  statLabel: { fontSize: 11.5, color: "#475569" },
-  statValue: { fontSize: 14, fontWeight: "bold" },
+  // รายละเอียดหัวรายงานแบบกะทัดรัด
+  infoBlock: { marginTop: 6 },
+  infoLine: { fontSize: 12.5, marginBottom: 1 },
 });
 
 function guard(value: string | number | null | undefined): string {
@@ -109,46 +100,21 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
           <Text style={{ fontSize: 14 }}>{guard(data.school_name)}</Text>
         </View>
 
-        {/* รายละเอียดหัวเรื่อง: กรอบเงื่อนไขที่ใช้ (ซ้าย) + ตัวเลขสรุป (ขวา) */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoLeft}>
-            <Text style={styles.infoHead}>{guard("เงื่อนไขของรายการ")}</Text>
-            {filterRows.length === 0 ? (
-              <Text style={styles.infoValue}>{guard("ทุกรายการ (ไม่ได้เลือกตัวกรอง)")}</Text>
-            ) : (
-              filterRows.map(([label, value]) => (
-                <View key={label} style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>{guard(label)}</Text>
-                  <Text style={styles.infoValue}>{guard(value)}</Text>
-                </View>
-              ))
+        {/* รายละเอียดหัวเรื่องแบบกะทัดรัด 2 บรรทัด: เงื่อนไขที่ใช้ + ตัวเลขสรุป (ไม่ใช้กรอบ ประหยัดเนื้อที่) */}
+        <View style={styles.infoBlock}>
+          <Text style={styles.infoLine}>
+            {guard(
+              `เงื่อนไข: ${filterRows.length === 0 ? "ทุกรายการ (ไม่ได้เลือกตัวกรอง)" : filterRows.map(([l, v]) => `${l} ${v}`).join("   |   ")}`,
             )}
-          </View>
-          <View style={styles.infoRight}>
-            <View style={styles.statRow}>
-              <View style={styles.stat}>
-                <Text style={styles.statLabel}>{guard("จำนวนรายการ")}</Text>
-                <Text style={styles.statValue}>{guard(`${data.rows.length.toLocaleString("th-TH")} รายการ`)}</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statLabel}>{guard("ราคาทุนรวม")}</Text>
-                <Text style={styles.statValue}>{guard(`${formatBaht(totals.price)} บาท`)}</Text>
-              </View>
-            </View>
-            <View style={styles.statRow}>
-              <View style={styles.stat}>
-                <Text style={styles.statLabel}>{guard("มูลค่าสุทธิรวม")}</Text>
-                <Text style={styles.statValue}>{guard(`${formatBaht(totals.net)} บาท`)}</Text>
-              </View>
-              <View style={styles.stat}>
-                <Text style={styles.statLabel}>{guard("คำนวณค่าเสื่อม ณ วันที่")}</Text>
-                <Text style={styles.statValue}>{guard(data.printed_date ? formatThaiDate(data.printed_date) : "-")}</Text>
-              </View>
-            </View>
-          </View>
+          </Text>
+          <Text style={styles.infoLine}>
+            {guard(
+              `จำนวน ${data.rows.length.toLocaleString("th-TH")} รายการ   |   ราคาทุนรวม ${formatBaht(totals.price)} บาท   |   มูลค่าสุทธิรวม ${formatBaht(totals.net)} บาท   |   คำนวณค่าเสื่อม ณ วันที่ ${data.printed_date ? formatThaiDate(data.printed_date) : "-"}`,
+            )}
+          </Text>
         </View>
 
-        <View style={[styles.table, { marginTop: 12 }]}>
+        <View style={[styles.table, { marginTop: 6 }]}>
           <View style={styles.tHeadRow} fixed>
             <Text style={[styles.cell, styles.colSeq, styles.headLine]}>{guard("ลำดับ")}</Text>
             <Text style={[styles.cell, styles.colName, styles.headLine]}>{guard("รายการ")}</Text>
