@@ -155,7 +155,7 @@ export function AssetSummaryDocument({ data }: { data: AssetSummaryPdfData }) {
               <Text style={[styles.cell, styles.colSeq]}>{guard(row.seq)}</Text>
               <TextCell text={row.name} pct={12} />
               <TextCell text={row.categoryName ?? "-"} pct={9} />
-              <TextCell text={row.assetCode ?? "ยังไม่ติดป้าย"} pct={9} />
+              <TextCell text={row.assetCode ?? ""} pct={9} />
               <Text style={[styles.cell, styles.colQty]}>{guard(row.quantity)}</Text>
               <TextCell text={row.unit ?? "-"} pct={5} align="center" />
               <TextCell text={row.location} pct={10} />

@@ -277,7 +277,7 @@ export function SummaryTab({
                     </span>
                     <span className="font-medium text-slate-900">{it.name}</span>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {it.asset_code ?? "ยังไม่ติดป้าย"} · {category?.name ?? "-"}
+                      {it.asset_code ? `${it.asset_code} · ` : ""}{category?.name ?? "-"}
                     </p>
                     <p className="text-xs text-slate-500">
                       {it.building} {it.floor ? `ชั้น ${it.floor}` : ""} {it.room}
@@ -350,7 +350,7 @@ export function SummaryTab({
                       {it.name}
                     </td>
                     <td className="px-1.5 py-2">{category?.name ?? "-"}</td>
-                    <td className="whitespace-nowrap px-1.5 py-2">{it.asset_code ?? "ยังไม่ติดป้าย"}</td>
+                    <td className="whitespace-nowrap px-1.5 py-2">{it.asset_code ?? ""}</td>
                     <td className="whitespace-nowrap px-1.5 py-2 text-center tabular-nums">
                       {it.quantity} {it.unit ?? ""}
                     </td>

@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       seq: row.seq,
       name: row.name,
       categoryName: row.categoryName ?? "-",
-      assetCode: row.assetCode ?? "ยังไม่ติดป้าย",
+      assetCode: row.assetCode ?? "",
       quantity: row.quantity,
       unit: row.unit ?? "-",
       location: row.location,
