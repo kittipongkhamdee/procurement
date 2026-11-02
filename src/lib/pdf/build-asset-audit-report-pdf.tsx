@@ -33,9 +33,13 @@ export async function buildAssetAuditReportPdfData(
   const conditionLookup = new Map((conditions ?? []).map((c) => [c.id, c.name]));
 
   const itemIds = (auditItems ?? []).map((r) => r.item_id);
-  const { data: assetItems } =
-    itemIds.length > 0 ? await supabase.from("asset_items").select("id, name, asset_code").in("id", itemIds) : { data: [] };
-  const assetItemLookup = new Map((assetItems ?? []).map((it) => [it.id, it]));
+  // ดึงเป็นชุดละ 100 รหัส — ส่ง .in("id", ...) หลายร้อยรหัสทีเดียว URL ยาวเกินที่ API รับ คำขอล้มทั้งก้อน
+  const assetItems: { id: string; name: string; asset_code: string | null }[] = [];
+  for (let i = 0; i < itemIds.length; i += 100) {
+    const { data } = await supabase.from("asset_items").select("id, name, asset_code").in("id", itemIds.slice(i, i + 100));
+    assetItems.push(...(data ?? []));
+  }
+  const assetItemLookup = new Map(assetItems.map((it) => [it.id, it]));
 
   let match = 0;
   let diff = 0;

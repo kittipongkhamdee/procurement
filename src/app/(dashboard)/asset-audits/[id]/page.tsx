@@ -757,10 +757,17 @@ export default function AssetAuditDetailPage() {
       ]);
 
     const itemIds = (auditItemsData ?? []).map((r) => r.item_id);
-    const { data: assetItemsData } =
-      itemIds.length > 0
-        ? await supabase.from("asset_items").select("id, name, asset_code, category_id, building, floor, room, photo_path").in("id", itemIds)
-        : { data: [] };
+    // ดึงเป็นชุดละ 100 รหัส — รอบที่มีรายการหลายร้อยรายการ ถ้าส่ง .in("id", ...) ทีเดียว URL ยาวเกินที่ API รับ
+    // คำขอล้มทั้งก้อน ทุกแถวเลยขึ้น "(ไม่พบรายการในทะเบียน)"
+    const assetItemsData: { id: string; name: string; asset_code: string | null; category_id: string | null; building: string | null; floor: string | null; room: string | null; photo_path: string | null }[] = [];
+    for (let i = 0; i < itemIds.length; i += 100) {
+      const { data, error } = await supabase
+        .from("asset_items")
+        .select("id, name, asset_code, category_id, building, floor, room, photo_path")
+        .in("id", itemIds.slice(i, i + 100));
+      if (error) console.error("โหลดรายการทะเบียนไม่สำเร็จ", error.message);
+      assetItemsData.push(...(data ?? []));
+    }
     const assetItemLookup = new Map((assetItemsData ?? []).map((it) => [it.id, it]));
 
     const joined: AuditItemRow[] = (auditItemsData ?? []).map((r) => {
