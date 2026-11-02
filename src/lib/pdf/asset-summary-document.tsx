@@ -8,14 +8,15 @@ const styles = StyleSheet.create({
   page: { fontFamily: "THSarabunNew", fontSize: 13, padding: 24, color: "#111827" },
   center: { textAlign: "center" },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 2 },
-  table: { marginTop: 4, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "#111827" },
-  tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
-  tRow: { flexDirection: "row" },
+  // เส้นซ้าย/ขวา/บนอยู่ที่แถวแต่ละแถว ไม่ใส่ที่กรอบตาราง — ไม่งั้นเส้นข้างของกรอบยืดลงสุดหน้าที่ 1 และหน้าถัดไปขาดเส้นบน
+  table: { marginTop: 4 },
+  tHeadRow: { flexDirection: "row", backgroundColor: "#f1f5f9", borderTopWidth: 1, borderLeftWidth: 1, borderColor: "#111827" },
+  tRow: { flexDirection: "row", borderLeftWidth: 1, borderColor: "#111827" },
   cell: { fontSize: 11.5, padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
-  cellLast: { fontSize: 11.5, padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
-  footRow: { flexDirection: "row", backgroundColor: "#f1f5f9" },
+  cellLast: { fontSize: 11.5, padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
+  footRow: { flexDirection: "row", backgroundColor: "#f1f5f9", borderLeftWidth: 1, borderColor: "#111827" },
   footCell: { fontSize: 11.5, fontWeight: "bold", padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
-  footCellLast: { fontSize: 11.5, fontWeight: "bold", padding: 3, borderBottomWidth: 1, borderColor: "#111827" },
+  footCellLast: { fontSize: 11.5, fontWeight: "bold", padding: 3, borderRightWidth: 1, borderBottomWidth: 1, borderColor: "#111827" },
   // รวมกันต้องได้ 100% พอดี — เกินแล้วตารางจะกว้างกว่าหน้ากระดาษ ทำให้คอลัมน์ท้ายๆ ล้นออกนอกขอบ
   // กระดาษ (ดูปัญหาเดียวกันที่บันทึกไว้ใน asset-register-document.tsx)
   // 3+12+9+9+5+5+10+6+5+8+5+8+8+7 = 100
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: "row", marginBottom: 1 },
   infoLabel: { width: 52, fontSize: 12, color: "#475569" },
   infoValue: { flex: 1, fontSize: 13 },
-  statRow: { flexDirection: "row" },
+  statRow: { flexDirection: "row", borderLeftWidth: 1, borderColor: "#111827" },
   stat: { width: "50%", paddingVertical: 2, paddingHorizontal: 4 },
   statLabel: { fontSize: 11.5, color: "#475569" },
   statValue: { fontSize: 14, fontWeight: "bold" },
