@@ -54,6 +54,8 @@ function renderBlock(b: Block, key: number) {
       return <Lines key={key} lines={wrapByWidth(b.text, FS, CONTENT_W - 2 * INDENT - 8, CONTENT_W - 2 * INDENT - 8, false, FAMILY)} marginLeft={INDENT * 1.5} marginBottom={1} />;
     case "right":
       return <Lines key={key} lines={[b.text]} align="right" marginBottom={2} />;
+    case "spacer":
+      return <View key={key} style={{ height: b.pts }} />;
     default:
       return null;
   }

@@ -38,6 +38,8 @@ function blockParagraphs(b: Block, first: boolean): Paragraph[] {
       return [para(b.text, { left: 1500, after: 20, align: AlignmentType.THAI_DISTRIBUTE, ...pb })];
     case "right":
       return [para(b.text, { align: AlignmentType.RIGHT, ...pb })];
+    case "spacer":
+      return [new Paragraph({ spacing: { after: b.pts * 20 }, children: [] })];
     default:
       return [];
   }

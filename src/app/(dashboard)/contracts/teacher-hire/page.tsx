@@ -14,7 +14,7 @@ import { Modal, type ModalHandle } from "@/components/modal";
 import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ThaiAddressInput } from "@/components/thai-address-input";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons";
-import type { TeacherHireContract } from "@/lib/teacher-hire-contract";
+import { fixThaiTypo, type TeacherHireContract } from "@/lib/teacher-hire-contract";
 import { deleteTeacherHire, saveTeacherHire } from "./actions";
 
 const STAFF = ["admin", "supply_officer", "finance_officer"];
@@ -266,7 +266,7 @@ export default function TeacherHirePage() {
     const addr = school?.school_address ?? "";
     const amphoe = addr.match(/อำเภอ\s*\S+/)?.[0] ?? "";
     const province = addr.match(/จังหวัด\s*\S+/)?.[0] ?? "";
-    setDefaults({ place: [school?.school_name, amphoe, province].filter(Boolean).join(" "), director: signer?.value ?? "" });
+    setDefaults({ place: fixThaiTypo([school?.school_name, amphoe, province].filter(Boolean).join(" ")), director: signer?.value ?? "" });
   }, []);
 
   useEffect(() => {

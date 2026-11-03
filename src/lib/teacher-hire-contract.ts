@@ -68,11 +68,15 @@ export type Block =
   | { kind: "clause"; text: string }
   | { kind: "item"; text: string }
   | { kind: "right"; text: string }
+  | { kind: "spacer"; pts: number }
   | { kind: "sign"; role: string; name: string; extra?: string[] }
   | { kind: "pagebreak" };
 
 const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
 export const thaiNum = (n: number | string) => String(n).replace(/\d/g, (d) => THAI_DIGITS[Number(d)]);
+
+/** แก้สระ "า" ตามด้วยวรรณยุกต์ (สะกดผิดที่ไม่มีในภาษาไทย เช่น "ปราสา่ท") ที่อาจติดมากับข้อมูลโรงเรียนในหน้าตั้งค่า */
+export const fixThaiTypo = (s: string) => s.replace(/า[\u0e48-\u0e4b]/g, "า");
 
 const BLANK = "..............................";
 const v = (value: string | number | null | undefined, blank = BLANK) => {
@@ -100,7 +104,7 @@ export function teacherHireFileLabel(c: TeacherHireContract) {
 /** ชื่อไฟล์ — เลขที่สัญญาเป็นเลขอารบิกตามที่กรอก (เช่น 7/2569) */
 export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractContext): Block[] {
   const pos = c.position_title || "ครูอัตราจ้าง";
-  const place = c.place?.trim() || ctx.school_name;
+  const place = fixThaiTypo(c.place?.trim() || ctx.school_name);
   const director = c.employer_name?.trim() || ctx.director_name;
   const months = c.months ?? 0;
   const monthsText = months ? `${months} เดือน` : "...... เดือน";
@@ -122,6 +126,7 @@ export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractCont
     { kind: "title", text: "สัญญาจ้างอัตราจ้างผู้ปฏิบัติงานให้ราชการในสถานศึกษา", size: "xl" },
     { kind: "title", text: `ตำแหน่ง${pos} ${ctx.school_name}`, size: "lg" },
     { kind: "title", text: "สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน", size: "lg" },
+    { kind: "spacer", pts: 12 },
     {
       kind: "para",
       indent: true,
@@ -157,6 +162,7 @@ export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractCont
     { kind: "title", text: "เงื่อนไขประกอบสัญญาจ้าง", size: "xl" },
     { kind: "title", text: `แนบท้าย${noText} ลงวันที่ ${dmy(c.contract_date)}`, size: "lg" },
     { kind: "title", text: `${ctx.school_name} สังกัด${ctx.area}`, size: "lg" },
+    { kind: "spacer", pts: 12 },
     {
       kind: "para",
       indent: true,
@@ -177,6 +183,7 @@ export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractCont
     { kind: "title", text: "สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน", size: "lg" },
     { kind: "right", text: `เขียนที่${place}` },
     { kind: "right", text: `วันที่ ${dmy(attach)}` },
+    { kind: "spacer", pts: 10 },
     {
       kind: "para",
       indent: true,
@@ -199,12 +206,13 @@ export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractCont
     { kind: "title", text: "คำยินยอมของคู่สมรสผู้ค้ำประกัน", size: "xl" },
     { kind: "right", text: `เขียนที่ ${place}` },
     { kind: "right", text: `วันที่ ${dmy(attach)}` },
+    { kind: "spacer", pts: 10 },
     {
       kind: "para",
       indent: true,
       text: `ข้าพเจ้า ${v(c.spouse_name)} ${c.spouse_relation === "ภรรยา" ? "ภรรยา" : c.spouse_relation === "สามี" ? "สามี" : "สามี/ภรรยา"}ของ ${v(c.guarantor_name)} ยินยอมให้ ${v(c.guarantor_name)} ทำสัญญาฉบับนี้ได้ เพื่อค้ำประกัน (ชื่อผู้รับจ้าง) ${v(c.hiree_name)} ปฏิบัติงาน ตำแหน่ง${pos} ให้แก่${ctx.school_name} สังกัด ${ctx.area}`,
     },
-    sign("ผู้ให้คำยินยอม (คู่สมรสผู้ค้ำประกัน)", c.spouse_name),
+    sign("ผู้ให้คำยินยอม", c.spouse_name, ["(คู่สมรสผู้ค้ำประกัน)"]),
     sign("พยาน", c.witness1_name),
     sign("พยาน", c.witness2_name),
   ];
