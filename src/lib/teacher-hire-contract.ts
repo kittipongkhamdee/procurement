@@ -77,14 +77,14 @@ export type Block =
   | { kind: "sign"; role: string; name: string; extra?: string[] }
   | { kind: "pagebreak" };
 
-const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
+export const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
 export const thaiNum = (n: number | string) => String(n).replace(/\d/g, (d) => THAI_DIGITS[Number(d)]);
 
 /** แก้สระ "า" ตามด้วยวรรณยุกต์ (สะกดผิดที่ไม่มีในภาษาไทย เช่น "ปราสา่ท") ที่อาจติดมากับข้อมูลโรงเรียนในหน้าตั้งค่า */
 export const fixThaiTypo = (s: string) => s.replace(/า[\u0e48-\u0e4b]/g, "า");
 
 const BLANK = "..............................";
-const v = (value: string | number | null | undefined, blank = BLANK) => {
+export const v = (value: string | number | null | undefined, blank = BLANK) => {
   const s = value === null || value === undefined ? "" : String(value).trim();
   return s || blank;
 };
@@ -95,7 +95,7 @@ const dateParts = (iso: string | null | undefined) => {
   const monthName = text.replace(/^\d+\s+/, "").replace(/\s+\d+$/, "");
   return { d: String(d), m: monthName, y: String(y + 543) };
 };
-const dmy = (iso: string | null | undefined) => {
+export const dmy = (iso: string | null | undefined) => {
   const p = dateParts(iso);
   return `${p.d} เดือน ${p.m} พ.ศ. ${p.y}`;
 };
@@ -108,7 +108,7 @@ export function teacherHireFileLabel(c: TeacherHireContract) {
 
 /** ชื่อไฟล์ — เลขที่สัญญาเป็นเลขอารบิกตามที่กรอก (เช่น 7/2569) */
 /** เลขไทย → เลขอารบิก (ถ้อยคำมาตรฐานของสัญญาพิมพ์เลขข้อเป็นเลขไทย แต่ข้อมูลที่กรอกเป็นเลขอารบิก — ให้เอกสารใช้เลขชุดเดียวกันทั้งฉบับ) */
-const arabicDigits = (s: string) => s.replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)));
+export const arabicDigits = (s: string) => s.replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)));
 
 export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractContext): Block[] {
   return buildBlocksRaw(c, ctx).map((b) => {

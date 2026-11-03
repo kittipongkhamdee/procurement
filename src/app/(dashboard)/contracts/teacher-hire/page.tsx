@@ -15,7 +15,9 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { ThaiAddressInput } from "@/components/thai-address-input";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { fixThaiTypo, type TeacherHireContract } from "@/lib/teacher-hire-contract";
-import { deleteTeacherHire, saveTeacherHire } from "./actions";
+import { deleteServiceHire, deleteTeacherHire, saveTeacherHire } from "./actions";
+import { ServiceHireModal, type ServiceDefaults } from "./service-hire-modal";
+import type { ServiceHireContract } from "@/lib/service-hire-contract";
 import { ContractFileButtons } from "../contract-list";
 
 const STAFF = ["admin", "supply_officer", "finance_officer"];
@@ -45,7 +47,7 @@ function Field({ label, children, wide }: { label: string; children: React.React
   );
 }
 
-function ContractModal({ contract, defaults, options, onSaved }: { contract: TeacherHireContract | null; defaults: Defaults; options: Options; onSaved: () => void }) {
+function ContractModal({ contract, defaults, options, nextNo, onSaved }: { contract: TeacherHireContract | null; defaults: Defaults; options: Options; nextNo: string; onSaved: () => void }) {
   const modalRef = useRef<ModalHandle>(null);
   const [submitting, setSubmitting] = useState(false);
   const [start, setStart] = useState<string | null>(contract?.start_date ?? null);
@@ -95,17 +97,17 @@ function ContractModal({ contract, defaults, options, onSaved }: { contract: Tea
           </>
         ) : (
           <>
-            <PlusIcon className="h-4 w-4" /> เพิ่มสัญญา
+            <PlusIcon className="h-4 w-4" /> เพิ่มสัญญาครูอัตราจ้าง
           </>
         )
       }
-      triggerClassName={c ? "btn-secondary btn-sm" : "btn-primary"}
+      triggerClassName={c ? "btn-secondary btn-sm" : "btn-secondary"}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <legend className="mb-2 text-sm font-semibold text-navy-800">สัญญา</legend>
           <Field label="เลขที่สัญญา">
-            <input name="contract_no" defaultValue={c?.contract_no ?? ""} required placeholder="เช่น 7/2569" className="input w-full" />
+            <input name="contract_no" defaultValue={c?.contract_no ?? nextNo} required placeholder="เช่น 7/2569" className="input w-full" />
           </Field>
           <Field label="วันที่ทำสัญญา">
             <ThaiDatePicker name="contract_date" defaultValue={c?.contract_date ?? todayTh()} required />
@@ -296,13 +298,19 @@ function ContractModal({ contract, defaults, options, onSaved }: { contract: Tea
   );
 }
 
+type Item =
+  | { kind: "teacher"; r: TeacherHireContract }
+  | { kind: "service"; r: ServiceHireContract };
+
 export default function TeacherHirePage() {
   const { user, isAdmin, loading: authLoading } = useAuth();
   const canManage = STAFF.includes(user?.role ?? "");
-  const [rows, setRows] = useState<TeacherHireContract[] | null>(null);
+  const [items, setItems] = useState<Item[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [defaults, setDefaults] = useState<Defaults>({ place: "", director: "" });
+  const [svcDefaults, setSvcDefaults] = useState<ServiceDefaults>({ school: "", tambon: "", amphoe: "", province: "", director: "" });
   const [options, setOptions] = useState<Options>({ projects: [], activities: [], sources: [] });
+  const [nextNo, setNextNo] = useState("");
   // ไฟล์สัญญาฉบับจริง (PDF) เก็บที่แถวสรุปในทะเบียนสัญญา (proc_contracts.contract_file_path) — key = id แถวสรุป
   const [files, setFiles] = useState<Map<string, string | null>>(new Map());
   const [query, setQuery] = useState("");
@@ -311,34 +319,56 @@ export default function TeacherHirePage() {
     const supabase = createClient();
     const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
     const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
-    const [{ data, error }, { data: school }, { data: signer }, { data: projectsData }, { data: sourcesData }] = await Promise.all([
-      supabase.from("proc_teacher_hire_contracts").select("*").order("contract_date", { ascending: false }).order("created_at", { ascending: false }),
+    const [{ data: teacherData, error }, { data: serviceData, error: svcError }, { data: school }, { data: signer }, { data: projectsData }, { data: sourcesData }, { data: noData }] = await Promise.all([
+      supabase.from("proc_teacher_hire_contracts").select("*"),
+      supabase.from("proc_service_hire_contracts").select("*"),
       supabase.from("proc_school_settings").select("school_name, school_address").eq("id", true).maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "approval_signer_director").maybeSingle(),
       currentYear
         ? supabase.from("plan_projects").select("id, name, budget_source_id").eq("budget_year_id", currentYear.id).order("sort_order")
         : Promise.resolve({ data: [] as Project[] }),
       supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order"),
+      supabase.from("proc_contracts").select("contract_no"),
     ]);
-    const rowsData = (data as unknown as TeacherHireContract[]) ?? [];
-    const registerIds = rowsData.map((r) => r.register_contract_id).filter((id): id is string => !!id);
+    const teachers = (teacherData as unknown as TeacherHireContract[]) ?? [];
+    const services = (serviceData as unknown as ServiceHireContract[]) ?? [];
+    const all: Item[] = [
+      ...teachers.map((r): Item => ({ kind: "teacher", r })),
+      ...services.map((r): Item => ({ kind: "service", r })),
+    ].sort((a, b) => b.r.contract_date.localeCompare(a.r.contract_date));
+    const registerIds = all.map((it) => it.r.register_contract_id).filter((id): id is string => !!id);
     const { data: fileRows } = registerIds.length ? await supabase.from("proc_contracts").select("id, contract_file_path").in("id", registerIds) : { data: [] as { id: string; contract_file_path: string | null }[] };
     setFiles(new Map((fileRows ?? []).map((f) => [f.id, f.contract_file_path])));
     // โครงการเดิมของสัญญาที่ไม่อยู่ในรายการปีปัจจุบัน — ให้ยังเลือกค้างไว้ได้ตอนแก้ไข
     const known = new Set((projectsData ?? []).map((p) => p.id));
-    const missing = Array.from(new Set(rowsData.map((r) => r.project_id).filter((id): id is string => !!id && !known.has(id))));
+    const missing = Array.from(new Set(all.map((it) => it.r.project_id).filter((id): id is string => !!id && !known.has(id))));
     const { data: oldProjects } = missing.length ? await supabase.from("plan_projects").select("id, name, budget_source_id").in("id", missing) : { data: [] as Project[] };
     const allProjects = [...(projectsData ?? []), ...(oldProjects ?? [])];
     const { data: activitiesData } = allProjects.length
       ? await supabase.from("plan_activities").select("id, project_id, name").in("project_id", allProjects.map((p) => p.id)).order("sort_order")
       : { data: [] as Activity[] };
     setOptions({ projects: allProjects, activities: (activitiesData ?? []).map((a) => ({ ...a, name: a.name ?? "(ไม่มีชื่อ)" })), sources: sourcesData ?? [] });
-    if (error) setError(error.message);
-    setRows((data as unknown as TeacherHireContract[]) ?? []);
+    // เลขที่สัญญาถัดไป <ลำดับ>/<ปีงบประมาณ> — ลำดับเดียวกับสัญญาทุกประเภทในทะเบียน
+    const fy = currentYear?.year ?? null;
+    if (fy) {
+      const suffix = `/${fy}`;
+      const max = (noData ?? []).reduce((m, row) => {
+        const no = row.contract_no.trim();
+        if (!no.endsWith(suffix)) return m;
+        const n = Number(no.slice(0, -suffix.length));
+        return Number.isInteger(n) && n > m ? n : m;
+      }, 0);
+      setNextNo(`${max + 1}${suffix}`);
+    }
+    const msg = error?.message ?? svcError?.message ?? null;
+    setError(msg);
+    setItems(all);
     const addr = school?.school_address ?? "";
-    const amphoe = addr.match(/อำเภอ\s*\S+/)?.[0] ?? "";
-    const province = addr.match(/จังหวัด\s*\S+/)?.[0] ?? "";
-    setDefaults({ place: fixThaiTypo([school?.school_name, amphoe, province].filter(Boolean).join(" ")), director: signer?.value ?? "" });
+    const tambon = addr.match(/ตำบล\s*(\S+)/)?.[1] ?? "";
+    const amphoe = addr.match(/อำเภอ\s*(\S+)/)?.[1] ?? "";
+    const province = addr.match(/จังหวัด\s*(\S+)/)?.[1] ?? "";
+    setDefaults({ place: fixThaiTypo([school?.school_name, amphoe && `อำเภอ${amphoe}`, province && `จังหวัด${province}`].filter(Boolean).join(" ")), director: signer?.value ?? "" });
+    setSvcDefaults({ school: school?.school_name ?? "", tambon: fixThaiTypo(tambon), amphoe: fixThaiTypo(amphoe), province: fixThaiTypo(province), director: signer?.value ?? "" });
   }, []);
 
   useEffect(() => {
@@ -350,15 +380,15 @@ export default function TeacherHirePage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!rows || !q) return rows ?? [];
-    return rows.filter((r) => [r.contract_no, r.hiree_name, r.guarantor_name].some((v) => v?.toLowerCase().includes(q)));
-  }, [rows, query]);
+    if (!items || !q) return items ?? [];
+    return items.filter((it) => [it.r.contract_no, it.r.hiree_name, it.kind === "teacher" ? it.r.guarantor_name : it.r.job_title].some((v) => v?.toLowerCase().includes(q)));
+  }, [items, query]);
 
-  async function handleDelete(r: TeacherHireContract) {
-    const ok = await confirmDelete({ title: `ลบสัญญา ${r.contract_no}?`, text: r.hiree_name });
+  async function handleDelete(it: Item) {
+    const ok = await confirmDelete({ title: `ลบสัญญา ${it.r.contract_no}?`, text: it.r.hiree_name });
     if (!ok) return;
     try {
-      const res = await deleteTeacherHire(r.id);
+      const res = it.kind === "teacher" ? await deleteTeacherHire(it.r.id) : await deleteServiceHire(it.r.id);
       if (res.error) {
         await toastError(res.error);
         return;
@@ -379,27 +409,37 @@ export default function TeacherHirePage() {
     );
   }
 
-  const registerId = (r: TeacherHireContract) => r.register_contract_id ?? null;
+  const typeLabel = (it: Item) => (it.kind === "teacher" ? "ครูอัตราจ้าง" : `เหมาบริการ · ${it.r.job_kind}`);
+  const base = (it: Item) => (it.kind === "teacher" ? "/contracts/teacher-hire" : "/contracts/service-hire");
+  const amountText = (it: Item) => {
+    const n = it.kind === "teacher" ? it.r.salary : it.r.monthly_rate;
+    return n ? `${formatBaht(n)} บาท/เดือน` : "-";
+  };
 
-  const buttons = (r: TeacherHireContract) => (
-    <div className="flex flex-wrap items-center gap-2">
-      <a href={`/contracts/teacher-hire/${r.id}/pdf`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm">
-        พิมพ์ PDF
-      </a>
-      <a href={`/contracts/teacher-hire/${r.id}/word`} className="btn-secondary btn-sm">
-        ดาวน์โหลด Word
-      </a>
-      {registerId(r) && (
-        <ContractFileButtons contract={{ id: registerId(r) as string, contract_no: r.contract_no, contract_file_path: files.get(registerId(r) as string) ?? null }} onChanged={reload} canDelete={isAdmin} />
-      )}
-      <ContractModal contract={r} defaults={defaults} options={options} onSaved={reload} />
-      {isAdmin && (
-        <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
-          <TrashIcon className="h-3.5 w-3.5" /> ลบ
-        </button>
-      )}
-    </div>
-  );
+  const buttons = (it: Item) => {
+    const rid = it.r.register_contract_id ?? null;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <a href={`${base(it)}/${it.r.id}/pdf`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm">
+          พิมพ์ PDF
+        </a>
+        <a href={`${base(it)}/${it.r.id}/word`} className="btn-secondary btn-sm">
+          ดาวน์โหลด Word
+        </a>
+        {rid && <ContractFileButtons contract={{ id: rid, contract_no: it.r.contract_no, contract_file_path: files.get(rid) ?? null }} onChanged={reload} canDelete={isAdmin} />}
+        {it.kind === "teacher" ? (
+          <ContractModal contract={it.r} defaults={defaults} options={options} nextNo={nextNo} onSaved={reload} />
+        ) : (
+          <ServiceHireModal contract={it.r} defaults={svcDefaults} options={options} nextNo={nextNo} onSaved={reload} />
+        )}
+        {isAdmin && (
+          <button type="button" onClick={() => handleDelete(it)} className="btn-danger btn-sm">
+            <TrashIcon className="h-3.5 w-3.5" /> ลบ
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -410,14 +450,19 @@ export default function TeacherHirePage() {
             งานสัญญา
           </Link>
           <h1 className="page-title">สัญญาจ้าง</h1>
-          <p className="page-subtitle">สัญญาจ้างครูอัตราจ้าง — กรอกข้อมูลครั้งเดียว ออกเอกสาร 4 ส่วน: สัญญาจ้าง เงื่อนไขประกอบสัญญา สัญญาค้ำประกัน คำยินยอมคู่สมรสผู้ค้ำประกัน (บันทึกแล้วจะแสดงในทะเบียนสัญญาและเลือกในการส่งมอบตามสัญญาได้)</p>
+          <p className="page-subtitle">
+            สัญญาจ้างครูอัตราจ้าง (สัญญา เงื่อนไข ค้ำประกัน คำยินยอมคู่สมรส) และสัญญาจ้างเหมาบริการ ธุรการ/นักการภารโรง (สัญญา + ผนวก 1 TOR) — กรอกครั้งเดียว ออกเอกสาร PDF/Word และแสดงในทะเบียนสัญญาอัตโนมัติ
+          </p>
         </div>
-        <ContractModal contract={null} defaults={defaults} options={options} onSaved={reload} />
+        <div className="flex flex-wrap gap-2">
+          <ContractModal contract={null} defaults={defaults} options={options} nextNo={nextNo} onSaved={reload} />
+          <ServiceHireModal contract={null} defaults={svcDefaults} options={options} nextNo={nextNo} onSaved={reload} />
+        </div>
       </div>
 
-      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาเลขที่สัญญา/ชื่อผู้รับจ้าง/ผู้ค้ำประกัน" className="input mt-4 w-full sm:w-80" />
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาเลขที่สัญญา/ชื่อผู้รับจ้าง/ผู้ค้ำประกัน/งานที่จ้าง" className="input mt-4 w-full sm:w-96" />
 
-      {rows === null ? (
+      {items === null ? (
         <PageLoadingSkeleton />
       ) : (
         <>
@@ -425,15 +470,18 @@ export default function TeacherHirePage() {
 
           <div className="mt-4 space-y-3 md:hidden">
             {filtered.length === 0 && <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">ยังไม่มีสัญญา</p>}
-            {filtered.map((r) => (
-              <div key={r.id} className="rounded-xl border border-slate-200 bg-white p-3 text-sm">
-                <p className="font-semibold text-slate-900">
-                  {r.contract_no} · {r.hiree_name}
+            {filtered.map((it) => (
+              <div key={`${it.kind}-${it.r.id}`} className="rounded-xl border border-slate-200 bg-white p-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="badge-navy">{typeLabel(it)}</span>
+                  <span className="font-semibold text-slate-900">
+                    {it.r.contract_no} · {it.r.hiree_name}
+                  </span>
+                </div>
+                <p className="mt-1 text-slate-600">
+                  {it.r.start_date ? formatThaiDate(it.r.start_date) : "-"} – {it.r.end_date ? formatThaiDate(it.r.end_date) : "-"} · {amountText(it)}
                 </p>
-                <p className="text-slate-600">
-                  {r.start_date ? formatThaiDate(r.start_date) : "-"} – {r.end_date ? formatThaiDate(r.end_date) : "-"} · {r.salary ? `${formatBaht(r.salary)} บาท` : "-"}
-                </p>
-                <div className="mt-2">{buttons(r)}</div>
+                <div className="mt-2">{buttons(it)}</div>
               </div>
             ))}
           </div>
@@ -442,12 +490,12 @@ export default function TeacherHirePage() {
             <table className="table-base">
               <thead>
                 <tr>
+                  <th>ประเภท</th>
                   <th>เลขที่สัญญา</th>
                   <th>วันที่ทำสัญญา</th>
                   <th>ผู้รับจ้าง</th>
                   <th>ระยะเวลาจ้าง</th>
-                  <th className="text-right">เงินเดือน (บาท)</th>
-                  <th>ผู้ค้ำประกัน</th>
+                  <th className="text-right">ค่าจ้าง</th>
                   <th></th>
                 </tr>
               </thead>
@@ -459,18 +507,19 @@ export default function TeacherHirePage() {
                     </td>
                   </tr>
                 )}
-                {filtered.map((r) => (
-                  <tr key={r.id}>
-                    <td className="whitespace-nowrap">{r.contract_no}</td>
-                    <td className="whitespace-nowrap">{formatThaiDate(r.contract_date)}</td>
-                    <td>{r.hiree_name}</td>
-                    <td className="whitespace-nowrap">
-                      {r.start_date ? formatThaiDate(r.start_date) : "-"} – {r.end_date ? formatThaiDate(r.end_date) : "-"}
-                      {r.months ? ` (${r.months} เดือน)` : ""}
+                {filtered.map((it) => (
+                  <tr key={`${it.kind}-${it.r.id}`}>
+                    <td>
+                      <span className="badge-navy text-sm">{typeLabel(it)}</span>
                     </td>
-                    <td className="text-right">{r.salary ? formatBaht(r.salary) : "-"}</td>
-                    <td>{r.guarantor_name ?? <span className="text-slate-400">-</span>}</td>
-                    <td>{buttons(r)}</td>
+                    <td className="whitespace-nowrap">{it.r.contract_no}</td>
+                    <td className="whitespace-nowrap">{formatThaiDate(it.r.contract_date)}</td>
+                    <td>{it.r.hiree_name}</td>
+                    <td className="whitespace-nowrap">
+                      {it.r.start_date ? formatThaiDate(it.r.start_date) : "-"} – {it.r.end_date ? formatThaiDate(it.r.end_date) : "-"}
+                    </td>
+                    <td className="whitespace-nowrap text-right">{amountText(it)}</td>
+                    <td>{buttons(it)}</td>
                   </tr>
                 ))}
               </tbody>

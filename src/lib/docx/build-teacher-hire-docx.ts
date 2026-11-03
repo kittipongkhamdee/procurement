@@ -55,8 +55,8 @@ function signParagraphs(b: Extract<Block, { kind: "sign" }>, isLast: boolean): P
   return out;
 }
 
-export async function renderTeacherHireDocxBuffer(contract: TeacherHireContract, ctx: ContractContext): Promise<Buffer> {
-  const blocks = buildTeacherHireBlocks(contract, ctx);
+/** วาดบล็อกเนื้อหาสัญญา (ชนิดบล็อกกลาง) เป็นไฟล์ Word — ใช้ร่วมกับสัญญาจ้างเหมาบริการ */
+export async function renderBlocksDocx(blocks: Block[], title: string, creator: string): Promise<Buffer> {
   const children: Paragraph[] = [];
   let startOfSection = false;
   blocks.forEach((b, i) => {
@@ -75,8 +75,8 @@ export async function renderTeacherHireDocxBuffer(contract: TeacherHireContract,
   });
 
   const doc = new Document({
-    creator: ctx.school_name,
-    title: `สัญญาจ้างครูอัตราจ้าง ${contract.contract_no}`,
+    creator,
+    title,
     sections: [
       {
         properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1000, bottom: 1000, left: 1600, right: 1134 } } },
@@ -85,4 +85,8 @@ export async function renderTeacherHireDocxBuffer(contract: TeacherHireContract,
     ],
   });
   return Packer.toBuffer(doc);
+}
+
+export async function renderTeacherHireDocxBuffer(contract: TeacherHireContract, ctx: ContractContext): Promise<Buffer> {
+  return renderBlocksDocx(buildTeacherHireBlocks(contract, ctx), `สัญญาจ้างครูอัตราจ้าง ${contract.contract_no}`, ctx.school_name);
 }

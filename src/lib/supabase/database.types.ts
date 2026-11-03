@@ -3483,6 +3483,162 @@ export type Database = {
           },
         ]
       }
+      proc_service_hire_contracts: {
+        Row: {
+          id: string
+          contract_no: string
+          contract_date: string
+          place: string | null
+          place_tambon: string | null
+          place_amphoe: string | null
+          place_province: string | null
+          employer_name: string | null
+          job_kind: string
+          job_title: string
+          hiree_name: string
+          id_card: string | null
+          house_no: string | null
+          road: string | null
+          tambon: string | null
+          amphoe: string | null
+          province: string | null
+          zipcode: string | null
+          phone: string | null
+          start_date: string | null
+          end_date: string | null
+          monthly_rate: number | null
+          total_amount: number | null
+          installments: number | null
+          bank_name: string | null
+          bank_branch: string | null
+          bank_account_name: string | null
+          bank_account_no: string | null
+          employer_status: string | null
+          work_day_from: string | null
+          work_day_to: string | null
+          work_time_from: string | null
+          work_time_to: string | null
+          refund_days: number | null
+          annex1_pages: number | null
+          annex2_pages: number | null
+          tor_scope: string | null
+          tor_job_role: string | null
+          tor_education: string | null
+          penalty_per_day: number | null
+          witness1_name: string | null
+          witness2_name: string | null
+          project_id: string | null
+          activity_id: string | null
+          budget_source_id: string | null
+          register_contract_id: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          contract_no: string
+          contract_date: string
+          place?: string | null
+          place_tambon?: string | null
+          place_amphoe?: string | null
+          place_province?: string | null
+          employer_name?: string | null
+          job_kind?: string
+          job_title: string
+          hiree_name: string
+          id_card?: string | null
+          house_no?: string | null
+          road?: string | null
+          tambon?: string | null
+          amphoe?: string | null
+          province?: string | null
+          zipcode?: string | null
+          phone?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          monthly_rate?: number | null
+          total_amount?: number | null
+          installments?: number | null
+          bank_name?: string | null
+          bank_branch?: string | null
+          bank_account_name?: string | null
+          bank_account_no?: string | null
+          employer_status?: string | null
+          work_day_from?: string | null
+          work_day_to?: string | null
+          work_time_from?: string | null
+          work_time_to?: string | null
+          refund_days?: number | null
+          annex1_pages?: number | null
+          annex2_pages?: number | null
+          tor_scope?: string | null
+          tor_job_role?: string | null
+          tor_education?: string | null
+          penalty_per_day?: number | null
+          witness1_name?: string | null
+          witness2_name?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          budget_source_id?: string | null
+          register_contract_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          contract_no?: string
+          contract_date?: string
+          place?: string | null
+          place_tambon?: string | null
+          place_amphoe?: string | null
+          place_province?: string | null
+          employer_name?: string | null
+          job_kind?: string
+          job_title?: string
+          hiree_name?: string
+          id_card?: string | null
+          house_no?: string | null
+          road?: string | null
+          tambon?: string | null
+          amphoe?: string | null
+          province?: string | null
+          zipcode?: string | null
+          phone?: string | null
+          start_date?: string | null
+          end_date?: string | null
+          monthly_rate?: number | null
+          total_amount?: number | null
+          installments?: number | null
+          bank_name?: string | null
+          bank_branch?: string | null
+          bank_account_name?: string | null
+          bank_account_no?: string | null
+          employer_status?: string | null
+          work_day_from?: string | null
+          work_day_to?: string | null
+          work_time_from?: string | null
+          work_time_to?: string | null
+          refund_days?: number | null
+          annex1_pages?: number | null
+          annex2_pages?: number | null
+          tor_scope?: string | null
+          tor_job_role?: string | null
+          tor_education?: string | null
+          penalty_per_day?: number | null
+          witness1_name?: string | null
+          witness2_name?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          budget_source_id?: string | null
+          register_contract_id?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proc_stock_items: {
         Row: {
           id: string

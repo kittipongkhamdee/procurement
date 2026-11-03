@@ -132,18 +132,22 @@ function Section({ blocks }: { blocks: Block[] }) {
   return <Page size="A4" style={styles.page}>{out}</Page>;
 }
 
-export function TeacherHireDocument({ contract, ctx }: { contract: TeacherHireContract; ctx: ContractContext }) {
-  const blocks = buildTeacherHireBlocks(contract, ctx);
+/** วาดบล็อกเนื้อหาสัญญา (ชนิดบล็อกกลาง) เป็นเอกสาร — ใช้ร่วมกับสัญญาจ้างเหมาบริการ (service-hire-document) */
+export function BlocksDocument({ title, blocks }: { title: string; blocks: Block[] }) {
   const sections: Block[][] = [[]];
   for (const b of blocks) {
     if (b.kind === "pagebreak") sections.push([]);
     else sections[sections.length - 1].push(b);
   }
   return (
-    <Document title={`สัญญาจ้างครูอัตราจ้าง ${contract.contract_no}`}>
+    <Document title={title}>
       {sections.map((s, i) => (
         <Section key={i} blocks={s} />
       ))}
     </Document>
   );
+}
+
+export function TeacherHireDocument({ contract, ctx }: { contract: TeacherHireContract; ctx: ContractContext }) {
+  return <BlocksDocument title={`สัญญาจ้างครูอัตราจ้าง ${contract.contract_no}`} blocks={buildTeacherHireBlocks(contract, ctx)} />;
 }
