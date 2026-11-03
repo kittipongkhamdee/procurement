@@ -3803,6 +3803,159 @@ export type Database = {
         }
         Relationships: []
       }
+      proc_teacher_hire_contracts: {
+        Row: {
+          id: string
+          contract_no: string
+          contract_date: string
+          place: string | null
+          employer_name: string | null
+          position_title: string
+          hiree_name: string
+          hiree_age: number | null
+          hiree_id_card: string | null
+          house_no: string | null
+          moo: string | null
+          soi: string | null
+          tambon: string | null
+          amphoe: string | null
+          province: string | null
+          zipcode: string | null
+          phone: string | null
+          months: number | null
+          start_date: string | null
+          end_date: string | null
+          salary: number | null
+          attach_date: string | null
+          guarantor_name: string | null
+          g_house_no: string | null
+          g_moo: string | null
+          g_soi: string | null
+          g_tambon: string | null
+          g_amphoe: string | null
+          g_province: string | null
+          g_zipcode: string | null
+          g_phone: string | null
+          g_birth_date: string | null
+          g_age: number | null
+          g_occupation: string | null
+          g_position: string | null
+          g_workplace: string | null
+          g_salary: number | null
+          g_card_no: string | null
+          g_card_issued_at: string | null
+          g_card_issue_date: string | null
+          g_card_expire_date: string | null
+          spouse_name: string | null
+          spouse_relation: string | null
+          witness1_name: string | null
+          witness2_name: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          contract_no: string
+          contract_date: string
+          place?: string | null
+          employer_name?: string | null
+          position_title?: string
+          hiree_name: string
+          hiree_age?: number | null
+          hiree_id_card?: string | null
+          house_no?: string | null
+          moo?: string | null
+          soi?: string | null
+          tambon?: string | null
+          amphoe?: string | null
+          province?: string | null
+          zipcode?: string | null
+          phone?: string | null
+          months?: number | null
+          start_date?: string | null
+          end_date?: string | null
+          salary?: number | null
+          attach_date?: string | null
+          guarantor_name?: string | null
+          g_house_no?: string | null
+          g_moo?: string | null
+          g_soi?: string | null
+          g_tambon?: string | null
+          g_amphoe?: string | null
+          g_province?: string | null
+          g_zipcode?: string | null
+          g_phone?: string | null
+          g_birth_date?: string | null
+          g_age?: number | null
+          g_occupation?: string | null
+          g_position?: string | null
+          g_workplace?: string | null
+          g_salary?: number | null
+          g_card_no?: string | null
+          g_card_issued_at?: string | null
+          g_card_issue_date?: string | null
+          g_card_expire_date?: string | null
+          spouse_name?: string | null
+          spouse_relation?: string | null
+          witness1_name?: string | null
+          witness2_name?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          contract_no?: string
+          contract_date?: string
+          place?: string | null
+          employer_name?: string | null
+          position_title?: string
+          hiree_name?: string
+          hiree_age?: number | null
+          hiree_id_card?: string | null
+          house_no?: string | null
+          moo?: string | null
+          soi?: string | null
+          tambon?: string | null
+          amphoe?: string | null
+          province?: string | null
+          zipcode?: string | null
+          phone?: string | null
+          months?: number | null
+          start_date?: string | null
+          end_date?: string | null
+          salary?: number | null
+          attach_date?: string | null
+          guarantor_name?: string | null
+          g_house_no?: string | null
+          g_moo?: string | null
+          g_soi?: string | null
+          g_tambon?: string | null
+          g_amphoe?: string | null
+          g_province?: string | null
+          g_zipcode?: string | null
+          g_phone?: string | null
+          g_birth_date?: string | null
+          g_age?: number | null
+          g_occupation?: string | null
+          g_position?: string | null
+          g_workplace?: string | null
+          g_salary?: number | null
+          g_card_no?: string | null
+          g_card_issued_at?: string | null
+          g_card_issue_date?: string | null
+          g_card_expire_date?: string | null
+          spouse_name?: string | null
+          spouse_relation?: string | null
+          witness1_name?: string | null
+          witness2_name?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proc_urgent_items: {
         Row: {
           unit: string | null
