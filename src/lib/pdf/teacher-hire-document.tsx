@@ -15,6 +15,7 @@ const PAD_L = 70;
 const PAD_R = 56;
 const CONTENT_W = 595.28 - PAD_L - PAD_R;
 const INDENT = 42;
+const ITEM_INDENT = 28; // รายการย่อย (ข้อ 3.1, 4.1 ฯลฯ) เยื้อง ~1 ซม.
 const SIGN_LEFT = 230;
 
 const styles = StyleSheet.create({
@@ -82,7 +83,9 @@ function renderBlock(b: Block, key: number) {
     case "clause":
       return <Lines key={key} lines={wrapByWidth(b.text, FS, CONTENT_W - INDENT - 8, CONTENT_W - 8, false, FAMILY)} marginBottom={4} />;
     case "item":
-      return <Lines key={key} lines={wrapByWidth(b.text, FS, CONTENT_W - 2 * INDENT - 8, CONTENT_W - 2 * INDENT - 8, false, FAMILY)} marginLeft={INDENT * 1.5} marginBottom={1} />;
+      return <Lines key={key} lines={wrapByWidth(b.text, FS, CONTENT_W - ITEM_INDENT - 8, CONTENT_W - ITEM_INDENT - 8, false, FAMILY)} marginLeft={ITEM_INDENT} marginBottom={1} />;
+    case "heading":
+      return <Lines key={key} lines={wrapByWidth(b.text, FS, CONTENT_W - 8, CONTENT_W - 8, true, FAMILY)} bold marginBottom={2} />;
     case "right":
       return <Lines key={key} lines={[b.text]} align="right" marginBottom={2} />;
     case "spacer":

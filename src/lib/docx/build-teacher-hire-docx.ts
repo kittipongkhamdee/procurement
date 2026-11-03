@@ -56,7 +56,9 @@ function blockParagraphs(b: Block, first: boolean): (Paragraph | Table)[] {
     case "clause":
       return [para(b.text, { firstLine: 720, align: AlignmentType.THAI_DISTRIBUTE, ...pb })];
     case "item":
-      return [para(b.text, { left: 1500, after: 20, align: AlignmentType.THAI_DISTRIBUTE, ...pb })];
+      return [para(b.text, { left: 570, after: 20, align: AlignmentType.THAI_DISTRIBUTE, ...pb })];
+    case "heading":
+      return [para(b.text, { bold: true, after: 40, ...pb })];
     case "right":
       return [para(b.text, { align: AlignmentType.RIGHT, ...pb })];
     case "spacer":

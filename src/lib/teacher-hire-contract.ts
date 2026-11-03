@@ -73,6 +73,7 @@ export type Block =
   | { kind: "title"; text: string; size?: "xl" | "lg" }
   | { kind: "para"; text: string; indent?: boolean }
   | { kind: "clause"; text: string }
+  | { kind: "heading"; text: string }
   | { kind: "item"; text: string }
   | { kind: "right"; text: string }
   | { kind: "spacer"; pts: number }
