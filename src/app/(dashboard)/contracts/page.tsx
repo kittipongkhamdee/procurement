@@ -17,8 +17,7 @@ const ICON = "h-6 w-6";
 const CARDS: { key: string; title: string; description: string; href: string | null; icon: ReactNode; type?: string }[] = [
   { key: "register", title: "ทะเบียนสัญญา", description: "รวมสัญญาทุกประเภทในที่เดียว", href: "/contracts/register", icon: <ArchiveIcon className={ICON} /> },
   { key: "delivery", title: "ส่งมอบตามสัญญา", description: "บันทึกการส่งมอบและตรวจรับตามสัญญา", href: "/contracts/delivery", icon: <TruckIcon className={ICON} /> },
-  { key: "hire", title: "สัญญาจ้าง", description: "สัญญาจ้างทำของ/จ้างเหมาบริการ", href: "/contracts/hire", icon: <FileSignatureIcon className={ICON} />, type: "จ้าง" },
-  { key: "teacher-hire", title: "สัญญาจ้างครูอัตราจ้าง", description: "สัญญาจ้าง เงื่อนไข สัญญาค้ำประกัน คำยินยอมคู่สมรส (พิมพ์ PDF/Word)", href: "/contracts/teacher-hire", icon: <FileSignatureIcon className={ICON} /> },
+  { key: "hire", title: "สัญญาจ้าง", description: "สัญญาจ้างครูอัตราจ้าง ออกเอกสารครบชุด (สัญญา เงื่อนไข ค้ำประกัน คำยินยอมคู่สมรส) พิมพ์ PDF/Word", href: "/contracts/teacher-hire", icon: <FileSignatureIcon className={ICON} />, type: "จ้าง" },
   { key: "purchase", title: "สัญญาซื้อ", description: "สัญญาซื้อขายพัสดุ/ครุภัณฑ์", href: "/contracts/purchase", icon: <ShoppingCartIcon className={ICON} />, type: "ซื้อ" },
   { key: "rental", title: "สัญญาเช่าที่ขายของ", description: "สัญญาเช่าพื้นที่ขายของในโรงเรียน", href: "/contracts/rental", icon: <StoreIcon className={ICON} />, type: "เช่า" },
 ];

@@ -22,7 +22,7 @@ type Row = {
   plan_budget_sources: { name: string } | null;
 };
 
-const TYPE_PAGE: Record<string, string | null> = { จ้าง: "/contracts/hire", ซื้อ: "/contracts/purchase", เช่า: "/contracts/rental" };
+const TYPE_PAGE: Record<string, string | null> = { จ้าง: "/contracts/teacher-hire", ซื้อ: "/contracts/purchase", เช่า: "/contracts/rental" };
 
 /** ปีงบประมาณไทย (ต.ค.–ก.ย.) ของวันที่ ISO */
 function fiscalYear(iso: string): number {

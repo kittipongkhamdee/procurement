@@ -332,8 +332,8 @@ export default function TeacherHirePage() {
             <ChevronLeftIcon className="h-4 w-4" />
             งานสัญญา
           </Link>
-          <h1 className="page-title">สัญญาจ้างครูอัตราจ้าง</h1>
-          <p className="page-subtitle">กรอกข้อมูลครั้งเดียว ออกเอกสาร 4 ส่วน: สัญญาจ้าง เงื่อนไขประกอบสัญญา สัญญาค้ำประกัน คำยินยอมคู่สมรสผู้ค้ำประกัน</p>
+          <h1 className="page-title">สัญญาจ้าง</h1>
+          <p className="page-subtitle">สัญญาจ้างครูอัตราจ้าง — กรอกข้อมูลครั้งเดียว ออกเอกสาร 4 ส่วน: สัญญาจ้าง เงื่อนไขประกอบสัญญา สัญญาค้ำประกัน คำยินยอมคู่สมรสผู้ค้ำประกัน (บันทึกแล้วจะแสดงในทะเบียนสัญญาและเลือกในการส่งมอบตามสัญญาได้)</p>
         </div>
         <ContractModal contract={null} defaults={defaults} onSaved={reload} />
       </div>
