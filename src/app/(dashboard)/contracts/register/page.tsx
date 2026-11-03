@@ -4,11 +4,14 @@
 // แก้ไขที่หน้าของแต่ละประเภท)
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { formatThaiDate, todayTh } from "@/lib/thai";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
-import { ChevronLeftIcon, ExcelFileIcon, PrinterIcon, SearchIcon } from "@/components/icons";
+import { ChevronLeftIcon, ExcelFileIcon, PrinterIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { deleteContract } from "../actions";
 
 type Row = {
   id: string;
@@ -51,7 +54,9 @@ export default function ContractRegisterPage() {
   const [stat, setStat] = useState("");
   const [query, setQuery] = useState("");
 
-  useEffect(() => {
+  const { isAdmin } = useAuth();
+
+  const reload = useCallback(() => {
     createClient()
       .from("proc_contracts")
       .select("id, contract_type, contract_no, contract_date, end_date, vendor_name, amount, plan_projects(name), plan_budget_sources(name)")
@@ -61,6 +66,33 @@ export default function ContractRegisterPage() {
         setRows((data as unknown as Row[]) ?? []);
       });
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // ลบสัญญา (แอดมินเท่านั้น) — สัญญาที่สร้างจากฟอร์มสัญญาจ้างครูอัตราจ้างต้องลบที่หน้านั้น (ไม่งั้นข้อมูลต้นทางค้างอยู่)
+  async function handleDelete(r: Row) {
+    const supabase = createClient();
+    const { data: source } = await supabase.from("proc_teacher_hire_contracts").select("id").eq("register_contract_id", r.id).maybeSingle();
+    if (source) {
+      await toastError("สัญญานี้สร้างจากฟอร์มสัญญาจ้างครูอัตราจ้าง กรุณาลบที่หน้า งานสัญญา > สัญญาจ้าง");
+      return;
+    }
+    const ok = await confirmDelete({ title: `ลบสัญญา ${r.contract_no}?`, text: `${r.vendor_name} · ${formatBaht(Number(r.amount))} บาท` });
+    if (!ok) return;
+    try {
+      const res = await deleteContract(r.id);
+      if (res.error) {
+        await toastError(res.error);
+        return;
+      }
+      await toastSuccess("ลบสัญญาเรียบร้อยแล้ว");
+      reload();
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
+  }
 
   const years = useMemo(
     () => Array.from(new Set((rows ?? []).map((r) => fiscalYear(r.contract_date)))).sort((a, b) => b - a),
@@ -167,11 +199,18 @@ export default function ContractRegisterPage() {
                     </p>
                     <div className="mt-1 flex items-center justify-between">
                       <span className="text-sm font-semibold text-slate-900">{formatBaht(Number(r.amount))} บาท</span>
-                      {href && (
-                        <Link href={href} className="btn-secondary btn-sm">
-                          ไปหน้าสัญญา
-                        </Link>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {href && (
+                          <Link href={href} className="btn-secondary btn-sm">
+                            ไปหน้าสัญญา
+                          </Link>
+                        )}
+                        {isAdmin && (
+                          <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
+                            <TrashIcon className="h-3.5 w-3.5" /> ลบ
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -213,11 +252,18 @@ export default function ContractRegisterPage() {
                       </td>
                       <td className="text-right font-semibold text-slate-900">{formatBaht(Number(r.amount))}</td>
                       <td className="text-right">
-                        {href && (
-                          <Link href={href} className="btn-secondary btn-sm">
-                            ไปหน้าสัญญา
-                          </Link>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {href && (
+                            <Link href={href} className="btn-secondary btn-sm">
+                              ไปหน้าสัญญา
+                            </Link>
+                          )}
+                          {isAdmin && (
+                            <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
+                              <TrashIcon className="h-3.5 w-3.5" /> ลบ
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

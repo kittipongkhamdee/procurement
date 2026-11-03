@@ -3850,6 +3850,7 @@ export type Database = {
           spouse_relation: string | null
           witness1_name: string | null
           witness2_name: string | null
+          register_contract_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -3900,6 +3901,7 @@ export type Database = {
           spouse_relation?: string | null
           witness1_name?: string | null
           witness2_name?: string | null
+          register_contract_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -3950,6 +3952,7 @@ export type Database = {
           spouse_relation?: string | null
           witness1_name?: string | null
           witness2_name?: string | null
+          register_contract_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
