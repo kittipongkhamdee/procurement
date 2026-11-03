@@ -1,4 +1,4 @@
-import { AlignmentType, Document, Packer, Paragraph, TextRun } from "docx";
+import { AlignmentType, Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } from "docx";
 import { buildTeacherHireBlocks, type Block, type ContractContext, type TeacherHireContract } from "@/lib/teacher-hire-contract";
 import { insertZwsp, THAI_FONT } from "./thai-docx";
 
@@ -25,7 +25,28 @@ function para(text: string, o: { align?: (typeof AlignmentType)[keyof typeof Ali
   });
 }
 
-function blockParagraphs(b: Block, first: boolean): Paragraph[] {
+function tableFor(b: Extract<Block, { kind: "table" }>): Table {
+  const totalWidth = 9172; // ความกว้างพื้นที่พิมพ์ (twip)
+  const totalFlex = b.cols.reduce((n, c) => n + c.flex, 0);
+  const mk = (cells: string[], opts: { bold?: boolean; header?: boolean } = {}) =>
+    new TableRow({
+      cantSplit: true,
+      children: b.cols.map(
+        (c, i) =>
+          new TableCell({
+            width: { size: Math.round((c.flex / totalFlex) * totalWidth), type: WidthType.DXA },
+            margins: { top: 40, bottom: 40, left: 80, right: 80 },
+            children: [para(cells[i] ?? "", { align: opts.header ? AlignmentType.CENTER : c.align === "right" ? AlignmentType.RIGHT : c.align === "center" ? AlignmentType.CENTER : AlignmentType.LEFT, bold: opts.bold, after: 0 })],
+          }),
+      ),
+    });
+  return new Table({
+    width: { size: totalWidth, type: WidthType.DXA },
+    rows: [mk(b.cols.map((c) => c.label), { bold: true, header: true }), ...b.rows.map((r) => mk(r)), ...(b.foot ? [mk(b.foot, { bold: true })] : [])],
+  });
+}
+
+function blockParagraphs(b: Block, first: boolean): (Paragraph | Table)[] {
   const pb = first ? { pageBreakBefore: true } : {};
   switch (b.kind) {
     case "title":
@@ -40,6 +61,8 @@ function blockParagraphs(b: Block, first: boolean): Paragraph[] {
       return [para(b.text, { align: AlignmentType.RIGHT, ...pb })];
     case "spacer":
       return [new Paragraph({ spacing: { after: b.pts * 20 }, children: [] })];
+    case "table":
+      return [tableFor(b)];
     default:
       return [];
   }
@@ -57,7 +80,7 @@ function signParagraphs(b: Extract<Block, { kind: "sign" }>, isLast: boolean): P
 
 /** วาดบล็อกเนื้อหาสัญญา (ชนิดบล็อกกลาง) เป็นไฟล์ Word — ใช้ร่วมกับสัญญาจ้างเหมาบริการ */
 export async function renderBlocksDocx(blocks: Block[], title: string, creator: string): Promise<Buffer> {
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
   let startOfSection = false;
   blocks.forEach((b, i) => {
     if (b.kind === "pagebreak") {

@@ -148,6 +148,7 @@ export function buildServiceHireBlocks(c: ServiceHireContract, ctx: ContractCont
   return build(c, ctx).map((b) => {
     if (b.kind === "sign") return { ...b, role: arabicDigits(b.role), name: arabicDigits(b.name), extra: b.extra?.map(arabicDigits) };
     if (b.kind === "pagebreak" || b.kind === "spacer") return b;
+    if (b.kind === "table") return { ...b, cols: b.cols.map((c) => ({ ...c, label: arabicDigits(c.label) })), rows: b.rows.map((r) => r.map(arabicDigits)), foot: b.foot?.map(arabicDigits) };
     return { ...b, text: arabicDigits(b.text) };
   });
 }
@@ -308,33 +309,44 @@ function build(c: ServiceHireContract, ctx: ContractContext): Block[] {
   ];
 }
 
-/** ผนวก 2 ใบเสนอราคา — ผู้รับจ้างเสนอราคาต่อผู้ว่าจ้าง (ร่างมาตรฐาน ตรวจถ้อยคำก่อนใช้จริง) */
+/** ผนวก 2 ใบเสนอราคา — รูปแบบเดียวกับใบเสนอราคาในชุดจัดซื้อ-จัดจ้างของระบบ (procurement-set-document) ปรับให้เป็นงานจ้างเหมาบริการ */
 function quotation(
   c: ServiceHireContract,
   ctx: ContractContext,
   x: { job: string; monthly: number | null; total: number | null; hireeAddr: string; dur: { y: number; m: number; d: number } | null },
 ): Block[] {
   const durText = x.dur ? [x.dur.y ? `${x.dur.y} ปี` : "", x.dur.m ? `${x.dur.m} เดือน` : "", x.dur.d ? `${x.dur.d} วัน` : ""].filter(Boolean).join(" ") : "";
+  const quoteDate = dmy(c.quote_date ?? c.contract_date);
+  const words = x.total === null ? "..................................." : thaiBahtText(x.total).replace(/^\(|\)$/g, "");
   return [
     { kind: "pagebreak" },
     { kind: "title", text: "ผนวก 2", size: "lg" },
     { kind: "title", text: "ใบเสนอราคา", size: "xl" },
-    { kind: "right", text: `วันที่ ${dmy(c.quote_date ?? c.contract_date)}` },
-    { kind: "spacer", pts: 8 },
-    { kind: "para", text: `เรื่อง  เสนอราคาจ้างเหมาบริการ ${x.job}` },
-    { kind: "para", text: `เรียน  ผู้อำนวยการ${ctx.school_name}` },
-    { kind: "spacer", pts: 4 },
+    { kind: "para", text: `เรียน      ผู้อำนวยการ${ctx.school_name}` },
     {
       kind: "para",
       indent: true,
-      text: `ข้าพเจ้า ${v(c.hiree_name)} ${x.hireeAddr} ผู้ถือบัตรประจำตัวประชาชนเลขที่ ${v(c.id_card)} โทรศัพท์ ${v(c.phone)} ขอเสนอราคาจ้างเหมาบริการ ${x.job} ให้แก่${ctx.school_name} ตั้งแต่วันที่ ${dmy(c.start_date)} ถึงวันที่ ${dmy(c.end_date)}${durText ? ` (รวมระยะเวลา ${durText})` : ""} ตามรายการดังนี้`,
+      text: `1. ข้าพเจ้า ${v(c.hiree_name)} ${x.hireeAddr} โทรศัพท์ ${v(c.phone)} เลขประจำตัวประชาชน ${v(c.id_card)} ข้าพเจ้าเป็นผู้มีคุณสมบัติครบถ้วนตามที่กำหนด และไม่เป็นผู้ทิ้งงานของทางราชการ`,
     },
-    { kind: "item", text: `1. ค่าจ้างเหมาบริการ ${x.job} อัตราเดือนละ ${money(x.monthly)} บาท จำนวน ${v(c.installments, "......")} งวด` },
-    { kind: "item", text: `รวมเป็นเงินทั้งสิ้น ${money(x.total)} บาท ${moneyWords(x.total)}` },
+    { kind: "para", indent: true, text: "2. ข้าพเจ้าขอเสนองานจ้างเหมาบริการ รวมทั้งกำหนดเวลาปฏิบัติงาน ดังต่อไปนี้" },
+    {
+      kind: "table",
+      cols: [
+        { label: "ที่", flex: 0.6, align: "center" },
+        { label: "รายละเอียดงานที่จะจ้างบริการ", flex: 4 },
+        { label: "จำนวนหน่วย", flex: 1.4, align: "left" },
+        { label: "ราคาต่อหน่วย", flex: 1.4, align: "right" },
+        { label: "จำนวนเงิน", flex: 1.6, align: "right" },
+      ],
+      rows: [["1", `จ้างเหมาบริการ ${x.job} ตั้งแต่วันที่ ${dmy(c.start_date)} ถึงวันที่ ${dmy(c.end_date)}${durText ? ` (${durText})` : ""}`, `${v(c.installments, "......")} งวด`, money(x.monthly), money(x.total)]],
+      foot: ["", `รวมเป็นเงินทั้งสิ้น  ( ${words} )`, "", "", money(x.total)],
+    },
     { kind: "spacer", pts: 4 },
-    { kind: "para", indent: true, text: "ราคาที่เสนอข้างต้นได้รวมค่าภาษีอากรใดๆ (ถ้ามี) และค่าใช้จ่ายทั้งปวงไว้แล้ว" },
-    { kind: "para", indent: true, text: `ข้าพเจ้ายืนยันราคานี้เป็นเวลา ${v(c.quote_valid_days, "......")} วัน นับแต่วันที่เสนอราคา และขอรับรองว่ามีคุณสมบัติ ความสามารถ และทักษะในการทำงานที่รับจ้างให้สำเร็จตามวัตถุประสงค์` },
-    { kind: "para", indent: true, text: "จึงเรียนมาเพื่อโปรดพิจารณา" },
-    { kind: "sign", role: "ผู้เสนอราคา", name: c.hiree_name?.trim() ?? "", extra: [] },
+    { kind: "para", text: "ราคาที่เสนอข้างต้นได้รวมค่าภาษีอากรใดๆ (ถ้ามี) และค่าใช้จ่ายทั้งปวงไว้แล้ว" },
+    { kind: "para", text: `3. คำเสนอนี้จะยืนอยู่ในระยะเวลา  ${v(c.quote_valid_days, "......")} วัน  นับตั้งแต่วันที่ได้ยื่นใบเสนอราคา` },
+    { kind: "para", text: `4. กำหนดเวลาปฏิบัติงานตามระยะเวลาการจ้างข้างต้น ตั้งแต่วันที่ ${dmy(c.start_date)} ถึงวันที่ ${dmy(c.end_date)}` },
+    { kind: "para", text: `เสนอมา   ณ   วันที่  ${quoteDate}` },
+    ...(ctx.officer_name ? [{ kind: "sign", role: "ผู้ต่อรองราคา", name: ctx.officer_name, extra: ["เจ้าหน้าที่"] } as Block] : []),
+    { kind: "sign", role: "ผู้เสนอราคา", name: c.hiree_name?.trim() ?? "", extra: ["ประทับตรา (ถ้ามี)"] },
   ];
 }

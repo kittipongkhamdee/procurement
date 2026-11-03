@@ -33,6 +33,37 @@ function Lines({ lines, size = FS, bold = false, align = "left" as "left" | "cen
   );
 }
 
+function TableBlock({ b }: { b: Extract<Block, { kind: "table" }> }) {
+  const totalFlex = b.cols.reduce((n, c) => n + c.flex, 0);
+  const widthOf = (flex: number) => (flex / totalFlex) * CONTENT_W;
+  const row = (cells: string[], opts: { bold?: boolean; header?: boolean; last?: boolean } = {}) => (
+    <View style={{ flexDirection: "row", borderBottomWidth: opts.last ? 0 : 0.8, borderColor: "#000" }}>
+      {b.cols.map((c, i) => {
+        const w = widthOf(c.flex);
+        const lines = wrapByWidth(cells[i] ?? "", FS, w - 10, w - 10, !!opts.bold, FAMILY);
+        return (
+          <View key={i} style={{ width: w, padding: 3, borderRightWidth: i === b.cols.length - 1 ? 0 : 0.8, borderColor: "#000" }}>
+            {lines.map((l, j) => (
+              <Text key={j} style={{ fontSize: FS, lineHeight: 1.08, fontWeight: opts.bold ? "bold" : "normal", textAlign: opts.header ? "center" : (c.align ?? "left") }}>
+                {t(l)}
+              </Text>
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+  return (
+    <View wrap={false} style={{ borderWidth: 0.8, borderColor: "#000", marginBottom: 4 }}>
+      {row(b.cols.map((c) => c.label), { bold: true, header: true })}
+      {b.rows.map((r, i) => (
+        <View key={i}>{row(r, { last: !b.foot && i === b.rows.length - 1 })}</View>
+      ))}
+      {b.foot && row(b.foot, { bold: true, last: true })}
+    </View>
+  );
+}
+
 function renderBlock(b: Block, key: number) {
   switch (b.kind) {
     case "title":
@@ -56,6 +87,8 @@ function renderBlock(b: Block, key: number) {
       return <Lines key={key} lines={[b.text]} align="right" marginBottom={2} />;
     case "spacer":
       return <View key={key} style={{ height: b.pts }} />;
+    case "table":
+      return <TableBlock key={key} b={b} />;
     default:
       return null;
   }

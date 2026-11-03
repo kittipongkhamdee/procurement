@@ -64,6 +64,8 @@ export type ContractContext = {
   area: string;
   /** ผู้ลงนามฝ่ายผู้ว่าจ้าง (ผู้อำนวยการ) ตามหน้าตั้งค่า */
   director_name: string;
+  /** เจ้าหน้าที่พัสดุ (ผู้ต่อรองราคาในใบเสนอราคา) ตามหน้าตั้งค่า */
+  officer_name?: string;
 };
 
 /** บล็อกเนื้อหา — ผู้วาด (PDF/Word) แปลงเป็นรูปแบบของตัวเอง */
@@ -74,6 +76,7 @@ export type Block =
   | { kind: "item"; text: string }
   | { kind: "right"; text: string }
   | { kind: "spacer"; pts: number }
+  | { kind: "table"; cols: { label: string; flex: number; align?: "left" | "center" | "right" }[]; rows: string[][]; foot?: string[] }
   | { kind: "sign"; role: string; name: string; extra?: string[] }
   | { kind: "pagebreak" };
 
@@ -114,6 +117,7 @@ export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractCont
   return buildBlocksRaw(c, ctx).map((b) => {
     if (b.kind === "sign") return { ...b, role: arabicDigits(b.role), name: arabicDigits(b.name), extra: b.extra?.map(arabicDigits) };
     if (b.kind === "pagebreak" || b.kind === "spacer") return b;
+    if (b.kind === "table") return { ...b, cols: b.cols.map((c) => ({ ...c, label: arabicDigits(c.label) })), rows: b.rows.map((r) => r.map(arabicDigits)), foot: b.foot?.map(arabicDigits) };
     return { ...b, text: arabicDigits(b.text) };
   });
 }
