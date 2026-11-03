@@ -1,8 +1,8 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { buildTeacherHireBlocks, type Block, type ContractContext, type TeacherHireContract } from "@/lib/teacher-hire-contract";
-import { SignBody } from "./sign-block";
+import { SIGN_BLANK_W, SignBody } from "./sign-block";
 import { registerThSarabunFont, t } from "./thai-pdf";
-import { wrapByWidth } from "./thai-measure";
+import { measureText, wrapByWidth } from "./thai-measure";
 
 // สัญญาจ้างครูอัตราจ้าง ชุด 4 ส่วน — ฟอนต์ TH Sarabun New 16pt (มาตรฐานเอกสารของระบบ) เนื้อหามาจาก teacher-hire-contract.ts
 // แต่ละส่วนขึ้นหน้าใหม่ ลายมือชื่อใช้ SignBody มาตรฐาน
@@ -97,11 +97,13 @@ function renderIndented(b: Extract<Block, { kind: "para" | "clause" }>, key: num
 }
 
 function SignGroup({ signs, size }: { signs: Extract<Block, { kind: "sign" }>[]; size: number }) {
+  // เส้นจุดทุกบรรทัดในกลุ่มยาวเท่ากัน (เท่าชื่อที่ยาวที่สุด) ให้คำ ผู้ว่าจ้าง/ผู้รับจ้าง/พยาน เริ่มแนวเดียวกัน
+  const dotsWidth = Math.max(SIGN_BLANK_W, ...signs.map((s) => (s.name ? measureText(`(${s.name})`, size, false, FAMILY) + 6 : 0)));
   return (
     <View wrap={false} style={{ marginTop: 10, marginLeft: SIGN_LEFT }}>
       {signs.map((s, i) => (
         <View key={i} style={{ marginTop: i === 0 ? 0 : 9 }}>
-          <SignBody role={s.role} name={s.name} extra={s.extra} size={size} family={FAMILY} />
+          <SignBody role={s.role} name={s.name} extra={s.extra} size={size} family={FAMILY} minDotsWidth={dotsWidth} />
         </View>
       ))}
     </View>

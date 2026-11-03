@@ -28,6 +28,7 @@ export function SignBody({
   size = 16,
   family = "THSarabunNew",
   blankWidth = SIGN_BLANK_W,
+  minDotsWidth = 0,
 }: {
   /** ข้อความหน้าเส้นจุด เช่น "ลงชื่อ" / "(ลงชื่อ)" */
   label?: string;
@@ -39,12 +40,14 @@ export function SignBody({
   size?: number;
   family?: MeasureFamily;
   blankWidth?: number;
+  /** ความกว้างเส้นจุดขั้นต่ำ — ใช้ให้หลายบล็อกในกลุ่มเดียวกันมีเส้นจุดเท่ากัน คำหลังเส้น (ผู้ว่าจ้าง/ผู้รับจ้าง/พยาน) จะเริ่มแนวเดียวกัน */
+  minDotsWidth?: number;
 }) {
   const m = (s: string) => measureText(s, size, false, family);
   const labelW = m(label) + GAP;
   const roleW = role ? m(role) + GAP + 4 : 0;
   const nameText = name?.trim() ? `(${name.trim()})` : "";
-  const dotsW = nameText ? m(nameText) + 6 : blankWidth;
+  const dotsW = Math.max(nameText ? m(nameText) + 6 : blankWidth, minDotsWidth);
   const lines = extra.map((x) => x.trim()).filter(Boolean);
   const extraW = lines.reduce((mx, x) => Math.max(mx, m(x) + 6), 0);
   const textW = Math.max(dotsW, extraW);
