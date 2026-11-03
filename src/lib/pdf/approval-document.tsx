@@ -259,7 +259,7 @@ const LEGACY_SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "�
 const SUMMARY_COLS = { no: 30, amount: 84, note: 84 };
 const BLANK_SUMMARY_ROWS = 6;
 
-function SummaryTable({ data }: { data: ApprovalPdfData }) {
+function SummaryTable({ data, tight = 0 }: { data: ApprovalPdfData; tight?: number }) {
   // ฟอร์มเปล่า (เขียนมือ): ไม่พิมพ์ชื่อหมวดค่าใช้จ่ายตายตัว — ครูไม่รู้ว่าต้องใส่ข้อมูลช่องไหน จึงเว้นช่องรายการว่างให้เติมเอง
   const rows = data.blank
     ? Array.from({ length: BLANK_SUMMARY_ROWS }, () => ({ label: "", amount: null, note: null }))
@@ -268,10 +268,10 @@ function SummaryTable({ data }: { data: ApprovalPdfData }) {
     : EXPENSE_LABELS.map((label, i) => data.summary_items.find((it) => expenseCategoryIndex(it.label) === i) ?? { label, amount: null, note: null });
   const total = data.summary_items.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
-  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: data.blank ? 18 : 17 };
+  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: data.blank ? 18 : tight >= 2 ? 14 : tight >= 1 ? 15 : 17 };
   const hd = [styles.bold, { textAlign: "center" as const }];
   return (
-    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 2, fontSize: FS_TABLE, lineHeight: 1.05 }}>
+    <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 2, fontSize: tight >= 2 ? FS_TABLE - 1 : FS_TABLE, lineHeight: 1.05 }}>
       <View style={rowStyle}>
         <View style={[cell, { width: SUMMARY_COLS.no }]}><Text style={hd}>{t("ที่")}</Text></View>
         <View style={[cell, { flex: 1 }]}><Text style={hd}>{t("รายการ")}</Text></View>
@@ -638,21 +638,30 @@ export function MemoHeader({ unit, docNumber, isoDate, subject }: { unit: string
 }
 
 /** ขนาดฟอนต์กรอบความเห็น: 16pt ถ้าเนื้อหาด้านบนไม่ยาวเกิน ไม่เช่นนั้นย่อเป็น 15pt ให้ยังพอดีหน้า ๑ */
-function boxFontSize(data: ApprovalPdfData): number {
+function boxFontSize(data: ApprovalPdfData, tight = 0): number {
   const lines =
     fieldRowLines({ prefix: "เรื่อง", prefixBold: true, prefixSize: FS_LABEL, value: subjectLine(data) }).length +
     fieldRowLines({ prefix: "ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)", value: data.department ?? "", indent: INDENT }).length +
     fieldRowLines({ prefix: "จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)", value: data.activity_name ?? "" }).length +
     fieldRowLines({ prefix: "ตามโครงการ/งาน", value: data.project_name ?? "" }).length;
-  return lines > BOX_MAX_BODY_LINES_AT_FULL ? FS_BOX_COMPACT : FS_BOX;
+  if (tight >= 2) return FS_BOX_COMPACT - 1;
+  return tight >= 1 || lines > BOX_MAX_BODY_LINES_AT_FULL ? FS_BOX_COMPACT : FS_BOX;
 }
 
-export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
+/** จำนวนหน้าที่เอกสารควรมีเมื่อกรอบความเห็นพอดีหน้า ๑ (หน้า ๑ + หน้ารายการวัสดุ) */
+export function approvalExpectedPages(data: ApprovalPdfData): number {
+  return 1 + (data.items.length > 0 || data.blank ? paginateItems(data.items).length : 0);
+}
+
+/** tight: 0 = ปกติ, 1/2 = บีบระยะห่าง/ขนาดตัวอักษรตารางและกรอบความเห็นลงทีละขั้น — ใช้เมื่อเนื้อหายาวจนกรอบความเห็น ๔ ช่อง
+ * ล้นไปหน้า ๒ (buildApprovalPdfBuffer เรนเดอร์ซ้ำเพิ่มระดับจนกรอบพอดีหน้า ๑) */
+export function ApprovalDocument({ data, tight = 0 }: { data: ApprovalPdfData; tight?: number }) {
+  const gap = tight >= 1 ? 0.5 : 1.5;
   // ไม่มีรายการเลย = ไม่มีหน้ารายการวัสดุ
   const itemPages = data.items.length > 0 || data.blank ? paginateItems(data.items) : [];
   return (
     <Document title={`บันทึกข้อความขออนุมัติ ${data.doc_number ?? ""}`}>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={[styles.page, tight >= 1 ? { lineHeight: tight >= 2 ? 1.1 : 1.2 } : {}]}>
         {/* ตราครุฑสูง 1.5 ซม. ชิดซ้าย — ชื่อ "บันทึกข้อความ" ตัวหนา 29 พอยท์ ระยะบรรทัด 35 พอยท์ อยู่กลางพื้นที่พิมพ์ */}
         <View style={{ height: GARUDA_H, marginBottom: 3 }}>
           {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> ของ @react-pdf/renderer ไม่ใช่ <img> ของ HTML (ไม่มี prop alt) */}
@@ -671,21 +680,21 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
 
         <DocNumberAndDate data={data} />
 
-        <FieldRow prefix="เรื่อง" prefixBold prefixSize={FS_LABEL} value={subjectLine(data)} />
+        <FieldRow prefix="เรื่อง" prefixBold prefixSize={FS_LABEL} value={subjectLine(data)} rowGap={gap} />
         <View style={{ borderBottomWidth: 0.9, borderBottomColor: INK, marginTop: 2, marginBottom: 2 }} />
 
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: tight >= 1 ? 1 : 4 }}>
           <PlainRow prefix="เรียน" value={data.addressed_to} />
         </View>
 
-        <FieldRow prefix="ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)" value={data.department ?? ""} indent={INDENT} minLines={data.blank ? 2 : 1} />
-        <FieldRow prefix="จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)" value={data.activity_name ?? ""} minLines={data.blank ? 2 : 1} />
-        <FieldRow prefix="ตามโครงการ/งาน" value={data.project_name ?? ""} minLines={data.blank ? 2 : 1} />
+        <FieldRow prefix="ด้วย (ฝ่าย/กลุ่ม/สาระฯ/งาน)" value={data.department ?? ""} indent={INDENT} minLines={data.blank ? 2 : 1} rowGap={gap} />
+        <FieldRow prefix="จะดำเนินการจัดกิจกรรม (ชื่อกิจกรรม)" value={data.activity_name ?? ""} minLines={data.blank ? 2 : 1} rowGap={gap} />
+        <FieldRow prefix="ตามโครงการ/งาน" value={data.project_name ?? ""} minLines={data.blank ? 2 : 1} rowGap={gap} />
         <PlanDateAndAmount data={data} />
 
         {/* ตารางรายการเงิน ต่อจาก "ดังนี้" แล้วจึงตามด้วย "จึงเรียนมา…" และลายมือชื่อ */}
         <View wrap={false} style={{ marginTop: 2 }}>
-          <SummaryTable data={data} />
+          <SummaryTable data={data} tight={tight} />
         </View>
 
         <View style={[styles.row, { paddingLeft: INDENT }]}>
@@ -693,12 +702,12 @@ export function ApprovalDocument({ data }: { data: ApprovalPdfData }) {
         </View>
 
         {/* ลายมือชื่อเริ่มที่แนวกึ่งกลางกระดาษ; ชื่อในวงเล็บจัดกึ่งกลางใต้บรรทัดลงชื่อ */}
-        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 8, marginBottom: 2 }}>
+        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: tight >= 1 ? 3 : 8, marginBottom: 2 }}>
           <SignatureBlock suffix="ผู้รับผิดชอบโครงการ" name={data.requested_by_name} />
         </View>
 
         {/* กรอบความเห็น ๔ ช่อง — ต่อท้ายหน้า ๑ ถ้าพื้นที่พอ ไม่พอจะย้ายทั้งกรอบไปหน้าถัดไป (wrap={false}) */}
-        <OpinionBoxes data={data} size={boxFontSize(data)} />
+        <OpinionBoxes data={data} size={boxFontSize(data, tight)} />
       </Page>
 
       {/* หน้ารายการวัสดุ อุปกรณ์ (ไม่ใช่ส่วนบันทึกข้อความ) — ไม่มีรายการเลย = ไม่มีหน้านี้, น้อยกว่า ๕ รายการเติมแถวว่างให้ครบ ๕,

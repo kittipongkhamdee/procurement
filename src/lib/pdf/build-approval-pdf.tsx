@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { formatThaiDate } from "@/lib/thai";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { ApprovalDocument } from "./approval-document";
+import { ApprovalDocument, approvalExpectedPages } from "./approval-document";
 import type { ApprovalPdfData } from "./approval-types";
 
 const SIGNER_KEYS = [
@@ -100,8 +100,21 @@ export async function buildApprovalPdfData(
 }
 
 /** วาดเอกสารบันทึกข้อความขออนุมัติด้วย react-pdf (ตามแบบกระดาษบันทึกข้อความ ระเบียบงานสารบรรณ) */
+/** นับหน้าจากไฟล์ PDF (อ็อบเจกต์หน้าแต่ละหน้าเขียนเป็นข้อความธรรมดาเสมอ แม้เนื้อหาจะบีบอัด) */
+function countPdfPages(buffer: Buffer): number {
+  return (buffer.toString("latin1").match(/\/Type\s*\/Page[^s]/g) ?? []).length;
+}
+
 export async function renderApprovalPdfBuffer(data: ApprovalPdfData): Promise<Buffer> {
-  return renderToBuffer(<ApprovalDocument data={data} />);
+  // บันทึก + กรอบความเห็น ๔ ช่อง ควรอยู่ในหน้า ๑ หน้าเดียว (หน้าถัดไปคือหน้ารายการวัสดุ) — ถ้าเนื้อหายาวจนกรอบล้นไปหน้า ๒
+  // เรนเดอร์ซ้ำโดยบีบระยะห่าง/ขนาดตัวอักษรทีละระดับ (ApprovalDocument tight 1 → 2) จนจำนวนหน้าเท่าที่ควรหรือหมดระดับ
+  const expected = approvalExpectedPages(data);
+  let buffer = await renderToBuffer(<ApprovalDocument data={data} />);
+  for (const tight of [1, 2]) {
+    if (countPdfPages(buffer) <= expected) break;
+    buffer = await renderToBuffer(<ApprovalDocument data={data} tight={tight} />);
+  }
+  return buffer;
 }
 
 /** บันทึกข้อความขออนุมัติแบบฟอร์มเปล่า (ไว้พิมพ์ให้เขียนมือ) — เติมส่วนราชการ/เรียน จากข้อมูลโรงเรียน และชื่อผู้ลงนามในกรอบความเห็นทั้ง ๔ ช่อง จากหน้าตั้งค่า */
