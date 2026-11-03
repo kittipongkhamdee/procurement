@@ -59,16 +59,37 @@ function renderBlock(b: Block, key: number) {
   }
 }
 
-/** แถวแรกของย่อหน้า/ข้อ เว้นย่อหน้า — เขียนเป็น 2 ส่วน: บรรทัดแรกเยื้อง ที่เหลือชิดซ้าย */
+const graphemes = new Intl.Segmenter("th", { granularity: "grapheme" });
+
+/** บรรทัดแบบ "กระจายแบบไทย" (Thai Distributed — แบบเดียวกับไฟล์ Word ต้นแบบ) ใช้กับทุกบรรทัดของย่อหน้ายกเว้นบรรทัดสุดท้าย:
+ * แบ่งเป็นกลุ่มอักษร (พยัญชนะ+สระ/วรรณยุกต์ไม่แยกกัน) แล้วเกลี่ยช่องว่างให้เต็มความกว้างของบรรทัด */
+function DistributedLine({ text, marginLeft = 0 }: { text: string; marginLeft?: number }) {
+  const parts = [...graphemes.segment(text)].map((g) => g.segment);
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between", marginLeft }}>
+      {parts.map((g, i) => (
+        <Text key={i} style={{ fontSize: FS, lineHeight: 1.08 }}>
+          {g === " " ? "\u00a0" : g}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+/** ย่อหน้า/ข้อ: บรรทัดแรกเว้นย่อหน้า จัดเต็มหน้า (กระจายแบบไทย) ยกเว้นบรรทัดสุดท้ายชิดซ้าย */
 function renderIndented(b: Extract<Block, { kind: "para" | "clause" }>, key: number) {
   const lines = wrapByWidth(b.text, FS, CONTENT_W - INDENT - 8, CONTENT_W - 8, false, FAMILY);
   return (
     <View key={key} style={{ marginBottom: 4 }}>
-      {lines.map((l, i) => (
-        <Text key={i} style={{ fontSize: FS, lineHeight: 1.08, marginLeft: i === 0 ? INDENT : 0 }}>
-          {t(l)}
-        </Text>
-      ))}
+      {lines.map((l, i) =>
+        i < lines.length - 1 ? (
+          <DistributedLine key={i} text={l} marginLeft={i === 0 ? INDENT : 0} />
+        ) : (
+          <Text key={i} style={{ fontSize: FS, lineHeight: 1.08, marginLeft: i === 0 ? INDENT : 0 }}>
+            {t(l)}
+          </Text>
+        ),
+      )}
     </View>
   );
 }

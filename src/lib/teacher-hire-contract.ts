@@ -117,8 +117,8 @@ export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractCont
 
   return [
     // ───────── 1) สัญญาจ้าง ─────────
-    { kind: "title", text: noText, size: "lg" },
-    { kind: "title", text: `(ระยะเวลาจ้าง ${monthsText})`, size: "lg" },
+    { kind: "right", text: noText },
+    { kind: "right", text: `(ระยะเวลาจ้าง ${monthsText})` },
     { kind: "title", text: "สัญญาจ้างอัตราจ้างผู้ปฏิบัติงานให้ราชการในสถานศึกษา", size: "xl" },
     { kind: "title", text: `ตำแหน่ง${pos} ${ctx.school_name}`, size: "lg" },
     { kind: "title", text: "สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน", size: "lg" },

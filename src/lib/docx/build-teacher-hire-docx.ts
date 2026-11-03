@@ -30,11 +30,12 @@ function blockParagraphs(b: Block, first: boolean): Paragraph[] {
   switch (b.kind) {
     case "title":
       return [para(b.text, { align: AlignmentType.CENTER, bold: true, size: b.size === "xl" ? 40 : 34, after: b.size === "xl" ? 120 : 40, ...pb })];
+    // จัดแบบ "กระจายแบบไทย" (thaiDistribute) เหมือนไฟล์ Word ต้นแบบ
     case "para":
     case "clause":
-      return [para(b.text, { firstLine: 720, ...pb })];
+      return [para(b.text, { firstLine: 720, align: AlignmentType.THAI_DISTRIBUTE, ...pb })];
     case "item":
-      return [para(b.text, { left: 1500, after: 20, ...pb })];
+      return [para(b.text, { left: 1500, after: 20, align: AlignmentType.THAI_DISTRIBUTE, ...pb })];
     case "right":
       return [para(b.text, { align: AlignmentType.RIGHT, ...pb })];
     default:
