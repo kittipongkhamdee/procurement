@@ -46,6 +46,9 @@ export type ServiceHireContract = {
   tor_scope: string | null;
   tor_job_role: string | null;
   tor_education: string | null;
+  quote_date: string | null;
+  quote_valid_days: number | null;
+  with_quotation: boolean;
   penalty_per_day: number | null;
   witness1_name: string | null;
   witness2_name: string | null;
@@ -187,7 +190,7 @@ function build(c: ServiceHireContract, ctx: ContractContext): Block[] {
     { kind: "clause", text: "ข้อ 2 เอกสารอันเป็นส่วนหนึ่งของสัญญา" },
     { kind: "para", indent: true, text: "เอกสารแนบท้ายสัญญาดังต่อไปนี้ให้ถือเป็นส่วนหนึ่งของสัญญานี้" },
     { kind: "clause", text: `2.1 ผนวก 1 (รายละเอียดของงานที่จ้างบริการ) จำนวน ${v(c.annex1_pages, "......")} หน้า` },
-    { kind: "clause", text: `2.2 ผนวก 2 (ใบเสนอราคา) จำนวน ${v(c.annex2_pages, "......")} หน้า` },
+    { kind: "clause", text: `2.2 ผนวก 2 (ใบเสนอราคา) จำนวน ${v(c.annex2_pages, c.with_quotation === false ? "......" : "1")} หน้า` },
     { kind: "para", indent: true, text: "ความใดในเอกสารแนบท้ายสัญญาที่ขัดหรือแย้งกับข้อความในสัญญานี้ ให้ใช้ความในสัญญานี้บังคับ และในกรณีที่เอกสารแนบท้ายสัญญาขัดแย้งกันเอง ผู้รับจ้างจะต้องปฏิบัติตามคำวินิจฉัยของผู้ว่าจ้าง คำวินิจฉัยของผู้ว่าจ้างให้ถือเป็นที่สุด และผู้รับจ้างไม่มีสิทธิเรียกร้องค่าจ้าง หรือค่าเสียหายหรือค่าใช้จ่ายใดๆ เพิ่มเติมจากผู้ว่าจ้างทั้งสิ้น" },
     { kind: "clause", text: "ข้อ 3 การจ่ายเงินค่าจ้าง" },
     {
@@ -301,5 +304,37 @@ function build(c: ServiceHireContract, ctx: ContractContext): Block[] {
     { kind: "clause", text: "14. วงเงินที่ประมาณว่าจะจ้าง" },
     { kind: "item", text: `เป็นเงิน ${money(c.total_amount)} บาท ${moneyWords(c.total_amount)}` },
     sign("ผู้กำหนดรายละเอียด", director, [dirTitle]),
+    ...(c.with_quotation === false ? [] : quotation(c, ctx, { job, monthly, total: c.total_amount, hireeAddr, dur })),
+  ];
+}
+
+/** ผนวก 2 ใบเสนอราคา — ผู้รับจ้างเสนอราคาต่อผู้ว่าจ้าง (ร่างมาตรฐาน ตรวจถ้อยคำก่อนใช้จริง) */
+function quotation(
+  c: ServiceHireContract,
+  ctx: ContractContext,
+  x: { job: string; monthly: number | null; total: number | null; hireeAddr: string; dur: { y: number; m: number; d: number } | null },
+): Block[] {
+  const durText = x.dur ? [x.dur.y ? `${x.dur.y} ปี` : "", x.dur.m ? `${x.dur.m} เดือน` : "", x.dur.d ? `${x.dur.d} วัน` : ""].filter(Boolean).join(" ") : "";
+  return [
+    { kind: "pagebreak" },
+    { kind: "title", text: "ผนวก 2", size: "lg" },
+    { kind: "title", text: "ใบเสนอราคา", size: "xl" },
+    { kind: "right", text: `วันที่ ${dmy(c.quote_date ?? c.contract_date)}` },
+    { kind: "spacer", pts: 8 },
+    { kind: "para", text: `เรื่อง  เสนอราคาจ้างเหมาบริการ ${x.job}` },
+    { kind: "para", text: `เรียน  ผู้อำนวยการ${ctx.school_name}` },
+    { kind: "spacer", pts: 4 },
+    {
+      kind: "para",
+      indent: true,
+      text: `ข้าพเจ้า ${v(c.hiree_name)} ${x.hireeAddr} ผู้ถือบัตรประจำตัวประชาชนเลขที่ ${v(c.id_card)} โทรศัพท์ ${v(c.phone)} ขอเสนอราคาจ้างเหมาบริการ ${x.job} ให้แก่${ctx.school_name} ตั้งแต่วันที่ ${dmy(c.start_date)} ถึงวันที่ ${dmy(c.end_date)}${durText ? ` (รวมระยะเวลา ${durText})` : ""} ตามรายการดังนี้`,
+    },
+    { kind: "item", text: `1. ค่าจ้างเหมาบริการ ${x.job} อัตราเดือนละ ${money(x.monthly)} บาท จำนวน ${v(c.installments, "......")} งวด` },
+    { kind: "item", text: `รวมเป็นเงินทั้งสิ้น ${money(x.total)} บาท ${moneyWords(x.total)}` },
+    { kind: "spacer", pts: 4 },
+    { kind: "para", indent: true, text: "ราคาที่เสนอข้างต้นได้รวมค่าภาษีอากรใดๆ (ถ้ามี) และค่าใช้จ่ายทั้งปวงไว้แล้ว" },
+    { kind: "para", indent: true, text: `ข้าพเจ้ายืนยันราคานี้เป็นเวลา ${v(c.quote_valid_days, "......")} วัน นับแต่วันที่เสนอราคา และขอรับรองว่ามีคุณสมบัติ ความสามารถ และทักษะในการทำงานที่รับจ้างให้สำเร็จตามวัตถุประสงค์` },
+    { kind: "para", indent: true, text: "จึงเรียนมาเพื่อโปรดพิจารณา" },
+    { kind: "sign", role: "ผู้เสนอราคา", name: c.hiree_name?.trim() ?? "", extra: [] },
   ];
 }

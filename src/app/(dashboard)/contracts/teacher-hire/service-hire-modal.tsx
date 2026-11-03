@@ -235,8 +235,8 @@ export function ServiceHireModal({
           <Field label="ผนวก 1 (รายละเอียดงาน) จำนวนหน้า">
             <input name="annex1_pages" type="number" min="0" defaultValue={c?.annex1_pages ?? ""} className="input w-full" />
           </Field>
-          <Field label="ผนวก 2 (ใบเสนอราคา) จำนวนหน้า — ไม่มีให้เว้นว่าง">
-            <input name="annex2_pages" type="number" min="0" defaultValue={c?.annex2_pages ?? ""} className="input w-full" />
+          <Field label="ผนวก 2 (ใบเสนอราคา) จำนวนหน้า">
+            <input name="annex2_pages" type="number" min="0" defaultValue={c?.annex2_pages ?? 1} className="input w-full" />
           </Field>
         </fieldset>
 
@@ -286,6 +286,20 @@ export function ServiceHireModal({
             <textarea name="tor_scope" value={torScope} onChange={(e) => setTorScope(e.target.value)} rows={7} className="input w-full" />
           </Field>
           {preset.tor_scope === "" && kind === "อื่นๆ" && <p className="text-xs text-slate-500">ตำแหน่งอื่นๆ: กรอกขอบเขตงานเองในช่องด้านบน</p>}
+        </fieldset>
+
+        <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <legend className="mb-2 text-sm font-semibold text-navy-800">ผนวก 2 ใบเสนอราคา (ผู้รับจ้างเสนอราคา — ระบบออกให้ในไฟล์เดียวกัน)</legend>
+          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+            <input type="checkbox" name="with_quotation" defaultChecked={c?.with_quotation ?? true} className="h-4 w-4" />
+            ออกใบเสนอราคา (ผนวก 2) ต่อท้ายเอกสาร — ถ้าผู้รับจ้างทำใบเสนอราคามาเอง ให้เอาเครื่องหมายออกแล้วแนบไฟล์แทน
+          </label>
+          <Field label="วันที่เสนอราคา — ว่าง = วันที่ทำสัญญา">
+            <ThaiDatePicker name="quote_date" defaultValue={c?.quote_date ?? null} />
+          </Field>
+          <Field label="ยืนราคา (วัน)">
+            <input name="quote_valid_days" type="number" min="0" defaultValue={c?.quote_valid_days ?? 30} className="input w-full" />
+          </Field>
         </fieldset>
 
         <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">

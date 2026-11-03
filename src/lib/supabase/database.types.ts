@@ -3524,6 +3524,9 @@ export type Database = {
           tor_scope: string | null
           tor_job_role: string | null
           tor_education: string | null
+          quote_date: string | null
+          quote_valid_days: number | null
+          with_quotation: boolean
           penalty_per_day: number | null
           witness1_name: string | null
           witness2_name: string | null
@@ -3575,6 +3578,9 @@ export type Database = {
           tor_scope?: string | null
           tor_job_role?: string | null
           tor_education?: string | null
+          quote_date?: string | null
+          quote_valid_days?: number | null
+          with_quotation?: boolean
           penalty_per_day?: number | null
           witness1_name?: string | null
           witness2_name?: string | null
@@ -3626,6 +3632,9 @@ export type Database = {
           tor_scope?: string | null
           tor_job_role?: string | null
           tor_education?: string | null
+          quote_date?: string | null
+          quote_valid_days?: number | null
+          with_quotation?: boolean
           penalty_per_day?: number | null
           witness1_name?: string | null
           witness2_name?: string | null
