@@ -102,7 +102,18 @@ export function teacherHireFileLabel(c: TeacherHireContract) {
 }
 
 /** ชื่อไฟล์ — เลขที่สัญญาเป็นเลขอารบิกตามที่กรอก (เช่น 7/2569) */
+/** เลขไทย → เลขอารบิก (ถ้อยคำมาตรฐานของสัญญาพิมพ์เลขข้อเป็นเลขไทย แต่ข้อมูลที่กรอกเป็นเลขอารบิก — ให้เอกสารใช้เลขชุดเดียวกันทั้งฉบับ) */
+const arabicDigits = (s: string) => s.replace(/[๐-๙]/g, (d) => String(THAI_DIGITS.indexOf(d)));
+
 export function buildTeacherHireBlocks(c: TeacherHireContract, ctx: ContractContext): Block[] {
+  return buildBlocksRaw(c, ctx).map((b) => {
+    if (b.kind === "sign") return { ...b, role: arabicDigits(b.role), name: arabicDigits(b.name), extra: b.extra?.map(arabicDigits) };
+    if (b.kind === "pagebreak" || b.kind === "spacer") return b;
+    return { ...b, text: arabicDigits(b.text) };
+  });
+}
+
+function buildBlocksRaw(c: TeacherHireContract, ctx: ContractContext): Block[] {
   const pos = c.position_title || "ครูอัตราจ้าง";
   const place = fixThaiTypo(c.place?.trim() || ctx.school_name);
   const director = c.employer_name?.trim() || ctx.director_name;
