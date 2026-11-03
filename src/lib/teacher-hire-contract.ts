@@ -51,6 +51,9 @@ export type TeacherHireContract = {
   spouse_relation: string | null;
   witness1_name: string | null;
   witness2_name: string | null;
+  project_id: string | null;
+  activity_id: string | null;
+  budget_source_id: string | null;
 };
 
 export type ContractContext = {

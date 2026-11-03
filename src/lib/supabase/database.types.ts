@@ -3851,6 +3851,9 @@ export type Database = {
           witness1_name: string | null
           witness2_name: string | null
           register_contract_id: string | null
+          project_id: string | null
+          activity_id: string | null
+          budget_source_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -3902,6 +3905,9 @@ export type Database = {
           witness1_name?: string | null
           witness2_name?: string | null
           register_contract_id?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          budget_source_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -3953,6 +3959,9 @@ export type Database = {
           witness1_name?: string | null
           witness2_name?: string | null
           register_contract_id?: string | null
+          project_id?: string | null
+          activity_id?: string | null
+          budget_source_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string

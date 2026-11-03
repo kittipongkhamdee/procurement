@@ -20,6 +20,10 @@ import { deleteTeacherHire, saveTeacherHire } from "./actions";
 const STAFF = ["admin", "supply_officer", "finance_officer"];
 
 type Defaults = { place: string; director: string };
+type Project = { id: string; name: string; budget_source_id: string | null };
+type Activity = { id: string; project_id: string; name: string };
+type Source = { id: string; name: string };
+type Options = { projects: Project[]; activities: Activity[]; sources: Source[] };
 
 /** จำนวนเดือน (ปัดขึ้น) ระหว่างวันเริ่ม–สิ้นสุดสัญญา เช่น 1 ต.ค. – 31 มี.ค. = 6 เดือน */
 function monthsBetween(start: string | null, end: string | null): number | null {
@@ -40,13 +44,17 @@ function Field({ label, children, wide }: { label: string; children: React.React
   );
 }
 
-function ContractModal({ contract, defaults, onSaved }: { contract: TeacherHireContract | null; defaults: Defaults; onSaved: () => void }) {
+function ContractModal({ contract, defaults, options, onSaved }: { contract: TeacherHireContract | null; defaults: Defaults; options: Options; onSaved: () => void }) {
   const modalRef = useRef<ModalHandle>(null);
   const [submitting, setSubmitting] = useState(false);
   const [start, setStart] = useState<string | null>(contract?.start_date ?? null);
   const [end, setEnd] = useState<string | null>(contract?.end_date ?? null);
   const [months, setMonths] = useState(contract?.months != null ? String(contract.months) : "");
   const c = contract;
+  const [projectId, setProjectId] = useState(c?.project_id ?? "");
+  const [activityId, setActivityId] = useState(c?.activity_id ?? "");
+  const [sourceId, setSourceId] = useState(c?.budget_source_id ?? "");
+  const projectActivities = options.activities.filter((a) => a.project_id === projectId);
 
   function onDates(s: string | null, e: string | null) {
     const m = monthsBetween(s, e);
@@ -106,6 +114,47 @@ function ContractModal({ contract, defaults, onSaved }: { contract: TeacherHireC
           </Field>
           <Field label="ผู้ว่าจ้าง (ผู้อำนวยการ)" wide>
             <input name="employer_name" defaultValue={c?.employer_name ?? ""} placeholder={defaults.director ? `ว่าง = ใช้ตามหน้าตั้งค่า (${defaults.director})` : "ว่าง = ใช้ตามหน้าตั้งค่า"} className="input w-full" />
+          </Field>
+          <Field label="โครงการ" wide>
+            <select
+              name="project_id"
+              value={projectId}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                setActivityId("");
+                // แหล่งงบประมาณเริ่มต้นตามโครงการที่เลือก (แก้ทับได้)
+                const src = options.projects.find((p) => p.id === e.target.value)?.budget_source_id;
+                if (src) setSourceId(src);
+              }}
+              className="input w-full"
+            >
+              <option value="">-- ไม่ระบุ --</option>
+              {options.projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="กิจกรรม" wide>
+            <select name="activity_id" value={activityId} onChange={(e) => setActivityId(e.target.value)} disabled={!projectId} className="input w-full disabled:bg-slate-50">
+              <option value="">{projectId ? "-- ไม่ระบุ --" : "เลือกโครงการก่อน"}</option>
+              {projectActivities.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="แหล่งงบประมาณ" wide>
+            <select name="budget_source_id" value={sourceId} onChange={(e) => setSourceId(e.target.value)} className="input w-full">
+              <option value="">-- ไม่ระบุ --</option>
+              {options.sources.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label="ตำแหน่งที่จ้าง">
             <input name="position_title" defaultValue={c?.position_title ?? "ครูอัตราจ้าง"} className="input w-full" />
@@ -252,15 +301,32 @@ export default function TeacherHirePage() {
   const [rows, setRows] = useState<TeacherHireContract[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [defaults, setDefaults] = useState<Defaults>({ place: "", director: "" });
+  const [options, setOptions] = useState<Options>({ projects: [], activities: [], sources: [] });
   const [query, setQuery] = useState("");
 
   const reload = useCallback(async () => {
     const supabase = createClient();
-    const [{ data, error }, { data: school }, { data: signer }] = await Promise.all([
+    const { data: years } = await supabase.from("plan_budget_years").select("id, is_open, year").order("year", { ascending: false });
+    const currentYear = years?.find((y) => y.is_open) ?? years?.[0] ?? null;
+    const [{ data, error }, { data: school }, { data: signer }, { data: projectsData }, { data: sourcesData }] = await Promise.all([
       supabase.from("proc_teacher_hire_contracts").select("*").order("contract_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("proc_school_settings").select("school_name, school_address").eq("id", true).maybeSingle(),
       supabase.from("proc_app_settings").select("value").eq("key", "approval_signer_director").maybeSingle(),
+      currentYear
+        ? supabase.from("plan_projects").select("id, name, budget_source_id").eq("budget_year_id", currentYear.id).order("sort_order")
+        : Promise.resolve({ data: [] as Project[] }),
+      supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order"),
     ]);
+    const rowsData = (data as unknown as TeacherHireContract[]) ?? [];
+    // โครงการเดิมของสัญญาที่ไม่อยู่ในรายการปีปัจจุบัน — ให้ยังเลือกค้างไว้ได้ตอนแก้ไข
+    const known = new Set((projectsData ?? []).map((p) => p.id));
+    const missing = Array.from(new Set(rowsData.map((r) => r.project_id).filter((id): id is string => !!id && !known.has(id))));
+    const { data: oldProjects } = missing.length ? await supabase.from("plan_projects").select("id, name, budget_source_id").in("id", missing) : { data: [] as Project[] };
+    const allProjects = [...(projectsData ?? []), ...(oldProjects ?? [])];
+    const { data: activitiesData } = allProjects.length
+      ? await supabase.from("plan_activities").select("id, project_id, name").in("project_id", allProjects.map((p) => p.id)).order("sort_order")
+      : { data: [] as Activity[] };
+    setOptions({ projects: allProjects, activities: (activitiesData ?? []).map((a) => ({ ...a, name: a.name ?? "(ไม่มีชื่อ)" })), sources: sourcesData ?? [] });
     if (error) setError(error.message);
     setRows((data as unknown as TeacherHireContract[]) ?? []);
     const addr = school?.school_address ?? "";
@@ -315,7 +381,7 @@ export default function TeacherHirePage() {
       <a href={`/contracts/teacher-hire/${r.id}/word`} className="btn-secondary btn-sm">
         ดาวน์โหลด Word
       </a>
-      <ContractModal contract={r} defaults={defaults} onSaved={reload} />
+      <ContractModal contract={r} defaults={defaults} options={options} onSaved={reload} />
       {isAdmin && (
         <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">
           <TrashIcon className="h-3.5 w-3.5" /> ลบ
@@ -335,7 +401,7 @@ export default function TeacherHirePage() {
           <h1 className="page-title">สัญญาจ้าง</h1>
           <p className="page-subtitle">สัญญาจ้างครูอัตราจ้าง — กรอกข้อมูลครั้งเดียว ออกเอกสาร 4 ส่วน: สัญญาจ้าง เงื่อนไขประกอบสัญญา สัญญาค้ำประกัน คำยินยอมคู่สมรสผู้ค้ำประกัน (บันทึกแล้วจะแสดงในทะเบียนสัญญาและเลือกในการส่งมอบตามสัญญาได้)</p>
         </div>
-        <ContractModal contract={null} defaults={defaults} onSaved={reload} />
+        <ContractModal contract={null} defaults={defaults} options={options} onSaved={reload} />
       </div>
 
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาเลขที่สัญญา/ชื่อผู้รับจ้าง/ผู้ค้ำประกัน" className="input mt-4 w-full sm:w-80" />

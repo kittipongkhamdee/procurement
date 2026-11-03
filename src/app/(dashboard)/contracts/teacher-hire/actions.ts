@@ -70,6 +70,9 @@ function fields(fd: FormData) {
       spouse_relation: rel === "สามี" || rel === "ภรรยา" ? rel : null,
       witness1_name: text(fd, "witness1_name"),
       witness2_name: text(fd, "witness2_name"),
+      project_id: text(fd, "project_id"),
+      activity_id: text(fd, "activity_id"),
+      budget_source_id: text(fd, "budget_source_id"),
     },
   } as const;
 }
