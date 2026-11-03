@@ -257,14 +257,18 @@ function CheckRow({ checked, children }: { checked: boolean; children: React.Rea
 const LEGACY_SUMMARY_LABELS = ["จัดซื้อจัดจ้าง", "ค่าเบี้ยเลี้ยง/ค่าตอบแทน", "ค่าเดินทางไปราชการ", "ค่าสาธารณูปโภค", "อื่นๆ (ระบุ)"];
 
 const SUMMARY_COLS = { no: 30, amount: 84, note: 84 };
+const BLANK_SUMMARY_ROWS = 6;
 
 function SummaryTable({ data }: { data: ApprovalPdfData }) {
-  const rows = isLegacySummary(data.summary_items)
+  // ฟอร์มเปล่า (เขียนมือ): ไม่พิมพ์ชื่อหมวดค่าใช้จ่ายตายตัว — ครูไม่รู้ว่าต้องใส่ข้อมูลช่องไหน จึงเว้นช่องรายการว่างให้เติมเอง
+  const rows = data.blank
+    ? Array.from({ length: BLANK_SUMMARY_ROWS }, () => ({ label: "", amount: null, note: null }))
+    : isLegacySummary(data.summary_items)
     ? LEGACY_SUMMARY_LABELS.map((label, i) => data.summary_items[i] ?? { label, amount: null, note: null })
     : EXPENSE_LABELS.map((label, i) => data.summary_items.find((it) => expenseCategoryIndex(it.label) === i) ?? { label, amount: null, note: null });
   const total = data.summary_items.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   const cell = { borderRightWidth: 0.8, borderColor: INK, paddingHorizontal: 4, justifyContent: "center" as const };
-  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: 17 };
+  const rowStyle = { flexDirection: "row" as const, borderBottomWidth: 0.8, borderColor: INK, minHeight: data.blank ? 18 : 17 };
   const hd = [styles.bold, { textAlign: "center" as const }];
   return (
     <View style={{ borderWidth: 0.8, borderColor: INK, marginBottom: 2, fontSize: FS_TABLE, lineHeight: 1.05 }}>
