@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { dbFail } from "@/lib/action-log";
+import { deleteFromStorage } from "@/lib/storage";
 
 // สัญญาจ้างครูอัตราจ้าง — สิทธิ์จริงอยู่ที่ RLS ของ proc_teacher_hire_contracts (admin/พัสดุ/การเงิน เขียนได้ ลบได้เฉพาะ admin)
 
@@ -89,6 +90,13 @@ export async function saveTeacherHire(id: string | null, formData: FormData): Pr
 
 export async function deleteTeacherHire(id: string): Promise<{ error?: string }> {
   const supabase = await createClient();
+  // ไฟล์สัญญาฉบับจริงเก็บที่แถวสรุปในทะเบียนสัญญา (ถูกลบตามอัตโนมัติ) — ลบไฟล์ในที่เก็บไฟล์ด้วยไม่ให้ค้าง
+  const { data: row } = await supabase.from("proc_teacher_hire_contracts").select("register_contract_id").eq("id", id).maybeSingle();
+  const { data: reg } = row?.register_contract_id
+    ? await supabase.from("proc_contracts").select("contract_file_path").eq("id", row.register_contract_id).maybeSingle()
+    : { data: null };
   const { error } = await supabase.from("proc_teacher_hire_contracts").delete().eq("id", id);
-  return error ? dbFail("deleteTeacherHire", error.message) : {};
+  if (error) return dbFail("deleteTeacherHire", error.message);
+  if (reg?.contract_file_path) await deleteFromStorage(supabase, reg.contract_file_path, "procurement-files").catch(() => {});
+  return {};
 }

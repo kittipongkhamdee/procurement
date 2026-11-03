@@ -54,6 +54,8 @@ export type TeacherHireContract = {
   project_id: string | null;
   activity_id: string | null;
   budget_source_id: string | null;
+  /** แถวสรุปในทะเบียนสัญญา (proc_contracts) ที่ฐานข้อมูลสร้างให้ — ไฟล์สัญญาฉบับจริงเก็บที่แถวนั้น */
+  register_contract_id?: string | null;
 };
 
 export type ContractContext = {

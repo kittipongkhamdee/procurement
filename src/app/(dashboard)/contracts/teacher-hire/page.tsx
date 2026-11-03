@@ -16,6 +16,7 @@ import { ThaiAddressInput } from "@/components/thai-address-input";
 import { ChevronLeftIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons";
 import { fixThaiTypo, type TeacherHireContract } from "@/lib/teacher-hire-contract";
 import { deleteTeacherHire, saveTeacherHire } from "./actions";
+import { ContractFileButtons } from "../contract-list";
 
 const STAFF = ["admin", "supply_officer", "finance_officer"];
 
@@ -302,6 +303,8 @@ export default function TeacherHirePage() {
   const [error, setError] = useState<string | null>(null);
   const [defaults, setDefaults] = useState<Defaults>({ place: "", director: "" });
   const [options, setOptions] = useState<Options>({ projects: [], activities: [], sources: [] });
+  // ไฟล์สัญญาฉบับจริง (PDF) เก็บที่แถวสรุปในทะเบียนสัญญา (proc_contracts.contract_file_path) — key = id แถวสรุป
+  const [files, setFiles] = useState<Map<string, string | null>>(new Map());
   const [query, setQuery] = useState("");
 
   const reload = useCallback(async () => {
@@ -318,6 +321,9 @@ export default function TeacherHirePage() {
       supabase.from("plan_budget_sources").select("id, name").eq("is_active", true).order("sort_order"),
     ]);
     const rowsData = (data as unknown as TeacherHireContract[]) ?? [];
+    const registerIds = rowsData.map((r) => r.register_contract_id).filter((id): id is string => !!id);
+    const { data: fileRows } = registerIds.length ? await supabase.from("proc_contracts").select("id, contract_file_path").in("id", registerIds) : { data: [] as { id: string; contract_file_path: string | null }[] };
+    setFiles(new Map((fileRows ?? []).map((f) => [f.id, f.contract_file_path])));
     // โครงการเดิมของสัญญาที่ไม่อยู่ในรายการปีปัจจุบัน — ให้ยังเลือกค้างไว้ได้ตอนแก้ไข
     const known = new Set((projectsData ?? []).map((p) => p.id));
     const missing = Array.from(new Set(rowsData.map((r) => r.project_id).filter((id): id is string => !!id && !known.has(id))));
@@ -373,6 +379,8 @@ export default function TeacherHirePage() {
     );
   }
 
+  const registerId = (r: TeacherHireContract) => r.register_contract_id ?? null;
+
   const buttons = (r: TeacherHireContract) => (
     <div className="flex flex-wrap items-center gap-2">
       <a href={`/contracts/teacher-hire/${r.id}/pdf`} target="_blank" rel="noreferrer" className="btn-secondary btn-sm">
@@ -381,6 +389,9 @@ export default function TeacherHirePage() {
       <a href={`/contracts/teacher-hire/${r.id}/word`} className="btn-secondary btn-sm">
         ดาวน์โหลด Word
       </a>
+      {registerId(r) && (
+        <ContractFileButtons contract={{ id: registerId(r) as string, contract_no: r.contract_no, contract_file_path: files.get(registerId(r) as string) ?? null }} onChanged={reload} canDelete={isAdmin} />
+      )}
       <ContractModal contract={r} defaults={defaults} options={options} onSaved={reload} />
       {isAdmin && (
         <button type="button" onClick={() => handleDelete(r)} className="btn-danger btn-sm">

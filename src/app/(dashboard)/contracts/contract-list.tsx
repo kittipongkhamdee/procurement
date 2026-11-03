@@ -618,13 +618,13 @@ function ContractDetailModal({ type, contract: c }: { type: ContractType; contra
 const CONTRACT_BUCKET = "procurement-files";
 
 // อัปโหลด/ดู/เปลี่ยนไฟล์สัญญาฉบับจริง (PDF) — เพิ่มภายหลังบันทึกสัญญาได้
-function ContractFileButtons({
+export function ContractFileButtons({
   contract: c,
   onChanged,
   viewOnly = false,
   canDelete = false,
 }: {
-  contract: Contract;
+  contract: Pick<Contract, "id" | "contract_no" | "contract_file_path">;
   onChanged: () => void;
   viewOnly?: boolean;
   canDelete?: boolean;
