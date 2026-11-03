@@ -346,7 +346,6 @@ function quotation(
     { kind: "para", text: `3. คำเสนอนี้จะยืนอยู่ในระยะเวลา  ${v(c.quote_valid_days, "......")} วัน  นับตั้งแต่วันที่ได้ยื่นใบเสนอราคา` },
     { kind: "para", text: `4. กำหนดเวลาปฏิบัติงานตามระยะเวลาการจ้างข้างต้น ตั้งแต่วันที่ ${dmy(c.start_date)} ถึงวันที่ ${dmy(c.end_date)}` },
     { kind: "para", text: `เสนอมา   ณ   วันที่  ${quoteDate}` },
-    ...(ctx.officer_name ? [{ kind: "sign", role: "ผู้ต่อรองราคา", name: ctx.officer_name, extra: ["เจ้าหน้าที่"] } as Block] : []),
     { kind: "sign", role: "ผู้เสนอราคา", name: c.hiree_name?.trim() ?? "", extra: ["ประทับตรา (ถ้ามี)"] },
   ];
 }

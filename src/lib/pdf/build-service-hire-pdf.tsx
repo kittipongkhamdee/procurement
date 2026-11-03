@@ -10,16 +10,15 @@ export async function loadServiceHire(
   supabase: SupabaseClient<Database>,
   id: string,
 ): Promise<{ contract: ServiceHireContract; ctx: ContractContext } | null> {
-  const [{ data: contract }, { data: school }, { data: signer }, { data: officer }] = await Promise.all([
+  const [{ data: contract }, { data: school }, { data: signer }] = await Promise.all([
     supabase.from("proc_service_hire_contracts").select("*").eq("id", id).maybeSingle(),
     supabase.from("proc_school_settings").select("school_name, education_area").eq("id", true).maybeSingle(),
     supabase.from("proc_app_settings").select("value").eq("key", "approval_signer_director").maybeSingle(),
-    supabase.from("proc_app_settings").select("value").eq("key", "doc_signer_procurement_officer").maybeSingle(),
   ]);
   if (!contract) return null;
   return {
     contract: contract as ServiceHireContract,
-    ctx: { school_name: school?.school_name ?? "โรงเรียน", area: school?.education_area ?? "", director_name: signer?.value ?? "", officer_name: officer?.value ?? "" },
+    ctx: { school_name: school?.school_name ?? "โรงเรียน", area: school?.education_area ?? "", director_name: signer?.value ?? "" },
   };
 }
 
