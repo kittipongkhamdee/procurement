@@ -32,7 +32,7 @@ const SLACK = 10;
 const styles = StyleSheet.create({
   page: { fontFamily: FAMILY, fontSize: FS, lineHeight: 1.25, paddingTop: 2.5 * CM, paddingBottom: 1 * CM, paddingLeft: PAD_LEFT, paddingRight: PAD_RIGHT },
   title: { fontSize: 20, fontWeight: "bold", textAlign: "center", marginBottom: 8 },
-  gap: { marginBottom: 6 },
+  gap: { marginBottom: 8 },
 });
 
 export type ServiceDeliveryData = {
@@ -103,9 +103,10 @@ function Check({ on, label }: { on: boolean; label: string }) {
   );
 }
 
-function DocTypeRow() {
+function DocTypeRow({ prefix, left = INDENT }: { prefix?: string; left?: number }) {
   return (
-    <View style={[{ flexDirection: "row", marginLeft: INDENT }, styles.gap]}>
+    <View style={[{ flexDirection: "row", marginLeft: left }, styles.gap]}>
+      {prefix ? <Text style={{ marginRight: 8 }}>{t(prefix)}</Text> : null}
       <Check on={false} label="ใบสั่งจ้าง" />
       <Check on={false} label="บันทึกตกลงจ้าง" />
       <Check on label="สัญญาจ้าง" />
@@ -137,14 +138,19 @@ export function ServiceDeliveryDocument({ data: d }: { data: ServiceDeliveryData
         </View>
         <Text>{t("เรื่อง    ส่งมอบงานจ้างและแจ้งหนี้ขอเบิกเงิน")}</Text>
         <Text style={styles.gap}>{t(`เรียน    ผู้อำนวยการ${d.school_name}`)}</Text>
-        <Para keep={keep} text={`ตามที่ ${d.school_name} ได้ตกลงจ้างเหมาบริการให้ข้าพเจ้า ปฏิบัติงานในตำแหน่ง ${d.role} ตาม`} />
-        <DocTypeRow />
+        <Para keep={keep} text={`ตามที่ ${d.school_name} ได้ตกลงจ้างเหมาบริการให้ข้าพเจ้า`} />
+        <Text style={styles.gap}>{t(`ปฏิบัติงานในตำแหน่ง ${d.role} ตาม`)}</Text>
+        <DocTypeRow left={0} />
         <Para keep={keep} indent={0} text={`เลขที่ ${d.contract_no} ลงวันที่ ${d.contract_date} ในวงเงิน ${d.monthly} บาทต่อเดือน นั้น`} />
-        <Text style={{ marginLeft: INDENT }}>{t("บัดนี้ ข้าพเจ้าได้ปฏิบัติตาม")}</Text>
-        <DocTypeRow />
+        <Text style={[styles.gap, { marginLeft: INDENT }]}>{t("บัดนี้ ข้าพเจ้าได้ปฏิบัติตาม")}</Text>
+        <DocTypeRow left={0} />
         <Para keep={keep} indent={0} text={`เสร็จเรียบร้อยแล้ว จึงขอส่งมอบงานจ้าง เพื่อตรวจรับและขอเบิกจ่ายเงิน จำนวน ${d.amount} บาท ${d.amount_text} ต่อไป`} />
-        <Text style={{ marginLeft: PAGE_W / 2 - PAD_LEFT + 30, marginTop: 10 }}>{t("ขอแสดงความนับถือ")}</Text>
-        <Sign role="" name={d.vendor_name} />
+        <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14, alignSelf: "flex-start", alignItems: "center" }} wrap={false}>
+          <Text>{t("ขอแสดงความนับถือ")}</Text>
+          <View style={{ marginTop: 22 }}>
+            <SignBody role="" name={d.vendor_name} size={FS} />
+          </View>
+        </View>
       </Page>
 
       {/* ๒. ใบตรวจรับพัสดุในงานซื้อหรืองานจ้าง */}
