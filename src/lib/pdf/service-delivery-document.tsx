@@ -1,3 +1,4 @@
+import React from "react";
 import path from "node:path";
 import { Document, Font, Page, StyleSheet, Svg, Path, Text, View, type Styles } from "@react-pdf/renderer";
 import { thaiBahtText } from "@/lib/thai";
@@ -55,12 +56,38 @@ export type ServiceDeliveryData = {
 };
 
 const graphemes = new Intl.Segmenter("th", { granularity: "grapheme" });
-function DistributedLine({ text, style }: { text: string; style?: Styles[string] }) {
-  const parts = [...graphemes.segment(text)].map((g) => g.segment);
+/** ช่องติ๊กแบบอยู่ในบรรทัด — ในข้อความเขียน "( )" = ไม่ติ๊ก, "(.)" = ติ๊ก */
+function InlineBox({ on }: { on: boolean }) {
   return (
-    <View style={[{ flexDirection: "row", justifyContent: "space-between" }, style ?? {}]}>
-      {parts.map((g, i) => (
-        <Text key={i}>{g === " " ? " " : g}</Text>
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <Text>(</Text>
+      <View style={{ width: 9, height: 11 }}>
+        {on && (
+          <Svg width={11} height={11} viewBox="0 0 10 10" style={{ position: "absolute", top: 0, left: -1 }}>
+            <Path d="M1.5 5.4 L4 8 L9 1.5" stroke="#000" strokeWidth={1.3} fill="none" />
+          </Svg>
+        )}
+      </View>
+      <Text>)</Text>
+    </View>
+  );
+}
+function inlineParts(text: string): { key: number; node: React.ReactNode }[] {
+  const g = [...graphemes.segment(text)].map((x) => x.segment);
+  const out: { key: number; node: React.ReactNode }[] = [];
+  for (let i = 0; i < g.length; i++) {
+    if (g[i] === "(" && (g[i + 1] === " " || g[i + 1] === ".") && g[i + 2] === ")") {
+      out.push({ key: i, node: <InlineBox on={g[i + 1] === "."} /> });
+      i += 2;
+    } else out.push({ key: i, node: <Text>{g[i]}</Text> });
+  }
+  return out;
+}
+function DistributedLine({ text, style, last }: { text: string; style?: Styles[string]; last?: boolean }) {
+  return (
+    <View style={[{ flexDirection: "row", justifyContent: last ? "flex-start" : "space-between" }, style ?? {}]}>
+      {inlineParts(last ? t(text) : text).map((p) => (
+        <React.Fragment key={p.key}>{p.node}</React.Fragment>
       ))}
     </View>
   );
@@ -73,13 +100,7 @@ function Para({ text, indent = INDENT, keep }: { text: string; indent?: number; 
     <View style={styles.gap}>
       {lines.map((l, i) => {
         const lineStyle = i === 0 ? { marginLeft: indent } : undefined;
-        return i < lines.length - 1 ? (
-          <DistributedLine key={i} text={l} style={lineStyle} />
-        ) : (
-          <Text key={i} style={lineStyle}>
-            {t(l)}
-          </Text>
-        );
+        return <DistributedLine key={i} text={l} style={lineStyle} last={i === lines.length - 1} />;
       })}
     </View>
   );
@@ -103,17 +124,6 @@ function Check({ on, label }: { on: boolean; label: string }) {
   );
 }
 
-function DocTypeRow({ prefix, left = INDENT }: { prefix?: string; left?: number }) {
-  return (
-    <View style={[{ flexDirection: "row", marginLeft: left }, styles.gap]}>
-      {prefix ? <Text style={{ marginRight: 8 }}>{t(prefix)}</Text> : null}
-      <Check on={false} label="ใบสั่งจ้าง" />
-      <Check on={false} label="บันทึกตกลงจ้าง" />
-      <Check on label="สัญญาจ้าง" />
-    </View>
-  );
-}
-
 function Sign({ role, name, marginTop = 18 }: { role: string; name: string | null; marginTop?: number }) {
   return (
     <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop, alignSelf: "flex-start" }} wrap={false}>
@@ -123,7 +133,7 @@ function Sign({ role, name, marginTop = 18 }: { role: string; name: string | nul
 }
 
 export function ServiceDeliveryDocument({ data: d }: { data: ServiceDeliveryData }) {
-  const keep = [d.school_name.replace(/^โรงเรียน/, ""), ...d.vendor_name.split(/\s+/)];
+  const keep = [d.school_name.replace(/^โรงเรียน/, ""), ...d.vendor_name.split(/\s+/), ...[d.contract_date, d.delivery_date].map((x) => x.replace(/^.*?(พ\.ศ\. \d+)$/, "$1")).filter((x) => x.startsWith("พ.ศ."))];
   const hasPenalty = d.penalty_amount > 0;
   const complete = d.late_days <= 0;
   const right = { alignItems: "flex-end" as const, marginBottom: 6 };
@@ -138,13 +148,8 @@ export function ServiceDeliveryDocument({ data: d }: { data: ServiceDeliveryData
         </View>
         <Text>{t("เรื่อง    ส่งมอบงานจ้างและแจ้งหนี้ขอเบิกเงิน")}</Text>
         <Text style={styles.gap}>{t(`เรียน    ผู้อำนวยการ${d.school_name}`)}</Text>
-        <Para keep={keep} text={`ตามที่ ${d.school_name} ได้ตกลงจ้างเหมาบริการให้ข้าพเจ้า`} />
-        <Text style={styles.gap}>{t(`ปฏิบัติงานในตำแหน่ง ${d.role} ตาม`)}</Text>
-        <DocTypeRow left={0} />
-        <Para keep={keep} indent={0} text={`เลขที่ ${d.contract_no} ลงวันที่ ${d.contract_date} ในวงเงิน ${d.monthly} บาทต่อเดือน นั้น`} />
-        <Text style={[styles.gap, { marginLeft: INDENT }]}>{t("บัดนี้ ข้าพเจ้าได้ปฏิบัติตาม")}</Text>
-        <DocTypeRow left={0} />
-        <Para keep={keep} indent={0} text={`เสร็จเรียบร้อยแล้ว จึงขอส่งมอบงานจ้าง เพื่อตรวจรับและขอเบิกจ่ายเงิน จำนวน ${d.amount} บาท ${d.amount_text} ต่อไป`} />
+        <Para keep={keep} text={`ตามที่ ${d.school_name} ได้ตกลงจ้างเหมาบริการให้ข้าพเจ้าปฏิบัติงานในตำแหน่ง ${d.role} ตาม ( ) ใบสั่งจ้าง ( ) บันทึกตกลงจ้าง (.) สัญญาจ้าง เลขที่ ${d.contract_no} ลงวันที่ ${d.contract_date} ในวงเงิน ${d.monthly} บาทต่อเดือน นั้น`} />
+        <Para keep={keep} text={`บัดนี้ ข้าพเจ้าได้ปฏิบัติตาม ( ) ใบสั่งจ้าง ( ) บันทึกตกลงจ้าง (.) สัญญาจ้าง เสร็จเรียบร้อยแล้ว จึงขอส่งมอบงานจ้าง เพื่อตรวจรับและขอเบิกจ่ายเงิน จำนวน ${d.amount} บาท ${d.amount_text} ต่อไป`} />
         <View style={{ marginLeft: PAGE_W / 2 - PAD_LEFT, marginTop: 14, alignSelf: "flex-start", alignItems: "center" }} wrap={false}>
           <Text>{t("ขอแสดงความนับถือ")}</Text>
           <View style={{ marginTop: 22 }}>
