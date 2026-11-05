@@ -8,6 +8,9 @@ export const DOCUMENT_SIGNERS = [
   { key: "approval_signer_director", label: "ผู้อำนวยการโรงเรียน", fallback: "" },
   { key: "doc_signer_procurement_officer", label: "เจ้าหน้าที่พัสดุ", fallback: "นางสาวโสรดา  ศรีสุข" },
   { key: "doc_signer_procurement_head", label: "หัวหน้าเจ้าหน้าที่พัสดุ", fallback: "นายกิตติพงษ์   คำดี" },
+  { key: "doc_signer_inspect_chair", label: "ประธานกรรมการตรวจรับพัสดุ (ใบตรวจรับงานจ้างเหมาบริการ)", fallback: "" },
+  { key: "doc_signer_inspect_member1", label: "กรรมการตรวจรับพัสดุ คนที่ 1", fallback: "" },
+  { key: "doc_signer_inspect_member2", label: "กรรมการตรวจรับพัสดุ คนที่ 2", fallback: "" },
 ] as const;
 
 export type DocumentSignerKey = (typeof DOCUMENT_SIGNERS)[number]["key"];
