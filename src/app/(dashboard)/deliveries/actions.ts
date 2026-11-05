@@ -40,6 +40,8 @@ function deliveryFields(formData: FormData): { error: string } | { fields: Recor
       penalty_amount: num(formData, "penalty_amount"),
       withholding_tax: num(formData, "withholding_tax"),
       inspector_name: text(formData, "inspector_name"),
+      inspector_member1: text(formData, "inspector_member1"),
+      inspector_member2: text(formData, "inspector_member2"),
       note: text(formData, "note"),
     },
   };

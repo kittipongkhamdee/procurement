@@ -16,7 +16,7 @@ const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "
 export async function buildServiceDeliveryData(supabase: Supabase, id: string): Promise<ServiceDeliveryData | null> {
   const { data: d } = await supabase
     .from("proc_deliveries")
-    .select("contract_id, delivery_date, period_month, amount, late_days, penalty_amount, inspector_name, proc_contracts(contract_no, contract_date, vendor_name, start_date, end_date)")
+    .select("contract_id, delivery_date, period_month, amount, late_days, penalty_amount, inspector_name, inspector_member1, inspector_member2, proc_contracts(contract_no, contract_date, vendor_name, start_date, end_date)")
     .eq("id", id)
     .maybeSingle();
   if (!d) return null;
@@ -64,9 +64,9 @@ export async function buildServiceDeliveryData(supabase: Supabase, id: string): 
     late_days: d.late_days ?? 0,
     penalty_amount: d.penalty_amount != null ? Number(d.penalty_amount) : 0,
     committee: [
-      { role: "ประธานกรรมการ", name: s.get("doc_signer_inspect_chair") ?? d.inspector_name },
-      { role: "กรรมการ", name: s.get("doc_signer_inspect_member1") ?? null },
-      { role: "กรรมการ", name: s.get("doc_signer_inspect_member2") ?? null },
+      { role: "ประธานกรรมการ", name: d.inspector_name || s.get("doc_signer_inspect_chair") || null },
+      { role: "กรรมการ", name: d.inspector_member1 || s.get("doc_signer_inspect_member1") || null },
+      { role: "กรรมการ", name: d.inspector_member2 || s.get("doc_signer_inspect_member2") || null },
     ],
   };
 }

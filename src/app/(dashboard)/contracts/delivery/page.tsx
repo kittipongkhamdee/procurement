@@ -37,6 +37,8 @@ type Delivery = {
   penalty_amount: number | null;
   withholding_tax: number | null;
   inspector_name: string | null;
+  inspector_member1: string | null;
+  inspector_member2: string | null;
   note: string | null;
 };
 
@@ -376,6 +378,17 @@ function DeliveryModal({
           </datalist>
         </div>
         <div>
+          <label className="label">กรรมการตรวจรับ คนที่ 1</label>
+          <input name="inspector_member1" defaultValue={delivery?.inspector_member1 ?? ""} list="delivery-teacher-names" autoComplete="off" className="input w-full" />
+        </div>
+        <div>
+          <label className="label">กรรมการตรวจรับ คนที่ 2</label>
+          <input name="inspector_member2" defaultValue={delivery?.inspector_member2 ?? ""} list="delivery-teacher-names" autoComplete="off" className="input w-full" />
+        </div>
+        <p className="col-span-full -mt-2 text-xs text-slate-500">
+          ผู้ตรวจรับ = ประธานกรรมการ · ถ้าเว้นว่างช่องไหน ใบส่งมอบแบบสัญญาจ้างเหมาบริการจะใช้ชื่อตามหน้าตั้งค่าแทน
+        </p>
+        <div>
           <label className="label">ส่งมอบเกินกำหนด (วัน)</label>
           <input readOnly value={contract && date ? lateDays : ""} className="input w-full bg-slate-50 text-right" />
         </div>
@@ -446,7 +459,7 @@ export default function ContractDeliveryPage() {
     const [{ data: d, error }, { data: c }, { data: t }, { data: ap }] = await Promise.all([
       supabase
         .from("proc_deliveries")
-        .select("id, contract_id, installment_no, delivery_date, period_month, amount, late_days, penalty_amount, withholding_tax, inspector_name, note")
+        .select("id, contract_id, installment_no, delivery_date, period_month, amount, late_days, penalty_amount, withholding_tax, inspector_name, inspector_member1, inspector_member2, note")
         .order("delivery_date", { ascending: false }),
       supabase
         .from("proc_contracts")

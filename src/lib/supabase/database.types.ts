@@ -2518,6 +2518,8 @@ export type Database = {
           delivery_month: string | null
           id: string
           inspector_name: string | null
+          inspector_member1: string | null
+          inspector_member2: string | null
           pdf_url: string | null
         }
         Insert: {
@@ -2535,6 +2537,8 @@ export type Database = {
           delivery_month?: string | null
           id?: string
           inspector_name?: string | null
+          inspector_member1?: string | null
+          inspector_member2?: string | null
           pdf_url?: string | null
         }
         Update: {
@@ -2552,6 +2556,8 @@ export type Database = {
           delivery_month?: string | null
           id?: string
           inspector_name?: string | null
+          inspector_member1?: string | null
+          inspector_member2?: string | null
           pdf_url?: string | null
         }
         Relationships: [
