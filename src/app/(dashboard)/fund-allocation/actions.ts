@@ -280,7 +280,7 @@ export async function deleteDraftProject(id: string) {
   revalidatePath("/fund-allocation");
 }
 
-type DraftActivityInput = { id?: string; name: string; budget: number };
+type DraftActivityInput = { id?: string; name: string; budget: number; sources?: { budget_source_id: string; amount: number }[] };
 
 // บันทึกร่างโครงการหนึ่งรายการจากหน้าเทียบงบ (ชื่อ/กลุ่ม/แหล่งงบ/โครงการปีก่อนที่จับคู่ + กิจกรรมย่อย)
 // - activities เป็น array ที่มีรายการ: งบโครงการ = ผลรวมกิจกรรมเสมอ (กิจกรรมที่ไม่ส่งมา = ถูกลบ)
@@ -309,6 +309,17 @@ export async function saveDraftProject(
   const activities = (input.activities ?? []).map((a) => ({ ...a, name: a.name.trim(), budget: Number(a.budget) }));
   if (activities.some((a) => !a.name)) return { error: "กรุณากรอกชื่อกิจกรรมให้ครบ" };
   if (activities.some((a) => !Number.isFinite(a.budget) || a.budget < 0)) return { error: "กรุณากรอกงบกิจกรรมให้ถูกต้อง" };
+  // กิจกรรมที่แบ่งหลายแหล่งเงิน: งบกิจกรรม = ผลรวมแต่ละแหล่ง, ห้ามเลือกแหล่งซ้ำ, ทุกบรรทัดต้องมีแหล่งและจำนวนเงินที่ถูกต้อง
+  for (const a of activities) {
+    const src = a.sources ?? [];
+    if (src.length === 0) continue;
+    if (src.some((x) => !x.budget_source_id)) return { error: `กิจกรรม "${a.name}": กรุณาเลือกแหล่งเงินให้ครบทุกบรรทัด` };
+    if (src.some((x) => !Number.isFinite(Number(x.amount)) || Number(x.amount) < 0))
+      return { error: `กิจกรรม "${a.name}": จำนวนเงินของแหล่งเงินไม่ถูกต้อง` };
+    if (new Set(src.map((x) => x.budget_source_id)).size !== src.length)
+      return { error: `กิจกรรม "${a.name}": เลือกแหล่งเงินซ้ำกัน` };
+    a.budget = src.reduce((sum, x) => sum + Number(x.amount), 0);
+  }
   const budget =
     activities.length > 0 ? activities.reduce((sum, a) => sum + a.budget, 0) : Number(input.budget);
   if (!Number.isFinite(budget) || budget < 0) return { error: "กรุณากรอกจำนวนเงินให้ถูกต้อง" };
@@ -336,17 +347,31 @@ export async function saveDraftProject(
   }
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i];
-    if (a.id && existingIds.has(a.id)) {
+    let activityId = a.id && existingIds.has(a.id) ? a.id : null;
+    if (activityId) {
       const { error } = await supabase
         .from("plan_draft_activities")
         .update({ name: a.name, budget: a.budget, sort_order: i, updated_at: new Date().toISOString() })
-        .eq("id", a.id);
+        .eq("id", activityId);
       if (error) return { error: error.message };
     } else {
-      const { error } = await supabase
+      const { data: ins, error } = await supabase
         .from("plan_draft_activities")
-        .insert({ draft_project_id: id, name: a.name, budget: a.budget, sort_order: i });
-      if (error) return { error: error.message };
+        .insert({ draft_project_id: id, name: a.name, budget: a.budget, sort_order: i })
+        .select("id")
+        .single();
+      if (error || !ins) return { error: error?.message ?? "เพิ่มกิจกรรมไม่สำเร็จ" };
+      activityId = ins.id;
+    }
+    // แทนที่รายการแหล่งเงินของกิจกรรมนี้ทั้งชุด (ไม่มีรายการ = ใช้แหล่งงบของโครงการแหล่งเดียวเหมือนเดิม)
+    const { error: delSrc } = await supabase.from("plan_draft_activity_sources").delete().eq("draft_activity_id", activityId);
+    if (delSrc) return { error: delSrc.message };
+    const src = a.sources ?? [];
+    if (src.length > 0) {
+      const { error: insSrc } = await supabase.from("plan_draft_activity_sources").insert(
+        src.map((x, k) => ({ draft_activity_id: activityId as string, budget_source_id: x.budget_source_id, amount: Number(x.amount), sort_order: k })),
+      );
+      if (insSrc) return { error: insSrc.message };
     }
   }
 
@@ -514,6 +539,12 @@ export async function saveDraftActivityBudget(
   if (!draft) return { error: "ไม่พบร่างโครงการนี้" };
   const locked = await lockedByOtherMessage(supabase, draftId, user.id);
   if (locked) return { error: locked };
+
+  const { count: srcCount } = await supabase
+    .from("plan_draft_activity_sources")
+    .select("id", { count: "exact", head: true })
+    .eq("draft_activity_id", activityId);
+  if ((srcCount ?? 0) > 0) return { error: "กิจกรรมนี้แบ่งหลายแหล่งเงิน กรุณากดแก้ไขโครงการเพื่อกรอกจำนวนเงินรายแหล่ง" };
 
   const { data: updated, error } = await supabase
     .from("plan_draft_activities")

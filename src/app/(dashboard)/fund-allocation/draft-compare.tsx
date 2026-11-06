@@ -40,7 +40,8 @@ type PrevProject = {
   total: number;
 };
 
-type DraftActivity = { id: string; name: string; budget: number };
+type ActivitySource = { sourceId: string; amount: number };
+type DraftActivity = { id: string; name: string; budget: number; sources: ActivitySource[] };
 type Draft = {
   id: string;
   name: string;
@@ -52,7 +53,8 @@ type Draft = {
   editingByName: string | null;
 };
 
-type FormActivity = { key: string; id?: string; name: string; budget: string };
+type FormSource = { key: string; sourceId: string; amount: string };
+type FormActivity = { key: string; id?: string; name: string; budget: string; sources: FormSource[] };
 type EditForm = {
   name: string;
   adminGroupId: string;
@@ -91,14 +93,14 @@ function formatDiff(diff: number) {
 }
 
 // แถวกิจกรรมที่จับคู่ฝั่งปีก่อน/ปีนี้ตามชื่อ (ที่ไม่มีคู่แสดงเป็นแถวเดี่ยว)
-type ActivityLine = { name: string; prev: number | null; next: number | null; draftActivityId?: string };
+type ActivityLine = { name: string; prev: number | null; next: number | null; draftActivityId?: string; sources?: ActivitySource[] };
 
 function mergeActivities(prev: PrevActivity[], next: DraftActivity[]): ActivityLine[] {
   const usedPrev = new Set<number>();
   const lines: ActivityLine[] = next.map((n) => {
     const idx = prev.findIndex((p, i) => !usedPrev.has(i) && norm(p.name) === norm(n.name));
     if (idx >= 0) usedPrev.add(idx);
-    return { name: n.name, prev: idx >= 0 ? prev[idx].budget : null, next: n.budget, draftActivityId: n.id };
+    return { name: n.name, prev: idx >= 0 ? prev[idx].budget : null, next: n.budget, draftActivityId: n.id, sources: n.sources };
   });
   prev.forEach((p, i) => {
     if (!usedPrev.has(i)) lines.push({ name: p.name, prev: p.budget, next: null });
@@ -285,7 +287,7 @@ export function DraftCompare({
     const { data } = await supabase
       .from("plan_draft_projects")
       .select(
-        "id, name, admin_group_id, budget_source_id, source_project_id, budget, editing_by, editing_by_name, editing_at, sort_order, created_at, plan_draft_activities(id, name, budget, sort_order)",
+        "id, name, admin_group_id, budget_source_id, source_project_id, budget, editing_by, editing_by_name, editing_at, sort_order, created_at, plan_draft_activities(id, name, budget, sort_order, plan_draft_activity_sources(budget_source_id, amount, sort_order))",
       )
       .eq("budget_year_id", budgetYearId)
       .order("sort_order")
@@ -302,7 +304,17 @@ export function DraftCompare({
         budget: Number(d.budget ?? 0),
         activities: [...((d.plan_draft_activities as unknown as (DraftActivity & { sort_order: number })[]) ?? [])]
           .sort((a, b) => a.sort_order - b.sort_order)
-          .map((a) => ({ id: a.id, name: a.name, budget: Number(a.budget ?? 0) })),
+          .map((a) => ({
+            id: a.id,
+            name: a.name,
+            budget: Number(a.budget ?? 0),
+            sources: [
+              ...((((a as unknown as { plan_draft_activity_sources?: { budget_source_id: string; amount: number; sort_order: number }[] })
+                .plan_draft_activity_sources) ?? [])),
+            ]
+              .sort((x, y) => x.sort_order - y.sort_order)
+              .map((x) => ({ sourceId: x.budget_source_id, amount: Number(x.amount ?? 0) })),
+          })),
         // แสดง "กำลังแก้ไขโดย…" เฉพาะล็อกของคนอื่นที่ยังไม่หมดอายุ
         editingByName:
           d.editing_by_name &&
@@ -405,6 +417,16 @@ export function DraftCompare({
     document.getElementById(`draft-edit-${editingId}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [editingId]);
 
+  const sourceNameById = new Map(budgetSources.map((x) => [x.id, x.name]));
+  function sourceText(l: ActivityLine) {
+    if (!l.sources || l.sources.length === 0) return null;
+    return (
+      <span className="block text-xs text-slate-500">
+        {l.sources.map((x) => `${sourceNameById.get(x.sourceId) ?? "แหล่งเงิน"} ${formatBaht(x.amount)}`).join(" · ")}
+      </span>
+    );
+  }
+
   function newKey() {
     keyCounter.current += 1;
     return `k${keyCounter.current}`;
@@ -418,7 +440,13 @@ export function DraftCompare({
       budgetSourceId: d.budgetSourceId ?? "",
       sourceProjectId: match?.id ?? "",
       budget: String(d.budget),
-      activities: d.activities.map((a) => ({ key: newKey(), id: a.id, name: a.name, budget: String(a.budget) })),
+      activities: d.activities.map((a) => ({
+        key: newKey(),
+        id: a.id,
+        name: a.name,
+        budget: String(a.budget),
+        sources: a.sources.map((x) => ({ key: newKey(), sourceId: x.sourceId, amount: String(x.amount) })),
+      })),
     };
   }
 
@@ -465,7 +493,12 @@ export function DraftCompare({
       return;
     }
     const hasActivities = form.activities.length > 0;
-    const acts = form.activities.map((a) => ({ id: a.id, name: a.name.trim(), budget: Number(a.budget || 0) }));
+    const acts = form.activities.map((a) => ({
+      id: a.id,
+      name: a.name.trim(),
+      budget: Number(a.budget || 0),
+      sources: a.sources.map((x) => ({ budget_source_id: x.sourceId, amount: Number(x.amount || 0) })),
+    }));
     if (acts.some((a) => !a.name)) {
       await toastError("กรุณากรอกชื่อกิจกรรมให้ครบ");
       return;
@@ -639,7 +672,11 @@ export function DraftCompare({
     const claimedElsewhere = new Set(
       (drafts ?? []).filter((x) => x.id !== d.id).map((x) => matchByDraft.get(x.id)?.id).filter((x): x is string => !!x),
     );
-    const sumActs = form.activities.reduce((s, a) => s + Number(a.budget || 0), 0);
+    const actBudget = (a: FormActivity) =>
+      a.sources.length > 0 ? a.sources.reduce((t, x) => t + Number(x.amount || 0), 0) : Number(a.budget || 0);
+    const sumActs = form.activities.reduce((s, a) => s + actBudget(a), 0);
+    const patchAct = (key: string, patch: (x: FormActivity) => FormActivity) =>
+      setForm({ ...form, activities: form.activities.map((x) => (x.key === key ? patch(x) : x)) });
     return (
       <div id={`draft-edit-${d.id}`} className="space-y-3 bg-navy-950/[0.03] px-4 py-4">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -718,7 +755,7 @@ export function DraftCompare({
                   onClick={() =>
                     setForm({
                       ...form,
-                      activities: selectedPrev.activities.map((a) => ({ key: newKey(), name: a.name, budget: "0" })),
+                      activities: selectedPrev.activities.map((a) => ({ key: newKey(), name: a.name, budget: "0", sources: [] })),
                     })
                   }
                   className="btn-secondary btn-sm"
@@ -730,7 +767,7 @@ export function DraftCompare({
                 type="button"
                 disabled={isSaving}
                 onClick={() =>
-                  setForm({ ...form, activities: [...form.activities, { key: newKey(), name: "", budget: "0" }] })
+                  setForm({ ...form, activities: [...form.activities, { key: newKey(), name: "", budget: "0", sources: [] }] })
                 }
                 className="btn-secondary btn-sm"
               >
@@ -758,8 +795,10 @@ export function DraftCompare({
             <div className="space-y-2">
               {form.activities.map((a, i) => {
                 const prevBudget = prevLookup(a.name);
+                const split = a.sources.length > 0;
                 return (
-                  <div key={a.key} className="grid grid-cols-[1fr_8rem_auto] items-center gap-2 md:grid-cols-[1fr_9rem_9rem_auto]">
+                  <div key={a.key} className="space-y-1.5">
+                  <div className="grid grid-cols-[1fr_8rem_auto] items-center gap-2 md:grid-cols-[1fr_9rem_9rem_auto]">
                     <input
                       type="text"
                       value={a.name}
@@ -776,7 +815,7 @@ export function DraftCompare({
                     <input
                       type="number"
                       step="0.01"
-                      value={a.budget}
+                      value={split ? actBudget(a) : a.budget}
                       onChange={(e) =>
                         setForm({
                           ...form,
@@ -784,7 +823,9 @@ export function DraftCompare({
                         })
                       }
                       disabled={isSaving}
-                      className="input text-right disabled:bg-slate-100"
+                      readOnly={split}
+                      title={split ? "งบกิจกรรม = ผลรวมของแหล่งเงินด้านล่าง" : undefined}
+                      className="input text-right disabled:bg-slate-100 read-only:bg-slate-50"
                     />
                     <span className="hidden text-right text-sm tabular-nums text-slate-500 md:block">
                       {prevBudget === null ? "—" : `ปีก่อน ${formatBaht(prevBudget)}`}
@@ -798,6 +839,80 @@ export function DraftCompare({
                     >
                       ลบ
                     </button>
+                  </div>
+                  <div className="ml-3 space-y-1.5 border-l-2 border-slate-200 pl-3">
+                    {a.sources.map((x) => (
+                      <div key={x.key} className="grid grid-cols-[1fr_8rem_auto] items-center gap-2 md:grid-cols-[1fr_9rem_9rem_auto]">
+                        <select
+                          value={x.sourceId}
+                          disabled={isSaving}
+                          onChange={(e) =>
+                            patchAct(a.key, (y) => ({
+                              ...y,
+                              sources: y.sources.map((z) => (z.key === x.key ? { ...z, sourceId: e.target.value } : z)),
+                            }))
+                          }
+                          className="input text-sm disabled:bg-slate-100"
+                          aria-label="แหล่งเงินงบประมาณ"
+                        >
+                          <option value="">เลือกแหล่งเงิน…</option>
+                          {budgetSources.map((src) => (
+                            <option
+                              key={src.id}
+                              value={src.id}
+                              disabled={src.id !== x.sourceId && a.sources.some((z) => z.sourceId === src.id)}
+                            >
+                              {src.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={x.amount}
+                          disabled={isSaving}
+                          onChange={(e) =>
+                            patchAct(a.key, (y) => ({
+                              ...y,
+                              sources: y.sources.map((z) => (z.key === x.key ? { ...z, amount: e.target.value } : z)),
+                            }))
+                          }
+                          className="input text-right text-sm disabled:bg-slate-100"
+                          aria-label="จำนวนเงินจากแหล่งนี้"
+                        />
+                        <span className="hidden md:block" />
+                        <button
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => patchAct(a.key, (y) => ({ ...y, sources: y.sources.filter((z) => z.key !== x.key) }))}
+                          className="btn-secondary btn-sm"
+                          aria-label="เอาแหล่งเงินออก"
+                        >
+                          เอาออก
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() =>
+                        patchAct(a.key, (y) => ({
+                          ...y,
+                          // แหล่งแรก: ตั้งต้นด้วยแหล่งงบของโครงการและยอดงบกิจกรรมเดิม เพื่อไม่ต้องกรอกซ้ำ
+                          sources: [
+                            ...y.sources,
+                            y.sources.length === 0
+                              ? { key: newKey(), sourceId: form.budgetSourceId, amount: String(Number(y.budget || 0)) }
+                              : { key: newKey(), sourceId: "", amount: "0" },
+                          ],
+                        }))
+                      }
+                      className="text-xs font-medium text-navy-800 hover:underline"
+                    >
+                      + {split ? "เพิ่มแหล่งเงิน" : "แบ่งหลายแหล่งเงิน"}
+                    </button>
+                  </div>
                   </div>
                 );
               })}
@@ -1140,9 +1255,10 @@ export function DraftCompare({
                             {lines.map((l, li) => (
                               <li key={li} className="text-xs text-slate-600">
                                 <span className="break-words">{l.name}</span>
+                                {sourceText(l)}
                                 <span className="ml-1 tabular-nums text-slate-500">
                                   {showPrev && <>{l.prev === null ? "—" : formatBaht(l.prev)} → </>}
-                                  {l.next !== null && l.draftActivityId && canEditBudgets && !d.editingByName ? (
+                                  {l.next !== null && l.draftActivityId && canEditBudgets && !d.editingByName && !(l.sources?.length) ? (
                                     <span className="ml-1 inline-block align-middle">
                                       <BudgetInput
                                         value={l.next}
@@ -1268,6 +1384,7 @@ export function DraftCompare({
                               <td></td>
                               <td className="pl-6 text-slate-600">
                                 <span className="break-words">– {l.name}</span>
+                                {sourceText(l)}
                               </td>
                               {showPrev && (
                                 <td className="whitespace-nowrap text-right tabular-nums text-slate-500">
@@ -1275,7 +1392,7 @@ export function DraftCompare({
                                 </td>
                               )}
                               <td className="whitespace-nowrap text-right tabular-nums text-slate-700">
-                                {l.next !== null && l.draftActivityId && canEditBudgets && !d.editingByName ? (
+                                {l.next !== null && l.draftActivityId && canEditBudgets && !d.editingByName && !(l.sources?.length) ? (
                                   <BudgetInput
                                     value={l.next}
                                     onSave={(amount) => saveActivityInline(d.id, l.draftActivityId as string, amount)}
