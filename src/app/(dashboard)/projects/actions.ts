@@ -160,9 +160,14 @@ export async function updateActivity(activityId: string, formData: FormData) {
   const budget = Number(formData.get("budget") ?? 0);
   const responsible = formData.getAll("responsible").map(String).filter(Boolean);
 
+  // กิจกรรมที่แบ่งหลายแหล่งเงิน: งบ = ผลรวมของแต่ละแหล่ง ห้ามแก้ตัวเลขรวมตรงๆ (ไม่งั้นยอดไม่ตรงกัน)
+  const { count: srcCount } = await supabase
+    .from("plan_activity_sources")
+    .select("id", { count: "exact", head: true })
+    .eq("activity_id", activityId);
   const { error } = await supabase
     .from("plan_activities")
-    .update({ name, budget, responsible })
+    .update((srcCount ?? 0) > 0 ? { name, responsible } : { name, budget, responsible })
     .eq("id", activityId);
   if (error) throw new Error(error.message);
   revalidatePath("/projects");

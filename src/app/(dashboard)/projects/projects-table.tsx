@@ -16,7 +16,23 @@ import { todayTh } from "@/lib/thai";
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
 type Teacher = Pick<Tables<"plan_teachers">, "id" | "name" | "is_active">;
-type Activity = { id: string; name: string | null; budget: number; responsible: string[] | null };
+function sourceLine(a: Activity) {
+  if (!a.sources || a.sources.length === 0) return null;
+  return (
+    <span className="block text-xs text-slate-500">
+      {a.sources.map((x) => `${x.name} ${formatBaht(x.amount)}`).join(" · ")}
+    </span>
+  );
+}
+
+type Activity = {
+  id: string;
+  name: string | null;
+  budget: number;
+  responsible: string[] | null;
+  /** แบ่งงบหลายแหล่งเงิน (ว่าง = ใช้แหล่งงบของโครงการแหล่งเดียว) */
+  sources?: { name: string; amount: number }[];
+};
 
 type ProjectRow = {
   id: string;
@@ -56,6 +72,7 @@ function ActivitiesDetail({ activities, projectBudget }: { activities: Activity[
         <div key={a.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <span className="text-slate-700">
             <span className="text-slate-400">{j + 1}.</span> {a.name}
+            {sourceLine(a)}
           </span>
           <span className="text-slate-500">{(a.responsible ?? []).join(", ") || "ไม่ระบุผู้รับผิดชอบ"}</span>
           <span className="shrink-0 font-medium text-navy-800 tabular-nums">{formatBaht(a.budget)} บาท</span>
@@ -96,6 +113,7 @@ function ActivityRows({
             <span className="break-words">
               <span className="text-slate-400">{j + 1}.</span> {a.name}
             </span>
+            {sourceLine(a)}
           </td>
           <td className="whitespace-nowrap py-1.5 text-sm text-slate-500">
             {(a.responsible ?? []).join(", ") || "ไม่ระบุผู้รับผิดชอบ"}

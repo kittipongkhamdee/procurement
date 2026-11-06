@@ -50,13 +50,15 @@ function str(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim() || null;
 }
 
+type ActivitySourceRow = { budget_source_id: string; amount: number };
 type ActivityRow = {
   name: string;
   responsible: string[];
   budget: string;
+  sources?: ActivitySourceRow[];
 };
 
-type DraftActivityLite = { name: string; budget: number };
+type DraftActivityLite = { name: string; budget: number; sources: ActivitySourceRow[] };
 
 /** กิจกรรมของร่างโครงการที่ "สมบูรณ์" แล้ว = มีกิจกรรมและผลรวมงบกิจกรรมเท่ากับงบร่าง (ผู้ดูแลระบบกรอกวงเงินครบแล้ว) */
 async function loadFinalDraftActivities(
@@ -66,10 +68,16 @@ async function loadFinalDraftActivities(
 ): Promise<{ hasActivities: boolean; final: DraftActivityLite[] | null }> {
   const { data } = await supabase
     .from("plan_draft_activities")
-    .select("name, budget, sort_order")
+    .select("name, budget, sort_order, plan_draft_activity_sources(budget_source_id, amount, sort_order)")
     .eq("draft_project_id", draftId)
     .order("sort_order");
-  const acts = (data ?? []).map((a) => ({ name: a.name, budget: Number(a.budget ?? 0) }));
+  const acts = (data ?? []).map((a) => ({
+    name: a.name,
+    budget: Number(a.budget ?? 0),
+    sources: [...((a.plan_draft_activity_sources as unknown as { budget_source_id: string; amount: number; sort_order: number }[]) ?? [])]
+      .sort((x, y) => x.sort_order - y.sort_order)
+      .map((x) => ({ budget_source_id: x.budget_source_id, amount: Number(x.amount ?? 0) })),
+  }));
   if (acts.length === 0) return { hasActivities: false, final: null };
   const total = acts.reduce((sum, a) => sum + a.budget, 0);
   return { hasActivities: true, final: Math.abs(total - draftBudget) < 0.01 ? acts : null };
@@ -84,6 +92,7 @@ function activitiesFromDraft(draftActs: DraftActivityLite[], submitted: Activity
       name: d.name,
       responsible: Array.isArray(match?.responsible) ? match.responsible : [],
       budget: d.budget as unknown as string,
+      ...(d.sources.length > 0 ? { sources: d.sources } : {}),
     };
   });
 }
@@ -505,16 +514,22 @@ async function createProjectFromProposal(supabase: Awaited<ReturnType<typeof cre
   if (projectError || !project) return;
 
   const activities =
-    (proposal.activities as unknown as { name: string; responsible: string[]; budget: number }[] | null) ?? [];
-  if (activities.length > 0) {
-    await supabase.from("plan_activities").insert(
-      activities.map((a) => ({
-        project_id: project.id,
-        name: a.name,
-        budget: Number(a.budget) || 0,
-        responsible: a.responsible,
-      })),
-    );
+    (proposal.activities as unknown as
+      | { name: string; responsible: string[]; budget: number; sources?: { budget_source_id: string; amount: number }[] }[]
+      | null) ?? [];
+  // เพิ่มทีละกิจกรรมเพื่อได้รหัสกิจกรรมไปผูกแหล่งเงินที่แบ่งไว้ (ถ้ามี)
+  for (let i = 0; i < activities.length; i++) {
+    const a = activities[i];
+    const { data: act } = await supabase
+      .from("plan_activities")
+      .insert({ project_id: project.id, name: a.name, budget: Number(a.budget) || 0, responsible: a.responsible, sort_order: i })
+      .select("id")
+      .single();
+    if (act && a.sources && a.sources.length > 0) {
+      await supabase.from("plan_activity_sources").insert(
+        a.sources.map((x, k) => ({ activity_id: act.id, budget_source_id: x.budget_source_id, amount: Number(x.amount) || 0, sort_order: k })),
+      );
+    }
   }
 
   await supabase.from("plan_project_proposals").update({ project_id: project.id }).eq("id", proposalId);

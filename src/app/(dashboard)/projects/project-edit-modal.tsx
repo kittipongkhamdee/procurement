@@ -13,7 +13,14 @@ import type {
   updateProject as updateProjectAction,
 } from "./actions";
 
-type Activity = { id: string; name: string | null; budget: number; responsible: string[] | null };
+type Activity = {
+  id: string;
+  name: string | null;
+  budget: number;
+  responsible: string[] | null;
+  /** แบ่งงบหลายแหล่งเงิน (ว่าง = ใช้แหล่งงบของโครงการแหล่งเดียว) */
+  sources?: { name: string; amount: number }[];
+};
 type Option = { id: string; name: string };
 type Teacher = { id: string; name: string; is_active: boolean };
 
@@ -195,8 +202,15 @@ export function ProjectEditModal({
                       step="0.01"
                       name={`activity_budget_${a.id}`}
                       defaultValue={a.budget}
-                      className="input text-right"
+                      readOnly={!!a.sources?.length}
+                      title={a.sources?.length ? "กิจกรรมนี้แบ่งหลายแหล่งเงิน งบ = ผลรวมของแต่ละแหล่ง" : undefined}
+                      className="input text-right read-only:bg-slate-50"
                     />
+                    {a.sources && a.sources.length > 0 && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        {a.sources.map((x) => `${x.name} ${x.amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`).join(" · ")}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="label sm:hidden">ผู้รับผิดชอบ</label>

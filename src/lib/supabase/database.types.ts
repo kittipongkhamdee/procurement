@@ -1440,6 +1440,48 @@ export type Database = {
           },
         ]
       }
+      plan_activity_sources: {
+        Row: {
+          amount: number
+          budget_source_id: string
+          created_at: string
+          activity_id: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          amount?: number
+          budget_source_id: string
+          created_at?: string
+          activity_id: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          budget_source_id?: string
+          created_at?: string
+          activity_id?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_activity_sources_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "plan_activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_activity_sources_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_draft_activities: {
         Row: {
           budget: number
