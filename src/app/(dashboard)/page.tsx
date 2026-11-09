@@ -264,6 +264,9 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [adminGroups, setAdminGroups] = useState<GroupItem[]>([]);
   const [budgetSources, setBudgetSources] = useState<GroupItem[]>([]);
+  // งบ/อนุมัติแยกตามแหล่งเงิน — นับตามการแบ่งหลายแหล่งของกิจกรรม/โครงการ (ไม่ใช่ทั้งโครงการอยู่แหล่งเดียว)
+  const [sourceBudget, setSourceBudget] = useState<Map<string, number>>(new Map());
+  const [sourceSpent, setSourceSpent] = useState<Map<string, number>>(new Map());
   const [approvedByProject, setApprovedByProject] = useState<Map<string, number>>(new Map());
   // จ่ายจริง = รายการจ่ายในบัญชีรับ-จ่ายเงินที่ผูกโครงการ (นิยามเดียวกับเมนูโครงการ — src/lib/project-spending.ts)
   const [paidTotal, setPaidTotal] = useState(0);
@@ -297,14 +300,41 @@ export default function DashboardPage() {
       return;
     }
 
-    const [{ data: projectsData }, { data: approvals }, { data: reports }] = await Promise.all([
+    const [{ data: projectsData }, { data: approvals }, { data: reports }, { data: approvalLines }] = await Promise.all([
       supabase
         .from("plan_projects")
-        .select("id, name, admin_group_id, budget_source_id, budget, plan_activities(budget)")
+        .select("id, name, admin_group_id, budget_source_id, budget, plan_activities(budget, plan_activity_sources(budget_source_id, amount)), plan_project_sources(budget_source_id, amount)")
         .eq("budget_year_id", year.id),
-      supabase.from("proc_approvals").select("project_id, requested_amount, summary_items").eq("status", "อนุมัติ"),
+      supabase.from("proc_approvals").select("id, project_id, requested_amount, summary_items").eq("status", "อนุมัติ"),
       supabase.from("proc_project_reports").select("project_id, not_implemented"),
+      supabase
+        .from("proc_approval_sources")
+        .select("approval_id, budget_source_id, amount, proc_approvals!inner(status)")
+        .eq("proc_approvals.status", "อนุมัติ"),
     ]);
+
+    // งบแยกแหล่งเงิน: กิจกรรมที่แบ่งหลายแหล่ง = ตามที่แบ่ง, กิจกรรมที่ไม่แบ่ง = แหล่งงบของโครงการ,
+    // โครงการไม่มีกิจกรรม = แหล่งที่แบ่งระดับโครงการ (ถ้ามี) หรือแหล่งงบของโครงการ
+    const nextSourceBudget = new Map<string, number>();
+    const addSourceBudget = (id: string | null, amount: number) => {
+      if (id) nextSourceBudget.set(id, (nextSourceBudget.get(id) ?? 0) + amount);
+    };
+    for (const p of projectsData ?? []) {
+      const acts =
+        (p.plan_activities as unknown as { budget: number; plan_activity_sources: { budget_source_id: string; amount: number }[] | null }[]) ?? [];
+      if (acts.length > 0) {
+        for (const a of acts) {
+          const splits = a.plan_activity_sources ?? [];
+          if (splits.length > 0) splits.forEach((x) => addSourceBudget(x.budget_source_id, Number(x.amount ?? 0)));
+          else addSourceBudget(p.budget_source_id, Number(a.budget ?? 0));
+        }
+      } else {
+        const projSplits = (p as unknown as { plan_project_sources?: { budget_source_id: string; amount: number }[] }).plan_project_sources ?? [];
+        if (projSplits.length > 0) projSplits.forEach((x) => addSourceBudget(x.budget_source_id, Number(x.amount ?? 0)));
+        else addSourceBudget(p.budget_source_id, Number(p.budget ?? 0));
+      }
+    }
+    setSourceBudget(nextSourceBudget);
 
     const rows: ProjectRow[] = (projectsData ?? []).map((p) => {
       const activities = (p.plan_activities as unknown as { budget: number }[]) ?? [];
@@ -339,6 +369,27 @@ export default function DashboardPage() {
         if (idx >= 0) nextExpenseTotals[idx] += Number(item.amount ?? 0);
       }
     }
+    // อนุมัติแยกแหล่งเงิน: ใบที่ตัดแยกแหล่งไว้ = ตามที่ตัด ส่วนที่เหลือ/ใบที่ไม่ได้แยก = แหล่งงบของโครงการ
+    const projectSourceById = new Map((projectsData ?? []).map((p) => [p.id, p.budget_source_id] as const));
+    const linesByApproval = new Map<string, { sourceId: string; amount: number }[]>();
+    for (const l of approvalLines ?? []) {
+      const list = linesByApproval.get(l.approval_id) ?? [];
+      list.push({ sourceId: l.budget_source_id, amount: Number(l.amount ?? 0) });
+      linesByApproval.set(l.approval_id, list);
+    }
+    const nextSourceSpent = new Map<string, number>();
+    const addSpent = (id: string | null | undefined, amount: number) => {
+      if (id) nextSourceSpent.set(id, (nextSourceSpent.get(id) ?? 0) + amount);
+    };
+    for (const a of approvals ?? []) {
+      if (!a.project_id || !projectIds.has(a.project_id)) continue;
+      const lines = linesByApproval.get(a.id) ?? [];
+      const lineTotal = lines.reduce((sum, x) => sum + x.amount, 0);
+      lines.forEach((x) => addSpent(x.sourceId, x.amount));
+      const rest = Number(a.requested_amount ?? 0) - lineTotal;
+      if (rest > 0.005) addSpent(projectSourceById.get(a.project_id), rest);
+    }
+    setSourceSpent(nextSourceSpent);
     setApprovedByProject(nextApprovedByProject);
     setExpenseTotals(nextExpenseTotals);
 
@@ -379,9 +430,8 @@ export default function DashboardPage() {
     const { completed, inProgress, notStarted, notImplemented } = countStatuses(projects);
 
     const bySource = budgetSources.map((s) => {
-      const inSource = projects.filter((p) => p.budgetSourceId === s.id);
-      const budget = inSource.reduce((sum, p) => sum + p.budget, 0);
-      const spent = inSource.reduce((sum, p) => sum + (approvedByProject.get(p.id) ?? 0), 0);
+      const budget = sourceBudget.get(s.id) ?? 0;
+      const spent = sourceSpent.get(s.id) ?? 0;
       return { id: s.id, name: s.name, budget, spent, remaining: budget - spent };
     });
 
@@ -395,7 +445,7 @@ export default function DashboardPage() {
     const expenseTotal = expenseTotals.reduce((s, v) => s + v, 0);
 
     return { totalBudget, totalSpent, totalRemaining, totalActivities, completed, inProgress, notStarted, notImplemented, bySource, byGroup, expenseTotal };
-  }, [projects, approvedByProject, completedProjectIds, notImplementedProjectIds, budgetSources, adminGroups, expenseTotals]);
+  }, [projects, approvedByProject, completedProjectIds, notImplementedProjectIds, budgetSources, adminGroups, expenseTotals, sourceBudget, sourceSpent]);
 
   if (loading) return <PageLoadingSkeleton />;
 
