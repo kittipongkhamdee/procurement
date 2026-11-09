@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ChevronLeftIcon } from "@/components/icons";
 import { updateApproval } from "../../actions";
+import { loadActivitySourcePlans } from "@/lib/activity-source-plan";
 import { ApprovalForm, type ApprovalFormInitial } from "../../approval-form";
 import { loadItemSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions";
 
@@ -54,6 +55,12 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   const projects = (allProjects ?? []).filter((p) => p.budget_year_id === currentYear?.id || p.id === approval.project_id);
   const projectIds = new Set(projects.map((p) => p.id));
   const activities = (allActivities ?? []).filter((a) => projectIds.has(a.project_id));
+  const sourcePlans = await loadActivitySourcePlans(supabase, activities);
+  const { data: savedSourceLines } = await supabase
+    .from("proc_approval_sources")
+    .select("budget_source_id, amount, sort_order")
+    .eq("approval_id", id)
+    .order("sort_order");
 
   const budgetByProject = new Map<string, number>();
   activities.forEach((a) => {
@@ -92,6 +99,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     fund_type: approval.fund_type,
     summary_items:
       (approval.summary_items as unknown as { label: string; amount: number | null; note: string | null }[]) ?? [],
+    source_lines: (savedSourceLines ?? []).map((x) => ({ budget_source_id: x.budget_source_id, amount: Number(x.amount ?? 0) })),
     items: (items ?? []).map((i) => ({ name: i.name, qty: i.qty, unit: i.unit, unit_price: i.unit_price, note: i.note })),
   };
 
@@ -117,6 +125,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
           project_id: a.project_id,
           name: a.name,
           responsible: a.responsible ?? [],
+          sources: sourcePlans.get(a.id) ?? [],
         }))}
         adminGroups={adminGroups ?? []}
         teachers={teachers ?? []}

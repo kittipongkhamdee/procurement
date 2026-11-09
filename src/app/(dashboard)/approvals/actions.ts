@@ -98,6 +98,24 @@ async function assertProjectInOpenYear(supabase: Awaited<ReturnType<typeof creat
   }
 }
 
+type SourceLineInput = { budget_source_id: string; amount: number };
+/** ตัดงบแยกแหล่งเงิน: อ่านรายการจากฟอร์ม (ว่าง = ไม่ได้แบ่ง) ตรวจว่ารวมเท่ายอดที่ขออนุมัติและไม่ซ้ำแหล่ง */
+function parseSourceLines(formData: FormData, requestedAmount: number): SourceLineInput[] {
+  let lines: SourceLineInput[] = [];
+  try {
+    const parsed = JSON.parse(String(formData.get("source_lines_json") ?? "[]"));
+    if (Array.isArray(parsed)) lines = parsed;
+  } catch {
+    lines = [];
+  }
+  lines = lines.filter((x) => x && x.budget_source_id && Number(x.amount) > 0).map((x) => ({ budget_source_id: x.budget_source_id, amount: Number(x.amount) }));
+  if (lines.length === 0) return [];
+  if (new Set(lines.map((x) => x.budget_source_id)).size !== lines.length) throw new Error("เลือกแหล่งเงินซ้ำกัน");
+  const total = lines.reduce((sum, x) => sum + x.amount, 0);
+  if (Math.abs(total - requestedAmount) > 0.005) throw new Error("ยอดที่ตัดจากแต่ละแหล่งเงินรวมไม่เท่ากับยอดที่ขออนุมัติ");
+  return lines;
+}
+
 export async function createApproval(formData: FormData) {
   const supabase = await createClient();
   const {
@@ -108,6 +126,7 @@ export async function createApproval(formData: FormData) {
   if (!String(formData.get("department") ?? "").trim()) throw new Error("กรุณาเลือกฝ่าย/กลุ่ม/สาระฯ/งาน");
   if (!(requestedAmount > 0)) throw new Error("ยอดเงินที่ขออนุมัติต้องมากกว่า 0");
   await assertProjectInOpenYear(supabase, String(formData.get("project_id") ?? "") || null);
+  const sourceLines = parseSourceLines(formData, requestedAmount);
 
   const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
   let summaryItems: SummaryItemInput[] = [];
@@ -155,6 +174,13 @@ export async function createApproval(formData: FormData) {
     .single();
 
   if (error) throw new Error(error.message);
+
+  if (sourceLines.length > 0) {
+    const { error: srcError } = await supabase.from("proc_approval_sources").insert(
+      sourceLines.map((x, k) => ({ approval_id: approval.id, budget_source_id: x.budget_source_id, amount: x.amount, sort_order: k })),
+    );
+    if (srcError) throw new Error(srcError.message);
+  }
 
   const itemsRaw = String(formData.get("items_json") ?? "[]");
   let items: ItemInput[] = [];
@@ -207,6 +233,7 @@ export async function updateApproval(id: string, formData: FormData) {
   // เปลี่ยนไปโครงการอื่นต้องเป็นของปีงบประมาณปัจจุบัน — ถ้ายังเป็นโครงการเดิม (แม้เป็นของปีก่อน) แก้ไขต่อได้
   const newProjectId = String(formData.get("project_id") ?? "") || null;
   if (newProjectId !== current.project_id) await assertProjectInOpenYear(supabase, newProjectId);
+  const sourceLines = parseSourceLines(formData, requestedAmount);
 
   const summaryItemsRaw = String(formData.get("summary_items_json") ?? "[]");
   let summaryItems: SummaryItemInput[] = [];
@@ -255,6 +282,17 @@ export async function updateApproval(id: string, formData: FormData) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  {
+    const { error: delSrc } = await supabase.from("proc_approval_sources").delete().eq("approval_id", id);
+    if (delSrc) throw new Error(delSrc.message);
+    if (sourceLines.length > 0) {
+      const { error: srcError } = await supabase.from("proc_approval_sources").insert(
+        sourceLines.map((x, k) => ({ approval_id: id, budget_source_id: x.budget_source_id, amount: x.amount, sort_order: k })),
+      );
+      if (srcError) throw new Error(srcError.message);
+    }
+  }
 
   const itemsRaw = String(formData.get("items_json") ?? "[]");
   let items: ItemInput[] = [];

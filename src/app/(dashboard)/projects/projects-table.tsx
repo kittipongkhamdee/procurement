@@ -20,7 +20,9 @@ function sourceLine(a: Activity) {
   if (!a.sources || a.sources.length === 0) return null;
   return (
     <span className="block text-xs text-slate-500">
-      {a.sources.map((x) => `${x.name} ${formatBaht(x.amount)}`).join(" · ")}
+      {a.sources
+        .map((x) => `${x.name} ${formatBaht(x.amount)} (ใช้ ${formatBaht(x.used ?? 0)} เหลือ ${formatBaht(x.amount - (x.used ?? 0))})`)
+        .join(" · ")}
     </span>
   );
 }
@@ -31,7 +33,7 @@ type Activity = {
   budget: number;
   responsible: string[] | null;
   /** แบ่งงบหลายแหล่งเงิน (ว่าง = ใช้แหล่งงบของโครงการแหล่งเดียว) */
-  sources?: { sourceId: string; name: string; amount: number }[];
+  sources?: { sourceId: string; name: string; amount: number; used?: number }[];
 };
 
 type ProjectRow = {

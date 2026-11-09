@@ -9,7 +9,8 @@ import { ThaiDatePicker } from "@/components/thai-date-picker";
 import { confirmWarning, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 
 type ProjectOption = { id: string; name: string; adminGroupId: string; budget: number; approvedSoFar: number };
-type ActivityOption = { id: string; project_id: string; name: string | null; responsible: string[] };
+type ActivitySourceOption = { sourceId: string; name: string; allocated: number; used: number };
+type ActivityOption = { id: string; project_id: string; name: string | null; responsible: string[]; sources?: ActivitySourceOption[] };
 type AdminGroupOption = { id: string; name: string };
 type TeacherOption = { id: string; name: string; is_active: boolean };
 type LearningAreaOption = { id: string; name: string };
@@ -90,6 +91,8 @@ export type ApprovalFormInitial = {
   requested_by_name: string | null;
   requested_by_position: string | null;
   fund_type: string | null;
+  /** แหล่งเงินที่ตัดงบ (กิจกรรมที่แบ่งหลายแหล่งเงิน) */
+  source_lines?: { budget_source_id: string; amount: number }[];
   summary_items: { label: string; amount: number | null; note: string | null }[];
   items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; note: string | null }[];
 };
@@ -172,6 +175,10 @@ export function ApprovalForm({
   const [summaryRows, setSummaryRows] = useState<SummaryRow[]>(initialSummaryRows(initial ?? prefill));
   const [itemRows, setItemRows] = useState<ItemRow[]>(initialItemRows(initial ?? prefill));
   const [activityName, setActivityName] = useState(initial?.activity_name ?? "");
+  // ตัดงบแยกแหล่งเงิน (เฉพาะกิจกรรมที่แบ่งหลายแหล่ง): จำนวนเงินที่ตัดจากแต่ละแหล่ง
+  const [sourceAmounts, setSourceAmounts] = useState<Record<string, string>>(() =>
+    Object.fromEntries((initial?.source_lines ?? []).map((x) => [x.budget_source_id, String(x.amount)])),
+  );
   const [department, setDepartment] = useState(initial?.department ?? prefill?.department ?? "");
   // ฟอร์มที่ระบบเตรียมให้ (เช่น จากงวดส่งมอบ) เลือกโครงการไว้แล้ว — ลงชื่อผู้ขออนุมัติให้เหมือนตอนผู้ใช้เลือกโครงการเอง
   // (ผู้รับผิดชอบที่เป็นชื่อครูของทุกกิจกรรมในโครงการ ถ้ามีคนเดียวเลือกให้เลย)
@@ -246,6 +253,10 @@ export function ApprovalForm({
 
   const selected = useMemo(() => projects.find((p) => p.id === projectId) ?? null, [projects, projectId]);
   const activityOptions = useMemo(() => activities.filter((a) => a.project_id === projectId), [activities, projectId]);
+  const activitySources = useMemo(
+    () => activityOptions.find((a) => (a.name ?? "") === activityName)?.sources ?? [],
+    [activityOptions, activityName],
+  );
 
   // เปลี่ยนโครงการแล้วให้เลือกกิจกรรมใหม่ (กิจกรรมเดิมอาจไม่ได้อยู่ในโครงการนี้) — ยกเว้นตอนโหลดครั้งแรก
   const isFirstProjectRender = useRef(true);
@@ -382,6 +393,19 @@ export function ApprovalForm({
       await toastError("กรุณากรอกรายการเงินที่ขออนุมัติอย่างน้อย 1 รายการ และยอดรวมต้องมากกว่า 0");
       return;
     }
+    const sourceLines = activitySources
+      .map((x) => ({ budget_source_id: x.sourceId, amount: parseFloat(sourceAmounts[x.sourceId] ?? "") || 0 }))
+      .filter((x) => x.amount > 0);
+    if (activitySources.length > 0) {
+      const sourceTotal = sourceLines.reduce((sum, x) => sum + x.amount, 0);
+      if (Math.abs(sourceTotal - requestedAmount) > 0.005) {
+        await toastError(
+          `กิจกรรมนี้แบ่งหลายแหล่งเงิน — ยอดที่ตัดจากแต่ละแหล่งรวม ${formatBaht(sourceTotal)} บาท ต้องเท่ากับยอดที่ขออนุมัติ ${formatBaht(requestedAmount)} บาท`,
+        );
+        return;
+      }
+    }
+    formData.set("source_lines_json", JSON.stringify(activitySources.length > 0 ? sourceLines : []));
     formData.set("summary_items_json", JSON.stringify(buildSummaryPayload(summaryRows)));
     formData.set("items_json", JSON.stringify(itemRows));
     formData.set("budget", selected ? String(selected.budget) : "");
@@ -513,6 +537,7 @@ export function ApprovalForm({
               value={activityName}
               onChange={(e) => {
                 setActivityName(e.target.value);
+                setSourceAmounts({});
                 autoSelectRequester(projectId, e.target.value);
               }}
               disabled={!projectId}
@@ -528,6 +553,45 @@ export function ApprovalForm({
               ))}
             </select>
           </div>
+
+          {activitySources.length > 0 && (
+            <div className="sm:col-span-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+              <p className="mb-2 text-sm font-semibold text-slate-700">ตัดงบจากแหล่งเงิน (กิจกรรมนี้แบ่งหลายแหล่งเงิน)</p>
+              <div className="space-y-2">
+                {activitySources.map((x) => {
+                  const entered = parseFloat(sourceAmounts[x.sourceId] ?? "") || 0;
+                  const left = x.allocated - x.used;
+                  const over = entered > left + 0.005;
+                  return (
+                    <div key={x.sourceId} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[1fr_9rem] sm:gap-3">
+                      <div className="text-sm">
+                        <span className="font-medium text-slate-800">{x.name}</span>
+                        <span className="block text-xs text-slate-500">
+                          จัดสรร {formatBaht(x.allocated)} · ใช้ไป {formatBaht(x.used)} · คงเหลือ {formatBaht(left)}
+                        </span>
+                        {over && <span className="block text-xs font-medium text-red-600">เกินยอดคงเหลือของแหล่งนี้ {formatBaht(entered - left)} บาท</span>}
+                      </div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        inputMode="decimal"
+                        value={sourceAmounts[x.sourceId] ?? ""}
+                        onChange={(e) => setSourceAmounts({ ...sourceAmounts, [x.sourceId]: e.target.value })}
+                        placeholder="0.00"
+                        className={`input text-right ${over ? "border-red-400" : ""}`}
+                        aria-label={`จำนวนเงินที่ตัดจาก ${x.name}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                รวมที่ตัด {formatBaht(activitySources.reduce((sum, x) => sum + (parseFloat(sourceAmounts[x.sourceId] ?? "") || 0), 0))} บาท
+                ต้องเท่ากับยอดที่ขออนุมัติ {formatBaht(requestedAmount)} บาท · ถ้าเกินยอดคงเหลือระบบเตือนแต่ยังบันทึกได้
+              </p>
+            </div>
+          )}
 
           <div className="sm:col-span-3">
             <FieldLabel n={8} text="จะดำเนินการวันที่" required />

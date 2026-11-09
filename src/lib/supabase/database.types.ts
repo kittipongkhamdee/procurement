@@ -2376,6 +2376,48 @@ export type Database = {
           },
         ]
       }
+      proc_approval_sources: {
+        Row: {
+          amount: number
+          budget_source_id: string
+          created_at: string
+          approval_id: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          amount?: number
+          budget_source_id: string
+          created_at?: string
+          approval_id: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          budget_source_id?: string
+          created_at?: string
+          approval_id?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_approval_sources_approval_id_fkey"
+            columns: ["approval_id"]
+            isOneToOne: false
+            referencedRelation: "proc_approvals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_approval_sources_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_approvals: {
         Row: {
           planning_ack_by_name: string | null

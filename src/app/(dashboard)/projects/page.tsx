@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
+import { loadActivitySourcePlans } from "@/lib/activity-source-plan";
 import { loadProjectSpending, projectBudget } from "@/lib/project-spending";
 import { Modal } from "@/components/modal";
 import { PageLoadingSkeleton } from "@/components/loading-skeleton";
@@ -31,7 +32,7 @@ type Activity = {
   budget: number;
   responsible: string[] | null;
   /** แบ่งงบหลายแหล่งเงิน (ว่าง = ใช้แหล่งงบของโครงการแหล่งเดียว) */
-  sources?: { sourceId: string; name: string; amount: number }[];
+  sources?: { sourceId: string; name: string; amount: number; used?: number }[];
 };
 type Option = { id: string; name: string };
 type Teacher = { id: string; name: string; is_active: boolean };
@@ -95,6 +96,12 @@ export default function ProjectsPage() {
     // อนุมัติแล้ว/จ่ายจริง — นิยามเดียวกับบัญชีรับ-จ่ายเงินและแดชบอร์ด (src/lib/project-spending.ts)
     const { byProject: spending } = await loadProjectSpending(supabase, projectIds);
 
+    // ยอดที่ตัดแล้วแยกแหล่งเงินของกิจกรรมที่แบ่งหลายแหล่ง (จากบันทึกขออนุมัติที่อนุมัติแล้ว)
+    const flatActivities = (projects ?? []).flatMap((p) =>
+      ((p.plan_activities as unknown as { id: string; name: string | null }[]) ?? []).map((a) => ({ id: a.id, project_id: p.id, name: a.name })),
+    );
+    const sourcePlans = await loadActivitySourcePlans(supabase, flatActivities);
+
     // เรียงตามลำดับกลุ่มบริหาร (sort_order ของกลุ่ม) คงลำดับโครงการเดิมภายในกลุ่ม (Array.sort เสถียร)
     setRows(
       (projects ?? []).map((p) => {
@@ -108,7 +115,12 @@ export default function ProjectsPage() {
           responsible: a.responsible,
           sources: [...(a.plan_activity_sources ?? [])]
             .sort((x, y) => x.sort_order - y.sort_order)
-            .map((x) => ({ sourceId: x.budget_source_id, name: x.plan_budget_sources?.name ?? "แหล่งเงิน", amount: Number(x.amount ?? 0) })),
+            .map((x) => ({
+              sourceId: x.budget_source_id,
+              name: x.plan_budget_sources?.name ?? "แหล่งเงิน",
+              amount: Number(x.amount ?? 0),
+              used: sourcePlans.get(a.id)?.find((sp) => sp.sourceId === x.budget_source_id)?.used ?? 0,
+            })),
         })) as Activity[];
         const budget = projectBudget(p.budget, activities);
         // แหล่งเงินของโครงการ: ใช้มากกว่า 1 แหล่ง (จากการแบ่งรายกิจกรรม หรือแบ่งระดับโครงการ) ให้แสดงครบทุกแหล่ง

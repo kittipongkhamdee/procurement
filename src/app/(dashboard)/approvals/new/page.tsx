@@ -4,6 +4,7 @@ import { ChevronLeftIcon } from "@/components/icons";
 import { createApproval } from "../actions";
 import { ApprovalForm, type ApprovalFormPrefill } from "../approval-form";
 import { loadItemSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions";
+import { loadActivitySourcePlans } from "@/lib/activity-source-plan";
 
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
@@ -90,6 +91,8 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
   const currentProjectIds = new Set((projects ?? []).map((p) => p.id));
   const activities = (allActivities ?? []).filter((a) => currentProjectIds.has(a.project_id));
 
+  const sourcePlans = await loadActivitySourcePlans(supabase, activities);
+
   const [unitSuggestions, itemSuggestions] = await Promise.all([
     loadUnitSuggestions(supabase),
     loadItemSuggestions(supabase),
@@ -163,6 +166,7 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
           project_id: a.project_id,
           name: a.name,
           responsible: a.responsible ?? [],
+          sources: sourcePlans.get(a.id) ?? [],
         }))}
         adminGroups={adminGroups ?? []}
         teachers={teachers ?? []}
