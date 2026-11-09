@@ -31,7 +31,7 @@ type Activity = {
   budget: number;
   responsible: string[] | null;
   /** แบ่งงบหลายแหล่งเงิน (ว่าง = ใช้แหล่งงบของโครงการแหล่งเดียว) */
-  sources?: { name: string; amount: number }[];
+  sources?: { sourceId: string; name: string; amount: number }[];
 };
 type Option = { id: string; name: string };
 type Teacher = { id: string; name: string; is_active: boolean };
@@ -84,7 +84,7 @@ export default function ProjectsPage() {
       ? await supabase
           .from("plan_projects")
           .select(
-            "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name, sort_order), plan_budget_sources(name), plan_activities(id, name, budget, responsible, sort_order, plan_activity_sources(amount, sort_order, plan_budget_sources(name))), plan_project_sources(amount, sort_order, plan_budget_sources(name))",
+            "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name, sort_order), plan_budget_sources(name), plan_activities(id, name, budget, responsible, sort_order, plan_activity_sources(amount, sort_order, budget_source_id, plan_budget_sources(name))), plan_project_sources(amount, sort_order, budget_source_id, plan_budget_sources(name))",
           )
           .eq("budget_year_id", year.id)
           .order("sort_order")
@@ -100,7 +100,7 @@ export default function ProjectsPage() {
       (projects ?? []).map((p) => {
         const activities = ((p.plan_activities as unknown as (Activity & {
           sort_order?: number;
-          plan_activity_sources?: { amount: number; sort_order: number; plan_budget_sources: { name: string } | null }[];
+          plan_activity_sources?: { amount: number; sort_order: number; budget_source_id: string; plan_budget_sources: { name: string } | null }[];
         })[]) ?? []).map((a) => ({
           id: a.id,
           name: a.name,
@@ -108,14 +108,14 @@ export default function ProjectsPage() {
           responsible: a.responsible,
           sources: [...(a.plan_activity_sources ?? [])]
             .sort((x, y) => x.sort_order - y.sort_order)
-            .map((x) => ({ name: x.plan_budget_sources?.name ?? "แหล่งเงิน", amount: Number(x.amount ?? 0) })),
+            .map((x) => ({ sourceId: x.budget_source_id, name: x.plan_budget_sources?.name ?? "แหล่งเงิน", amount: Number(x.amount ?? 0) })),
         })) as Activity[];
         const budget = projectBudget(p.budget, activities);
         // แหล่งเงินของโครงการ: ใช้มากกว่า 1 แหล่ง (จากการแบ่งรายกิจกรรม หรือแบ่งระดับโครงการ) ให้แสดงครบทุกแหล่ง
         const ownSource = (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? null;
-        const projSources = [...((p as unknown as { plan_project_sources?: { amount: number; sort_order: number; plan_budget_sources: { name: string } | null }[] }).plan_project_sources ?? [])]
+        const projSources = [...((p as unknown as { plan_project_sources?: { amount: number; sort_order: number; budget_source_id: string; plan_budget_sources: { name: string } | null }[] }).plan_project_sources ?? [])]
           .sort((x, y) => x.sort_order - y.sort_order)
-          .map((x) => x.plan_budget_sources?.name ?? "แหล่งเงิน");
+          .map((x) => ({ sourceId: x.budget_source_id, name: x.plan_budget_sources?.name ?? "แหล่งเงิน", amount: Number(x.amount ?? 0) }));
         const usedSources: string[] = [];
         const addSource = (n: string | null) => {
           if (n && !usedSources.includes(n)) usedSources.push(n);
@@ -125,7 +125,7 @@ export default function ProjectsPage() {
             if (a.sources && a.sources.length > 0) a.sources.forEach((x) => addSource(x.name));
             else addSource(ownSource);
           }
-        } else projSources.forEach(addSource);
+        } else projSources.forEach((x) => addSource(x.name));
         const sourceLabel = usedSources.length > 1 ? usedSources.join(", ") : ownSource ?? "-";
         const spent = spending.get(p.id)?.approved ?? 0;
         return {
@@ -140,6 +140,7 @@ export default function ProjectsPage() {
             (p.plan_admin_groups as unknown as { sort_order: number | null } | null)?.sort_order ?? Number.MAX_SAFE_INTEGER,
           budgetSource: sourceLabel,
           activities,
+          projectSources: projSources,
           budget,
           spent,
           paid: spending.get(p.id)?.paid ?? 0,

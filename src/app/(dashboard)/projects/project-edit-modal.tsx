@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { Modal, type ModalHandle } from "@/components/modal";
 import { PlusIcon, TrashIcon } from "@/components/icons";
+import { SourceSplitEditor } from "./source-split-editor";
 import { TeacherMultiSelect } from "@/components/teacher-multi-select";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import type {
@@ -19,7 +20,7 @@ type Activity = {
   budget: number;
   responsible: string[] | null;
   /** แบ่งงบหลายแหล่งเงิน (ว่าง = ใช้แหล่งงบของโครงการแหล่งเดียว) */
-  sources?: { name: string; amount: number }[];
+  sources?: { sourceId: string; name: string; amount: number }[];
 };
 type Option = { id: string; name: string };
 type Teacher = { id: string; name: string; is_active: boolean };
@@ -32,6 +33,7 @@ export function ProjectEditModal({
   budgetSourceId,
   projectBudget,
   activities,
+  projectSources = [],
   adminGroups,
   budgetSources,
   teachers,
@@ -50,6 +52,7 @@ export function ProjectEditModal({
   budgetSourceId: string | null;
   projectBudget: number;
   activities: Activity[];
+  projectSources?: { sourceId: string; name: string; amount: number }[];
   adminGroups: Option[];
   budgetSources: Option[];
   teachers: Teacher[];
@@ -198,6 +201,7 @@ export function ProjectEditModal({
                   <div>
                     <label className="label sm:hidden">งบประมาณ</label>
                     <input
+                      key={`${a.id}-${a.budget}`}
                       type="number"
                       step="0.01"
                       name={`activity_budget_${a.id}`}
@@ -206,11 +210,7 @@ export function ProjectEditModal({
                       title={a.sources?.length ? "กิจกรรมนี้แบ่งหลายแหล่งเงิน งบ = ผลรวมของแต่ละแหล่ง" : undefined}
                       className="input text-right read-only:bg-slate-50"
                     />
-                    {a.sources && a.sources.length > 0 && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        {a.sources.map((x) => `${x.name} ${x.amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}`).join(" · ")}
-                      </p>
-                    )}
+
                   </div>
                   <div>
                     <label className="label sm:hidden">ผู้รับผิดชอบ</label>
@@ -229,6 +229,17 @@ export function ProjectEditModal({
                       ลบ
                     </button>
                   </div>
+                  <div className="sm:col-span-4">
+                    <SourceSplitEditor
+                      projectId={projectId}
+                      activityId={a.id}
+                      sources={a.sources ?? []}
+                      defaultSourceId={budgetSourceId}
+                      currentBudget={a.budget}
+                      budgetSources={budgetSources}
+                      onChanged={onChanged}
+                    />
+                  </div>
                 </div>
               ))}
               {activities.length === 0 && <div className="table-empty">ยังไม่มีกิจกรรมย่อย</div>}
@@ -241,6 +252,19 @@ export function ProjectEditModal({
               <span className="font-semibold text-navy-800">{projectBudget.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</span>{" "}
               บาท — แก้ไขได้ที่เมนู &quot;การจัดสรรเงิน&quot;
             </p>
+          )}
+          {activities.length === 0 && (
+            <div className="mt-2">
+              <SourceSplitEditor
+                projectId={projectId}
+                activityId={null}
+                sources={projectSources}
+                defaultSourceId={budgetSourceId}
+                currentBudget={projectBudget}
+                budgetSources={budgetSources}
+                onChanged={onChanged}
+              />
+            </div>
           )}
         </div>
       </form>

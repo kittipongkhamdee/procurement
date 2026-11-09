@@ -31,7 +31,7 @@ type Activity = {
   budget: number;
   responsible: string[] | null;
   /** แบ่งงบหลายแหล่งเงิน (ว่าง = ใช้แหล่งงบของโครงการแหล่งเดียว) */
-  sources?: { name: string; amount: number }[];
+  sources?: { sourceId: string; name: string; amount: number }[];
 };
 
 type ProjectRow = {
@@ -45,6 +45,7 @@ type ProjectRow = {
   adminGroupOrder: number;
   budgetSource: string;
   activities: Activity[];
+  projectSources?: { sourceId: string; name: string; amount: number }[];
   budget: number;
   /** อนุมัติแล้ว (บันทึกขออนุมัติ) */
   spent: number;
@@ -241,6 +242,7 @@ export function ProjectsTable({
         budgetSourceId={r.budgetSourceId}
         projectBudget={r.projectBudget}
         activities={r.activities}
+        projectSources={r.projectSources ?? []}
         adminGroups={adminGroups}
         budgetSources={budgetSources}
         teachers={teachers}

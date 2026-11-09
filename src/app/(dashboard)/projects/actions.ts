@@ -86,6 +86,11 @@ export async function updateProject(projectId: string, formData: FormData) {
 // เพื่อให้หน้า "การจัดสรรเงิน" เรียกได้โดยไม่ต้องส่งข้อมูลฟิลด์อื่นของโครงการมาด้วย
 export async function updateProjectBudget(projectId: string, budget: number) {
   const supabase = await requireAdmin();
+  const { count: srcCount } = await supabase
+    .from("plan_project_sources")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId);
+  if ((srcCount ?? 0) > 0) throw new Error("โครงการนี้แบ่งหลายแหล่งเงิน กรุณาแก้ที่หน้าแก้ไขโครงการ (แบ่งแหล่งเงิน)");
   const { error } = await supabase.from("plan_projects").update({ budget }).eq("id", projectId);
   if (error) throw new Error(error.message);
   revalidatePath("/projects");
@@ -178,4 +183,55 @@ export async function deleteActivity(activityId: string) {
   const { error } = await supabase.from("plan_activities").delete().eq("id", activityId);
   if (error) throw new Error(error.message);
   revalidatePath("/projects");
+}
+
+// แบ่งงบหลายแหล่งเงิน (เฉพาะแอดมิน) — activityId ระบุ = ของกิจกรรมนั้น, null = ของโครงการงบก้อนเดียว (ต้องไม่มีกิจกรรมย่อย)
+// ส่งรายการแหล่งเงินทั้งชุดมาแทนที่ของเดิม; ว่าง = ยกเลิกการแบ่ง (กลับไปใช้แหล่งงบของโครงการแหล่งเดียว งบคงเดิม)
+// มีรายการ: งบกิจกรรม/โครงการ = ผลรวมแต่ละแหล่ง
+export async function saveSourceSplit(
+  projectId: string,
+  activityId: string | null,
+  sources: { budget_source_id: string; amount: number }[],
+): Promise<{ error?: string }> {
+  let supabase;
+  try {
+    supabase = await requireAdmin();
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "ไม่มีสิทธิ์แก้ไข" };
+  }
+  if (sources.some((x) => !x.budget_source_id)) return { error: "กรุณาเลือกแหล่งเงินให้ครบทุกบรรทัด" };
+  if (sources.some((x) => !Number.isFinite(Number(x.amount)) || Number(x.amount) < 0)) return { error: "จำนวนเงินไม่ถูกต้อง" };
+  if (new Set(sources.map((x) => x.budget_source_id)).size !== sources.length) return { error: "เลือกแหล่งเงินซ้ำกัน" };
+  const total = sources.reduce((sum, x) => sum + Number(x.amount), 0);
+
+  if (activityId) {
+    const { data: act } = await supabase.from("plan_activities").select("id").eq("id", activityId).eq("project_id", projectId).maybeSingle();
+    if (!act) return { error: "ไม่พบกิจกรรมนี้ในโครงการ" };
+    const { error: delError } = await supabase.from("plan_activity_sources").delete().eq("activity_id", activityId);
+    if (delError) return { error: delError.message };
+    if (sources.length > 0) {
+      const { error } = await supabase.from("plan_activity_sources").insert(
+        sources.map((x, k) => ({ activity_id: activityId, budget_source_id: x.budget_source_id, amount: Number(x.amount), sort_order: k })),
+      );
+      if (error) return { error: error.message };
+      const { error: budgetError } = await supabase.from("plan_activities").update({ budget: total }).eq("id", activityId);
+      if (budgetError) return { error: budgetError.message };
+    }
+  } else {
+    const { count } = await supabase.from("plan_activities").select("id", { count: "exact", head: true }).eq("project_id", projectId);
+    if ((count ?? 0) > 0) return { error: "โครงการนี้มีกิจกรรมย่อย กรุณาแบ่งแหล่งเงินที่รายกิจกรรม" };
+    const { error: delError } = await supabase.from("plan_project_sources").delete().eq("project_id", projectId);
+    if (delError) return { error: delError.message };
+    if (sources.length > 0) {
+      const { error } = await supabase.from("plan_project_sources").insert(
+        sources.map((x, k) => ({ project_id: projectId, budget_source_id: x.budget_source_id, amount: Number(x.amount), sort_order: k })),
+      );
+      if (error) return { error: error.message };
+      const { error: budgetError } = await supabase.from("plan_projects").update({ budget: total }).eq("id", projectId);
+      if (budgetError) return { error: budgetError.message };
+    }
+  }
+  revalidatePath("/projects");
+  revalidatePath("/fund-allocation");
+  return {};
 }
