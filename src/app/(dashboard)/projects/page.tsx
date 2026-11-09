@@ -84,7 +84,7 @@ export default function ProjectsPage() {
       ? await supabase
           .from("plan_projects")
           .select(
-            "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name, sort_order), plan_budget_sources(name), plan_activities(id, name, budget, responsible, sort_order, plan_activity_sources(amount, sort_order, plan_budget_sources(name)))",
+            "id, name, budget, budget_year_id, admin_group_id, budget_source_id, plan_admin_groups(name, sort_order), plan_budget_sources(name), plan_activities(id, name, budget, responsible, sort_order, plan_activity_sources(amount, sort_order, plan_budget_sources(name))), plan_project_sources(amount, sort_order, plan_budget_sources(name))",
           )
           .eq("budget_year_id", year.id)
           .order("sort_order")
@@ -111,6 +111,22 @@ export default function ProjectsPage() {
             .map((x) => ({ name: x.plan_budget_sources?.name ?? "แหล่งเงิน", amount: Number(x.amount ?? 0) })),
         })) as Activity[];
         const budget = projectBudget(p.budget, activities);
+        // แหล่งเงินของโครงการ: ใช้มากกว่า 1 แหล่ง (จากการแบ่งรายกิจกรรม หรือแบ่งระดับโครงการ) ให้แสดงครบทุกแหล่ง
+        const ownSource = (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? null;
+        const projSources = [...((p as unknown as { plan_project_sources?: { amount: number; sort_order: number; plan_budget_sources: { name: string } | null }[] }).plan_project_sources ?? [])]
+          .sort((x, y) => x.sort_order - y.sort_order)
+          .map((x) => x.plan_budget_sources?.name ?? "แหล่งเงิน");
+        const usedSources: string[] = [];
+        const addSource = (n: string | null) => {
+          if (n && !usedSources.includes(n)) usedSources.push(n);
+        };
+        if (activities.length > 0) {
+          for (const a of activities) {
+            if (a.sources && a.sources.length > 0) a.sources.forEach((x) => addSource(x.name));
+            else addSource(ownSource);
+          }
+        } else projSources.forEach(addSource);
+        const sourceLabel = usedSources.length > 1 ? usedSources.join(", ") : ownSource ?? "-";
         const spent = spending.get(p.id)?.approved ?? 0;
         return {
           id: p.id,
@@ -122,7 +138,7 @@ export default function ProjectsPage() {
           adminGroup: (p.plan_admin_groups as unknown as { name: string } | null)?.name ?? "-",
           adminGroupOrder:
             (p.plan_admin_groups as unknown as { sort_order: number | null } | null)?.sort_order ?? Number.MAX_SAFE_INTEGER,
-          budgetSource: (p.plan_budget_sources as unknown as { name: string } | null)?.name ?? "-",
+          budgetSource: sourceLabel,
           activities,
           budget,
           spent,

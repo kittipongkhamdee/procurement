@@ -300,6 +300,17 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
   const fileUrlWord = await renameProposalFile(supabase, str(formData, "file_url_word"), baseName);
   const fileUrlPdf = await renameProposalFile(supabase, str(formData, "file_url_pdf"), baseName);
 
+  // โครงการงบก้อนเดียวที่ร่างแบ่งหลายแหล่งเงินไว้: ส่งต่อไปกับข้อเสนอ (โครงการที่มีกิจกรรม แหล่งเงินอยู่ที่รายกิจกรรมแล้ว)
+  let proposalSources: { budget_source_id: string; amount: number }[] = [];
+  if (!draftActs.hasActivities) {
+    const { data: ps } = await supabase
+      .from("plan_draft_project_sources")
+      .select("budget_source_id, amount, sort_order")
+      .eq("draft_project_id", draftProjectId)
+      .order("sort_order");
+    proposalSources = (ps ?? []).map((x) => ({ budget_source_id: x.budget_source_id, amount: Number(x.amount ?? 0) }));
+  }
+
   const { error } = await supabase.from("plan_project_proposals").insert({
     created_by: user.id,
     proposer_name: profile?.full_name ?? null,
@@ -313,6 +324,7 @@ export async function createProposal(formData: FormData): Promise<{ error?: stri
     strategy_alignment: str(formData, "strategy_alignment"),
     activities,
     budget_amount: budgetAmount,
+    budget_sources: proposalSources.length > 0 ? proposalSources : null,
     budget_source_id: draft.budget_source_id ?? str(formData, "budget_source_id"),
     file_url_word: fileUrlWord,
     file_url_pdf: fileUrlPdf,
@@ -495,7 +507,7 @@ export async function cancelEndorsement(id: string) {
 async function createProjectFromProposal(supabase: Awaited<ReturnType<typeof createClient>>, proposalId: string) {
   const { data: proposal } = await supabase
     .from("plan_project_proposals")
-    .select("project_id, name, budget_year_id, admin_group_id, budget_source_id, budget_amount, activities")
+    .select("project_id, name, budget_year_id, admin_group_id, budget_source_id, budget_amount, budget_sources, activities")
     .eq("id", proposalId)
     .maybeSingle();
   if (!proposal || proposal.project_id || !proposal.budget_year_id || !proposal.admin_group_id) return;
@@ -512,6 +524,13 @@ async function createProjectFromProposal(supabase: Awaited<ReturnType<typeof cre
     .select("id")
     .single();
   if (projectError || !project) return;
+
+  const projectSources = (proposal.budget_sources as unknown as { budget_source_id: string; amount: number }[] | null) ?? [];
+  if (projectSources.length > 0) {
+    await supabase.from("plan_project_sources").insert(
+      projectSources.map((x, k) => ({ project_id: project.id, budget_source_id: x.budget_source_id, amount: Number(x.amount) || 0, sort_order: k })),
+    );
+  }
 
   const activities =
     (proposal.activities as unknown as

@@ -296,6 +296,8 @@ export async function saveDraftProject(
     source_project_id: string | null;
     budget: number;
     activities: DraftActivityInput[] | null;
+    /** แบ่งหลายแหล่งเงินระดับโครงการ — ใช้เฉพาะโครงการที่ไม่มีกิจกรรมย่อย (งบก้อนเดียว) */
+    sources?: { budget_source_id: string; amount: number }[] | null;
   },
 ): Promise<{ error?: string }> {
   let supabase;
@@ -320,8 +322,19 @@ export async function saveDraftProject(
       return { error: `กิจกรรม "${a.name}": เลือกแหล่งเงินซ้ำกัน` };
     a.budget = src.reduce((sum, x) => sum + Number(x.amount), 0);
   }
+  // โครงการงบก้อนเดียว (ไม่มีกิจกรรม) แบ่งหลายแหล่งเงินได้ — งบโครงการ = ผลรวมแต่ละแหล่ง
+  const projectSources = activities.length === 0 ? (input.sources ?? []) : [];
+  if (projectSources.some((x) => !x.budget_source_id)) return { error: "กรุณาเลือกแหล่งเงินให้ครบทุกบรรทัด" };
+  if (projectSources.some((x) => !Number.isFinite(Number(x.amount)) || Number(x.amount) < 0))
+    return { error: "จำนวนเงินของแหล่งเงินไม่ถูกต้อง" };
+  if (new Set(projectSources.map((x) => x.budget_source_id)).size !== projectSources.length)
+    return { error: "เลือกแหล่งเงินซ้ำกัน" };
   const budget =
-    activities.length > 0 ? activities.reduce((sum, a) => sum + a.budget, 0) : Number(input.budget);
+    activities.length > 0
+      ? activities.reduce((sum, a) => sum + a.budget, 0)
+      : projectSources.length > 0
+        ? projectSources.reduce((sum, x) => sum + Number(x.amount), 0)
+        : Number(input.budget);
   if (!Number.isFinite(budget) || budget < 0) return { error: "กรุณากรอกจำนวนเงินให้ถูกต้อง" };
 
   const { data: draft } = await supabase
@@ -373,6 +386,16 @@ export async function saveDraftProject(
       );
       if (insSrc) return { error: insSrc.message };
     }
+  }
+
+  // แทนที่รายการแหล่งเงินระดับโครงการทั้งชุด (มีกิจกรรมย่อย = ล้างทิ้ง เพราะยอดแยกแหล่งมาจากกิจกรรม)
+  const { error: delProjSrc } = await supabase.from("plan_draft_project_sources").delete().eq("draft_project_id", id);
+  if (delProjSrc) return { error: delProjSrc.message };
+  if (projectSources.length > 0) {
+    const { error: insProjSrc } = await supabase.from("plan_draft_project_sources").insert(
+      projectSources.map((x, k) => ({ draft_project_id: id, budget_source_id: x.budget_source_id, amount: Number(x.amount), sort_order: k })),
+    );
+    if (insProjSrc) return { error: insProjSrc.message };
   }
 
   const { error } = await supabase
@@ -602,6 +625,11 @@ export async function saveDraftProjectBudget(
   }
   const locked = await lockedByOtherMessage(supabase, draftId, user.id);
   if (locked) return { error: locked };
+  const { count: projSrcCount } = await supabase
+    .from("plan_draft_project_sources")
+    .select("id", { count: "exact", head: true })
+    .eq("draft_project_id", draftId);
+  if ((projSrcCount ?? 0) > 0) return { error: "โครงการนี้แบ่งหลายแหล่งเงิน กรุณากดแก้ไขโครงการเพื่อกรอกจำนวนเงินรายแหล่ง" };
 
   const { data: updated, error } = await supabase
     .from("plan_draft_projects")

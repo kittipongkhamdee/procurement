@@ -1482,6 +1482,48 @@ export type Database = {
           },
         ]
       }
+      plan_project_sources: {
+        Row: {
+          amount: number
+          budget_source_id: string
+          created_at: string
+          project_id: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          amount?: number
+          budget_source_id: string
+          created_at?: string
+          project_id: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          budget_source_id?: string
+          created_at?: string
+          project_id?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_project_sources_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_project_sources_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_draft_activities: {
         Row: {
           budget: number
@@ -1555,6 +1597,48 @@ export type Database = {
           },
           {
             foreignKeyName: "plan_draft_activity_sources_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_draft_project_sources: {
+        Row: {
+          amount: number
+          budget_source_id: string
+          created_at: string
+          draft_project_id: string
+          id: string
+          sort_order: number
+        }
+        Insert: {
+          amount?: number
+          budget_source_id: string
+          created_at?: string
+          draft_project_id: string
+          id?: string
+          sort_order?: number
+        }
+        Update: {
+          amount?: number
+          budget_source_id?: string
+          created_at?: string
+          draft_project_id?: string
+          id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_draft_project_sources_draft_project_id_fkey"
+            columns: ["draft_project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_draft_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_draft_project_sources_budget_source_id_fkey"
             columns: ["budget_source_id"]
             isOneToOne: false
             referencedRelation: "plan_budget_sources"
@@ -1742,6 +1826,7 @@ export type Database = {
           approved_by_name: string | null
           budget_amount: number
           budget_source_id: string | null
+          budget_sources: Json | null
           budget_year_id: string | null
           created_at: string
           created_by: string | null
@@ -1771,6 +1856,7 @@ export type Database = {
           approved_by_name?: string | null
           budget_amount?: number
           budget_source_id?: string | null
+          budget_sources?: Json | null
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -1800,6 +1886,7 @@ export type Database = {
           approved_by_name?: string | null
           budget_amount?: number
           budget_source_id?: string | null
+          budget_sources?: Json | null
           budget_year_id?: string | null
           created_at?: string
           created_by?: string | null
