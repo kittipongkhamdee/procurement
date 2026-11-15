@@ -2,6 +2,7 @@ import Image from "next/image";
 import { login } from "./actions";
 import { getSchoolSettings } from "@/lib/school-settings-server";
 import { LoginErrorAlert } from "./login-error-alert";
+import { GoogleLoginButton } from "./google-login-button";
 
 export default async function LoginPage({
   searchParams,
@@ -58,6 +59,14 @@ export default async function LoginPage({
             เข้าสู่ระบบ
           </button>
         </form>
+
+        <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
+          <span className="h-px flex-1 bg-slate-200" />
+          หรือ
+          <span className="h-px flex-1 bg-slate-200" />
+        </div>
+        <GoogleLoginButton />
+        <p className="mt-2 text-center text-xs text-slate-500">ใช้ได้เมื่อผูกบัญชี Google ไว้แล้วที่เมนู &quot;โปรไฟล์ของฉัน&quot;</p>
 
         <p className="mt-4 text-center text-sm">
           <a href="/login/signup" className="text-navy-800 hover:underline">

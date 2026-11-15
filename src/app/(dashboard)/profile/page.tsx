@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { resizeAvatarFile } from "@/lib/image-resize";
 import { LockIcon, UserIcon } from "@/components/icons";
+import { GoogleLinkCard } from "./google-link-card";
 import { changePassword, removeAvatar, updateOwnName, uploadAvatar } from "./actions";
 
 export default function ProfilePage() {
@@ -238,6 +239,8 @@ export default function ProfilePage() {
             </button>
           </form>
         </div>
+
+        <GoogleLinkCard />
       </div>
     </div>
   );
