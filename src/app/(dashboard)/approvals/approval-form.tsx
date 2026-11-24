@@ -154,7 +154,7 @@ export function ApprovalForm({
   prefill,
   submitLabel = "บันทึกและสร้างเอกสาร",
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => void | { error?: string } | Promise<void | { error?: string }>;
   projects: ProjectOption[];
   activities: ActivityOption[];
   adminGroups: AdminGroupOption[];
@@ -424,7 +424,11 @@ export function ApprovalForm({
 
     setSubmitting(true);
     try {
-      await action(formData);
+      const result = await action(formData);
+      if (result && typeof result === "object" && result.error) {
+        await toastError(result.error);
+        return;
+      }
       await toastSuccess(initial ? "บันทึกการแก้ไขแล้ว" : "บันทึกข้อมูลแล้ว");
       router.push("/approvals");
     } catch (err) {

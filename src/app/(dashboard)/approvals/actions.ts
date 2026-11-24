@@ -116,7 +116,7 @@ function parseSourceLines(formData: FormData, requestedAmount: number): SourceLi
   return lines;
 }
 
-export async function createApproval(formData: FormData) {
+export async function createApproval(formData: FormData): Promise<{ error?: string } | void> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -173,7 +173,16 @@ export async function createApproval(formData: FormData) {
     .select("id")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // production ซ่อนข้อความ error ของ Server Action (ผู้ใช้เห็นแค่ "Minified React error") จึงคืนข้อความไทยเป็นค่าแทนการ throw
+    if (error.code === "42501" || /row-level security/i.test(error.message)) {
+      return {
+        error:
+          "บัญชี/บทบาทปัจจุบันไม่มีสิทธิ์สร้างบันทึกขออนุมัติ (สร้างได้เฉพาะผู้ดูแลระบบ เจ้าหน้าที่พัสดุ และเจ้าหน้าที่การเงิน) — ถ้ากำลังใช้งานในบทบาทครู ให้กด \"กลับเป็นผู้ดูแลระบบ\" ก่อน",
+      };
+    }
+    throw new Error(error.message);
+  }
 
   if (sourceLines.length > 0) {
     const { error: srcError } = await supabase.from("proc_approval_sources").insert(
