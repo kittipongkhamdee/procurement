@@ -47,6 +47,8 @@ type DraftRow = {
   adminGroupId: string | null;
   budgetSourceId: string | null;
   budget: number;
+  /** งบแยกตามแหล่งเงินของร่างนี้ (นับตามการแบ่งหลายแหล่งของกิจกรรม/โครงการ) */
+  bySource: Record<string, number>;
   editingByName: string | null;
 };
 
@@ -150,7 +152,9 @@ export function ProjectAllocationTab({
     const supabase = createClient();
     const { data } = await supabase
       .from("plan_draft_projects")
-      .select("id, name, admin_group_id, budget_source_id, budget, editing_by, editing_by_name, editing_at")
+      .select(
+        "id, name, admin_group_id, budget_source_id, budget, editing_by, editing_by_name, editing_at, plan_draft_activities(budget, plan_draft_activity_sources(budget_source_id, amount)), plan_draft_project_sources(budget_source_id, amount)",
+      )
       .eq("budget_year_id", budgetYearId)
       .order("sort_order")
       .order("created_at")
@@ -164,6 +168,26 @@ export function ProjectAllocationTab({
         adminGroupId: d.admin_group_id,
         budgetSourceId: d.budget_source_id,
         budget: Number(d.budget ?? 0),
+        bySource: (() => {
+          // กิจกรรมที่แบ่งหลายแหล่ง = ตามที่แบ่ง, กิจกรรมที่ไม่แบ่ง = แหล่งงบของโครงการ,
+          // โครงการไม่มีกิจกรรม = แหล่งที่แบ่งระดับโครงการ (ถ้ามี) หรือแหล่งงบของโครงการ
+          const out: Record<string, number> = {};
+          const add = (id: string | null, amount: number) => {
+            if (id) out[id] = (out[id] ?? 0) + amount;
+          };
+          const acts =
+            (d.plan_draft_activities as unknown as { budget: number; plan_draft_activity_sources: { budget_source_id: string; amount: number }[] | null }[]) ?? [];
+          const projSplits = (d as unknown as { plan_draft_project_sources?: { budget_source_id: string; amount: number }[] }).plan_draft_project_sources ?? [];
+          if (acts.length > 0) {
+            for (const a of acts) {
+              const splits = a.plan_draft_activity_sources ?? [];
+              if (splits.length > 0) splits.forEach((x) => add(x.budget_source_id, Number(x.amount ?? 0)));
+              else add(d.budget_source_id, Number(a.budget ?? 0));
+            }
+          } else if (projSplits.length > 0) projSplits.forEach((x) => add(x.budget_source_id, Number(x.amount ?? 0)));
+          else add(d.budget_source_id, Number(d.budget ?? 0));
+          return out;
+        })(),
         // แสดง "กำลังแก้ไขโดย…" เฉพาะล็อกของคนอื่นที่ยังไม่หมดอายุ — ล็อกของตัวเองที่ค้างไว้ (ปิดแท็บ/เปลี่ยนหน้า
         // ระหว่างแก้ไข) และล็อกที่หมดอายุแล้วถือว่าว่าง กดแก้ไขต่อได้ (ฝั่ง server ก็ยอมจองซ้ำในกรณีเหล่านี้)
         editingByName:
@@ -240,7 +264,7 @@ export function ProjectAllocationTab({
           : items
             ? items.reduce((sum, k) => sum + (itemTotalByKey[k] ?? 0), 0)
             : 0;
-      const draftTotal = rows.filter((r) => r.budgetSourceId === s.id).reduce((sum, r) => sum + r.budget, 0);
+      const draftTotal = rows.reduce((sum, r) => sum + (r.bySource[s.id] ?? 0), 0);
       return { id: s.id, label: s.name, allocated, draftTotal, diff: allocated - draftTotal };
     });
   }, [budgetSources, draftRows, itemTotalByKey, schoolIncome]);
