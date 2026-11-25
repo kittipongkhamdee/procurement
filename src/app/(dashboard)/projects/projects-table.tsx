@@ -12,6 +12,7 @@ import type {
   updateProject as updateProjectAction,
 } from "./actions";
 import { todayTh } from "@/lib/thai";
+import { errorMessage, toastError } from "@/lib/swal";
 
 type AdminGroup = Pick<Tables<"plan_admin_groups">, "id" | "name">;
 type BudgetSource = Pick<Tables<"plan_budget_sources">, "id" | "name">;
@@ -154,6 +155,7 @@ export function ProjectsTable({
   updateActivity,
   deleteActivity,
   onChanged,
+  yearLabel,
 }: {
   rows: ProjectRow[];
   isAdmin: boolean;
@@ -166,6 +168,8 @@ export function ProjectsTable({
   updateActivity: typeof updateActivityAction;
   deleteActivity: typeof deleteActivityAction;
   onChanged?: () => void;
+  /** ปีงบประมาณ (พ.ศ.) ใช้ตั้งชื่อ/หัวไฟล์ Excel ที่ส่งออก */
+  yearLabel?: string;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -208,27 +212,42 @@ export function ProjectsTable({
     setPage(1);
   }
 
-  function exportToExcel() {
-    const header = ["ลำดับ", "ชื่อโครงการ", "กลุ่มบริหาร", "แหล่งเงินงบประมาณ", "งบประมาณ", "อนุมัติแล้ว", "จ่ายจริง", "คงเหลือ"];
-    const escapeCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-    const lines = [header.map(escapeCell).join(",")];
-    filteredRows.forEach((r, i) => {
-      lines.push(
-        [i + 1, r.name, r.adminGroup, r.budgetSource, r.budget.toFixed(2), r.spent.toFixed(2), r.paid.toFixed(2), r.remaining.toFixed(2)]
-          .map(escapeCell)
-          .join(","),
-      );
-    });
-    const csv = "\uFEFF" + lines.join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `โครงการ-${todayTh()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  async function exportToExcel() {
+    try {
+      const { buildProjectsPlanWorkbook } = await import("@/lib/projects-plan-export");
+      const sourceNameById = new Map(budgetSources.map((x) => [x.id, x.name]));
+      const buffer = await buildProjectsPlanWorkbook({
+        yearLabel: yearLabel ?? "",
+        showSpending: true,
+        projects: filteredRows.map((r) => ({
+          name: r.name,
+          adminGroup: r.adminGroup,
+          sourceLabel: r.budgetSource,
+          ownSourceName: (r.budgetSourceId ? sourceNameById.get(r.budgetSourceId) : null) ?? "ไม่ระบุแหล่งเงิน",
+          budget: r.budget,
+          activities: r.activities.map((a) => ({
+            name: a.name ?? "",
+            budget: Number(a.budget ?? 0),
+            sources: (a.sources ?? []).map((x) => ({ name: x.name, amount: x.amount })),
+          })),
+          projectSources: (r.projectSources ?? []).map((x) => ({ name: x.name, amount: x.amount })),
+          spent: r.spent,
+          paid: r.paid,
+          remaining: r.remaining,
+        })),
+      });
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `โครงการตามแผนปฏิบัติการ${yearLabel ? `_ปีงบประมาณ${yearLabel}` : ""}_${todayTh()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      await toastError(errorMessage(err));
+    }
   }
 
   const colSpan = isAdmin ? 9 : 8;

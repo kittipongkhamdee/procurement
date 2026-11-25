@@ -207,6 +207,7 @@ export default function ProjectsPage() {
           updateActivity={updateActivity}
           deleteActivity={deleteActivity}
           onChanged={reload}
+          yearLabel={currentYear ? String(currentYear.year) : undefined}
         />
       </div>
     </div>
