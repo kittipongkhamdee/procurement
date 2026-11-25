@@ -8,6 +8,7 @@
 // สั่ง refetch รายการใหม่หลัง mutation สำเร็จ (แทนที่กลไก revalidatePath เดิมซึ่งใช้ไม่ได้กับ state
 // ฝั่ง client)
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { createClient } from "@/lib/supabase/client";
@@ -179,6 +180,10 @@ export default function ProjectsPage() {
             {currentYear ? ` ปีงบประมาณ ${currentYear.year}` : ""}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/projects/offsystem" className="btn-secondary">
+            รายการตัดงบนอกระบบ
+          </Link>
         {!authLoading && isAdmin && currentYear && (
           <Modal title="เพิ่มโครงการใหม่" trigger="+ เพิ่มโครงการใหม่" triggerClassName="btn-primary" closeOnSubmit>
             <CreateProjectForm
@@ -191,6 +196,7 @@ export default function ProjectsPage() {
             />
           </Modal>
         )}
+        </div>
       </div>
 
       <div className="table-shell mt-6">

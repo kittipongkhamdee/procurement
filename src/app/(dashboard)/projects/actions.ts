@@ -101,7 +101,7 @@ export async function updateProjectBudget(projectId: string, budget: number) {
 // ลบจริงแล้วโยน error ข้อความไทยที่บอกสาเหตุชัดเจน แทนปล่อยให้ Postgres โยน foreign key violation ดิบๆ
 // ออกไป ซึ่งฝั่ง client แสดงเป็น "Minified React error" ที่อ่านไม่รู้เรื่อง
 async function findProjectBlockingLabels(supabase: Awaited<ReturnType<typeof createClient>>, projectId: string) {
-  const [purchaseRequests, contracts, approvals, allowanceDisbursements, projectDisbursements, projectReports] =
+  const [purchaseRequests, contracts, approvals, allowanceDisbursements, projectDisbursements, projectReports, offsystemSpending] =
     await Promise.all([
       supabase.from("proc_purchase_requests").select("id", { count: "exact", head: true }).eq("project_id", projectId),
       supabase.from("proc_contracts").select("id", { count: "exact", head: true }).eq("project_id", projectId),
@@ -109,6 +109,7 @@ async function findProjectBlockingLabels(supabase: Awaited<ReturnType<typeof cre
       supabase.from("proc_allowance_disbursements").select("id", { count: "exact", head: true }).eq("project_id", projectId),
       supabase.from("proc_project_disbursements").select("id", { count: "exact", head: true }).eq("project_id", projectId),
       supabase.from("proc_project_reports").select("id", { count: "exact", head: true }).eq("project_id", projectId),
+      supabase.from("proc_offsystem_spending").select("id", { count: "exact", head: true }).eq("project_id", projectId),
     ]);
 
   const labels: string[] = [];
@@ -118,6 +119,7 @@ async function findProjectBlockingLabels(supabase: Awaited<ReturnType<typeof cre
   if ((allowanceDisbursements.count ?? 0) > 0) labels.push("การเบิกค่าตอบแทน");
   if ((projectDisbursements.count ?? 0) > 0) labels.push("การเบิกจ่ายโครงการ");
   if ((projectReports.count ?? 0) > 0) labels.push("รายงานผลโครงการ");
+  if ((offsystemSpending.count ?? 0) > 0) labels.push("รายการตัดงบนอกระบบ");
   return labels;
 }
 

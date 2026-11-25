@@ -1,14 +1,16 @@
 // การใช้งบโครงการ — นิยามเดียวใช้ทุกหน้า (เมนูโครงการ / บัญชีรับ-จ่ายเงิน > งบโครงการ / แดชบอร์ด)
 // - งบประมาณ = ผลรวมงบกิจกรรม (ไม่มีกิจกรรม = งบของโครงการ)
 // - อนุมัติแล้ว = บันทึกขออนุมัติที่ ผอ. อนุมัติ (proc_approvals.status = "อนุมัติ", requested_amount)
+//   + รายการตัดงบนอกระบบที่เจ้าหน้าที่บันทึก (proc_offsystem_spending) — แยกส่วนไว้ที่ Spending.offsystem
 // - จ่ายจริง = รายการจ่ายในบัญชีรับ-จ่ายเงินที่ผูกโครงการ (fin_transactions kind = "pay")
 //   หักเงินยืมที่ผู้ยืมคืนเป็นเงินสด (รับคืนเงินยืม source_kind = "loan_repay") — จ่ายเงินยืมนับเป็นจ่ายของโครงการตอนจ่าย
 // - คงเหลือ = งบประมาณ − อนุมัติแล้ว
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { loadOffsystemRows } from "@/lib/offsystem-spending";
 
-export type Spending = { approved: number; paid: number };
+export type Spending = { approved: number; paid: number; /** ส่วนของ approved ที่เป็นรายการตัดงบนอกระบบ */ offsystem?: number };
 
 export function projectBudget(projectBudget: number | null | undefined, activities: { budget: number | null }[] | null | undefined) {
   const acts = activities ?? [];
@@ -23,9 +25,10 @@ export async function loadProjectSpending(supabase: SupabaseClient<Database>, pr
   const byActivityName = new Map<string, number>(); // key = `${projectId}|${ชื่อกิจกรรม}`
   const paidByActivity = new Map<string, number>();
   if (projectIds.length === 0) return { byProject, approvedForActivity: () => 0, paidByActivity };
-  const [{ data: approvals }, { data: pays }] = await Promise.all([
+  const [{ data: approvals }, { data: pays }, offsystem] = await Promise.all([
     supabase.from("proc_approvals").select("project_id, activity_name, requested_amount").eq("status", "อนุมัติ").in("project_id", projectIds),
     supabase.from("fin_transactions").select("project_id, activity_id, amount, kind, source_kind").in("project_id", projectIds),
+    loadOffsystemRows(supabase, projectIds),
   ]);
   const get = (id: string) => byProject.get(id) ?? (byProject.set(id, { approved: 0, paid: 0 }), byProject.get(id)!);
   for (const a of approvals ?? []) {
@@ -34,6 +37,13 @@ export async function loadProjectSpending(supabase: SupabaseClient<Database>, pr
     get(a.project_id).approved += amt;
     const key = `${a.project_id}|${norm(a.activity_name)}`;
     byActivityName.set(key, (byActivityName.get(key) ?? 0) + amt);
+  }
+  for (const o of offsystem) {
+    const sp = get(o.project_id);
+    sp.approved += o.amount;
+    sp.offsystem = (sp.offsystem ?? 0) + o.amount;
+    const key = `${o.project_id}|${norm(o.activity_name)}`;
+    byActivityName.set(key, (byActivityName.get(key) ?? 0) + o.amount);
   }
   for (const p of pays ?? []) {
     if (!p.project_id) continue;

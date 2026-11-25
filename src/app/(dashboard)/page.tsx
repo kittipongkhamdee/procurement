@@ -18,6 +18,7 @@ import { PageLoadingSkeleton } from "@/components/loading-skeleton";
 import { PrinterIcon } from "@/components/icons";
 import { PendingActionsPanel } from "./pending-actions-panel";
 import { loadProjectSpending } from "@/lib/project-spending";
+import { loadOffsystemRows } from "@/lib/offsystem-spending";
 import { EXPENSE_CATEGORIES, expenseCategoryIndex } from "@/lib/expense-categories";
 
 // หมวดตามหลักการจำแนกประเภทรายจ่าย 6 หมวด (src/lib/expense-categories.ts) — บันทึกเก่าที่ใช้หมวดเดิมแปลงเข้าหมวดใหม่ด้วย expenseCategoryIndex
@@ -388,6 +389,12 @@ export default function DashboardPage() {
       lines.forEach((x) => addSpent(x.sourceId, x.amount));
       const rest = Number(a.requested_amount ?? 0) - lineTotal;
       if (rest > 0.005) addSpent(projectSourceById.get(a.project_id), rest);
+    }
+    // รายการตัดงบนอกระบบ (เจ้าหน้าที่บันทึก): นับเป็นยอดอนุมัติ/ใช้ไปของโครงการและแหล่งเงินด้วย — ไม่ได้แบ่งแหล่ง = แหล่งงบของโครงการ
+    for (const o of await loadOffsystemRows(supabase, [...projectIds])) {
+      nextApprovedByProject.set(o.project_id, (nextApprovedByProject.get(o.project_id) ?? 0) + o.amount);
+      if (o.sources.length > 0) o.sources.forEach((x) => addSpent(x.sourceId, x.amount));
+      else addSpent(projectSourceById.get(o.project_id), o.amount);
     }
     setSourceSpent(nextSourceSpent);
     setApprovedByProject(nextApprovedByProject);

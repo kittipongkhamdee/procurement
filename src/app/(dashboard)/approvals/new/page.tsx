@@ -5,6 +5,7 @@ import { createApproval } from "../actions";
 import { ApprovalForm, type ApprovalFormPrefill } from "../approval-form";
 import { loadItemSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions";
 import { loadActivitySourcePlans } from "@/lib/activity-source-plan";
+import { loadOffsystemRows } from "@/lib/offsystem-spending";
 
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
@@ -92,6 +93,11 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
   const activities = (allActivities ?? []).filter((a) => currentProjectIds.has(a.project_id));
 
   const sourcePlans = await loadActivitySourcePlans(supabase, activities);
+  // รายการตัดงบนอกระบบ (เจ้าหน้าที่บันทึก) นับเป็นเงินที่ใช้ไปแล้วของโครงการด้วย
+  const offsystemByProject = new Map<string, number>();
+  for (const o of await loadOffsystemRows(supabase, (projects ?? []).map((p) => p.id))) {
+    offsystemByProject.set(o.project_id, (offsystemByProject.get(o.project_id) ?? 0) + o.amount);
+  }
 
   const [unitSuggestions, itemSuggestions] = await Promise.all([
     loadUnitSuggestions(supabase),
@@ -117,7 +123,7 @@ export default async function NewApprovalPage({ searchParams }: { searchParams: 
     adminGroupId: p.admin_group_id,
   // งบโครงการ = ผลรวมงบรายกิจกรรม ถ้าโครงการไม่มีกิจกรรมเลยใช้งบระดับโครงการ (plan_projects.budget) แทน — ตรงกับหน้ารายงานโครงการ/จัดสรรงบ
     budget: budgetByProject.has(p.id) ? (budgetByProject.get(p.id) ?? 0) : Number(p.budget ?? 0),
-    approvedSoFar: approvedByProject.get(p.id) ?? 0,
+    approvedSoFar: (approvedByProject.get(p.id) ?? 0) + (offsystemByProject.get(p.id) ?? 0),
   }));
 
   return (

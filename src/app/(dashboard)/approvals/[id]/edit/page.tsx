@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ChevronLeftIcon } from "@/components/icons";
 import { updateApproval } from "../../actions";
 import { loadActivitySourcePlans } from "@/lib/activity-source-plan";
+import { loadOffsystemRows } from "@/lib/offsystem-spending";
 import { ApprovalForm, type ApprovalFormInitial } from "../../approval-form";
 import { loadItemSuggestions, loadUnitSuggestions } from "@/lib/unit-suggestions";
 
@@ -56,6 +57,11 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
   const projectIds = new Set(projects.map((p) => p.id));
   const activities = (allActivities ?? []).filter((a) => projectIds.has(a.project_id));
   const sourcePlans = await loadActivitySourcePlans(supabase, activities);
+  // รายการตัดงบนอกระบบ (เจ้าหน้าที่บันทึก) นับเป็นเงินที่ใช้ไปแล้วของโครงการด้วย
+  const offsystemByProject = new Map<string, number>();
+  for (const o of await loadOffsystemRows(supabase, (projects ?? []).map((p) => p.id))) {
+    offsystemByProject.set(o.project_id, (offsystemByProject.get(o.project_id) ?? 0) + o.amount);
+  }
   const { data: savedSourceLines } = await supabase
     .from("proc_approval_sources")
     .select("budget_source_id, amount, sort_order")
@@ -80,7 +86,7 @@ export default async function EditApprovalPage({ params }: { params: Promise<{ i
     adminGroupId: p.admin_group_id,
   // งบโครงการ = ผลรวมงบรายกิจกรรม ถ้าโครงการไม่มีกิจกรรมเลยใช้งบระดับโครงการ (plan_projects.budget) แทน — ตรงกับหน้ารายงานโครงการ/จัดสรรงบ
     budget: budgetByProject.has(p.id) ? (budgetByProject.get(p.id) ?? 0) : Number(p.budget ?? 0),
-    approvedSoFar: approvedByProject.get(p.id) ?? 0,
+    approvedSoFar: (approvedByProject.get(p.id) ?? 0) + (offsystemByProject.get(p.id) ?? 0),
   }));
 
   const initial: ApprovalFormInitial = {

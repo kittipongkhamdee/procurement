@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
+import { loadOffsystemRows } from "@/lib/offsystem-spending";
 
 export type ActivitySourcePlan = { sourceId: string; name: string; allocated: number; used: number };
 
@@ -16,7 +17,7 @@ export async function loadActivitySourcePlans(
   const result = new Map<string, ActivitySourcePlan[]>();
   if (activities.length === 0) return result;
   const projectIds = [...new Set(activities.map((a) => a.project_id))];
-  const [{ data: splits }, { data: usage }] = await Promise.all([
+  const [{ data: splits }, { data: usage }, offsystem] = await Promise.all([
     supabase
       .from("plan_activity_sources")
       .select("activity_id, budget_source_id, amount, sort_order, plan_budget_sources(name)")
@@ -26,6 +27,7 @@ export async function loadActivitySourcePlans(
       .select("budget_source_id, amount, proc_approvals!inner(project_id, activity_name, status)")
       .eq("proc_approvals.status", "อนุมัติ")
       .in("proc_approvals.project_id", projectIds),
+    loadOffsystemRows(supabase, projectIds),
   ]);
   const used = new Map<string, number>(); // `${projectId}|${ชื่อกิจกรรม}|${sourceId}`
   for (const u of usage ?? []) {
@@ -33,6 +35,13 @@ export async function loadActivitySourcePlans(
     if (!ap?.project_id) continue;
     const key = `${ap.project_id}|${normActivityName(ap.activity_name)}|${u.budget_source_id}`;
     used.set(key, (used.get(key) ?? 0) + Number(u.amount ?? 0));
+  }
+  // รายการนอกระบบ: นับเข้าแหล่งเงินตามที่แบ่งไว้ (ไม่แบ่ง = ไม่นับแยกแหล่ง เพราะกิจกรรมที่ไม่มีการแบ่งแหล่งไม่มียอดรายแหล่ง)
+  for (const o of offsystem) {
+    for (const x of o.sources) {
+      const key = `${o.project_id}|${normActivityName(o.activity_name)}|${x.sourceId}`;
+      used.set(key, (used.get(key) ?? 0) + x.amount);
+    }
   }
   const byActivity = new Map<string, typeof splits>();
   for (const sp of splits ?? []) {

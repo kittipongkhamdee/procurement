@@ -3063,6 +3063,108 @@ export type Database = {
           },
         ]
       }
+      proc_offsystem_spending: {
+        Row: {
+          activity_id: string | null
+          activity_name: string | null
+          amount: number
+          category: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string | null
+          id: string
+          note: string | null
+          project_id: string
+          ref_doc: string | null
+          spend_date: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id?: string | null
+          activity_name?: string | null
+          amount: number
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          note?: string | null
+          project_id: string
+          ref_doc?: string | null
+          spend_date: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string | null
+          activity_name?: string | null
+          amount?: number
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string | null
+          id?: string
+          note?: string | null
+          project_id?: string
+          ref_doc?: string | null
+          spend_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_offsystem_spending_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_offsystem_spending_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "plan_activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proc_offsystem_spending_sources: {
+        Row: {
+          amount: number
+          budget_source_id: string
+          id: string
+          sort_order: number
+          spending_id: string
+        }
+        Insert: {
+          amount?: number
+          budget_source_id: string
+          id?: string
+          sort_order?: number
+          spending_id: string
+        }
+        Update: {
+          amount?: number
+          budget_source_id?: string
+          id?: string
+          sort_order?: number
+          spending_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_offsystem_spending_sources_spending_id_fkey"
+            columns: ["spending_id"]
+            isOneToOne: false
+            referencedRelation: "proc_offsystem_spending"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_offsystem_spending_sources_budget_source_id_fkey"
+            columns: ["budget_source_id"]
+            isOneToOne: false
+            referencedRelation: "plan_budget_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_purchase_items: {
         Row: {
           item_class: string | null
