@@ -10,6 +10,7 @@
 // "gdrive:") ถ้าเอา ref พวกนี้ไปยิง supabase.storage.createSignedUrls() ตรงๆ จะหา path ไม่เจอ (error)
 // แล้วถูก .filter((p) => p.url) กรองทิ้งเงียบๆ ทำให้รูปเดิมหายไปจากฟอร์มแก้ไข (และหายจริงถ้ากดบันทึก)
 
+import { loadOffsystemRows } from "@/lib/offsystem-spending";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -104,6 +105,10 @@ export default function EditProjectReportPage() {
         a.project_id,
         (approvedUsedByProjectId.get(a.project_id) ?? 0) + Number(a.requested_amount ?? 0),
       );
+    }
+    // รายการตัดงบนอกระบบ (เจ้าหน้าที่บันทึก) นับเป็นงบที่ใช้ไปจริงของโครงการด้วย
+    for (const o of await loadOffsystemRows(supabase)) {
+      approvedUsedByProjectId.set(o.project_id, (approvedUsedByProjectId.get(o.project_id) ?? 0) + o.amount);
     }
     setProjects(
       sortProjectsByGroup((projectRows ?? []).filter((p) => !reportYearId || p.budget_year_id === reportYearId).map((p) => {

@@ -4,6 +4,7 @@
 // ทำให้ popup อึดอัด) ดึงข้อมูลโครงการ + ตั้งค่า AI ที่จำเป็นสำหรับฟอร์มเอง เพราะเป็น route แยก
 // ไม่ได้รับ props มาจากหน้ารายการเหมือนตอนเป็น modal
 
+import { loadOffsystemRows } from "@/lib/offsystem-spending";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -66,6 +67,10 @@ export default function NewProjectReportPage() {
         a.project_id,
         (approvedUsedByProjectId.get(a.project_id) ?? 0) + Number(a.requested_amount ?? 0),
       );
+    }
+    // รายการตัดงบนอกระบบ (เจ้าหน้าที่บันทึก) นับเป็นงบที่ใช้ไปจริงของโครงการด้วย
+    for (const o of await loadOffsystemRows(supabase)) {
+      approvedUsedByProjectId.set(o.project_id, (approvedUsedByProjectId.get(o.project_id) ?? 0) + o.amount);
     }
     setProjects(
       sortProjectsByGroup((projectRows ?? []).map((p) => {

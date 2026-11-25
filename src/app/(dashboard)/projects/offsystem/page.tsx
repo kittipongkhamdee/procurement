@@ -15,6 +15,7 @@ import { loadProjectSpending } from "@/lib/project-spending";
 import { OFFSYSTEM_CATEGORIES } from "@/lib/offsystem-spending";
 import { confirmDelete, errorMessage, toastError, toastSuccess } from "@/lib/swal";
 import { formatThaiDate } from "@/lib/thai";
+import { ProcurementPhotosButton } from "../../supplies/procurement-photos";
 import { deleteOffsystem, saveOffsystem } from "./actions";
 
 type Source = { id: string; name: string };
@@ -32,6 +33,7 @@ type Entry = {
   ref_doc: string | null;
   note: string | null;
   created_by_name: string | null;
+  photoCount: number;
   sources: { sourceId: string; amount: number }[];
 };
 
@@ -278,7 +280,7 @@ export default function OffsystemPage() {
     );
     const { data: rows } = await supabase
       .from("proc_offsystem_spending")
-      .select("id, project_id, activity_id, activity_name, spend_date, category, amount, ref_doc, note, created_by_name, plan_projects(name), proc_offsystem_spending_sources(budget_source_id, amount, sort_order)")
+      .select("id, project_id, activity_id, activity_name, spend_date, category, amount, ref_doc, note, created_by_name, plan_projects(name), proc_offsystem_spending_sources(budget_source_id, amount, sort_order), proc_offsystem_photos(id)")
       .in("project_id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"])
       .order("spend_date", { ascending: false })
       .order("created_at", { ascending: false });
@@ -295,6 +297,7 @@ export default function OffsystemPage() {
         ref_doc: r.ref_doc,
         note: r.note,
         created_by_name: r.created_by_name,
+        photoCount: ((r.proc_offsystem_photos as unknown as { id: string }[]) ?? []).length,
         sources: [...((r.proc_offsystem_spending_sources as unknown as { budget_source_id: string; amount: number; sort_order: number }[]) ?? [])]
           .sort((a, b) => a.sort_order - b.sort_order)
           .map((x) => ({ sourceId: x.budget_source_id, amount: Number(x.amount ?? 0) })),
@@ -363,6 +366,7 @@ export default function OffsystemPage() {
                 <th>แหล่งเงิน</th>
                 <th className="text-right">จำนวนเงิน (บาท)</th>
                 <th>เอกสารอ้างอิง</th>
+                <th>หลักฐาน</th>
                 <th>ผู้บันทึก</th>
                 {isProcStaff && <th></th>}
               </tr>
@@ -384,6 +388,9 @@ export default function OffsystemPage() {
                     {e.ref_doc ?? "-"}
                     {e.note && <span className="block text-xs text-slate-500">{e.note}</span>}
                   </td>
+                  <td className="whitespace-nowrap">
+                    <ProcurementPhotosButton requestId={e.id} count={e.photoCount} canEdit={isProcStaff} onChanged={reload} kind="offsystem" />
+                  </td>
                   <td className="whitespace-nowrap text-sm text-slate-600">{e.created_by_name ?? "-"}</td>
                   {isProcStaff && (
                     <td className="whitespace-nowrap text-right">
@@ -399,7 +406,7 @@ export default function OffsystemPage() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={isProcStaff ? 8 : 7} className="table-empty">
+                  <td colSpan={isProcStaff ? 9 : 8} className="table-empty">
                     ยังไม่มีรายการตัดงบนอกระบบ
                   </td>
                 </tr>

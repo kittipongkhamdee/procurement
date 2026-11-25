@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { OFFSYSTEM_CATEGORIES } from "@/lib/offsystem-spending";
+import { deleteFromStorage } from "@/lib/storage";
 
 export type OffsystemInput = {
   project_id: string;
@@ -101,11 +102,43 @@ export async function saveOffsystem(id: string | null, input: OffsystemInput): P
 export async function deleteOffsystem(id: string): Promise<{ error?: string }> {
   const ctx = await requireStaff();
   if (!ctx) return { error: NO_PERMISSION };
+  // เก็บ ref ไฟล์หลักฐานไว้ก่อน (แถวรูปถูกลบตามรายการ) แล้วลบไฟล์จริงออกจากที่เก็บหลังลบรายการสำเร็จ
+  const { data: photos } = await ctx.supabase.from("proc_offsystem_photos").select("file_ref").eq("spending_id", id);
   const { data, error } = await ctx.supabase.from("proc_offsystem_spending").delete().eq("id", id).select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: "ไม่พบรายการ หรือไม่มีสิทธิ์ลบ" };
+  await Promise.all((photos ?? []).map((p) => deleteFromStorage(ctx.supabase, p.file_ref, "procurement-files").catch(() => {})));
   await ctx.supabase.rpc("proc_log_activity", { p_action: "delete", p_entity: "ตัดงบนอกระบบ", p_summary: "ลบรายการตัดงบนอกระบบ" }).then(undefined, () => undefined);
   revalidatePath("/projects/offsystem");
   revalidatePath("/projects");
+  return {};
+}
+
+// ---- ไฟล์หลักฐาน (รูปใบเสร็จ/เอกสารที่สแกนหรือถ่าย) — อัปโหลดตรงจาก browser แล้วบันทึก ref ที่นี่ ----
+
+export async function addOffsystemPhotos(spendingId: string, photos: { category: string; ref: string }[]): Promise<{ error?: string }> {
+  const ctx = await requireStaff();
+  if (!ctx) return { error: NO_PERMISSION };
+  const valid = photos.filter((p) => p.category.trim() && (/^gdrive:[\w-]+$/.test(p.ref) || /^procurement-photos\/[\w.-]+$/.test(p.ref)));
+  if (valid.length === 0) return { error: "ไม่มีรูปที่บันทึกได้" };
+  const { error } = await ctx.supabase
+    .from("proc_offsystem_photos")
+    .insert(valid.map((p) => ({ spending_id: spendingId, category: p.category.trim(), file_ref: p.ref })));
+  if (error) {
+    await Promise.all(valid.map((p) => deleteFromStorage(ctx.supabase, p.ref, "procurement-files").catch(() => {})));
+    return { error: error.message };
+  }
+  revalidatePath("/projects/offsystem");
+  return {};
+}
+
+export async function deleteOffsystemPhoto(id: string): Promise<{ error?: string }> {
+  const ctx = await requireStaff();
+  if (!ctx) return { error: NO_PERMISSION };
+  const { data, error } = await ctx.supabase.from("proc_offsystem_photos").delete().eq("id", id).select("file_ref");
+  if (error) return { error: error.message };
+  if (!data?.length) return { error: "ไม่พบไฟล์ หรือไม่มีสิทธิ์ลบ" };
+  await deleteFromStorage(ctx.supabase, data[0].file_ref, "procurement-files").catch(() => {});
+  revalidatePath("/projects/offsystem");
   return {};
 }

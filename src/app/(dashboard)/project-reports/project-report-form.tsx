@@ -21,7 +21,7 @@ export type Project = {
   id: string;
   name: string;
   budget: number | null;
-  /** ผลรวม requested_amount จากบันทึกขออนุมัติ (เมนู "บันทึกขออนุมัติ") ที่สถานะ "อนุมัติ" ของโครงการนี้ */
+  /** ผลรวม requested_amount จากบันทึกขออนุมัติ (เมนู "บันทึกขออนุมัติ") ที่สถานะ "อนุมัติ" ของโครงการนี้ + รายการตัดงบนอกระบบที่เจ้าหน้าที่บันทึก */
   budgetUsedApproved: number | null;
   strategyAlignment: string | null;
   standard: string | null;

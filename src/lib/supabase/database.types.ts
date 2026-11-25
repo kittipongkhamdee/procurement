@@ -3063,6 +3063,38 @@ export type Database = {
           },
         ]
       }
+      proc_offsystem_photos: {
+        Row: {
+          category: string
+          created_at: string
+          file_ref: string
+          id: string
+          spending_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          file_ref: string
+          id?: string
+          spending_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          file_ref?: string
+          id?: string
+          spending_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_offsystem_photos_spending_id_fkey"
+            columns: ["spending_id"]
+            isOneToOne: false
+            referencedRelation: "proc_offsystem_spending"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_offsystem_spending: {
         Row: {
           activity_id: string | null
