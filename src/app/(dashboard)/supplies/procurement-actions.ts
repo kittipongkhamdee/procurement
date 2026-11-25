@@ -13,7 +13,8 @@ import { deleteFromStorage } from "@/lib/storage";
 import { computeTotals, parseVatType } from "@/lib/vat";
 
 type Result = { error?: string; id?: string; docNo?: string | null };
-type ItemInput = { name: string; qty: string; unit: string; unitPrice: string; itemClass?: string };
+type ItemInput = { name: string; qty: string; unit: string; unitPrice: string; itemClass?: string; vendorSeq?: string };
+type ExtraVendorInput = { vendorId: string; receiptType?: string; receiptBook?: string; receiptNo?: string; receiptDate?: string };
 
 const NO_PERMISSION = "ไม่มีสิทธิ์ดำเนินการ หรือไม่พบข้อมูล";
 
@@ -38,6 +39,27 @@ function parse(formData: FormData) {
     return { error: "รายการไม่ถูกต้อง" };
   }
   if (items.length === 0) return { error: "กรุณากรอกรายการอย่างน้อย 1 รายการ" };
+  // ว 804: ซื้อจากหลายร้านค้าในครั้งเดียว — ร้านที่ 1 = ช่องร้านค้าหลัก, ร้านที่ 2.. = รายการเพิ่มเติม (extra_vendors_json)
+  let extras: ExtraVendorInput[] = [];
+  try {
+    extras = (JSON.parse(str("extra_vendors_json") || "[]") as ExtraVendorInput[]).filter((x) => x && typeof x === "object");
+  } catch {
+    return { error: "ข้อมูลร้านค้าเพิ่มเติมไม่ถูกต้อง" };
+  }
+  if (str("method") !== "w804") extras = [];
+  if (extras.some((x) => !x.vendorId)) return { error: "กรุณาเลือกร้านค้าให้ครบทุกร้านที่เพิ่ม" };
+  const vendorIds = [str("vendor_id"), ...extras.map((x) => x.vendorId)].filter(Boolean);
+  if (new Set(vendorIds).size !== vendorIds.length) return { error: "เลือกร้านค้าซ้ำกัน" };
+  const vendorCount = extras.length + 1;
+  items = items.map((i) => {
+    const n = Math.round(Number(i.vendorSeq) || 1);
+    return { ...i, vendorSeq: String(n >= 1 && n <= vendorCount ? n : 1) };
+  });
+  if (extras.length > 0) {
+    for (let v = 1; v <= vendorCount; v++) {
+      if (!items.some((i) => i.vendorSeq === String(v))) return { error: `ร้านค้าที่ ${v} ยังไม่มีรายการที่ซื้อ — กำหนดร้านของแต่ละรายการ หรือลบร้านที่ไม่ได้ใช้ออก` };
+    }
+  }
   const subtotal = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitPrice) || 0), 0);
   const vatType = parseVatType(str("vat_type"));
   const discount = Math.max(Number(str("discount")) || 0, 0);
@@ -112,6 +134,7 @@ function parse(formData: FormData) {
       amount,
     },
     items,
+    extras,
   };
 }
 
@@ -127,6 +150,26 @@ async function replaceItems(supabase: Awaited<ReturnType<typeof createClient>>, 
       unit: i.unit?.trim() || null,
       unit_price: i.unitPrice ? Number(i.unitPrice) : null,
       item_class: parseItemClass(i.itemClass),
+      vendor_seq: Math.max(1, Number(i.vendorSeq) || 1),
+    })),
+  );
+  return error?.message ?? null;
+}
+
+/** ร้านค้าเพิ่มเติม (ร้านที่ 2 เป็นต้นไป) ของ ว 804 — แทนที่ทั้งชุด */
+async function replaceExtraVendors(supabase: Awaited<ReturnType<typeof createClient>>, requestId: string, extras: ExtraVendorInput[]) {
+  const { error: delError } = await supabase.from("proc_purchase_vendors").delete().eq("purchase_request_id", requestId);
+  if (delError) return delError.message;
+  if (extras.length === 0) return null;
+  const { error } = await supabase.from("proc_purchase_vendors").insert(
+    extras.map((x, idx) => ({
+      purchase_request_id: requestId,
+      seq: idx + 2,
+      vendor_id: x.vendorId,
+      receipt_type: x.receiptType?.trim() || null,
+      receipt_book: x.receiptBook?.trim() || null,
+      receipt_no: x.receiptNo?.trim() || null,
+      receipt_date: x.receiptDate?.trim() || null,
     })),
   );
   return error?.message ?? null;
@@ -171,6 +214,8 @@ export async function createProcurement(formData: FormData): Promise<Result> {
   if (error || !data) return { error: error?.message ?? "บันทึกไม่สำเร็จ" };
   const itemError = await replaceItems(supabase, data.id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
+  const vendorError = await replaceExtraVendors(supabase, data.id, parsed.extras);
+  if (vendorError) return { error: `บันทึกแล้ว แต่บันทึกร้านค้าเพิ่มเติมไม่สำเร็จ: ${vendorError}` };
   await rememberPosition(supabase, parsed.fields.inspector_name, parsed.fields.inspector_position);
   return { ...done(data.id), docNo };
 }
@@ -195,6 +240,8 @@ export async function updateProcurement(id: string, formData: FormData): Promise
   if (!data?.length) return { error: NO_PERMISSION };
   const itemError = await replaceItems(supabase, id, parsed.items);
   if (itemError) return { error: `บันทึกแล้ว แต่บันทึกรายการไม่สำเร็จ: ${itemError}` };
+  const vendorError = await replaceExtraVendors(supabase, id, parsed.extras);
+  if (vendorError) return { error: `บันทึกแล้ว แต่บันทึกร้านค้าเพิ่มเติมไม่สำเร็จ: ${vendorError}` };
   await rememberPosition(supabase, parsed.fields.inspector_name, parsed.fields.inspector_position);
   return done();
 }

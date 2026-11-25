@@ -16,11 +16,17 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
     .maybeSingle();
   if (!pr) return null;
 
-  const [{ data: items }, { data: settings }, { data: school }, { data: requisition }] = await Promise.all([
-    supabase.from("proc_purchase_items").select("name, qty, unit, unit_price, total, item_class").eq("purchase_request_id", id).order("seq"),
+  const [{ data: items }, { data: settings }, { data: school }, { data: requisition }, { data: extraVendors }] = await Promise.all([
+    supabase.from("proc_purchase_items").select("name, qty, unit, unit_price, total, item_class, vendor_seq").eq("purchase_request_id", id).order("seq"),
     supabase.from("proc_app_settings").select("key, value").in("key", SETTING_KEYS),
     supabase.from("proc_school_settings").select("school_name, school_address, education_area").eq("id", true).maybeSingle(),
     supabase.from("proc_stock_requisitions").select("doc_no").eq("source_type", "purchase").eq("source_id", id).order("created_at").limit(1).maybeSingle(),
+    // ว 804 ซื้อหลายร้านค้า: ร้านที่ 2 เป็นต้นไป (ร้านที่ 1 = proc_vendors ของรายงานเอง)
+    supabase
+      .from("proc_purchase_vendors")
+      .select("seq, receipt_type, receipt_book, receipt_no, receipt_date, proc_vendors(name, house_no, moo, tambon, amphoe, province, phone, tax_id)")
+      .eq("purchase_request_id", id)
+      .order("seq"),
   ]);
   const s = new Map((settings ?? []).map((r) => [r.key, r.value]));
 
@@ -47,6 +53,14 @@ export async function buildProcurementSetData(supabase: Supabase, id: string): P
     inspector_name: pr.inspector_name,
     inspector_position: pr.inspector_position,
     vendor: pr.proc_vendors as unknown as ProcurementSetData["vendor"],
+    extra_vendors: (extraVendors ?? []).map((e) => ({
+      seq: e.seq,
+      vendor: e.proc_vendors as unknown as ProcurementSetData["vendor"],
+      receipt_type: e.receipt_type,
+      receipt_book: e.receipt_book,
+      receipt_no: e.receipt_no,
+      receipt_date: e.receipt_date,
+    })),
     items: (items ?? []).map((i) => ({ ...i, qty: i.qty != null ? Number(i.qty) : null, unit_price: i.unit_price != null ? Number(i.unit_price) : null, total: i.total != null ? Number(i.total) : null })),
     school_name: school?.school_name ?? "โรงเรียนตาเบาวิทยา",
     school_address: school?.school_address ?? null,

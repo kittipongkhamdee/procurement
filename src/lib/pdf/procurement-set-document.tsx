@@ -82,7 +82,9 @@ export type ProcurementSetData = {
     phone: string | null;
     tax_id: string | null;
   } | null;
-  items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null; item_class?: string | null }[];
+  items: { name: string | null; qty: number | null; unit: string | null; unit_price: number | null; total: number | null; item_class?: string | null; /** ว 804 หลายร้านค้า: 1 = ร้านค้าหลัก */ vendor_seq?: number | null }[];
+  /** ว 804 ซื้อหลายร้านค้า: ร้านที่ 2 เป็นต้นไป พร้อมหลักฐานการรับเงินของแต่ละร้าน */
+  extra_vendors?: { seq: number; vendor: ProcurementSetData["vendor"]; receipt_type: string | null; receipt_book: string | null; receipt_no: string | null; receipt_date: string | null }[];
   /** เลขที่ใบเบิกที่บันทึกไว้ในบัญชีวัสดุ (ยังไม่บันทึก = เว้นว่างให้เขียน) */
   requisition_doc_no?: string | null;
   /** ออกใบเบิกในบัญชีวัสดุแล้ว — ยังไม่ออก = ไม่พิมพ์แผ่นใบเบิกพัสดุ */
@@ -333,6 +335,20 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
   const officer = d.procurement_officer;
   const head = d.procurement_head;
   const itemRows = d.items.map((it, i) => ({ ...it, seq: i + 1 }));
+  // ว 804 ซื้อหลายร้านค้า — แยกรายการ/จำนวนเงินตามร้าน (ร้านเดียว = พิมพ์แบบเดิม)
+  const multiVendor = d.method === "w804" && (d.extra_vendors?.length ?? 0) > 0;
+  const vendorGroups = multiVendor
+    ? [
+        { seq: 1, vendor: d.vendor, receipt: { type: d.receipt_type ?? null, book: d.receipt_book, no: d.receipt_no, date: d.receipt_date } },
+        ...(d.extra_vendors ?? []).map((e) => ({ seq: e.seq, vendor: e.vendor, receipt: { type: e.receipt_type, book: e.receipt_book, no: e.receipt_no, date: e.receipt_date } })),
+      ].map((g) => {
+        const rows = itemRows.filter((it) => (it.vendor_seq ?? 1) === g.seq);
+        const sum = rows.reduce((acc, it) => acc + (it.total ?? (it.qty ?? 0) * (it.unit_price ?? 0)), 0);
+        return { ...g, rows, sum };
+      })
+    : [];
+  const receiptPhrase = (r: { type: string | null; book: string | null; no: string | null; date: string | null }) =>
+    `${r.type?.trim() || "ใบเสร็จรับเงิน"} เล่มที่ ${r.book ?? "......"} เลขที่ ${r.no ?? "......"} ลงวันที่ ${r.date ? formatThaiDate(r.date) : "......"}`;
   const L = PAGE_W / 2 - PAD_LEFT;
   // ผู้ลงนามสั่งซื้อ/สั่งจ้าง เลือกได้ระหว่างหัวหน้าเจ้าหน้าที่ (ค่าเริ่มต้น) กับผู้อำนวยการโรงเรียน
   const orderer =
@@ -865,6 +881,34 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             text={`ตามที่ผู้อำนวยการ${school} เห็นชอบให้ดำเนินการซื้อ ${d.item_name} จำนวน ${d.items.length} รายการ สำหรับโครงการ/กิจกรรม ${plan || "-"} โดยวิธีเฉพาะเจาะจง ประจำปีงบประมาณ พ.ศ. ${fy} นั้น`}
           />
           <Para keep={keep} text={`เจ้าหน้าที่ผู้รับผิดชอบได้ดำเนินการจัดซื้อกับผู้ประกอบการโดยตรงตาม${W804_REF} ขอรายงานผลการดำเนินการ ดังนี้`} />
+          {multiVendor ? (
+            <>
+              {vendorGroups.map((g) => (
+                <View key={g.seq} wrap={false}>
+                  <Text style={{ marginLeft: INDENT }}>{t(`ร้านค้าที่ ${g.seq} ชื่อผู้ประกอบการ ${g.vendor?.name ?? ".............................."}`)}</Text>
+                  <Text style={{ marginLeft: INDENT, marginBottom: 4 }}>{t("รายการ จำนวน และจำนวนเงินที่ได้จัดซื้อ")}</Text>
+                  <ItemTable
+                    cols={[
+                      { label: ["ที่"], width: 26, align: "center" },
+                      { label: ["รายการจัดซื้อ"] },
+                      { label: ["จำนวน"], width: 50, align: "center" },
+                      { label: ["หน่วยนับ"], width: 56, align: "center" },
+                      { label: ["ราคา", "ต่อหน่วย"], width: 66, align: "right" },
+                      { label: ["จำนวนเงิน"], width: 76, align: "right" },
+                    ]}
+                    minRows={0}
+                    rows={g.rows.map((it, k) => [String(k + 1), it.name ?? "", num(it.qty), it.unit ?? "", num(it.unit_price), num(it.total ?? (it.qty ?? 0) * (it.unit_price ?? 0))])}
+                    totalLabel={`รวมเป็นเงิน  ( ${thaiBahtText(g.sum).replace(/^\(|\)$/g, "")} )`}
+                    total={formatBaht(g.sum)}
+                  />
+                </View>
+              ))}
+              <Text style={{ marginLeft: INDENT, marginBottom: 4 }}>{t(`รวมการจัดซื้อจาก ${vendorGroups.length} ร้านค้า เป็นเงินทั้งสิ้น ${amount} บาท ${amountText}`)}</Text>
+              {breakdownNote}
+              <Text style={{ fontSize: FS_SMALL, marginLeft: INDENT, marginBottom: 6 }}>{t(vatType === "none" ? "**ซึ่งเป็นราคาที่รวมค่าใช้จ่ายทั้งปวงไว้แล้ว" : "**ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่มและค่าใช้จ่ายทั้งปวงไว้แล้วด้วย")}</Text>
+            </>
+          ) : (
+            <>
           <Text style={{ marginLeft: INDENT }}>{t(`ชื่อผู้ประกอบการ ${vendorName}`)}</Text>
           <Text style={{ marginLeft: INDENT, marginBottom: 4 }}>{t("รายการ จำนวน และจำนวนเงินที่ได้จัดซื้อ")}</Text>
           <ItemTable
@@ -883,6 +927,8 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
             note={breakdownNote}
             footer={<Text style={{ fontSize: FS_SMALL }}>{t(vatType === "none" ? "**ซึ่งเป็นราคาที่รวมค่าใช้จ่ายทั้งปวงไว้แล้ว" : "**ซึ่งเป็นราคาที่รวมภาษีมูลค่าเพิ่มและค่าใช้จ่ายทั้งปวงไว้แล้วด้วย")}</Text>}
           />
+            </>
+          )}
           {/* ย่อหน้าผลการจัดซื้อจนถึงส่วนลงชื่อ ไม่แยกหน้า — ล้นหน้าให้ขึ้นหน้าใหม่ทั้งก้อน */}
           <View wrap={false}>
             <Para
@@ -891,8 +937,10 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
                 d.funding === "loan"
                   ? `เงินยืมตามสัญญา เลขที่ ${d.loan_contract_no ?? "......"} ลงวันที่ ${d.loan_date ? formatThaiDate(d.loan_date) : "......"}`
                   : "เงินสดสำรองจ่าย"
-              } ชำระให้ผู้ขายเรียบร้อยแล้ว ตามหลักฐานการรับเงิน ${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"} เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${
-                d.receipt_date ? formatThaiDate(d.receipt_date) : "......"
+              } ชำระให้ผู้ขายเรียบร้อยแล้ว ตามหลักฐานการรับเงิน ${
+                multiVendor
+                  ? vendorGroups.map((g) => `ร้านค้าที่ ${g.seq} ${receiptPhrase(g.receipt)}`).join(" / ")
+                  : receiptPhrase({ type: d.receipt_type ?? null, book: d.receipt_book, no: d.receipt_no, date: d.receipt_date })
               } และได้รับมอบพัสดุไว้ครบถ้วนเรียบร้อยแล้ว เมื่อวันที่ ${d.delivered_date ? formatThaiDate(d.delivered_date) : "......"}`}
             />
             <Sign role="ผู้ตรวจรับพัสดุ (ผู้ได้รับมอบหมาย)" name={d.inspector_name} style={{ marginLeft: L - 50, marginTop: 4 }} />
@@ -912,23 +960,32 @@ export function ProcurementSetDocument({ data: d, sheets }: { data: ProcurementS
         </Page>
       )}
 
-      {show("w804_receipt") && (
-        <Page size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
-          <Text style={[styles.title, { marginBottom: 10 }]}>{t(`ใบติด${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"}`)}</Text>
-          <View style={{ height: 300, borderWidth: B, borderStyle: "dashed", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <Text style={{ color: "#94a3b8" }}>{t(`ติด${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"}`)}</Text>
-          </View>
-          <Para
-            keep={keep}
-            text={`จำนวนเงินตาม${d.receipt_type?.trim() || "ใบเสร็จรับเงิน"} เล่มที่ ${d.receipt_book ?? "......"} เลขที่ ${d.receipt_no ?? "......"} ลงวันที่ ${d.receipt_date ? formatThaiDate(d.receipt_date) : "......"}`}
-          />
-          <Para
-            keep={keep}
-            text={`ข้าพเจ้าได้ทดรองจ่ายไปก่อนแล้ว เป็นจำนวนเงิน ${amount} บาท ${amountText} และได้รับมอบพัสดุไว้ครบถ้วนถูกต้องแล้ว ข้าพเจ้าขอเบิกเงินจัดซื้อ ${d.item_name} โดยวิธีเฉพาะเจาะจง จำนวนเงิน ${amount} บาท ${amountText}`}
-          />
-          <Sign role="ผู้ขอเบิก" name={d.inspector_name} extra={[`ตำแหน่ง ${d.inspector_position ?? "......................"}`]} style={{ marginLeft: L, marginTop: 20 }} />
-        </Page>
-      )}
+      {show("w804_receipt") &&
+        (multiVendor ? vendorGroups : [null]).map((g, gi) => {
+          const rType = (g ? g.receipt.type : d.receipt_type)?.trim() || "ใบเสร็จรับเงิน";
+          const rBook = g ? g.receipt.book : d.receipt_book;
+          const rNo = g ? g.receipt.no : d.receipt_no;
+          const rDate = g ? g.receipt.date : d.receipt_date;
+          const payAmount = g ? formatBaht(g.sum) : amount;
+          const payText = g ? thaiBahtText(g.sum) : amountText;
+          return (
+            <Page key={`w804-receipt-${gi}`} size="A4" style={[styles.page, { paddingTop: 2 * CM }]}>
+              <Text style={[styles.title, { marginBottom: 10 }]}>{t(`ใบติด${rType}${g ? ` (ร้านค้าที่ ${g.seq})` : ""}`)}</Text>
+              <View style={{ height: 300, borderWidth: B, borderStyle: "dashed", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                <Text style={{ color: "#94a3b8" }}>{t(`ติด${rType}`)}</Text>
+              </View>
+              <Para
+                keep={keep}
+                text={`จำนวนเงินตาม${rType} เล่มที่ ${rBook ?? "......"} เลขที่ ${rNo ?? "......"} ลงวันที่ ${rDate ? formatThaiDate(rDate) : "......"}${g ? ` ของ ${g.vendor?.name ?? "......"}` : ""}`}
+              />
+              <Para
+                keep={keep}
+                text={`ข้าพเจ้าได้ทดรองจ่ายไปก่อนแล้ว เป็นจำนวนเงิน ${payAmount} บาท ${payText} และได้รับมอบพัสดุไว้ครบถ้วนถูกต้องแล้ว ข้าพเจ้าขอเบิกเงินจัดซื้อ ${d.item_name} โดยวิธีเฉพาะเจาะจง จำนวนเงิน ${payAmount} บาท ${payText}`}
+              />
+              <Sign role="ผู้ขอเบิก" name={d.inspector_name} extra={[`ตำแหน่ง ${d.inspector_position ?? "......................"}`]} style={{ marginLeft: L, marginTop: 20 }} />
+            </Page>
+          );
+        })}
       {show("requisition") && (
         <RequisitionPage
           data={{

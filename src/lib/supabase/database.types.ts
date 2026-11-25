@@ -3012,6 +3012,57 @@ export type Database = {
           },
         ]
       }
+      proc_purchase_vendors: {
+        Row: {
+          created_at: string
+          id: string
+          purchase_request_id: string
+          receipt_book: string | null
+          receipt_date: string | null
+          receipt_no: string | null
+          receipt_type: string | null
+          seq: number
+          vendor_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          purchase_request_id: string
+          receipt_book?: string | null
+          receipt_date?: string | null
+          receipt_no?: string | null
+          receipt_type?: string | null
+          seq: number
+          vendor_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          purchase_request_id?: string
+          receipt_book?: string | null
+          receipt_date?: string | null
+          receipt_no?: string | null
+          receipt_type?: string | null
+          seq?: number
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proc_purchase_vendors_purchase_request_id_fkey"
+            columns: ["purchase_request_id"]
+            isOneToOne: false
+            referencedRelation: "proc_purchase_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proc_purchase_vendors_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "proc_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proc_purchase_items: {
         Row: {
           item_class: string | null
@@ -3023,6 +3074,7 @@ export type Database = {
           total: number | null
           unit: string | null
           unit_price: number | null
+          vendor_seq: number
         }
         Insert: {
           item_class?: string | null
@@ -3034,6 +3086,7 @@ export type Database = {
           total?: number | null
           unit?: string | null
           unit_price?: number | null
+          vendor_seq?: number
         }
         Update: {
           item_class?: string | null
@@ -3045,6 +3098,7 @@ export type Database = {
           total?: number | null
           unit?: string | null
           unit_price?: number | null
+          vendor_seq?: number
         }
         Relationships: [
           {

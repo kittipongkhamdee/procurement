@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ReceiptTypeSelect } from "@/components/receipt-type-select";
+import { RECEIPT_TYPES } from "@/lib/w119";
 import { approvalUsage } from "@/lib/approval-budget";
 import { useAuth } from "@/lib/AuthContext";
 import { formatThaiDate } from "@/lib/thai";
@@ -188,6 +189,10 @@ function ProcurementModal({
     await toastSuccess(`ดึงรายการวัสดุ ${rows.length} รายการแล้ว`);
   }
   const [items, setItems] = useState<ItemRow[]>([{ ...EMPTY_ITEM_ROW }]);
+  // ว 804 ซื้อหลายร้านค้าในครั้งเดียว: ร้านที่ 1 = ช่องร้านค้าหลักด้านล่าง, ร้านที่ 2 เป็นต้นไป = รายการนี้ (แต่ละร้านมีหลักฐานการรับเงินของตัวเอง)
+  const [extraVendors, setExtraVendors] = useState<ExtraVendorRow[]>([]);
+  const [primaryVendorId, setPrimaryVendorId] = useState(request?.vendor_id ?? "");
+  const vendorLabel = (id: string) => lookups.vendors.find((v) => v.id === id)?.name ?? "";
   const [itemsLoaded, setItemsLoaded] = useState(!request);
   const [recordDate, setRecordDate] = useState<string | null>(request?.record_date ?? null);
   const [deliveryDate, setDeliveryDate] = useState<string | null>(request?.delivery_date ?? null);
@@ -216,7 +221,7 @@ function ProcurementModal({
     setItemsLoaded(true);
     createClient()
       .from("proc_purchase_items")
-      .select("name, qty, unit, unit_price, item_class")
+      .select("name, qty, unit, unit_price, item_class, vendor_seq")
       .eq("purchase_request_id", request.id)
       .order("seq")
       .then(({ data }) => {
@@ -230,9 +235,29 @@ function ProcurementModal({
               note: "",
               // รายการเดิม: null = ยังไม่เคยเลือก (ให้ระบบเสนอ) — งานจ้างที่บันทึกแล้วถือว่าไม่เข้าคลัง
               itemClass: (r.item_class as ItemRow["itemClass"]) ?? "",
+              vendorSeq: String(r.vendor_seq ?? 1),
             })),
           );
       });
+  }
+
+  async function loadExtraVendors() {
+    if (!request || !w804) return;
+    const { data } = await createClient()
+      .from("proc_purchase_vendors")
+      .select("seq, vendor_id, receipt_type, receipt_book, receipt_no, receipt_date")
+      .eq("purchase_request_id", request.id)
+      .order("seq");
+    setExtraVendors(
+      (data ?? []).map((r) => ({
+        key: `v${r.seq}`,
+        vendorId: r.vendor_id,
+        receiptType: r.receipt_type ?? "ใบเสร็จรับเงิน",
+        receiptBook: r.receipt_book ?? "",
+        receiptNo: r.receipt_no ?? "",
+        receiptDate: r.receipt_date ?? null,
+      })),
+    );
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -254,6 +279,19 @@ function ProcurementModal({
     const formData = new FormData(form);
     // บันทึกประเภทที่ใช้จริง (ที่ระบบเสนอหรือผู้ใช้เลือก) — ไม่เข้าคลังเก็บเป็น null
     formData.set("items_json", JSON.stringify(filled.map((r) => ({ ...r, itemClass: effectiveItemClass(r, type === "จ้าง") }))));
+    if (w804 && extraVendors.length > 0) {
+      if (extraVendors.some((x) => !x.vendorId)) {
+        await toastError("กรุณาเลือกร้านค้าให้ครบทุกร้านที่เพิ่ม (หรือลบร้านที่ไม่ได้ใช้ออก)");
+        return;
+      }
+      for (let v = 1; v <= extraVendors.length + 1; v++) {
+        if (!filled.some((r) => Number(r.vendorSeq || 1) === v)) {
+          await toastError(`ร้านค้าที่ ${v} ยังไม่มีรายการที่ซื้อ — กำหนดร้านของแต่ละรายการในส่วน "รายการที่ซื้อจากแต่ละร้าน"`);
+          return;
+        }
+      }
+    }
+    formData.set("extra_vendors_json", JSON.stringify(w804 ? extraVendors.map((x) => ({ vendorId: x.vendorId, receiptType: x.receiptType, receiptBook: x.receiptBook, receiptNo: x.receiptNo, receiptDate: x.receiptDate ?? "" })) : []));
     const equipmentNames = filled.filter((r) => effectiveItemClass(r, type === "จ้าง") === "equipment").map((r) => r.name.trim());
     const materialNames = filled.filter((r) => effectiveItemClass(r, type === "จ้าง") === "material").map((r) => r.name.trim());
     setSaving(true);
@@ -267,6 +305,8 @@ function ProcurementModal({
       if (!request) {
         form.reset();
         setItems([{ ...EMPTY_ITEM_ROW }]);
+        setExtraVendors([]);
+        setPrimaryVendorId("");
         setProjectId("");
         setRecordDate(null);
         setDeliveryDate(null);
@@ -295,7 +335,12 @@ function ProcurementModal({
       title={request ? `แก้ไขรายงานขอ${type}${w804 ? " (ว 804)" : ""} ${request.doc_no}` : `บันทึกรายงานขอ${type}${w804 ? " (ว 804)" : ""}ใหม่`}
       wide
       lazy
-      onOpenChange={(open) => open && loadItems()}
+      onOpenChange={(open) => {
+        if (open) {
+          loadItems();
+          loadExtraVendors();
+        }
+      }}
       trigger={
         request ? (
           <span title="แก้ไข" className="btn-secondary btn-sm">
@@ -476,8 +521,16 @@ function ProcurementModal({
             </div>
             <p className="text-xs text-slate-500 sm:col-span-2">กรอกส่วนด้านล่างหลังซื้อเสร็จ (ใช้ในรายงานสรุปผลการจัดซื้อและใบติดใบเสร็จรับเงิน)</p>
             <div className="sm:col-span-2">
-              <label className="label">ร้านค้า / ผู้ขาย</label>
-              <select name="vendor_id" defaultValue={request?.vendor_id ?? ""} onChange={(e) => onVendorChange(e.target.value)} className="input w-full">
+              <label className="label">{extraVendors.length > 0 ? "ร้านค้าที่ 1 (ร้านค้าหลัก)" : "ร้านค้า / ผู้ขาย"}</label>
+              <select
+                name="vendor_id"
+                defaultValue={request?.vendor_id ?? ""}
+                onChange={(e) => {
+                  setPrimaryVendorId(e.target.value);
+                  onVendorChange(e.target.value);
+                }}
+                className="input w-full"
+              >
                 <option value="">-- เลือกจากรายชื่อร้านค้า/ผู้ขาย --</option>
                 {lookups.vendors.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -506,6 +559,104 @@ function ProcurementModal({
             <div>
               <label className="label">วันที่ได้รับมอบพัสดุ</label>
               <ThaiDatePicker name="delivered_date" defaultValue={request?.delivered_date ?? null} />
+            </div>
+            <div className="sm:col-span-2 space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-navy-800">ซื้อจากหลายร้านค้าในครั้งเดียว</span>
+                <button
+                  type="button"
+                  onClick={() => setExtraVendors((rows) => [...rows, { key: `n${Date.now()}`, vendorId: "", receiptType: "ใบเสร็จรับเงิน", receiptBook: "", receiptNo: "", receiptDate: null }])}
+                  className="btn-secondary btn-sm"
+                >
+                  + เพิ่มร้านค้า
+                </button>
+              </div>
+              <p className="text-xs text-slate-500">
+                ยอดรวมทุกร้านต้องไม่เกิน 50,000 บาท — แต่ละร้านมีหลักฐานการรับเงินของตัวเอง (ร้านที่ 1 ใช้ช่องด้านบน) และรายงานสรุปผลจะแยกรายการ/จำนวนเงินตามร้าน
+              </p>
+              {extraVendors.map((x, idx) => (
+                <div key={x.key} className="grid grid-cols-1 gap-2 rounded-md border border-slate-200 bg-white p-3 sm:grid-cols-2">
+                  <div className="flex items-center justify-between sm:col-span-2">
+                    <span className="text-sm font-medium text-slate-700">ร้านค้าที่ {idx + 2}</span>
+                    <button type="button" onClick={() => setExtraVendors((rows) => rows.filter((r) => r.key !== x.key))} className="btn-danger btn-sm">
+                      ลบร้านนี้
+                    </button>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">ร้านค้า / ผู้ขาย</label>
+                    <select
+                      value={x.vendorId}
+                      onChange={(e) => setExtraVendors((rows) => rows.map((r) => (r.key === x.key ? { ...r, vendorId: e.target.value } : r)))}
+                      className="input w-full"
+                    >
+                      <option value="">-- เลือกจากรายชื่อร้านค้า/ผู้ขาย --</option>
+                      {lookups.vendors.map((v) => (
+                        <option key={v.id} value={v.id} disabled={v.id !== x.vendorId && (v.id === primaryVendorId || extraVendors.some((r) => r.vendorId === v.id))}>
+                          {v.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">หลักฐานการรับเงิน</label>
+                    <select
+                      value={x.receiptType}
+                      onChange={(e) => setExtraVendors((rows) => rows.map((r) => (r.key === x.key ? { ...r, receiptType: e.target.value } : r)))}
+                      className="input w-full"
+                    >
+                      {[...new Set([x.receiptType, ...RECEIPT_TYPES])].map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">ลงวันที่ (หลักฐาน)</label>
+                    <ThaiDatePicker value={x.receiptDate} onChange={(iso) => setExtraVendors((rows) => rows.map((r) => (r.key === x.key ? { ...r, receiptDate: iso } : r)))} />
+                  </div>
+                  <div>
+                    <label className="label">เล่มที่</label>
+                    <input value={x.receiptBook} onChange={(e) => setExtraVendors((rows) => rows.map((r) => (r.key === x.key ? { ...r, receiptBook: e.target.value } : r)))} className="input w-full" />
+                  </div>
+                  <div>
+                    <label className="label">เลขที่</label>
+                    <input value={x.receiptNo} onChange={(e) => setExtraVendors((rows) => rows.map((r) => (r.key === x.key ? { ...r, receiptNo: e.target.value } : r)))} className="input w-full" />
+                  </div>
+                </div>
+              ))}
+              {extraVendors.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-navy-800">รายการที่ซื้อจากแต่ละร้าน</p>
+                  {items.map((r, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_auto] items-center gap-2 sm:grid-cols-[1fr_16rem]">
+                      <span className="truncate text-sm text-slate-700">
+                        {i + 1}. {r.name.trim() || "(ยังไม่กรอกชื่อรายการ)"}
+                        <span className="ml-2 tabular-nums text-slate-500">{formatBaht((parseFloat(r.qty) || 0) * (parseFloat(r.unitPrice) || 0))}</span>
+                      </span>
+                      <select
+                        value={r.vendorSeq || "1"}
+                        onChange={(e) => setItems((rows) => rows.map((x, k) => (k === i ? { ...x, vendorSeq: e.target.value } : x)))}
+                        className="input w-full text-sm"
+                        aria-label={`ร้านค้าของรายการที่ ${i + 1}`}
+                      >
+                        <option value="1">ร้านที่ 1 {vendorLabel(primaryVendorId) ? `· ${vendorLabel(primaryVendorId)}` : ""}</option>
+                        {extraVendors.map((x, idx) => (
+                          <option key={x.key} value={String(idx + 2)}>
+                            ร้านที่ {idx + 2} {vendorLabel(x.vendorId) ? `· ${vendorLabel(x.vendorId)}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-500">
+                    ยอดแยกตามร้าน (ก่อนส่วนลด/ภาษีรวม):{" "}
+                    {[1, ...extraVendors.map((_, idx) => idx + 2)]
+                      .map((n) => `ร้านที่ ${n} ${formatBaht(items.filter((r) => Number(r.vendorSeq || 1) === n).reduce((s, r) => s + (parseFloat(r.qty) || 0) * (parseFloat(r.unitPrice) || 0), 0))}`)
+                      .join(" · ")}
+                  </p>
+                </div>
+              )}
             </div>
             <div>
               <label className="label">ชำระเงินโดย</label>
@@ -654,6 +805,8 @@ function ProcurementModal({
     </Modal>
   );
 }
+
+type ExtraVendorRow = { key: string; vendorId: string; receiptType: string; receiptBook: string; receiptNo: string; receiptDate: string | null };
 
 const PAGE_SIZE = 20;
 const W804_LIMIT = 50000;

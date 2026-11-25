@@ -9,7 +9,7 @@ import type { ItemDefaults } from "@/lib/unit-suggestions";
 import { suggestItemClass } from "@/lib/item-class";
 
 /** itemClass: "" = ให้ระบบเสนอ (ราคาต่อหน่วย ≥ 10,000 = ครุภัณฑ์), "none" = ไม่เข้าคลัง (งานจ้าง/บริการ) */
-export type ItemRow = { name: string; qty: string; unit: string; unitPrice: string; note: string; itemClass?: ItemClassValue };
+export type ItemRow = { name: string; qty: string; unit: string; unitPrice: string; note: string; itemClass?: ItemClassValue; /** ว 804 ซื้อหลายร้านค้า: ร้านที่ซื้อรายการนี้ (1 = ร้านค้าหลัก) */ vendorSeq?: string };
 export const EMPTY_ITEM_ROW: ItemRow = { name: "", qty: "", unit: "", unitPrice: "", note: "", itemClass: "" };
 
 /** ประเภทที่ใช้จริงของแถว — ยังไม่เลือกเอง = ระบบเสนอ (งานจ้างเสนอ "ไม่เข้าคลัง") */
